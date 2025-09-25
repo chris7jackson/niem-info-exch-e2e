@@ -1,6 +1,6 @@
 # NIEM Information Exchange - Proof of Concept
 
-A production-ready demonstration of NIEM (National Information Exchange Model) data processing and graph ingestion system.
+An demonstration of NIEM (National Information Exchange Model) data processing and graph ingestion system.
 
 ## Overview
 
@@ -8,41 +8,35 @@ This system provides end-to-end NIEM information exchange capabilities:
 
 1. **Schema Management** - Upload and validate NIEM XSD schemas using CMF (Common Model Format) tools
 2. **Data Ingestion** - Validate and ingest XML/JSON files against NIEM schemas
-3. **Stream Processing** - Redis Streams for reliable message processing
-4. **Graph Storage** - Neo4j for storing and querying interconnected NIEM data
-5. **Web Interface** - React/Next.js UI for management and monitoring
-6. **Real-time Progress** - Server-Sent Events for live progress tracking
+3. **Graph Storage** - Neo4j for storing and querying interconnected NIEM data
+4. **Web Interface** - React/Next.js UI for management and monitoring
+5. **Graph Visualization** - Interactive graph exploration and querying interface
 
 ## Architecture
 
 ### Components
 
-- **UI** (Next.js): Schema management, file upload, progress monitoring, graph visualization
-- **API** (FastAPI): REST API, SSE endpoints, validation orchestration
-- **CMF Service** (Java): NIEM schema validation and JSON Schema conversion
-- **Ingestor** (Python): Redis Stream consumer, Neo4j data ingestion
-- **Redis**: Stream processing and message queuing
+- **UI** (Next.js): Schema management, file upload, graph visualization, admin interface
+- **API** (FastAPI): REST API endpoints, data ingestion, graph operations
 - **MinIO**: S3-compatible object storage for files and schemas
-- **Neo4j**: Graph database with APOC extensions
-- **SQLite**: Lightweight metadata storage for jobs and schemas
+- **Neo4j**: Graph database for storing and querying interconnected NIEM data
 
 ### Data Flow
 
 ```
-XSD Upload → CMF Validation → Schema Storage → JSON Schema Generation
+XSD Upload → NDR Validation → Schema Storage (MinIO)
      ↓
-XML/JSON Upload → CMF Validation → MinIO Storage → Redis Stream
-     ↓
-Stream Consumer → Data Parsing → Neo4j Ingestion → Graph Storage
+XML/JSON Upload → CMF Validation → Graph Parsing → Neo4j Storage → File Storage (MinIO)
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose
+- Docker Desktop installed and running
+- Docker Compose (included with Docker Desktop)
 - 8GB+ RAM recommended
-- Ports 3000, 6379, 7474, 7687, 8000, 9000, 9001 available
+- Ports 3000, 7474, 7687, 8000, 9000, 9001 available
 
 ### 1. Start the System
 
@@ -130,7 +124,7 @@ Navigate to the **"Upload Data"** tab and select the **XML Files** sub-tab:
    This will demonstrate XSD validation failure with detailed error messages
 
 **Processing Flow**:
-- Files undergo XSD validation using the CMF tool
+- Files undergo validation against the active XSD schema using the CMF tool
 - Valid XML is parsed into a graph structure
 - Each XML element becomes a Neo4j node with element tag as label
 - XML containment hierarchy becomes CONTAINS relationships
@@ -201,7 +195,7 @@ Open the Neo4j Browser at http://localhost:7474 (username: `neo4j`, password: `p
 3. Try uploading files without an active schema to see validation requirements
 
 **Expected Error Types**:
-- XSD validation failures for malformed XML
+- Schema validation failures for files that don't conform to the active XSD schema (via CMF tool)
 - Missing active schema errors
 - File format validation errors
 
