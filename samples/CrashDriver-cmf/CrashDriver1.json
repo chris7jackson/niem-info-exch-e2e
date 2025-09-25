@@ -1,0 +1,86 @@
+{
+  "@context": {},
+  "Crash": {
+    "ActivityDate": {
+      "Date": "1907-05-04"
+    },
+    "ActivityLocation": {
+      "Location2DGeospatialCoordinate": {
+        "GeographicCoordinateLatitude": {
+          "LatitudeDegreeValue": 51.87
+        },
+        "GeographicCoordinateLongitude": {
+          "LongitudeDegreeValue": -1.28
+        }
+      }
+    },
+    "CrashVehicle": {
+      "CrashDriver": {
+        "@id": "#P01",
+        "PersonBirthDate": {
+          "Date": "1890-05-04"
+        },
+        "PersonName": {
+          "@personNameCommentText": "copied",
+          "PersonGivenName": "Peter",
+          "PersonMiddleName": [
+            "Death",
+            "Bredon"
+          ],
+          "PersonSurName": "Wimsey"
+        },
+        "PersonAugmentation": {
+          "PersonAdultIndicator": true
+        },
+        "PersonFictionalCharacterIndicator": true,
+        "DriverLicense": {
+          "DriverLicenseCardIdentification": {
+            "IdentificationID": "A1234567"
+          }
+        }
+      }
+    },
+    "CrashPerson": {
+      "@id": "#P01",
+      "CrashPersonInjury": {
+        "@privacyMetadataRef": "PMD01 PMD02",
+        "InjuryDescriptionText": "Broken Arm",
+        "InjurySeverityCode": 3
+      }
+    }
+  },
+  "Charge": {
+    "@id": "CH01",
+    "@metadataRef": "JMD01",
+    "ChargeDescriptionText": "Furious Driving",
+    "ChargeFelonyIndicator": false
+  },
+  "PersonChargeAssociation": {
+    "@metadataRef": "JMD01",
+    "Person": {
+      "@id": "#P01",
+      "@nil": "true"
+    },
+    "Charge": {
+      "@ref": "CH01",
+      "@nil": "true"
+    },
+    "JuvenileAsAdultIndicator": false
+  },
+  "Metadata": {
+    "@id": "JMD01",
+    "MetadataAugmentation": {
+      "CriminalInformationIndicator": true
+    }
+  },
+  "PrivacyMetadata": [
+    {
+      "@id": "PMD01",
+      "PrivacyCode": "PII"
+    },
+    {
+      "@id": "PMD02",
+      "PrivacyCode": "MEDICAL"
+    }
+  ]
+}

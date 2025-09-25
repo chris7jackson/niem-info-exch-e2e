@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./bin/cmftool:*)",
+      "Bash(docker exec:*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Bash(docker compose build:*)",
+      "Bash(docker compose restart:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(docker compose down:*)",
+      "Bash(docker rmi:*)",
+      "Bash(docker compose:*)",
+      "Bash(xmllint:*)",
+      "Bash(docker system prune:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:github.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

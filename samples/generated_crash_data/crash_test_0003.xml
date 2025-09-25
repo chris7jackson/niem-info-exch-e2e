@@ -1,0 +1,66 @@
+<?xml version='1.0' encoding='utf-8'?>
+  <ns0:CrashDriverInfo xmlns:ns0="http://example.com/CrashDriver/1.2/" xmlns:ns1="https://docs.oasis-open.org/niemopen/ns/model/domains/justice/6.0/" xmlns:ns2="https://docs.oasis-open.org/niemopen/ns/model/niem-core/6.0/" xmlns:ns3="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/" xmlns:ns4="http://example.com/PrivacyMetadata/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ns1:Crash>
+      <ns2:ActivityDate>
+        <ns2:Date>2021-12-26</ns2:Date>
+        </ns2:ActivityDate>
+        <ns2:ActivityLocation>
+          <ns2:Location2DGeospatialCoordinate>
+            <ns2:GeographicCoordinateLatitude>
+              <ns2:LatitudeDegreeValue>32.5583</ns2:LatitudeDegreeValue>
+              </ns2:GeographicCoordinateLatitude>
+              <ns2:GeographicCoordinateLongitude>
+                <ns2:LongitudeDegreeValue>-122.112</ns2:LongitudeDegreeValue>
+                </ns2:GeographicCoordinateLongitude>
+              </ns2:Location2DGeospatialCoordinate>
+            </ns2:ActivityLocation>
+            <ns1:CrashVehicle>
+              <ns1:CrashDriver ns3:uri="#P003">
+                <ns2:PersonBirthDate>
+                  <ns2:Date>1966-07-30</ns2:Date>
+                  </ns2:PersonBirthDate>
+                  <ns2:PersonName ns2:personNameCommentText="copied">
+                    <ns2:PersonGivenName>Sandra</ns2:PersonGivenName>
+                      <ns2:PersonMiddleName>Marie</ns2:PersonMiddleName>
+                        <ns2:PersonMiddleName>Bredon</ns2:PersonMiddleName>
+                          <ns2:PersonSurName>Rodriguez</ns2:PersonSurName>
+                          </ns2:PersonName>
+                          <ns1:PersonAugmentation>
+                            <ns1:PersonAdultIndicator>true</ns1:PersonAdultIndicator>
+                            </ns1:PersonAugmentation>
+                            <ns0:PersonFictionalCharacterIndicator>true</ns0:PersonFictionalCharacterIndicator>
+                              <ns1:DriverLicense>
+                                <ns1:DriverLicenseCardIdentification>
+                                  <ns2:IdentificationID>I6159896</ns2:IdentificationID>
+                                  </ns1:DriverLicenseCardIdentification>
+                                </ns1:DriverLicense>
+                              </ns1:CrashDriver>
+                            </ns1:CrashVehicle>
+                            <ns1:CrashPerson ns3:uri="#P003">
+                              <ns1:CrashPersonInjury ns4:privacyMetadataRef="PMD003A PMD003B">
+                                <ns2:InjuryDescriptionText>Abdominal Pain</ns2:InjuryDescriptionText>
+                                  <ns1:InjurySeverityCode>2</ns1:InjurySeverityCode>
+                                  </ns1:CrashPersonInjury>
+                                </ns1:CrashPerson>
+                              </ns1:Crash>
+                              <ns1:Charge ns3:id="CH003" ns2:metadataRef="JMD003">
+                                <ns1:ChargeDescriptionText>Noise Violation</ns1:ChargeDescriptionText>
+                                  <ns1:ChargeFelonyIndicator>true</ns1:ChargeFelonyIndicator>
+                                  </ns1:Charge>
+                                  <ns1:PersonChargeAssociation ns2:metadataRef="JMD003">
+                                    <ns2:Person ns3:uri="#P003" xsi:nil="true" />
+                                    <ns1:Charge ns3:ref="CH003" xsi:nil="true" />
+                                    <ns1:JuvenileAsAdultIndicator>false</ns1:JuvenileAsAdultIndicator>
+                                    </ns1:PersonChargeAssociation>
+                                    <ns2:Metadata ns3:id="JMD003">
+                                      <ns1:MetadataAugmentation>
+                                        <ns1:CriminalInformationIndicator>true</ns1:CriminalInformationIndicator>
+                                        </ns1:MetadataAugmentation>
+                                      </ns2:Metadata>
+                                      <ns4:PrivacyMetadata ns3:id="PMD003A">
+                                        <ns4:PrivacyCode>PII</ns4:PrivacyCode>
+                                        </ns4:PrivacyMetadata>
+                                        <ns4:PrivacyMetadata ns3:id="PMD003B">
+                                          <ns4:PrivacyCode>SENSITIVE</ns4:PrivacyCode>
+                                          </ns4:PrivacyMetadata>
+                                        </ns0:CrashDriverInfo>
