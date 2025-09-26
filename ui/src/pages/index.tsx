@@ -7,6 +7,7 @@ interface Stats {
   activeSchema: string | null;
 }
 
+
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats>({ schemas: 0, activeSchema: null });
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,7 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
 
   const cards = [
     {
@@ -153,36 +155,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* System Status */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">System Status</h2>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">API Service</span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              Operational
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">CMF Validation</span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              Operational
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">Data Ingestion</span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              Operational
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">Graph Database</span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              Operational
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

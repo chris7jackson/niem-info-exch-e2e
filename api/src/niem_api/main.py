@@ -10,6 +10,7 @@ from typing import List
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from neo4j import GraphDatabase
 
 from .core.dependencies import get_s3_client
 from .models.models import SchemaResponse, ResetRequest
@@ -18,6 +19,8 @@ from .core.logging import setup_logging
 
 logger = logging.getLogger(__name__)
 
+# Application start time for uptime calculation
+_app_start_time = time.time()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,6 +44,7 @@ async def lifespan(app: FastAPI):
 async def startup_tasks():
     """Initialize external services"""
     try:
+
         # Create MinIO buckets
         from .services.storage import create_buckets
         await create_buckets()
@@ -80,16 +84,47 @@ app.add_middleware(
 
 @app.get("/healthz")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "timestamp": time.time()}
+    """Liveness probe - checks if application is alive and can serve requests"""
+    # If we can execute this code, the app is alive
+    current_time = time.time()
+    return {
+        "status": "healthy",
+        "timestamp": current_time,
+        "uptime": current_time - _app_start_time
+    }
+
+@app.get("/api/status")
+async def simple_status():
+    """Simple test status endpoint"""
+    return {"status": "working", "timestamp": time.time()}
 
 
 @app.get("/readyz")
 async def readiness_check():
-    """Readiness check endpoint"""
-    # In production, check all dependencies
-    return {"status": "ready", "timestamp": time.time()}
+    """Readiness probe - lightweight check for orchestrators (K8s, Docker)"""
+    try:
+        # Quick MinIO connectivity test
+        s3_client = get_s3_client()
+        list(s3_client.list_buckets())
 
+        # Quick Neo4j connectivity test
+        neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+        neo4j_user = os.getenv("NEO4J_USER", "neo4j")
+        neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
+
+        driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+        with driver.session() as session:
+            session.run("RETURN 1").single()
+        driver.close()
+
+        return {"status": "ready"}
+
+    except Exception as e:
+        logger.warning(f"Readiness check failed: {e}")
+        raise HTTPException(status_code=503, detail={"status": "not_ready"})
+
+
+  
 
 # Schema Management Routes
 
