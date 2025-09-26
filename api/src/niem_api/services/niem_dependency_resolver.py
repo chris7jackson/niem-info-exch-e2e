@@ -10,7 +10,6 @@ from xml.etree import ElementTree as ET
 logger = logging.getLogger(__name__)
 
 NIEM_XSD_LOCAL_PATH = Path(__file__).parent.parent.parent.parent / "third_party" / "niem-xsd"
-NIEM_VERSION = "6.0"
 
 class NIEMDependencyResolver:
     """Resolves NIEM schema dependencies using local third_party files"""
@@ -19,7 +18,7 @@ class NIEMDependencyResolver:
         self._cache: Dict[str, str] = {}
         self._local_xsd_path = NIEM_XSD_LOCAL_PATH
 
-    async def resolve_schema_dependencies(self, main_schema_content: str, schema_name: str = "schema.xsd") -> Dict[str, str]:
+    def resolve_schema_dependencies(self, main_schema_content: str, schema_name: str = "schema.xsd") -> Dict[str, str]:
         """
         Resolve all NIEM dependencies for a schema and return a dict of filename -> content
 
@@ -36,12 +35,12 @@ class NIEMDependencyResolver:
         resolved_schemas = {schema_name: main_schema_content}
 
         # Find all dependencies recursively
-        await self._resolve_dependencies_recursive(main_schema_content, resolved_schemas)
+        self._resolve_dependencies_recursive(main_schema_content, resolved_schemas)
 
         logger.info(f"Resolved {len(resolved_schemas)} schemas total")
         return resolved_schemas
 
-    async def _resolve_dependencies_recursive(self, xsd_content: str, resolved_schemas: Dict[str, str]):
+    def _resolve_dependencies_recursive(self, xsd_content: str, resolved_schemas: Dict[str, str]):
         """Recursively resolve all schema dependencies"""
         dependencies = self._extract_schema_locations(xsd_content)
 
@@ -52,7 +51,7 @@ class NIEMDependencyResolver:
                     resolved_schemas[dep_path] = dep_content
 
                     # Recursively resolve dependencies of this dependency
-                    await self._resolve_dependencies_recursive(dep_content, resolved_schemas)
+                    self._resolve_dependencies_recursive(dep_content, resolved_schemas)
 
                 except Exception as e:
                     logger.warning(f"Failed to resolve dependency {dep_path}: {e}")
@@ -103,8 +102,8 @@ class NIEMDependencyResolver:
             logger.debug(f"Using cached schema: {schema_path}")
             return self._cache[schema_path]
 
-        # Convert schema path to local file path
-        local_file_path = self._convert_to_local_path(schema_path)
+        # Build full local file path
+        local_file_path = self._local_xsd_path / schema_path
 
         logger.info(f"Loading local NIEM schema: {schema_path} from {local_file_path}")
 
@@ -118,16 +117,6 @@ class NIEMDependencyResolver:
         except Exception as e:
             raise Exception(f"Failed to read local schema {local_file_path}: {e}")
 
-    def _convert_to_local_path(self, schema_path: str) -> Path:
-        """Convert a schema location path to local file path"""
-
-        # Remove leading 'niem/' if present since our local path is the xsd root
-        if schema_path.startswith('niem/'):
-            relative_path = schema_path[5:]  # Remove 'niem/' prefix
-        else:
-            relative_path = schema_path
-
-        return self._local_xsd_path / relative_path
 
     def create_temp_schema_directory(self, resolved_schemas: Dict[str, str]) -> Path:
         """Create a temporary directory with all resolved schemas"""
@@ -149,11 +138,11 @@ class NIEMDependencyResolver:
 # Global resolver instance
 _resolver = NIEMDependencyResolver()
 
-async def resolve_niem_dependencies(schema_content: str, schema_name: str = "schema.xsd") -> Dict[str, str]:
+def resolve_niem_dependencies(schema_content: str, schema_name: str = "schema.xsd") -> Dict[str, str]:
     """Convenience function to resolve NIEM dependencies"""
-    return await _resolver.resolve_schema_dependencies(schema_content, schema_name)
+    return _resolver.resolve_schema_dependencies(schema_content, schema_name)
 
-async def create_resolved_schema_directory(schema_content: str, schema_name: str = "schema.xsd") -> Path:
+def create_resolved_schema_directory(schema_content: str, schema_name: str = "schema.xsd") -> Path:
     """Create a temporary directory with schema and all resolved dependencies"""
-    resolved_schemas = await resolve_niem_dependencies(schema_content, schema_name)
+    resolved_schemas = resolve_niem_dependencies(schema_content, schema_name)
     return _resolver.create_temp_schema_directory(resolved_schemas)

@@ -100,7 +100,7 @@ async def validate_xml_with_cmf(xml_content: str, xsd_schema: str) -> Dict[str, 
 
     # Resolve NIEM dependencies for the schema
     try:
-        schema_dir = await create_resolved_schema_directory(xsd_schema, "schema.xsd")
+        schema_dir = create_resolved_schema_directory(xsd_schema, "schema.xsd")
         logger.info(f"Created resolved schema directory with dependencies: {schema_dir}")
     except Exception as e:
         logger.warning(f"Failed to resolve NIEM dependencies, falling back to single schema: {e}")
@@ -178,7 +178,7 @@ async def convert_xsd_to_jsonschema_with_cmf(xsd_content: str) -> Dict[str, Any]
 
     # Resolve NIEM dependencies for the schema
     try:
-        schema_dir = await create_resolved_schema_directory(xsd_content, "schema.xsd")
+        schema_dir = create_resolved_schema_directory(xsd_content, "schema.xsd")
         logger.info(f"Created resolved schema directory with dependencies: {schema_dir}")
     except Exception as e:
         logger.warning(f"Failed to resolve NIEM dependencies, falling back to single schema: {e}")
