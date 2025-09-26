@@ -30,9 +30,9 @@ class SchemaResponse(BaseModel):
 
 
 class ResetRequest(BaseModel):
-    minio: bool = False
+    schemas: bool = False
+    data: bool = False
     neo4j: bool = False
-    schema: bool = False
     dry_run: bool = True
     confirm_token: Optional[str] = None
 

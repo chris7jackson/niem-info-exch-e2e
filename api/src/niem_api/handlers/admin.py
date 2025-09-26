@@ -21,19 +21,17 @@ async def handle_reset(
         counts = {}
 
         # Get current counts
-        if request.minio:
-            minio_counts = await count_minio_objects(s3)
-            counts["minio_objects"] = minio_counts["objects"]
-            counts["minio_buckets"] = minio_counts["buckets"]
+        if request.schemas:
+            counts["schemas"] = await count_schemas(s3)
 
+        if request.data:
+            data_counts = await count_data_files(s3)
+            counts.update(data_counts)
 
         if request.neo4j:
             neo4j_counts = await count_neo4j_objects()
             counts.update({f"neo4j_{k}": v for k, v in neo4j_counts.items()})
 
-        # Count schemas in MinIO storage
-        if request.schema:
-            counts["schemas"] = await count_schemas_in_minio(s3)
 
         if request.dry_run:
             confirm_token = secrets.token_urlsafe(32)
@@ -48,15 +46,14 @@ async def handle_reset(
             raise HTTPException(status_code=400, detail="confirm_token required for actual reset")
 
         # Execute reset operations
-        if request.minio:
-            await reset_minio(s3)
+        if request.schemas:
+            await reset_schemas(s3)
 
+        if request.data:
+            await reset_data_files(s3)
 
         if request.neo4j:
             await reset_neo4j()
-
-        if request.schema:
-            await reset_schemas(s3)
 
         return ResetResponse(
             counts=counts,
@@ -90,7 +87,7 @@ async def count_minio_objects(s3: Minio) -> Dict[str, int]:
 
 
 async def reset_minio(s3: Minio):
-    """Reset MinIO buckets - remove all objects and delete the buckets themselves"""
+    """Reset MinIO buckets - remove all objects and delete the buckets themselves, then recreate them"""
     try:
         from ..services.storage import BUCKETS
         for bucket in BUCKETS:
@@ -104,12 +101,89 @@ async def reset_minio(s3: Minio):
                 # Then remove the bucket itself
                 s3.remove_bucket(bucket)
                 logger.info(f"Removed bucket: {bucket}")
-        logger.info("MinIO reset completed - all buckets and contents removed")
+
+        # Recreate all required buckets
+        for bucket in BUCKETS:
+            s3.make_bucket(bucket)
+            logger.info(f"Recreated bucket: {bucket}")
+
+        logger.info("MinIO reset completed - all buckets reset and recreated")
     except Exception as e:
         logger.error(f"MinIO reset failed: {e}")
         raise
 
 
+
+
+async def count_schemas(s3: Minio) -> int:
+    """Count uploaded schemas in niem-schemas bucket"""
+    try:
+        if not s3.bucket_exists("niem-schemas"):
+            return 0
+        objects = s3.list_objects("niem-schemas", recursive=True)
+        return sum(1 for _ in objects)
+    except Exception as e:
+        logger.error(f"Failed to count schemas: {e}")
+        return 0
+
+
+async def count_data_files(s3: Minio) -> Dict[str, int]:
+    """Count XML and JSON data files in niem-data bucket"""
+    try:
+        if not s3.bucket_exists("niem-data"):
+            return {"xml_files": 0, "json_files": 0, "total_files": 0}
+
+        objects = s3.list_objects("niem-data", recursive=True)
+        xml_count = 0
+        json_count = 0
+
+        for obj in objects:
+            name_lower = obj.object_name.lower()
+            if name_lower.endswith('.xml'):
+                xml_count += 1
+            elif name_lower.endswith('.json'):
+                json_count += 1
+
+        return {
+            "xml_files": xml_count,
+            "json_files": json_count,
+            "total_files": xml_count + json_count
+        }
+    except Exception as e:
+        logger.error(f"Failed to count data files: {e}")
+        return {"xml_files": 0, "json_files": 0, "total_files": 0}
+
+
+async def reset_schemas(s3: Minio):
+    """Reset only schemas in niem-schemas bucket"""
+    try:
+        if s3.bucket_exists("niem-schemas"):
+            # Remove all objects in schemas bucket
+            objects = s3.list_objects("niem-schemas", recursive=True)
+            for obj in objects:
+                s3.remove_object("niem-schemas", obj.object_name)
+            logger.info("Removed all schemas from niem-schemas bucket")
+        else:
+            logger.info("niem-schemas bucket does not exist")
+    except Exception as e:
+        logger.error(f"Schema reset failed: {e}")
+        raise
+
+
+async def reset_data_files(s3: Minio):
+    """Reset only data files in niem-data bucket"""
+    try:
+        if s3.bucket_exists("niem-data"):
+            # Remove all objects in data bucket
+            objects = s3.list_objects("niem-data", recursive=True)
+            for obj in objects:
+                s3.remove_object("niem-data", obj.object_name)
+            logger.info("Removed all data files from niem-data bucket")
+        else:
+            logger.info("niem-data bucket does not exist")
+    except Exception as e:
+        logger.error(f"Data files reset failed: {e}")
+        raise
 
 
 async def reset_neo4j():
@@ -211,29 +285,3 @@ async def count_neo4j_objects():
         return {"nodes": 0, "relationships": 0, "indexes": 0, "constraints": 0}
 
 
-async def count_schemas_in_minio(s3: Minio) -> int:
-    """Count schemas stored in MinIO"""
-    try:
-        count = 0
-        if s3.bucket_exists("niem-schemas"):
-            objects = s3.list_objects("niem-schemas", recursive=False)
-            for obj in objects:
-                if obj.object_name.endswith('/') and obj.object_name != "active_schema.json":
-                    count += 1
-        return count
-    except Exception as e:
-        logger.error(f"Failed to count schemas in MinIO: {e}")
-        return 0
-
-
-async def reset_schemas(s3: Minio):
-    """Reset schemas in MinIO storage"""
-    try:
-        if s3.bucket_exists("niem-schemas"):
-            objects = s3.list_objects("niem-schemas", recursive=True)
-            for obj in objects:
-                s3.remove_object("niem-schemas", obj.object_name)
-        logger.info("Schema storage reset completed")
-    except Exception as e:
-        logger.error(f"Schema reset failed: {e}")
-        raise

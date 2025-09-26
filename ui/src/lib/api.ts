@@ -129,6 +129,7 @@ class ApiClient {
     return response.data;
   }
 
+
   // Graph Schema Management
   async configureGraphSchema(): Promise<any> {
     const response = await this.client.post('/api/admin/graph-schema/configure');
@@ -142,9 +143,9 @@ class ApiClient {
 
   // System Reset
   async resetSystem(options: {
-    minio?: boolean;
+    schemas?: boolean;
+    data?: boolean;
     neo4j?: boolean;
-    schema?: boolean;
     dry_run?: boolean;
     confirm_token?: string;
   }): Promise<any> {
