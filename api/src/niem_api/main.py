@@ -255,7 +255,7 @@ async def configure_graph_schema(
 ):
     """Configure graph schema from active mapping"""
     try:
-        from .graph_schema import get_graph_schema_manager
+        from .services.graph_schema import get_graph_schema_manager
         from .handlers.schema import get_active_schema_id
         import json
 
@@ -294,7 +294,7 @@ async def get_graph_schema_info(
 ):
     """Get current graph schema information"""
     try:
-        from .graph_schema import get_graph_schema_manager
+        from .services.graph_schema import get_graph_schema_manager
 
         graph_manager = get_graph_schema_manager()
         schema_info = graph_manager.get_current_schema_info()

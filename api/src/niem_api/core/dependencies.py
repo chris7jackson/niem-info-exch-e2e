@@ -29,3 +29,29 @@ def get_s3_client():
     )
 
 
+# Global Neo4j client instance
+_neo4j_client = None
+
+def get_neo4j_client():
+    """Get or create global Neo4j client instance"""
+    global _neo4j_client
+    if _neo4j_client is None:
+        from ..services.neo4j_client import Neo4jClient
+
+        neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+        neo4j_user = os.getenv("NEO4J_USER", "neo4j")
+        neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
+
+        _neo4j_client = Neo4jClient(neo4j_uri, neo4j_user, neo4j_password)
+
+    return _neo4j_client
+
+
+def cleanup_connections():
+    """Clean up global connections on application shutdown"""
+    global _neo4j_client
+    if _neo4j_client is not None:
+        _neo4j_client.close()
+        _neo4j_client = None
+
+

@@ -190,16 +190,15 @@ async def reset_neo4j():
     """Reset Neo4j database - clear all data and schema"""
     try:
         from ..services.graph_schema import get_graph_schema_manager
+        from ..core.dependencies import get_neo4j_client
 
-        graph_manager = get_graph_schema_manager()
-
-        # Clear all data
-        with graph_manager.driver.session() as session:
-            # Delete all nodes and relationships
-            session.run("MATCH (n) DETACH DELETE n")
-            logger.info("Cleared all Neo4j data (nodes and relationships)")
+        # Clear all data using Neo4j client
+        neo4j_client = get_neo4j_client()
+        neo4j_client.query("MATCH (n) DETACH DELETE n")
+        logger.info("Cleared all Neo4j data (nodes and relationships)")
 
         # Reset schema (indexes and constraints)
+        graph_manager = get_graph_schema_manager()
         result = graph_manager.reset_schema(confirm_reset=True)
         if "error" in result:
             raise Exception(f"Schema reset failed: {result['error']}")
@@ -233,21 +232,22 @@ async def clear_neo4j_schema():
 async def clear_neo4j_data():
     """Clear Neo4j data (nodes and relationships) only"""
     try:
-        from ..services.graph_schema import get_graph_schema_manager
+        from ..core.dependencies import get_neo4j_client
 
-        graph_manager = get_graph_schema_manager()
+        neo4j_client = get_neo4j_client()
 
-        with graph_manager.driver.session() as session:
-            # Get counts before deletion
-            node_count = session.run("MATCH (n) RETURN count(n) as count").single()["count"]
-            rel_count = session.run("MATCH ()-[r]->() RETURN count(r) as count").single()["count"]
+        # Get counts before deletion
+        node_count_result = neo4j_client.query("MATCH (n) RETURN count(n) as count")
+        node_count = node_count_result[0]["count"]
 
-            # Delete all nodes and relationships
-            session.run("MATCH (n) DETACH DELETE n")
+        rel_count_result = neo4j_client.query("MATCH ()-[r]->() RETURN count(r) as count")
+        rel_count = rel_count_result[0]["count"]
 
-            logger.info(f"Cleared Neo4j data: {node_count} nodes, {rel_count} relationships")
+        # Delete all nodes and relationships
+        neo4j_client.query("MATCH (n) DETACH DELETE n")
 
-        graph_manager.close()
+        logger.info(f"Cleared Neo4j data: {node_count} nodes, {rel_count} relationships")
+
         return {"nodes_deleted": node_count, "relationships_deleted": rel_count}
     except Exception as e:
         logger.error(f"Neo4j data clear failed: {e}")
@@ -257,22 +257,23 @@ async def clear_neo4j_data():
 async def count_neo4j_objects():
     """Count Neo4j nodes and relationships"""
     try:
-        from ..services.graph_schema import get_graph_schema_manager
+        from ..core.dependencies import get_neo4j_client
 
-        graph_manager = get_graph_schema_manager()
+        neo4j_client = get_neo4j_client()
 
-        with graph_manager.driver.session() as session:
-            node_count = session.run("MATCH (n) RETURN count(n) as count").single()["count"]
-            rel_count = session.run("MATCH ()-[r]->() RETURN count(r) as count").single()["count"]
+        # Get counts
+        node_count_result = neo4j_client.query("MATCH (n) RETURN count(n) as count")
+        node_count = node_count_result[0]["count"]
 
-            # Get schema counts
-            indexes = session.run("SHOW INDEXES").data()
-            constraints = session.run("SHOW CONSTRAINTS").data()
+        rel_count_result = neo4j_client.query("MATCH ()-[r]->() RETURN count(r) as count")
+        rel_count = rel_count_result[0]["count"]
 
-            # Filter out built-in indexes
-            user_indexes = [idx for idx in indexes if idx.get("type", "").lower() not in ["lookup", "token"]]
+        # Get schema counts
+        indexes = neo4j_client.query("SHOW INDEXES")
+        constraints = neo4j_client.query("SHOW CONSTRAINTS")
 
-        graph_manager.close()
+        # Filter out built-in indexes
+        user_indexes = [idx for idx in indexes if idx.get("type", "").lower() not in ["lookup", "token"]]
 
         return {
             "nodes": node_count,

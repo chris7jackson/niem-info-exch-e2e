@@ -167,6 +167,162 @@ async def validate_xml_with_cmf(xml_content: str, xsd_schema: str) -> Dict[str, 
             logger.debug(f"Cleaned up resolved schema directory: {schema_dir}")
 
 
+async def convert_xsd_to_cmf(xsd_content: str) -> Dict[str, Any]:
+    """
+    Convert XSD to CMF using CMF tool with NIEM dependency resolution.
+    Returns the CMF content as a string.
+    """
+    logger.info("Starting XSD to CMF conversion with CMF tool")
+
+    if not CMF_TOOL_PATH:
+        raise CMFError("CMF tool not available")
+
+    # Resolve NIEM dependencies for the schema
+    try:
+        schema_dir = create_resolved_schema_directory(xsd_content, "schema.xsd")
+        logger.info(f"Created resolved schema directory with dependencies: {schema_dir}")
+    except Exception as e:
+        logger.warning(f"Failed to resolve NIEM dependencies: {e}")
+        return {
+            "status": "error",
+            "error": f"Failed to resolve NIEM dependencies: {str(e)}"
+        }
+
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Use the main schema file from resolved directory
+            main_schema_file = schema_dir / "schema.xsd"
+
+            # Output CMF file
+            cmf_file = os.path.join(temp_dir, "model.cmf")
+
+            try:
+                # Convert XSD to CMF
+                logger.info("Converting XSD to CMF...")
+                result = run_cmf_command(["x2m", "-o", cmf_file, str(main_schema_file)], working_dir=str(schema_dir))
+
+                if result["returncode"] != 0:
+                    errors = []
+                    if result["stderr"]:
+                        errors.append(result["stderr"])
+                    if result["stdout"]:
+                        errors.append(result["stdout"])
+
+                    return {
+                        "status": "error",
+                        "error": "Failed to convert XSD to CMF",
+                        "details": errors
+                    }
+
+                # Read the generated CMF content
+                if os.path.exists(cmf_file):
+                    with open(cmf_file, 'r', encoding='utf-8') as f:
+                        cmf_content = f.read()
+                else:
+                    return {
+                        "status": "error",
+                        "error": "CMF file was not generated",
+                        "details": ["Output file not found"]
+                    }
+
+                return {
+                    "status": "success",
+                    "cmf_content": cmf_content,
+                    "metadata": {
+                        "converter": "cmftool",
+                        "conversion_time": time.time()
+                    }
+                }
+
+            except Exception as e:
+                logger.error(f"CMF conversion failed: {e}")
+                return {
+                    "status": "error",
+                    "error": f"CMF conversion failed: {str(e)}"
+                }
+
+    finally:
+        # Clean up the resolved schema directory
+        if 'schema_dir' in locals():
+            try:
+                shutil.rmtree(schema_dir)
+                logger.debug(f"Cleaned up resolved schema directory: {schema_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to clean up schema directory {schema_dir}: {e}")
+
+
+async def convert_cmf_to_jsonschema(cmf_content: str) -> Dict[str, Any]:
+    """
+    Convert CMF content to JSON Schema using CMF tool (m2jmsg command).
+    """
+    logger.info("Starting CMF to JSON Schema conversion")
+
+    if not CMF_TOOL_PATH:
+        raise CMFError("CMF tool not available")
+
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Write CMF content to temporary file
+            cmf_file = os.path.join(temp_dir, "model.cmf")
+            with open(cmf_file, 'w', encoding='utf-8') as f:
+                f.write(cmf_content)
+
+            # Output JSON Schema file
+            json_schema_file = os.path.join(temp_dir, "schema.json")
+
+            try:
+                # Convert CMF to JSON Schema
+                logger.info("Converting CMF to JSON Schema...")
+                result = run_cmf_command(["m2jmsg", "-o", json_schema_file, cmf_file], working_dir=temp_dir)
+
+                if result["returncode"] != 0:
+                    errors = []
+                    if result["stderr"]:
+                        errors.append(result["stderr"])
+                    if result["stdout"]:
+                        errors.append(result["stdout"])
+
+                    return {
+                        "status": "error",
+                        "error": "Failed to convert CMF to JSON Schema",
+                        "details": errors
+                    }
+
+                # Read the generated JSON Schema
+                if os.path.exists(json_schema_file):
+                    with open(json_schema_file, 'r', encoding='utf-8') as f:
+                        json_schema = json.loads(f.read())
+                else:
+                    return {
+                        "status": "error",
+                        "error": "JSON Schema file was not generated",
+                        "details": ["Output file not found"]
+                    }
+
+                return {
+                    "status": "success",
+                    "jsonschema": json_schema,
+                    "metadata": {
+                        "converter": "cmftool",
+                        "conversion_time": time.time()
+                    }
+                }
+
+            except Exception as e:
+                logger.error(f"JSON Schema conversion failed: {e}")
+                return {
+                    "status": "error",
+                    "error": f"JSON Schema conversion failed: {str(e)}"
+                }
+
+    except Exception as e:
+        logger.error(f"CMF to JSON Schema conversion failed: {e}")
+        return {
+            "status": "error",
+            "error": f"CMF to JSON Schema conversion failed: {str(e)}"
+        }
+
+
 async def convert_xsd_to_jsonschema_with_cmf(xsd_content: str) -> Dict[str, Any]:
     """
     Convert XSD to JSON Schema using CMF tool (x2m + m2jmsg commands) with NIEM dependency resolution.
