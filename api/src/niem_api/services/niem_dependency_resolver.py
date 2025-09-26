@@ -3,21 +3,21 @@
 import logging
 import re
 import tempfile
-import aiohttp
 from pathlib import Path
 from typing import Dict, Set, List, Optional
 from xml.etree import ElementTree as ET
 
 logger = logging.getLogger(__name__)
 
-NIEM_MODEL_BASE_URL = "https://raw.githubusercontent.com/niemopen/niem-model/main/xsd"
+NIEM_XSD_LOCAL_PATH = Path(__file__).parent.parent.parent.parent / "third_party" / "niem-xsd"
 NIEM_VERSION = "6.0"
 
 class NIEMDependencyResolver:
-    """Resolves NIEM schema dependencies by fetching from GitHub repository"""
+    """Resolves NIEM schema dependencies using local third_party files"""
 
     def __init__(self):
         self._cache: Dict[str, str] = {}
+        self._local_xsd_path = NIEM_XSD_LOCAL_PATH
 
     async def resolve_schema_dependencies(self, main_schema_content: str, schema_name: str = "schema.xsd") -> Dict[str, str]:
         """
@@ -48,7 +48,7 @@ class NIEMDependencyResolver:
         for dep_path in dependencies:
             if self._is_niem_schema(dep_path) and dep_path not in resolved_schemas:
                 try:
-                    dep_content = await self._fetch_niem_schema(dep_path)
+                    dep_content = self._load_local_schema(dep_path)
                     resolved_schemas[dep_path] = dep_content
 
                     # Recursively resolve dependencies of this dependency
@@ -95,38 +95,39 @@ class NIEMDependencyResolver:
         ]
         return any(pattern in schema_path for pattern in niem_patterns)
 
-    async def _fetch_niem_schema(self, schema_path: str) -> str:
-        """Fetch NIEM schema content from GitHub repository"""
+    def _load_local_schema(self, schema_path: str) -> str:
+        """Load NIEM schema content from local third_party directory"""
 
         # Check cache first
         if schema_path in self._cache:
             logger.debug(f"Using cached schema: {schema_path}")
             return self._cache[schema_path]
 
-        # Convert schema path to GitHub URL
-        github_url = self._convert_to_github_url(schema_path)
+        # Convert schema path to local file path
+        local_file_path = self._convert_to_local_path(schema_path)
 
-        logger.info(f"Fetching NIEM schema: {schema_path} from {github_url}")
+        logger.info(f"Loading local NIEM schema: {schema_path} from {local_file_path}")
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(github_url) as response:
-                if response.status == 200:
-                    content = await response.text()
-                    self._cache[schema_path] = content
-                    return content
-                else:
-                    raise Exception(f"Failed to fetch {github_url}: HTTP {response.status}")
+        if not local_file_path.exists():
+            raise Exception(f"Local schema file not found: {local_file_path}")
 
-    def _convert_to_github_url(self, schema_path: str) -> str:
-        """Convert a schema location path to GitHub raw URL"""
+        try:
+            content = local_file_path.read_text(encoding='utf-8')
+            self._cache[schema_path] = content
+            return content
+        except Exception as e:
+            raise Exception(f"Failed to read local schema {local_file_path}: {e}")
 
-        # Remove leading 'niem/' if present since the base URL already includes 'xsd'
+    def _convert_to_local_path(self, schema_path: str) -> Path:
+        """Convert a schema location path to local file path"""
+
+        # Remove leading 'niem/' if present since our local path is the xsd root
         if schema_path.startswith('niem/'):
             relative_path = schema_path[5:]  # Remove 'niem/' prefix
         else:
             relative_path = schema_path
 
-        return f"{NIEM_MODEL_BASE_URL}/{relative_path}"
+        return self._local_xsd_path / relative_path
 
     def create_temp_schema_directory(self, resolved_schemas: Dict[str, str]) -> Path:
         """Create a temporary directory with all resolved schemas"""
