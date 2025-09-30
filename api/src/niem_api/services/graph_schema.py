@@ -9,6 +9,10 @@ from ..core.dependencies import get_neo4j_client
 
 logger = logging.getLogger(__name__)
 
+# Cypher query constants
+SHOW_INDEXES_QUERY = "SHOW INDEXES"
+SHOW_CONSTRAINTS_QUERY = "SHOW CONSTRAINTS"
+
 
 class GraphSchemaManager:
     """Manages Neo4j database schema configuration from mapping specifications"""
@@ -97,7 +101,7 @@ class GraphSchemaManager:
         """Create an index on a label/property combination"""
         try:
             # Check if index already exists
-            existing_indexes = self.neo4j_client.query("SHOW INDEXES")
+            existing_indexes = self.neo4j_client.query(SHOW_INDEXES_QUERY)
             for index in existing_indexes:
                 if (index.get("labelsOrTypes") == [label] and
                     index.get("properties") == [property_name]):
@@ -120,7 +124,7 @@ class GraphSchemaManager:
         """Create a uniqueness constraint on a label/property combination"""
         try:
             # Check if constraint already exists
-            existing_constraints = self.neo4j_client.query("SHOW CONSTRAINTS")
+            existing_constraints = self.neo4j_client.query(SHOW_CONSTRAINTS_QUERY)
             for constraint in existing_constraints:
                 if (constraint.get("labelsOrTypes") == [label] and
                     constraint.get("properties") == [property_name] and
@@ -129,7 +133,7 @@ class GraphSchemaManager:
                     return False
 
             # Check if an index exists that would conflict
-            existing_indexes = self.neo4j_client.query("SHOW INDEXES")
+            existing_indexes = self.neo4j_client.query(SHOW_INDEXES_QUERY)
             index_exists = False
             index_name = None
 
@@ -162,10 +166,10 @@ class GraphSchemaManager:
         """Get current Neo4j schema information"""
         try:
             # Get indexes
-            indexes = self.neo4j_client.query("SHOW INDEXES")
+            indexes = self.neo4j_client.query(SHOW_INDEXES_QUERY)
 
             # Get constraints
-            constraints = self.neo4j_client.query("SHOW CONSTRAINTS")
+            constraints = self.neo4j_client.query(SHOW_CONSTRAINTS_QUERY)
 
             # Get labels
             labels_result = self.neo4j_client.query("CALL db.labels()")
