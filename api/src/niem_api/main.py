@@ -130,13 +130,21 @@ async def readiness_check():
 
 @app.post("/api/schema/xsd", response_model=SchemaResponse)
 async def upload_schema(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
+    skip_niem_resolution: bool = Form(False),
     token: str = Depends(verify_token),
     s3=Depends(get_s3_client)
 ):
-    """Upload and validate XSD schema"""
+    """Upload and validate XSD schema(s) - supports multiple related XSD files
+
+    Args:
+        files: XSD schema files to upload
+        skip_niem_resolution: If True, only use uploaded files without NIEM dependency resolution
+        token: Authentication token
+        s3: MinIO client dependency
+    """
     from .handlers.schema import handle_schema_upload
-    return await handle_schema_upload(file, s3)
+    return await handle_schema_upload(files, s3, skip_niem_resolution)
 
 
 @app.post("/api/schema/activate/{schema_id}")
@@ -260,7 +268,7 @@ async def configure_graph_schema(
         import json
 
         # Get active schema ID
-        active_schema_id = await get_active_schema_id(s3)
+        active_schema_id = get_active_schema_id(s3)
         if not active_schema_id:
             raise HTTPException(status_code=400, detail="No active schema found")
 
@@ -308,14 +316,14 @@ async def get_graph_schema_info(
 
 
 @app.post("/api/admin/neo4j/clear-schema")
-async def clear_neo4j_schema(
+async def clear_neo4j_schema_endpoint(
     token: str = Depends(verify_token)
 ):
     """Clear Neo4j schema (indexes and constraints) only"""
     try:
         from .handlers.admin import clear_neo4j_schema
 
-        result = await clear_neo4j_schema()
+        result = clear_neo4j_schema()
         return {
             "status": "success",
             "message": "Neo4j schema cleared successfully",
@@ -328,14 +336,14 @@ async def clear_neo4j_schema(
 
 
 @app.post("/api/admin/neo4j/clear-data")
-async def clear_neo4j_data(
+async def clear_neo4j_data_endpoint(
     token: str = Depends(verify_token)
 ):
     """Clear Neo4j data (nodes and relationships) only"""
     try:
         from .handlers.admin import clear_neo4j_data
 
-        result = await clear_neo4j_data()
+        result = clear_neo4j_data()
         return {
             "status": "success",
             "message": "Neo4j data cleared successfully",
@@ -355,7 +363,7 @@ async def clear_neo4j_all(
     try:
         from .handlers.admin import reset_neo4j
 
-        await reset_neo4j()
+        reset_neo4j()
         return {
             "status": "success",
             "message": "Neo4j cleared completely (data and schema)"
@@ -374,7 +382,7 @@ async def get_neo4j_stats(
     try:
         from .handlers.admin import count_neo4j_objects
 
-        stats = await count_neo4j_objects()
+        stats = count_neo4j_objects()
         return {
             "status": "success",
             "stats": stats
@@ -401,7 +409,7 @@ async def execute_graph_query(
         if "LIMIT" not in cypher_query.upper() and limit:
             cypher_query += f" LIMIT {limit}"
 
-        result = await execute_cypher_query(cypher_query)
+        result = execute_cypher_query(cypher_query)
         return {
             "status": "success",
             "data": result
@@ -421,7 +429,7 @@ async def get_full_graph(
     try:
         from .handlers.graph import get_full_graph
 
-        result = await get_full_graph(limit)
+        result = get_full_graph(limit)
         return {
             "status": "success",
             "data": result
@@ -440,7 +448,7 @@ async def get_database_summary(
     try:
         from .handlers.graph import get_database_summary
 
-        result = await get_database_summary()
+        result = get_database_summary()
         return {
             "status": "success",
             "data": result

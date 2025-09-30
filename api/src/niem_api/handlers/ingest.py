@@ -2,17 +2,339 @@
 
 import json
 import logging
-import tempfile
 import yaml
-from pathlib import Path
 from typing import List, Dict, Any
 
 from fastapi import HTTPException, UploadFile
 from minio import Minio
-from ..services.cmf_tool import validate_xml_with_cmf, is_cmf_available
+from ..services.cmf_tool import is_cmf_available
 from ..services.neo4j_client import Neo4jClient
 
 logger = logging.getLogger(__name__)
+
+
+async def _get_schema_id(s3: Minio, schema_id: str | None) -> str:
+    """Get schema ID, using provided or active schema.
+
+    Args:
+        s3: MinIO client
+        schema_id: Optional schema ID
+
+    Returns:
+        Schema ID to use
+    """
+    if schema_id:
+        return schema_id
+
+    from .schema import get_active_schema_id
+    active_schema_id = get_active_schema_id(s3)
+    if not active_schema_id:
+        raise HTTPException(status_code=400, detail="No active schema found and no schema_id provided")
+    return active_schema_id
+
+
+def _load_mapping_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
+    """Load mapping YAML from S3.
+
+    Args:
+        s3: MinIO client
+        schema_id: Schema ID
+
+    Returns:
+        Mapping dictionary
+    """
+    try:
+        mapping_response = s3.get_object("niem-schemas", f"{schema_id}/mapping.yaml")
+        mapping_content = mapping_response.read().decode('utf-8')
+        mapping = yaml.safe_load(mapping_content)
+        mapping_response.close()
+        mapping_response.release_conn()
+        return mapping
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load mapping.yaml: {str(e)}")
+
+
+async def _download_schema_files(s3: Minio, schema_id: str) -> str:
+    """Download schema XSD files from S3 to temporary directory.
+
+    Args:
+        s3: MinIO client
+        schema_id: Schema ID
+
+    Returns:
+        Path to temporary directory containing schema files
+    """
+    import tempfile
+    from pathlib import Path
+
+    temp_dir = tempfile.mkdtemp(prefix="schema_validation_")
+    logger.info(f"Downloading schema files for {schema_id} to {temp_dir}")
+
+    try:
+        # List all objects in the schema folder
+        objects = s3.list_objects("niem-schemas", prefix=f"{schema_id}/source/", recursive=True)
+
+        xsd_count = 0
+        for obj in objects:
+            if obj.object_name.endswith('.xsd'):
+                # Download the file
+                response = s3.get_object("niem-schemas", obj.object_name)
+                content = response.read()
+                response.close()
+                response.release_conn()
+
+                # Create subdirectories if needed
+                relative_path = obj.object_name.replace(f"{schema_id}/source/", "")
+                target_path = Path(temp_dir) / relative_path
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # Write file
+                with open(target_path, 'wb') as f:
+                    f.write(content)
+
+                xsd_count += 1
+                logger.debug(f"Downloaded schema file: {relative_path}")
+
+        logger.info(f"Downloaded {xsd_count} XSD schema files")
+        return temp_dir
+
+    except Exception as e:
+        logger.error(f"Failed to download schema files: {e}")
+        # Clean up on error
+        import shutil
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise HTTPException(status_code=500, detail=f"Failed to download schema files: {str(e)}")
+
+def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> None:
+    """Validate XML content against XSD schemas using CMF tool.
+
+    Args:
+        xml_content: XML content to validate
+        schema_dir: Directory containing XSD schema files
+        filename: File being validated (for logging purposes)
+
+    Raises:
+        HTTPException: If validation fails
+    """
+    import tempfile
+    from pathlib import Path
+    from ..services.cmf_tool import run_cmf_command, CMFError
+
+    logger.info(f"Validating XML file {filename} against XSD schemas")
+
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Write XML content to temporary file
+            xml_file = Path(temp_dir) / filename
+            with open(xml_file, 'w', encoding='utf-8') as f:
+                f.write(xml_content)
+
+            # Find all XSD files in schema directory
+            schema_path = Path(schema_dir)
+            xsd_files = list(schema_path.rglob("*.xsd"))
+
+            if not xsd_files:
+                logger.warning(f"No XSD files found in {schema_dir}, skipping validation")
+                return
+
+            logger.info(f"Found {len(xsd_files)} XSD schema files for validation")
+
+            # Build xval command with all schema files
+            cmd = ["xval"]
+            for xsd_file in xsd_files:
+                cmd.extend(["--schema", str(xsd_file)])
+            cmd.extend(["--file", xml_file])
+
+            # Run validation
+            result = run_cmf_command(cmd, working_dir=temp_dir)
+
+            if result["returncode"] != 0:
+                error_msg = f"XML validation failed for {filename}"
+                if result["stderr"]:
+                    error_msg += f": {result['stderr']}"
+                if result["stdout"]:
+                    error_msg += f"\n{result['stdout']}"
+                logger.error(error_msg)
+                raise HTTPException(status_code=400, detail=error_msg)
+
+            logger.info(f"Successfully validated {filename} against XSD schemas")
+
+    except CMFError as e:
+        logger.error(f"CMF tool error during validation: {e}")
+        raise HTTPException(status_code=500, detail=f"Validation error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error during XML validation: {e}")
+        raise HTTPException(status_code=500, detail=f"Validation error: {str(e)}")
+
+
+def _clean_cypher_statement(statement: str) -> str:
+    """Clean Cypher statement by removing comments.
+
+    Args:
+        statement: Raw Cypher statement
+
+    Returns:
+        Cleaned statement
+    """
+    clean_lines = []
+    for line in statement.split('\n'):
+        line = line.strip()
+        if line and not line.startswith('//'):
+            clean_lines.append(line)
+    return '\n'.join(clean_lines)
+
+
+def _execute_cypher_statements(cypher_statements: str, neo4j_client) -> int:
+    """Execute Cypher statements in Neo4j.
+
+    Args:
+        cypher_statements: Cypher statements to execute
+        neo4j_client: Neo4j client
+
+    Returns:
+        Number of statements executed
+    """
+    statements_executed = 0
+    statements = [stmt.strip() for stmt in cypher_statements.split(';') if stmt.strip()]
+
+    for statement in statements:
+        if statement:
+            clean_statement = _clean_cypher_statement(statement)
+            if clean_statement:
+                neo4j_client.query(clean_statement)
+                statements_executed += 1
+
+    return statements_executed
+
+
+async def _store_processed_files(s3: Minio, content: bytes, filename: str, cypher_statements: str) -> None:
+    """Store XML and Cypher files after successful processing.
+
+    Args:
+        s3: MinIO client
+        content: File content
+        filename: Original filename
+        cypher_statements: Generated Cypher statements
+    """
+    from ..services.storage import upload_file
+    import hashlib
+    import time
+
+    # Generate unique filename with timestamp
+    timestamp = int(time.time())
+    file_hash = hashlib.md5(content).hexdigest()[:8]
+    base_filename = f"xml/{timestamp}_{file_hash}_{filename}"
+
+    # Store XML file
+    try:
+        await upload_file(s3, "niem-data", base_filename, content, "application/xml")
+        logger.info(f"Stored XML file in niem-data after successful ingestion: {base_filename}")
+    except Exception as e:
+        logger.warning(f"Graph ingestion succeeded but failed to store XML file {filename} in niem-data: {e}")
+
+    # Store generated Cypher statements alongside the XML in the same folder
+    try:
+        logger.info(f"About to store Cypher file for {filename}")
+        cypher_filename = f"xml/{timestamp}_{file_hash}_{filename}.cypher"
+        cypher_content = cypher_statements.encode('utf-8')
+        logger.info(f"Cypher content length: {len(cypher_content)} bytes, filename: {cypher_filename}")
+        await upload_file(s3, "niem-data", cypher_filename, cypher_content, "text/plain")
+        logger.info(f"Stored Cypher file in niem-data: {cypher_filename}")
+    except Exception as e:
+        logger.error(f"Graph ingestion succeeded but failed to store Cypher file {filename} in niem-data: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+
+
+def _create_success_result(filename: str, statements_executed: int, stats: Dict[str, Any]) -> Dict[str, Any]:
+    """Create success result dictionary.
+
+    Args:
+        filename: Processed filename
+        statements_executed: Number of statements executed
+        stats: Processing statistics
+
+    Returns:
+        Success result dictionary
+    """
+    return {
+        "filename": filename,
+        "status": "success",
+        "statements_executed": statements_executed,
+        "nodes_created": stats.get("nodes_count", 0),
+        "relationships_created": stats.get("edges_count", 0) + stats.get("contains_count", 0)
+    }
+
+
+def _create_error_result(filename: str, error_msg: str) -> Dict[str, Any]:
+    """Create error result dictionary.
+
+    Args:
+        filename: Failed filename
+        error_msg: Error message
+
+    Returns:
+        Error result dictionary
+    """
+    return {
+        "filename": filename,
+        "status": "failed",
+        "error": error_msg
+    }
+
+
+async def _process_single_file(
+    file: UploadFile,
+    mapping: Dict[str, Any],
+    neo4j_client,
+    s3: Minio,
+    schema_dir: str
+) -> tuple[Dict[str, Any], int]:
+    """Process a single XML file.
+
+    Args:
+        file: Uploaded file
+        mapping: Schema mapping
+        neo4j_client: Neo4j client
+        s3: MinIO client
+        schema_dir: Directory containing XSD schema files
+
+    Returns:
+        Tuple of (result_dict, statements_executed)
+    """
+    try:
+        content = await file.read()
+        xml_content = content.decode('utf-8')
+
+        # Validate XML against XSD schemas
+        _validate_xml_content(xml_content, schema_dir, file.filename)
+
+        # Use import_xml_to_cypher service to generate Cypher
+        cypher_statements, stats = _generate_cypher_from_xml(
+            xml_content, mapping, file.filename
+        )
+
+        if not cypher_statements:
+            return _create_error_result(file.filename, "No Cypher statements generated from XML"), 0
+
+        # Execute Cypher statements in Neo4j
+        try:
+            statements_executed = _execute_cypher_statements(cypher_statements, neo4j_client)
+
+            # Store XML file in MinIO after successful ingestion
+            await _store_processed_files(s3, content, file.filename, cypher_statements)
+
+            result = _create_success_result(file.filename, statements_executed, stats)
+            logger.info(f"Successfully ingested {file.filename}: {statements_executed} Cypher statements executed")
+            return result, statements_executed
+
+        except Exception as e:
+            logger.error(f"Failed to execute Cypher for {file.filename}: {e}")
+            return _create_error_result(file.filename, f"Cypher execution failed: {str(e)}"), 0
+
+    except Exception as e:
+        logger.error(f"Failed to process file {file.filename}: {e}")
+        return _create_error_result(file.filename, str(e)), 0
 
 
 async def handle_xml_ingest(
@@ -23,34 +345,18 @@ async def handle_xml_ingest(
     """Handle XML file ingestion to Neo4j using import_xml_to_cypher service"""
     logger.info(f"Starting XML ingestion for {len(files)} files using import_xml_to_cypher service")
 
+    schema_dir = None
     try:
-        # Get schema ID (use provided or get active)
-        if not schema_id:
-            from .schema import get_active_schema_id
-            schema_id = await get_active_schema_id(s3)
-            if not schema_id:
-                raise HTTPException(status_code=400, detail="No active schema found and no schema_id provided")
+        # Step 1: Get schema ID (use provided or get active)
+        schema_id = await _get_schema_id(s3, schema_id)
 
-        # Get the mapping specification for this schema (YAML format)
-        try:
-            mapping_response = s3.get_object("niem-schemas", f"{schema_id}/mapping.yaml")
-            mapping_content = mapping_response.read().decode('utf-8')
-            mapping = yaml.safe_load(mapping_content)
-            mapping_response.close()
-            mapping_response.release_conn()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to load mapping.yaml: {str(e)}")
+        # Step 2: Load mapping specification
+        mapping = _load_mapping_from_s3(s3, schema_id)
 
-        # Get XSD schema for validation
-        xsd_content = None
-        try:
-            schema_response = s3.get_object("niem-schemas", f"{schema_id}/schema.xsd")
-            xsd_content = schema_response.read().decode('utf-8')
-            schema_response.close()
-            schema_response.release_conn()
-        except Exception as e:
-            logger.warning(f"Could not load XSD schema for validation: {e}")
+        # Step 3: Download schema files for validation
+        schema_dir = await _download_schema_files(s3, schema_id)
 
+        # Step 4: Process files
         results = []
         total_statements_executed = 0
 
@@ -59,87 +365,11 @@ async def handle_xml_ingest(
 
         try:
             for file in files:
-                try:
-                    content = await file.read()
-                    xml_content = content.decode('utf-8')
-
-                    # Optional XSD validation (if available)
-                    if xsd_content and is_cmf_available():
-                        try:
-                            validation_result = await validate_xml_with_cmf(xml_content, xsd_content)
-                            if not validation_result.get("valid", False):
-                                logger.warning(f"XML validation failed for {file.filename}: {validation_result.get('error', 'Unknown validation error')}")
-                                # Continue processing even if validation fails (make it advisory)
-                        except Exception as e:
-                            logger.warning(f"XML validation error for {file.filename}: {e}")
-                            # Continue processing
-
-                    # Use import_xml_to_cypher service to generate Cypher
-                    cypher_statements, stats = await _generate_cypher_from_xml(
-                        xml_content, mapping, file.filename
-                    )
-
-                    if not cypher_statements:
-                        results.append({
-                            "filename": file.filename,
-                            "status": "failed",
-                            "error": "No Cypher statements generated from XML"
-                        })
-                        continue
-
-                    # Execute Cypher statements in Neo4j
-                    statements_executed = 0
-                    try:
-                        # Split cypher into individual statements and execute
-                        statements = [stmt.strip() for stmt in cypher_statements.split(';') if stmt.strip()]
-                        for statement in statements:
-                            if statement and not statement.startswith('//'):
-                                neo4j_client.query(statement)
-                                statements_executed += 1
-
-                        total_statements_executed += statements_executed
-
-                        # Store XML file in MinIO after successful ingestion
-                        try:
-                            from ..services.storage import upload_file
-                            import hashlib
-                            import time
-
-                            # Generate unique filename with timestamp
-                            timestamp = int(time.time())
-                            file_hash = hashlib.md5(content).hexdigest()[:8]
-                            stored_filename = f"xml/{timestamp}_{file_hash}_{file.filename}"
-
-                            await upload_file(s3, "niem-data", stored_filename, content, "application/xml")
-                            logger.info(f"Stored XML file in niem-data after successful ingestion: {stored_filename}")
-                        except Exception as e:
-                            logger.warning(f"Graph ingestion succeeded but failed to store XML file {file.filename} in niem-data: {e}")
-
-                        results.append({
-                            "filename": file.filename,
-                            "status": "success",
-                            "statements_executed": statements_executed,
-                            "nodes_created": stats.get("nodes_count", 0),
-                            "relationships_created": stats.get("edges_count", 0) + stats.get("contains_count", 0)
-                        })
-
-                        logger.info(f"Successfully ingested {file.filename}: {statements_executed} Cypher statements executed")
-
-                    except Exception as e:
-                        logger.error(f"Failed to execute Cypher for {file.filename}: {e}")
-                        results.append({
-                            "filename": file.filename,
-                            "status": "failed",
-                            "error": f"Cypher execution failed: {str(e)}"
-                        })
-
-                except Exception as e:
-                    logger.error(f"Failed to process file {file.filename}: {e}")
-                    results.append({
-                        "filename": file.filename,
-                        "status": "failed",
-                        "error": str(e)
-                    })
+                result, statements_executed = await _process_single_file(
+                    file, mapping, neo4j_client, s3, schema_dir
+                )
+                results.append(result)
+                total_statements_executed += statements_executed
 
         finally:
             neo4j_client.driver.close()
@@ -152,15 +382,25 @@ async def handle_xml_ingest(
         }
 
     except Exception as e:
+        import traceback
         logger.error(f"XML ingestion failed: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(status_code=500, detail=f"XML ingestion failed: {str(e)}")
+    finally:
+        # Clean up schema directory
+        if schema_dir:
+            import shutil
+            try:
+                shutil.rmtree(schema_dir, ignore_errors=True)
+                logger.info(f"Cleaned up schema directory: {schema_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to clean up schema directory: {e}")
 
 
-async def handle_json_ingest(
+def handle_json_ingest(
     files: List[UploadFile],
-    s3: Minio,
     schema_id: str = None
 ) -> Dict[str, Any]:
     """Handle JSON file ingestion - currently not supported with import_xml_to_cypher service"""
@@ -171,16 +411,12 @@ async def handle_json_ingest(
         "files_processed": 0,
         "total_statements_executed": 0,
         "results": [
-            {
-                "filename": file.filename,
-                "status": "failed",
-                "error": "JSON ingestion not supported - use XML format instead"
-            } for file in files
+            _create_error_result(file.filename, "JSON ingestion not supported - use XML format instead")
+            for file in files
         ]
     }
 
-
-async def _generate_cypher_from_xml(xml_content: str, mapping: Dict[str, Any], filename: str) -> tuple[str, Dict[str, Any]]:
+def _generate_cypher_from_xml(xml_content: str, mapping: Dict[str, Any], filename: str) -> tuple[str, Dict[str, Any]]:
     """
     Generate Cypher statements from XML content using the import_xml_to_cypher service.
 
@@ -193,46 +429,24 @@ async def _generate_cypher_from_xml(xml_content: str, mapping: Dict[str, Any], f
         Tuple of (cypher_statements, stats)
     """
     try:
-        from ..services.import_xml_to_cypher import generate_for_xml, load_mapping
+        from ..services.import_xml_to_cypher import generate_for_xml_content
 
-        # Write XML and mapping to temporary files (required by import_xml_to_cypher)
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as temp_xml:
-            temp_xml.write(xml_content)
-            temp_xml_path = Path(temp_xml.name)
+        # Generate Cypher statements using in-memory processing (no temporary files needed)
+        cypher_statements, nodes, contains, edges = generate_for_xml_content(xml_content, mapping, filename)
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as temp_mapping:
-            yaml.dump(mapping, temp_mapping, default_flow_style=False)
-            temp_mapping_path = Path(temp_mapping.name)
+        # Create stats dictionary from the returned data
+        stats = {
+            "nodes_created": len(nodes),
+            "nodes_count": len(nodes),
+            "containment_edges": len(contains),
+            "contains_count": len(contains),
+            "reference_edges": len(edges),
+            "edges_count": len(edges)
+        }
 
-        try:
-            # Load mapping in the format expected by import_xml_to_cypher
-            mapping_loaded, obj_rules, associations, references, ns_map = load_mapping(temp_mapping_path)
+        logger.info(f"Generated Cypher for {filename}: {stats['nodes_created']} nodes, {stats['containment_edges']} containment relationships, {stats['reference_edges']} reference/association edges")
 
-            # Generate Cypher statements
-            cypher_statements, nodes, contains, edges = generate_for_xml(
-                temp_xml_path, mapping_loaded, obj_rules, associations, references, ns_map
-            )
-
-            # Create stats
-            stats = {
-                "nodes_count": len(nodes),
-                "contains_count": len(contains),
-                "edges_count": len(edges),
-                "filename": filename
-            }
-
-            logger.info(f"Generated Cypher for {filename}: {len(nodes)} nodes, {len(contains)} containment relationships, {len(edges)} reference/association edges")
-
-            return cypher_statements, stats
-
-        finally:
-            # Clean up temporary files
-            import os
-            try:
-                os.unlink(temp_xml_path)
-                os.unlink(temp_mapping_path)
-            except:
-                pass
+        return cypher_statements, stats
 
     except Exception as e:
         logger.error(f"Failed to generate Cypher from XML {filename}: {e}")

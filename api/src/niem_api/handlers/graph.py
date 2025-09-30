@@ -7,7 +7,7 @@ from ..core.dependencies import get_neo4j_client
 logger = logging.getLogger(__name__)
 
 
-async def execute_cypher_query(cypher_query: str) -> Dict[str, Any]:
+def execute_cypher_query(cypher_query: str) -> Dict[str, Any]:
     """Execute a Cypher query and return structured graph data"""
     client = get_neo4j_client()
     try:
@@ -17,7 +17,7 @@ async def execute_cypher_query(cypher_query: str) -> Dict[str, Any]:
         raise
 
 
-async def get_full_graph(limit: int = 1000) -> Dict[str, Any]:
+def get_full_graph(limit: int = 1000) -> Dict[str, Any]:
     """Get the complete graph structure with all nodes and relationships"""
     cypher_query = f"""
     MATCH (n)
@@ -25,10 +25,10 @@ async def get_full_graph(limit: int = 1000) -> Dict[str, Any]:
     RETURN n, r, m
     LIMIT {limit}
     """
-    return await execute_cypher_query(cypher_query)
+    return execute_cypher_query(cypher_query)
 
 
-async def get_node_labels() -> List[str]:
+def get_node_labels() -> List[str]:
     """Get all node labels in the database"""
     client = get_neo4j_client()
     try:
@@ -39,7 +39,7 @@ async def get_node_labels() -> List[str]:
         raise
 
 
-async def get_relationship_types() -> List[str]:
+def get_relationship_types() -> List[str]:
     """Get all relationship types in the database"""
     client = get_neo4j_client()
     try:
@@ -50,7 +50,7 @@ async def get_relationship_types() -> List[str]:
         raise
 
 
-async def get_database_summary() -> Dict[str, Any]:
+def get_database_summary() -> Dict[str, Any]:
     """Get a comprehensive summary of the database structure"""
     client = get_neo4j_client()
     try:

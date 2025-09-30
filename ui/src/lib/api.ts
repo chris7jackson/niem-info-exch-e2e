@@ -6,6 +6,8 @@ const DEV_TOKEN = 'devtoken'; // In production, this would come from environment
 export interface Schema {
   schema_id: string;
   filename: string;
+  primary_filename?: string;
+  all_filenames?: string[];
   uploaded_at: string;
   active: boolean;
 }
@@ -57,9 +59,15 @@ class ApiClient {
   }
 
   // Schema Management
-  async uploadSchema(file: File): Promise<any> {
+  async uploadSchema(files: File[], skipNiemResolution: boolean = false): Promise<any> {
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+
+    if (skipNiemResolution) {
+      formData.append('skip_niem_resolution', 'true');
+    }
 
     const response = await this.client.post('/api/schema/xsd', formData, {
       headers: {

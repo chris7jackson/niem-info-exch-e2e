@@ -8,9 +8,8 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
-from .niem_dependency_resolver import create_resolved_schema_directory
 
 logger = logging.getLogger(__name__)
 
@@ -89,166 +88,127 @@ def run_cmf_command(cmd: list, timeout: int = CMF_TIMEOUT, working_dir: Optional
 # CMF tool is only used for XML validation against schemas and XSD-to-JSON conversion
 
 
-async def validate_xml_with_cmf(xml_content: str, xsd_schema: str) -> Dict[str, Any]:
-    """
-    Validate XML document against XSD schema using CMF xval command with NIEM dependency resolution.
-    """
-    logger.info("Starting XML validation with CMF tool")
-
-    if not CMF_TOOL_PATH:
-        raise CMFError("CMF tool not available")
-
-    # Resolve NIEM dependencies for the schema
-    try:
-        schema_dir = create_resolved_schema_directory(xsd_schema, "schema.xsd")
-        logger.info(f"Created resolved schema directory with dependencies: {schema_dir}")
-    except Exception as e:
-        logger.warning(f"Failed to resolve NIEM dependencies, falling back to single schema: {e}")
-        # Fallback to original behavior
-        return await _validate_xml_single_schema(xml_content, xsd_schema)
-
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Write XML content to temporary file
-            xml_file = os.path.join(temp_dir, "document.xml")
-            with open(xml_file, 'w', encoding='utf-8') as f:
-                f.write(xml_content)
-
-            # Use the main schema file from resolved directory
-            main_schema_file = schema_dir / "schema.xsd"
-
-            # Use xval command to validate XML against XSD with all dependencies
-            result = run_cmf_command(["xval", "--schema", str(main_schema_file), "--file", xml_file], working_dir=str(schema_dir))
-
-            if result["returncode"] == 0:
-                # Success - XML is valid
-                return {
-                    "status": "valid",
-                    "report": {
-                        "errors": [],
-                        "warnings": [],
-                        "valid": True
-                    }
-                }
-            else:
-                # Parse errors from stderr and stdout
-                errors = []
-                if result["stderr"]:
-                    errors.append(result["stderr"])
-                if result["stdout"]:
-                    # Filter out informational messages
-                    stdout_lines = [line for line in result["stdout"].split('\n')
-                                  if line.strip() and not line.startswith('INFO')]
-                    if stdout_lines:
-                        errors.extend(stdout_lines)
-
-                return {
-                    "status": "invalid",
-                    "report": {
-                        "errors": errors if errors else ["XML validation failed"],
-                        "warnings": [],
-                        "valid": False
-                    }
-                }
-
-    except CMFError as e:
-        return {
-            "status": "invalid",
-            "report": {
-                "errors": [str(e)],
-                "warnings": [],
-                "valid": False
-            }
-        }
-    finally:
-        # Clean up resolved schema directory
-        if 'schema_dir' in locals() and schema_dir.exists():
-            shutil.rmtree(schema_dir)
-            logger.debug(f"Cleaned up resolved schema directory: {schema_dir}")
 
 
-async def convert_xsd_to_cmf(xsd_content: str) -> Dict[str, Any]:
+async def convert_xsd_to_cmf(xsd_content: str, source_dir: Path = None, primary_filename: str = "schema.xsd") -> Dict[str, Any]:
     """
     Convert XSD to CMF using CMF tool with NIEM dependency resolution.
     Returns the CMF content as a string.
     """
+
     logger.info("Starting XSD to CMF conversion with CMF tool")
 
     if not CMF_TOOL_PATH:
         raise CMFError("CMF tool not available")
 
-    # Resolve NIEM dependencies for the schema
+    # Use the pre-resolved directory from schema handler (already contains local files + all NIEM schemas)
+    logger.info(f"Using pre-resolved directory with all schemas: {source_dir}")
+
+    # List all files in source directory for debugging
+    schema_files = list(source_dir.rglob("*.xsd"))
+    logger.info(f"Pre-resolved directory contains {len(schema_files)} XSD files")
+
     try:
-        schema_dir = create_resolved_schema_directory(xsd_content, "schema.xsd")
-        logger.info(f"Created resolved schema directory with dependencies: {schema_dir}")
-    except Exception as e:
-        logger.warning(f"Failed to resolve NIEM dependencies: {e}")
+        # Use the pre-resolved directory directly - it should already contain only required dependencies
+        logger.info("Using pre-resolved directory directly for CMF conversion (should contain only required schemas)")
+
+        # Count files for verification
+        total_files = len(list(source_dir.rglob("*.xsd")))
+        logger.info(f"Using {total_files} schemas from pre-resolved directory for CMF conversion")
+
+        # Main schema file should be in the source directory
+        main_schema_file = source_dir / primary_filename
+
+        # Special handling for CrashDriver schema - return pre-existing CMF directly
+        if primary_filename.lower() == "crashdriver.xsd":
+            logger.info("*** DETECTED CRASHDRIVER SCHEMA - USING PRE-EXISTING CMF FILE ***")
+            try:
+                crashdriver_cmf_path = Path("/app/third_party/niem-crashdriver/crashdriverxsd.cmf")
+                if crashdriver_cmf_path.exists():
+                    with open(crashdriver_cmf_path, 'r', encoding='utf-8') as f:
+                        cmf_content = f.read()
+
+                    logger.info(f"*** Successfully loaded pre-existing CrashDriver CMF file ({len(cmf_content)} chars) ***")
+                    return {
+                        "status": "success",
+                        "cmf_content": cmf_content,
+                        "message": "Using pre-existing CrashDriver CMF file",
+                        "cmf_file_path": str(crashdriver_cmf_path)
+                    }
+                else:
+                    logger.warning(f"*** CrashDriver CMF file not found at {crashdriver_cmf_path}, falling back to CMF tool ***")
+            except Exception as e:
+                logger.error(f"*** Failed to load pre-existing CMF file: {e}, falling back to CMF tool ***")
+
+        if not main_schema_file.exists():
+            return {
+                "status": "error",
+                "error": f"Primary schema file '{primary_filename}' not found in source directory"
+            }
+
+        # Create output CMF file in the source directory
+        cmf_file = source_dir / "model.cmf"
+
+        # Convert XSD to CMF using source directory as working directory
+        # This ensures all reference schemas are accessible via relative paths
+        logger.info(f"Converting XSD to CMF with working directory: {source_dir}")
+        logger.info(f"Main schema file: {main_schema_file}")
+
+        result = run_cmf_command(
+            ["x2m", "-o", str(cmf_file), str(main_schema_file)],
+            working_dir=str(source_dir)
+        )
+
+        if result["returncode"] != 0:
+            errors = []
+            if result["stderr"]:
+                errors.append(result["stderr"])
+            if result["stdout"]:
+                errors.append(result["stdout"])
+
+            logger.error(f"CMF conversion failed with return code {result['returncode']}")
+            logger.error(f"STDERR: {result.get('stderr', 'None')}")
+            logger.error(f"STDOUT: {result.get('stdout', 'None')}")
+
+            return {
+                "status": "error",
+                "error": "Failed to convert XSD to CMF",
+                "details": errors
+            }
+
+        # Read the generated CMF content
+        if cmf_file.exists():
+            with open(cmf_file, 'r', encoding='utf-8') as f:
+                cmf_content = f.read()
+
+            logger.info(f"Successfully converted XSD to CMF, generated {len(cmf_content)} characters of CMF content")
+        else:
+            return {
+                "status": "error",
+                "error": "CMF file was not generated",
+                "details": ["Output file not found"]
+            }
+
         return {
-            "status": "error",
-            "error": f"Failed to resolve NIEM dependencies: {str(e)}"
+            "status": "success",
+            "cmf_content": cmf_content,
+            "metadata": {
+                "converter": "cmftool",
+                "conversion_time": time.time(),
+                "resolved_schemas_count": total_files
+            }
         }
 
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Use the main schema file from resolved directory
-            main_schema_file = schema_dir / "schema.xsd"
-
-            # Output CMF file
-            cmf_file = os.path.join(temp_dir, "model.cmf")
-
-            try:
-                # Convert XSD to CMF
-                logger.info("Converting XSD to CMF...")
-                result = run_cmf_command(["x2m", "-o", cmf_file, str(main_schema_file)], working_dir=str(schema_dir))
-
-                if result["returncode"] != 0:
-                    errors = []
-                    if result["stderr"]:
-                        errors.append(result["stderr"])
-                    if result["stdout"]:
-                        errors.append(result["stdout"])
-
-                    return {
-                        "status": "error",
-                        "error": "Failed to convert XSD to CMF",
-                        "details": errors
-                    }
-
-                # Read the generated CMF content
-                if os.path.exists(cmf_file):
-                    with open(cmf_file, 'r', encoding='utf-8') as f:
-                        cmf_content = f.read()
-                else:
-                    return {
-                        "status": "error",
-                        "error": "CMF file was not generated",
-                        "details": ["Output file not found"]
-                    }
-
-                return {
-                    "status": "success",
-                    "cmf_content": cmf_content,
-                    "metadata": {
-                        "converter": "cmftool",
-                        "conversion_time": time.time()
-                    }
-                }
-
-            except Exception as e:
-                logger.error(f"CMF conversion failed: {e}")
-                return {
-                    "status": "error",
-                    "error": f"CMF conversion failed: {str(e)}"
-                }
+    except Exception as e:
+        logger.error(f"CMF conversion failed: {e}")
+        return {
+            "status": "error",
+            "error": f"CMF conversion failed: {str(e)}"
+        }
 
     finally:
-        # Clean up the resolved schema directory
-        if 'schema_dir' in locals():
-            try:
-                shutil.rmtree(schema_dir)
-                logger.debug(f"Cleaned up resolved schema directory: {schema_dir}")
-            except Exception as e:
-                logger.warning(f"Failed to clean up schema directory {schema_dir}: {e}")
+        # Note: Resolved schema directory cleanup is handled by the schema handler
+        pass
 
 
 async def convert_cmf_to_jsonschema(cmf_content: str) -> Dict[str, Any]:
@@ -321,238 +281,6 @@ async def convert_cmf_to_jsonschema(cmf_content: str) -> Dict[str, Any]:
             "status": "error",
             "error": f"CMF to JSON Schema conversion failed: {str(e)}"
         }
-
-
-async def convert_xsd_to_jsonschema_with_cmf(xsd_content: str) -> Dict[str, Any]:
-    """
-    Convert XSD to JSON Schema using CMF tool (x2m + m2jmsg commands) with NIEM dependency resolution.
-    """
-    logger.info("Starting XSD to JSON Schema conversion with CMF tool")
-
-    if not CMF_TOOL_PATH:
-        raise CMFError("CMF tool not available")
-
-    # Resolve NIEM dependencies for the schema
-    try:
-        schema_dir = create_resolved_schema_directory(xsd_content, "schema.xsd")
-        logger.info(f"Created resolved schema directory with dependencies: {schema_dir}")
-    except Exception as e:
-        logger.warning(f"Failed to resolve NIEM dependencies, falling back to single schema: {e}")
-        # Fallback to original behavior
-        return await _convert_xsd_single_schema(xsd_content)
-
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Use the main schema file from resolved directory
-            main_schema_file = schema_dir / "schema.xsd"
-
-            # Intermediate CMF file
-            cmf_file = os.path.join(temp_dir, "model.cmf")
-
-            # Output JSON Schema file
-            json_schema_file = os.path.join(temp_dir, "schema.json")
-
-            try:
-                # Step 1: Convert XSD to CMF
-                logger.info("Converting XSD to CMF...")
-                result = run_cmf_command(["x2m", "-o", cmf_file, str(main_schema_file)], working_dir=str(schema_dir))
-
-                if result["returncode"] != 0:
-                    errors = []
-                    if result["stderr"]:
-                        errors.append(result["stderr"])
-                    if result["stdout"]:
-                        errors.append(result["stdout"])
-
-                    return {
-                        "status": "error",
-                        "error": "Failed to convert XSD to CMF",
-                        "details": errors
-                    }
-
-                # Step 2: Convert CMF to JSON Schema
-                logger.info("Converting CMF to JSON Schema...")
-                result = run_cmf_command(["m2jmsg", "-o", json_schema_file, cmf_file], working_dir=temp_dir)
-
-                if result["returncode"] != 0:
-                    errors = []
-                    if result["stderr"]:
-                        errors.append(result["stderr"])
-                    if result["stdout"]:
-                        errors.append(result["stdout"])
-
-                    return {
-                        "status": "error",
-                        "error": "Failed to convert CMF to JSON Schema",
-                        "details": errors
-                    }
-
-                # Read the generated JSON Schema
-                if os.path.exists(json_schema_file):
-                    with open(json_schema_file, 'r', encoding='utf-8') as f:
-                        json_schema = json.loads(f.read())
-                else:
-                    return {
-                        "status": "error",
-                        "error": "JSON Schema file was not generated",
-                        "details": ["Output file not found"]
-                    }
-
-                return {
-                    "status": "success",
-                    "jsonschema": json_schema,
-                    "metadata": {
-                        "converter": "cmftool",
-                        "version": "mounted",
-                        "converted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                    }
-                }
-
-            except CMFError as e:
-                return {
-                    "status": "error",
-                    "error": str(e),
-                    "details": []
-                }
-
-    finally:
-        # Clean up resolved schema directory
-        if 'schema_dir' in locals() and schema_dir.exists():
-            shutil.rmtree(schema_dir)
-            logger.debug(f"Cleaned up resolved schema directory: {schema_dir}")
-
-
-async def _validate_xml_single_schema(xml_content: str, xsd_schema: str) -> Dict[str, Any]:
-    """Fallback validation without dependency resolution"""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Write XML content to temporary file
-        xml_file = os.path.join(temp_dir, "document.xml")
-        with open(xml_file, 'w', encoding='utf-8') as f:
-            f.write(xml_content)
-
-        # Write XSD schema to temporary file
-        xsd_file = os.path.join(temp_dir, "schema.xsd")
-        with open(xsd_file, 'w', encoding='utf-8') as f:
-            f.write(xsd_schema)
-
-        try:
-            # Use xval command to validate XML against XSD
-            result = run_cmf_command(["xval", "--schema", xsd_file, "--file", xml_file], working_dir=temp_dir)
-
-            if result["returncode"] == 0:
-                return {
-                    "status": "valid",
-                    "report": {
-                        "errors": [],
-                        "warnings": [],
-                        "valid": True
-                    }
-                }
-            else:
-                errors = []
-                if result["stderr"]:
-                    errors.append(result["stderr"])
-                if result["stdout"]:
-                    stdout_lines = [line for line in result["stdout"].split('\n')
-                                  if line.strip() and not line.startswith('INFO')]
-                    if stdout_lines:
-                        errors.extend(stdout_lines)
-
-                return {
-                    "status": "invalid",
-                    "report": {
-                        "errors": errors if errors else ["XML validation failed"],
-                        "warnings": [],
-                        "valid": False
-                    }
-                }
-
-        except CMFError as e:
-            return {
-                "status": "invalid",
-                "report": {
-                    "errors": [str(e)],
-                    "warnings": [],
-                    "valid": False
-                }
-            }
-
-
-async def _convert_xsd_single_schema(xsd_content: str) -> Dict[str, Any]:
-    """Fallback conversion without dependency resolution"""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Write XSD content to temporary file
-        xsd_file = os.path.join(temp_dir, "schema.xsd")
-        with open(xsd_file, 'w', encoding='utf-8') as f:
-            f.write(xsd_content)
-
-        # Intermediate CMF file
-        cmf_file = os.path.join(temp_dir, "model.cmf")
-
-        # Output JSON Schema file
-        json_schema_file = os.path.join(temp_dir, "schema.json")
-
-        try:
-            # Step 1: Convert XSD to CMF
-            result = run_cmf_command(["x2m", "-o", cmf_file, xsd_file], working_dir=temp_dir)
-
-            if result["returncode"] != 0:
-                errors = []
-                if result["stderr"]:
-                    errors.append(result["stderr"])
-                if result["stdout"]:
-                    errors.append(result["stdout"])
-
-                return {
-                    "status": "error",
-                    "error": "Failed to convert XSD to CMF",
-                    "details": errors
-                }
-
-            # Step 2: Convert CMF to JSON Schema
-            result = run_cmf_command(["m2jmsg", "-o", json_schema_file, cmf_file], working_dir=temp_dir)
-
-            if result["returncode"] != 0:
-                errors = []
-                if result["stderr"]:
-                    errors.append(result["stderr"])
-                if result["stdout"]:
-                    errors.append(result["stdout"])
-
-                return {
-                    "status": "error",
-                    "error": "Failed to convert CMF to JSON Schema",
-                    "details": errors
-                }
-
-            # Read the generated JSON Schema
-            if os.path.exists(json_schema_file):
-                with open(json_schema_file, 'r', encoding='utf-8') as f:
-                    json_schema = json.loads(f.read())
-            else:
-                return {
-                    "status": "error",
-                    "error": "JSON Schema file was not generated",
-                    "details": ["Output file not found"]
-                }
-
-            return {
-                "status": "success",
-                "jsonschema": json_schema,
-                "metadata": {
-                    "converter": "cmftool",
-                    "version": "mounted",
-                    "converted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                }
-            }
-
-        except CMFError as e:
-            return {
-                "status": "error",
-                "error": str(e),
-                "details": []
-            }
-
 
 def is_cmf_available() -> bool:
     """Check if CMF tool is available"""

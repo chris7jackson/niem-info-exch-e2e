@@ -18,8 +18,9 @@ COPY src/ ./src/
 # Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
-# Create data directory
+# Create data directory and fix permissions
 RUN mkdir -p /data && chown appuser:appgroup /data
+RUN chown -R appuser:appgroup /app/src
 
 USER appuser
 

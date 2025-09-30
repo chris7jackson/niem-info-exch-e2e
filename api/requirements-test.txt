@@ -1,0 +1,39 @@
+# Testing dependencies for NIEM API
+
+# Core testing framework
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+pytest-xdist==3.3.1  # Parallel test execution
+pytest-timeout==2.2.0  # Test timeout handling
+
+# HTTP testing
+httpx==0.25.2  # Already in main requirements
+requests-mock==1.11.0  # Mock HTTP requests
+
+# Database testing with containers
+testcontainers==3.7.1
+testcontainers[neo4j]==3.7.1
+testcontainers[minio]==3.7.1
+
+# Mocking and fixtures
+factory-boy==3.3.0  # Object factories for tests
+freezegun==1.2.2  # Time mocking
+responses==0.24.1  # Mock HTTP responses
+
+# Code quality and linting (development)
+ruff==0.1.6  # Fast Python linter
+black==23.11.0  # Code formatter
+mypy==1.7.1  # Type checking
+isort==5.12.0  # Import sorting
+
+# Performance testing
+pytest-benchmark==4.0.0
+
+# Security testing
+bandit==1.7.5  # Security linter
+safety==2.3.5  # Dependency vulnerability scanner
+
+# Documentation testing
+pytest-doctestplus==1.0.0

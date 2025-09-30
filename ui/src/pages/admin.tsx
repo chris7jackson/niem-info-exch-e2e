@@ -3,20 +3,21 @@ import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import apiClient from '../lib/api';
 
 interface ResetCounts {
-  minio_objects?: number;
-  minio_buckets?: number;
+  schemas?: number;
+  xml_files?: number;
+  json_files?: number;
+  total_files?: number;
   neo4j_nodes?: number;
   neo4j_relationships?: number;
   neo4j_indexes?: number;
   neo4j_constraints?: number;
-  schemas: number;
 }
 
 export default function AdminPage() {
   const [resetOptions, setResetOptions] = useState({
-    minio: false,
+    schemas: false,
+    data: false,
     neo4j: false,
-    schema: false,
   });
   const [counts, setCounts] = useState<ResetCounts | null>(null);
   const [confirmToken, setConfirmToken] = useState<string | null>(null);
@@ -64,9 +65,9 @@ export default function AdminPage() {
       setCounts(null);
       setConfirmToken(null);
       setResetOptions({
-        minio: false,
+        schemas: false,
+        data: false,
         neo4j: false,
-        schema: false,
       });
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || 'Reset failed');
@@ -122,15 +123,26 @@ export default function AdminPage() {
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={resetOptions.minio}
-                  onChange={(e) => setResetOptions(prev => ({ ...prev, minio: e.target.checked }))}
+                  checked={resetOptions.schemas}
+                  onChange={(e) => setResetOptions(prev => ({ ...prev, schemas: e.target.checked }))}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <span className="ml-2 text-sm text-gray-700">
-                  MinIO Object Storage (removes all objects and buckets)
+                  NIEM Schemas (XSD schema files)
                 </span>
               </label>
 
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={resetOptions.data}
+                  onChange={(e) => setResetOptions(prev => ({ ...prev, data: e.target.checked }))}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700">
+                  Data Files (XML and JSON files)
+                </span>
+              </label>
 
               <label className="flex items-center">
                 <input
@@ -144,17 +156,6 @@ export default function AdminPage() {
                 </span>
               </label>
 
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={resetOptions.schema}
-                  onChange={(e) => setResetOptions(prev => ({ ...prev, schema: e.target.checked }))}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <span className="ml-2 text-sm text-gray-700">
-                  Schema Registry (uploaded schemas and metadata)
-                </span>
-              </label>
             </div>
           </div>
 
@@ -163,20 +164,28 @@ export default function AdminPage() {
             <div className="bg-gray-50 rounded-md p-4">
               <h4 className="text-sm font-medium text-gray-900 mb-2">Current System Counts:</h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600">Schemas:</span>
-                  <span className="ml-2 font-medium">{counts.schemas}</span>
-                </div>
-                {counts.minio_objects !== undefined && (
+                {counts.schemas !== undefined && (
                   <div>
-                    <span className="text-gray-600">MinIO Objects:</span>
-                    <span className="ml-2 font-medium">{counts.minio_objects}</span>
+                    <span className="text-gray-600">NIEM Schemas:</span>
+                    <span className="ml-2 font-medium">{counts.schemas}</span>
                   </div>
                 )}
-                {counts.minio_buckets !== undefined && (
+                {counts.xml_files !== undefined && (
                   <div>
-                    <span className="text-gray-600">MinIO Buckets:</span>
-                    <span className="ml-2 font-medium">{counts.minio_buckets}</span>
+                    <span className="text-gray-600">XML Data Files:</span>
+                    <span className="ml-2 font-medium">{counts.xml_files}</span>
+                  </div>
+                )}
+                {counts.json_files !== undefined && (
+                  <div>
+                    <span className="text-gray-600">JSON Data Files:</span>
+                    <span className="ml-2 font-medium">{counts.json_files}</span>
+                  </div>
+                )}
+                {counts.total_files !== undefined && (
+                  <div>
+                    <span className="text-gray-600">Total Data Files:</span>
+                    <span className="ml-2 font-medium">{counts.total_files}</span>
                   </div>
                 )}
                 {counts.neo4j_nodes !== undefined && (

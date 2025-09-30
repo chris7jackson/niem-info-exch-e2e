@@ -9,6 +9,7 @@ export default function SchemaManager() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [skipNiemResolution, setSkipNiemResolution] = useState(false);
 
   useEffect(() => {
     loadSchemas();
@@ -29,16 +30,17 @@ export default function SchemaManager() {
   const handleSchemaUpload = async (files: File[]) => {
     if (files.length === 0) return;
 
-    const file = files[0];
-    if (!file.name.endsWith('.xsd')) {
-      setError('Please upload an XSD file');
+    // Validate all files are XSD
+    const invalidFiles = files.filter(file => !file.name.endsWith('.xsd'));
+    if (invalidFiles.length > 0) {
+      setError(`Please upload only XSD files. Invalid files: ${invalidFiles.map(f => f.name).join(', ')}`);
       return;
     }
 
     try {
       setUploading(true);
       setError(null);
-      const result = await apiClient.uploadSchema(file);
+      const result = await apiClient.uploadSchema(files, skipNiemResolution);
 
       // Check NIEM NDR validation status
       if (result.niem_ndr_report && result.niem_ndr_report.status === 'pass') {
@@ -75,7 +77,7 @@ export default function SchemaManager() {
       'application/xml': ['.xsd'],
       'text/xml': ['.xsd'],
     },
-    maxFiles: 1,
+    maxFiles: 10, // Allow multiple related XSD files
   });
 
   return (
@@ -83,8 +85,12 @@ export default function SchemaManager() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Schema Management</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Upload and manage NIEM XSD schemas for data validation.
+          Upload and manage NIEM XSD schemas for data validation. You can upload multiple related XSD files together.
         </p>
+        <div className="mt-2 text-sm text-blue-600 bg-blue-50 rounded-md p-3">
+          <strong>Note:</strong> When uploading multiple files, the <strong>first file selected</strong> will serve as the primary schema.
+          Order your file selection accordingly (primary schema first, then supporting files).
+        </div>
       </div>
 
       {error && (
@@ -97,7 +103,28 @@ export default function SchemaManager() {
 
       {/* Upload Area */}
       <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Upload XSD Schema</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Upload XSD Schema(s)</h3>
+
+        {/* Skip NIEM Resolution Option */}
+        <div className="mb-6">
+          <label className="flex items-start space-x-3">
+            <input
+              type="checkbox"
+              checked={skipNiemResolution}
+              onChange={(e) => setSkipNiemResolution(e.target.checked)}
+              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <div className="min-w-0 flex-1">
+              <span className="text-sm font-medium text-gray-700">
+                Skip NIEM dependency resolution
+              </span>
+              <p className="text-sm text-gray-500 mt-1">
+                Use this option when uploading complete, self-contained schema sets that include all required NIEM dependencies.
+                This will skip automatic NIEM schema resolution and use only the files you upload.
+              </p>
+            </div>
+          </label>
+        </div>
 
         <div
           {...getRootProps()}
@@ -113,13 +140,13 @@ export default function SchemaManager() {
           {uploading ? (
             <p className="mt-2 text-sm text-gray-600">Uploading and validating...</p>
           ) : isDragActive ? (
-            <p className="mt-2 text-sm text-gray-600">Drop the XSD file here</p>
+            <p className="mt-2 text-sm text-gray-600">Drop the XSD file(s) here</p>
           ) : (
             <>
               <p className="mt-2 text-sm text-gray-600">
-                Drag and drop an XSD file here, or click to select
+                Drag and drop XSD file(s) here, or click to select
               </p>
-              <p className="text-xs text-gray-500">XSD files only, up to 20MB</p>
+              <p className="text-xs text-gray-500">XSD files only, up to 10 files, 20MB total</p>
             </>
           )}
         </div>
@@ -147,7 +174,12 @@ export default function SchemaManager() {
                   <div className="flex-1">
                     <div className="flex items-center">
                       <h4 className="text-sm font-medium text-gray-900">
-                        {schema.filename}
+                        {schema.primary_filename || schema.filename}
+                        {schema.all_filenames && schema.all_filenames.length > 1 && (
+                          <span className="ml-2 text-xs text-gray-500">
+                            (+{schema.all_filenames.length - 1} more files)
+                          </span>
+                        )}
                       </h4>
                       {schema.active && (
                         <CheckCircleIcon className="ml-2 h-5 w-5 text-green-500" />
@@ -158,6 +190,11 @@ export default function SchemaManager() {
                       <span className="ml-4">
                         Uploaded: {new Date(schema.uploaded_at).toLocaleDateString()}
                       </span>
+                      {schema.all_filenames && schema.all_filenames.length > 1 && (
+                        <div className="mt-1 text-xs text-gray-400">
+                          Files: {schema.all_filenames.join(', ')}
+                        </div>
+                      )}
                     </div>
                   </div>
 

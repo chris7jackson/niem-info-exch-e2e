@@ -9,6 +9,11 @@ from minio import Minio
 
 from ..models.models import ResetRequest, ResetResponse
 
+
+class Neo4jSchemaResetError(Exception):
+    """Raised when Neo4j schema reset operation fails"""
+    pass
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,14 +27,14 @@ async def handle_reset(
 
         # Get current counts
         if request.schemas:
-            counts["schemas"] = await count_schemas(s3)
+            counts["schemas"] = count_schemas(s3)
 
         if request.data:
-            data_counts = await count_data_files(s3)
+            data_counts = count_data_files(s3)
             counts.update(data_counts)
 
         if request.neo4j:
-            neo4j_counts = await count_neo4j_objects()
+            neo4j_counts = count_neo4j_objects()
             counts.update({f"neo4j_{k}": v for k, v in neo4j_counts.items()})
 
 
@@ -47,13 +52,13 @@ async def handle_reset(
 
         # Execute reset operations
         if request.schemas:
-            await reset_schemas(s3)
+            reset_schemas(s3)
 
         if request.data:
-            await reset_data_files(s3)
+            reset_data_files(s3)
 
         if request.neo4j:
-            await reset_neo4j()
+            reset_neo4j()
 
         return ResetResponse(
             counts=counts,
@@ -67,7 +72,7 @@ async def handle_reset(
         raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}")
 
 
-async def count_minio_objects(s3: Minio) -> Dict[str, int]:
+def count_minio_objects(s3: Minio) -> Dict[str, int]:
     """Count objects and buckets in MinIO"""
     try:
         total_objects = 0
@@ -86,7 +91,7 @@ async def count_minio_objects(s3: Minio) -> Dict[str, int]:
 
 
 
-async def reset_minio(s3: Minio):
+def reset_minio(s3: Minio):
     """Reset MinIO buckets - remove all objects and delete the buckets themselves, then recreate them"""
     try:
         from ..services.storage import BUCKETS
@@ -115,19 +120,27 @@ async def reset_minio(s3: Minio):
 
 
 
-async def count_schemas(s3: Minio) -> int:
-    """Count uploaded schemas in niem-schemas bucket"""
+def count_schemas(s3: Minio) -> int:
+    """Count schema folders in niem-schemas bucket"""
     try:
         if not s3.bucket_exists("niem-schemas"):
             return 0
-        objects = s3.list_objects("niem-schemas", recursive=True)
-        return sum(1 for _ in objects)
+        # List top-level folders (prefixes) only
+        objects = s3.list_objects("niem-schemas", recursive=False)
+        folders = set()
+        for obj in objects:
+            # Each object_name is a path like "schema-name/file.xsd"
+            # Extract the folder name (first part before /)
+            if obj.is_dir or '/' in obj.object_name:
+                folder = obj.object_name.split('/')[0]
+                folders.add(folder)
+        return len(folders)
     except Exception as e:
         logger.error(f"Failed to count schemas: {e}")
         return 0
 
 
-async def count_data_files(s3: Minio) -> Dict[str, int]:
+def count_data_files(s3: Minio) -> Dict[str, int]:
     """Count XML and JSON data files in niem-data bucket"""
     try:
         if not s3.bucket_exists("niem-data"):
@@ -154,7 +167,7 @@ async def count_data_files(s3: Minio) -> Dict[str, int]:
         return {"xml_files": 0, "json_files": 0, "total_files": 0}
 
 
-async def reset_schemas(s3: Minio):
+def reset_schemas(s3: Minio):
     """Reset only schemas in niem-schemas bucket"""
     try:
         if s3.bucket_exists("niem-schemas"):
@@ -170,7 +183,7 @@ async def reset_schemas(s3: Minio):
         raise
 
 
-async def reset_data_files(s3: Minio):
+def reset_data_files(s3: Minio):
     """Reset only data files in niem-data bucket"""
     try:
         if s3.bucket_exists("niem-data"):
@@ -186,7 +199,7 @@ async def reset_data_files(s3: Minio):
         raise
 
 
-async def reset_neo4j():
+def reset_neo4j():
     """Reset Neo4j database - clear all data and schema"""
     try:
         from ..services.graph_schema import get_graph_schema_manager
@@ -201,7 +214,7 @@ async def reset_neo4j():
         graph_manager = get_graph_schema_manager()
         result = graph_manager.reset_schema(confirm_reset=True)
         if "error" in result:
-            raise Exception(f"Schema reset failed: {result['error']}")
+            raise Neo4jSchemaResetError(f"Schema reset failed: {result['error']}")
 
         graph_manager.close()
         logger.info("Neo4j reset completed")
@@ -210,7 +223,7 @@ async def reset_neo4j():
         raise
 
 
-async def clear_neo4j_schema():
+def clear_neo4j_schema():
     """Clear Neo4j schema (indexes and constraints) only"""
     try:
         from ..services.graph_schema import get_graph_schema_manager
@@ -220,7 +233,7 @@ async def clear_neo4j_schema():
         graph_manager.close()
 
         if "error" in result:
-            raise Exception(f"Schema clear failed: {result['error']}")
+            raise Neo4jSchemaResetError(f"Schema clear failed: {result['error']}")
 
         logger.info(f"Neo4j schema cleared: {len(result.get('dropped_constraints', []))} constraints, {len(result.get('dropped_indexes', []))} indexes")
         return result
@@ -229,7 +242,7 @@ async def clear_neo4j_schema():
         raise
 
 
-async def clear_neo4j_data():
+def clear_neo4j_data():
     """Clear Neo4j data (nodes and relationships) only"""
     try:
         from ..core.dependencies import get_neo4j_client
@@ -254,7 +267,7 @@ async def clear_neo4j_data():
         raise
 
 
-async def count_neo4j_objects():
+def count_neo4j_objects():
     """Count Neo4j nodes and relationships"""
     try:
         from ..core.dependencies import get_neo4j_client

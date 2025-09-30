@@ -41,8 +41,37 @@ const generateDistinguishableColors = (count: number): string[] => {
   return colors;
 };
 
-// Data-agnostic relationship styling based on frequency and type
+// Enhanced relationship styling for NIEM data
 const getRelationshipStyle = (relationshipType: string, allTypes: string[]) => {
+  // Special styling for NIEM relationship patterns
+  if (relationshipType === 'REPRESENTS_PERSON') {
+    return {
+      color: '#E74C3C', // Red for person role relationships
+      width: 3,
+      style: 'solid',
+      opacity: 0.9
+    };
+  }
+
+  if (relationshipType.startsWith('J_') || relationshipType.startsWith('NC_') || relationshipType.startsWith('PRIV_')) {
+    return {
+      color: '#3498DB', // Blue for NIEM reference relationships
+      width: 2,
+      style: 'dashed',
+      opacity: 0.8
+    };
+  }
+
+  if (relationshipType.startsWith('HAS_')) {
+    return {
+      color: '#2ECC71', // Green for containment relationships
+      width: 1,
+      style: 'solid',
+      opacity: 0.7
+    };
+  }
+
+  // Fallback to data-agnostic styling
   const typeIndex = allTypes.indexOf(relationshipType);
   const baseColors = ['#2E3440', '#3B4252', '#434C5E', '#4C566A', '#5E81AC', '#81A1C1', '#88C0D0', '#8FBCBB'];
 
@@ -68,11 +97,11 @@ const getNodeSize = (node: GraphNode, relationships: GraphRelationship[]): numbe
 const getDisplayLabel = (node: GraphNode): string => {
   const props = node.properties;
 
-  // Priority order for meaningful labels
+  // Priority order for meaningful labels (qname first for NIEM data)
   const labelPriority = [
-    'name', 'title', 'label', 'id', 'identifier',
+    'qname', 'name', 'title', 'label', 'identifier',
     'content', 'text', 'value', 'description',
-    'xml_tag', 'tag', 'type'
+    'xml_tag', 'tag', 'type', 'id'
   ];
 
   // Find the best property to display
@@ -94,13 +123,17 @@ export default function GraphPage() {
   const cyInstance = useRef<cytoscape.Core | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cypherQuery, setCypherQuery] = useState('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 200');
+  const [cypherQuery, setCypherQuery] = useState('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 500');
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [selectedLayout, setSelectedLayout] = useState('cose');
   const [showNodeLabels, setShowNodeLabels] = useState(true);
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
 
   useEffect(() => {
+    const validLayouts = ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'];
+    if (!validLayouts.includes(selectedLayout)) {
+      setSelectedLayout('cose');
+    }
     loadInitialGraph();
   }, []);
 
@@ -120,7 +153,7 @@ export default function GraphPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
         },
-        body: JSON.stringify({ query, limit: 100 })
+        body: JSON.stringify({ query, limit: 1000 })
       });
 
       if (!response.ok) {
@@ -239,13 +272,6 @@ export default function GraphPage() {
           }
         },
         {
-          selector: 'node:hover',
-          style: {
-            'border-width': 2,
-            'border-color': '#FF6B35'
-          }
-        },
-        {
           selector: 'edge',
           style: {
             'width': 'data(width)',
@@ -280,7 +306,7 @@ export default function GraphPage() {
       ],
 
       layout: {
-        name: selectedLayout as any,
+        name: ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'].includes(selectedLayout) ? selectedLayout : 'cose',
         animate: true,
         animationDuration: 1000,
         fit: true,
@@ -300,13 +326,6 @@ export default function GraphPage() {
           initialTemp: 200,
           coolingFactor: 0.95,
           minTemp: 1.0
-        }),
-        ...(selectedLayout === 'cola' && {
-          nodeSpacing: 10,
-          edgeLengthVal: 100,
-          animate: true,
-          randomize: false,
-          maxSimulationTime: 4000
         }),
         ...(selectedLayout === 'circle' && {
           radius: Math.min(200, Math.max(100, data.nodes.length * 8))
@@ -345,20 +364,41 @@ export default function GraphPage() {
       console.log('===========================');
     });
 
+    // Add hover effects for nodes
+    cyInstance.current.on('mouseover', 'node', function(evt) {
+      const node = evt.target;
+      node.style({
+        'border-width': 2,
+        'border-color': '#FF6B35'
+      });
+    });
+
+    cyInstance.current.on('mouseout', 'node', function(evt) {
+      const node = evt.target;
+      node.style({
+        'border-width': 1,
+        'border-color': '#333333'
+      });
+    });
+
     // Fit to viewport
     cyInstance.current.fit();
   };
 
   const applyLayout = (layoutName: string) => {
     if (cyInstance.current && graphData) {
+      // Validate layout name against available options
+      const validLayouts = ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'];
+      const safeLayoutName = validLayouts.includes(layoutName) ? layoutName : 'cose';
+
       const layout = cyInstance.current.layout({
-        name: layoutName,
+        name: safeLayoutName,
         animate: true,
         animationDuration: 1000,
         fit: true,
         padding: 50,
         // Generic layout configurations
-        ...(layoutName === 'cose' && {
+        ...(safeLayoutName === 'cose' && {
           nodeOverlap: 20,
           refresh: 20,
           randomize: false,
@@ -373,17 +413,10 @@ export default function GraphPage() {
           coolingFactor: 0.95,
           minTemp: 1.0
         }),
-        ...(layoutName === 'cola' && {
-          nodeSpacing: 10,
-          edgeLengthVal: 100,
-          animate: true,
-          randomize: false,
-          maxSimulationTime: 4000
-        }),
-        ...(layoutName === 'circle' && {
+        ...(safeLayoutName === 'circle' && {
           radius: Math.min(200, Math.max(100, graphData.nodes.length * 8))
         }),
-        ...(layoutName === 'concentric' && {
+        ...(safeLayoutName === 'concentric' && {
           concentric: function(node: any) {
             return node.data('size');
           },
@@ -420,38 +453,42 @@ export default function GraphPage() {
     executeQuery(cypherQuery);
   };
 
-  // Complete data access queries - NO data loss
+  // Neo4j Browser-style queries that match common usage patterns
   const explorationQueries = [
     {
-      name: 'Show Everything',
+      name: 'Complete Graph',
       query: 'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m',
-      description: 'Complete graph - all nodes and all relationships (no limits)'
+      description: 'Show ALL nodes and relationships (no limit)'
     },
     {
-      name: 'Full Graph (500)',
-      query: 'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 500',
-      description: 'Complete graph structure with reasonable limit'
+      name: 'All Nodes',
+      query: 'MATCH (n) RETURN n',
+      description: 'Show all nodes without relationships'
     },
     {
-      name: 'All Relationships',
-      query: 'MATCH (a)-[r]->(b) RETURN a, r, b',
-      description: 'Every relationship with connected nodes (no limits)'
+      name: 'All Connected',
+      query: 'MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 500',
+      description: 'All relationships with connected nodes (500 limit)'
     },
     {
-      name: 'Complete Paths',
-      query: 'MATCH path = (a)-[*1..5]-(b) WHERE a <> b RETURN path LIMIT 100',
-      description: 'All paths up to 5 hops between different nodes'
+      name: 'Person Roles',
+      query: 'MATCH (role)-[r:REPRESENTS_PERSON]-(person:nc_Person) RETURN role, r, person',
+      description: 'Show NIEM role-based relationships to person entities'
     },
     {
-      name: 'Quick Overview',
-      query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 50',
-      description: 'Basic sample for large databases'
+      name: 'Metadata Links',
+      query: 'MATCH (n)-[r:HAS_METADATA]-(m) RETURN n, r, m',
+      description: 'Show all metadata relationships'
+    },
+    {
+      name: 'Reference Network',
+      query: 'MATCH (n)-[r]-(m) WHERE type(r) IN ["J_CHARGE", "NC_METADATA", "PRIV_PRIVACYMETADATA"] RETURN n, r, m',
+      description: 'Show NIEM reference relationships'
     }
   ];
 
   const layoutOptions = [
-    { value: 'cose', label: 'Force Physics', description: 'Smart force-directed layout' },
-    { value: 'cola', label: 'Force Simulation', description: 'Advanced force-directed' },
+    { value: 'cose', label: 'Force Physics', description: 'Smart force-directed layout with physics simulation' },
     { value: 'circle', label: 'Circular', description: 'Nodes arranged in circle' },
     { value: 'grid', label: 'Grid', description: 'Systematic grid arrangement' },
     { value: 'breadthfirst', label: 'Hierarchical', description: 'Tree-like hierarchy' },
@@ -461,9 +498,10 @@ export default function GraphPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Universal Graph Explorer</h1>
+        <h1 className="text-2xl font-bold text-gray-900">NIEM Graph Explorer</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Data-agnostic graph visualization for any Neo4j dataset. Explore nodes and relationships dynamically.
+          Enhanced graph visualization for NIEM data with specialized relationship styling and exploration patterns.
+          Features role-based person modeling and NIEM reference relationships.
         </p>
       </div>
 
@@ -636,6 +674,20 @@ export default function GraphPage() {
                   <h4 className="text-sm font-semibold text-gray-900 mt-4 mb-3">
                     Relationships ({graphData.metadata.relationshipTypes.length})
                   </h4>
+                  <div className="space-y-1 text-xs mb-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <div className="w-3 h-0.5 bg-red-500"></div>
+                      <span>Person Roles</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <div className="w-3 h-0.5 border-dashed border-t border-blue-500"></div>
+                      <span>NIEM References</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <div className="w-3 h-0.5 bg-green-500"></div>
+                      <span>Containment</span>
+                    </div>
+                  </div>
                   <div className="space-y-2 text-xs max-h-32 overflow-y-auto">
                     {graphData.metadata.relationshipTypes.map((type) => {
                       const style = getRelationshipStyle(type, graphData.metadata.relationshipTypes);
@@ -645,7 +697,8 @@ export default function GraphPage() {
                             className={`w-4 h-0.5 ${style.style === 'dashed' ? 'border-dashed border-t border-gray-600' : ''}`}
                             style={{
                               backgroundColor: style.style === 'solid' ? style.color : 'transparent',
-                              borderColor: style.style === 'dashed' ? style.color : 'transparent'
+                              borderColor: style.style === 'dashed' ? style.color : 'transparent',
+                              borderWidth: style.style === 'dashed' ? `${style.width}px` : '0'
                             }}
                           ></div>
                           <span className="truncate">{type}</span>
@@ -671,7 +724,8 @@ export default function GraphPage() {
 
           <div className="mt-4 text-xs text-gray-500">
             <p>
-              <strong>Universal Neo4j Visualization</strong> - Adapts to any graph structure with data-driven styling and layout optimization.
+              <strong>NIEM-Enhanced Neo4j Visualization</strong> - Specialized for NIEM data structures with role-based person modeling,
+              reference relationships, and optimized layout for crash driver scenarios.
             </p>
           </div>
         </div>

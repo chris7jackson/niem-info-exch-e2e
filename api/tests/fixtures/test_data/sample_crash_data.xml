@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CrashDriver xmlns="http://example.com/crash">
+    <CrashID>CRASH-001</CrashID>
+    <ReportDate>2024-01-15</ReportDate>
+    <Location>
+        <Street>Main Street</Street>
+        <City>Anytown</City>
+        <State>CA</State>
+    </Location>
+    <Driver>
+        <PersonID>DRIVER-001</PersonID>
+        <Name>John Doe</Name>
+        <Age>35</Age>
+        <LicenseNumber>D1234567</LicenseNumber>
+    </Driver>
+    <Vehicle>
+        <VIN>1HGBH41JXMN109186</VIN>
+        <Make>Honda</Make>
+        <Model>Civic</Model>
+        <Year>2020</Year>
+    </Vehicle>
+    <Incident>
+        <DateTime>2024-01-15T14:30:00</DateTime>
+        <Description>Rear-end collision at traffic light</Description>
+        <Severity>Minor</Severity>
+    </Incident>
+</CrashDriver>

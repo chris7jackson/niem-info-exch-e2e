@@ -1,0 +1,50 @@
+{
+  "crash_id": "CRASH-002",
+  "report_date": "2024-01-16",
+  "location": {
+    "street": "Oak Avenue",
+    "city": "Springfield",
+    "state": "IL",
+    "coordinates": {
+      "latitude": 39.7817,
+      "longitude": -89.6501
+    }
+  },
+  "driver": {
+    "person_id": "DRIVER-002",
+    "name": "Jane Smith",
+    "age": 28,
+    "license_number": "S9876543",
+    "insurance": {
+      "company": "Safe Drive Insurance",
+      "policy_number": "POL123456"
+    }
+  },
+  "vehicle": {
+    "vin": "2HGFC2F59KH123456",
+    "make": "Honda",
+    "model": "Accord",
+    "year": 2019,
+    "color": "Blue"
+  },
+  "incident": {
+    "datetime": "2024-01-16T09:15:00",
+    "description": "Side-impact collision at intersection",
+    "severity": "Moderate",
+    "weather_conditions": "Rainy",
+    "injuries": [
+      {
+        "person": "DRIVER-002",
+        "type": "Minor bruising",
+        "medical_attention": false
+      }
+    ]
+  },
+  "responding_officers": [
+    {
+      "badge_number": "12345",
+      "name": "Officer Johnson",
+      "department": "Springfield PD"
+    }
+  ]
+}
