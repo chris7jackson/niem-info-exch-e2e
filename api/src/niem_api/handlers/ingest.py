@@ -451,3 +451,61 @@ def _generate_cypher_from_xml(xml_content: str, mapping: Dict[str, Any], filenam
     except Exception as e:
         logger.error(f"Failed to generate Cypher from XML {filename}: {e}")
         raise
+
+
+async def handle_get_uploaded_files(s3: Minio) -> Dict[str, Any]:
+    """Get list of uploaded data files
+
+    Args:
+        s3: MinIO client
+
+    Returns:
+        Dictionary with file list and metadata
+
+    Raises:
+        HTTPException: If retrieval fails
+    """
+    try:
+        from ..services.storage import list_files
+
+        files = await list_files(s3, "niem-data")
+
+        # Parse filenames to extract original names and metadata
+        processed_files = []
+        for file_info in files:
+            name = file_info["name"]
+            # Files are stored as timestamp_hash_originalname.ext
+            parts = name.split("_", 2)
+            if len(parts) >= 3:
+                original_name = parts[2]  # Get the original filename
+                processed_files.append({
+                    "original_name": original_name,
+                    "stored_name": name,
+                    "size": file_info["size"],
+                    "last_modified": file_info["last_modified"],
+                    "content_type": file_info["content_type"]
+                })
+            else:
+                # Fallback for files that don't follow the naming convention
+                processed_files.append({
+                    "original_name": name,
+                    "stored_name": name,
+                    "size": file_info["size"],
+                    "last_modified": file_info["last_modified"],
+                    "content_type": file_info["content_type"]
+                })
+
+        # Sort by last modified (newest first)
+        processed_files.sort(key=lambda x: x["last_modified"] or "", reverse=True)
+
+        logger.info(f"Retrieved {len(processed_files)} uploaded files")
+
+        return {
+            "status": "success",
+            "files": processed_files,
+            "total_files": len(processed_files)
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get uploaded files: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get uploaded files: {str(e)}")

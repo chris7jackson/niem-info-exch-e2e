@@ -299,3 +299,74 @@ def count_neo4j_objects():
         return {"nodes": 0, "relationships": 0, "indexes": 0, "constraints": 0}
 
 
+def handle_configure_graph_schema(s3: Minio) -> Dict[str, Any]:
+    """Configure graph schema from active mapping
+
+    Args:
+        s3: MinIO client
+
+    Returns:
+        Configuration result dictionary
+
+    Raises:
+        HTTPException: If configuration fails
+    """
+    try:
+        from ..services.graph_schema import get_graph_schema_manager
+        from .schema import get_active_schema_id
+        import json
+
+        # Get active schema ID
+        active_schema_id = get_active_schema_id(s3)
+        if not active_schema_id:
+            raise HTTPException(status_code=400, detail="No active schema found")
+
+        # Get mapping from MinIO
+        response = s3.get_object("niem-schemas", f"{active_schema_id}/mapping.json")
+        mapping = json.loads(response.read().decode('utf-8'))
+        response.close()
+        response.release_conn()
+
+        # Configure graph schema
+        graph_manager = get_graph_schema_manager()
+        result = graph_manager.configure_schema_from_mapping(mapping)
+        graph_manager.close()
+
+        logger.info(f"Configured graph schema from mapping for schema {active_schema_id}")
+
+        return {
+            "status": "success",
+            "schema_id": active_schema_id,
+            "configuration_result": result
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Graph schema configuration failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Graph schema configuration failed: {str(e)}")
+
+
+def handle_get_graph_schema_info() -> Dict[str, Any]:
+    """Get current graph schema information
+
+    Returns:
+        Schema information dictionary
+
+    Raises:
+        HTTPException: If retrieval fails
+    """
+    try:
+        from ..services.graph_schema import get_graph_schema_manager
+
+        graph_manager = get_graph_schema_manager()
+        schema_info = graph_manager.get_current_schema_info()
+        graph_manager.close()
+
+        return schema_info
+
+    except Exception as e:
+        logger.error(f"Failed to get graph schema info: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get graph schema info: {str(e)}")
+
+

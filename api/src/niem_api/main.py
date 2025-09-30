@@ -29,8 +29,6 @@ async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("Starting NIEM API service")
 
-    # Note: Database dependency removed - using MinIO for schema storage
-
     # Initialize MinIO buckets, etc.
     await startup_tasks()
 
@@ -59,6 +57,9 @@ async def startup_tasks():
             logger.warning("CMF tool setup failed - some features may not be available")
 
         logger.info("Startup tasks completed successfully")
+
+        # TODO potentially, fetch all third party references. i.e. niem open reference xsd schemas. niem cmftool, niem naming design rules. Or document how to update. 
+
     except Exception as e:
         logger.error(f"Startup tasks failed: {e}")
         raise
@@ -80,8 +81,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
 @app.get("/healthz")
 async def health_check():
     """Liveness probe - checks if application is alive and can serve requests"""
@@ -92,11 +91,6 @@ async def health_check():
         "timestamp": current_time,
         "uptime": current_time - _app_start_time
     }
-
-@app.get("/api/status")
-async def simple_status():
-    """Simple test status endpoint"""
-    return {"status": "working", "timestamp": time.time()}
 
 
 @app.get("/readyz")
@@ -188,7 +182,7 @@ async def ingest_json(
 ):
     """Ingest JSON files directly to Neo4j"""
     from .handlers.ingest import handle_json_ingest
-    return await handle_json_ingest(files, s3, schema_id)
+    return await handle_json_ingest(files, schema_id)
 
 
 @app.get("/api/ingest/files")
@@ -197,50 +191,8 @@ async def get_uploaded_files(
     s3=Depends(get_s3_client)
 ):
     """Get list of uploaded data files"""
-    try:
-        from .services.storage import list_files
-
-        files = await list_files(s3, "niem-data")
-
-        # Parse filenames to extract original names and metadata
-        processed_files = []
-        for file_info in files:
-            name = file_info["name"]
-            # Files are stored as timestamp_hash_originalname.ext
-            parts = name.split("_", 2)
-            if len(parts) >= 3:
-                original_name = parts[2]  # Get the original filename
-                processed_files.append({
-                    "original_name": original_name,
-                    "stored_name": name,
-                    "size": file_info["size"],
-                    "last_modified": file_info["last_modified"],
-                    "content_type": file_info["content_type"]
-                })
-            else:
-                # Fallback for files that don't follow the naming convention
-                processed_files.append({
-                    "original_name": name,
-                    "stored_name": name,
-                    "size": file_info["size"],
-                    "last_modified": file_info["last_modified"],
-                    "content_type": file_info["content_type"]
-                })
-
-        # Sort by last modified (newest first)
-        processed_files.sort(key=lambda x: x["last_modified"] or "", reverse=True)
-
-        return {
-            "status": "success",
-            "files": processed_files,
-            "total_files": len(processed_files)
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to get uploaded files: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get uploaded files: {str(e)}")
-
-
+    from .handlers.ingest import handle_get_uploaded_files
+    return await handle_get_uploaded_files(s3)
 
 
 # Admin Routes
@@ -262,38 +214,8 @@ async def configure_graph_schema(
     s3=Depends(get_s3_client)
 ):
     """Configure graph schema from active mapping"""
-    try:
-        from .services.graph_schema import get_graph_schema_manager
-        from .handlers.schema import get_active_schema_id
-        import json
-
-        # Get active schema ID
-        active_schema_id = get_active_schema_id(s3)
-        if not active_schema_id:
-            raise HTTPException(status_code=400, detail="No active schema found")
-
-        # Get mapping from MinIO
-        response = s3.get_object("niem-schemas", f"{active_schema_id}/mapping.json")
-        mapping = json.loads(response.read().decode('utf-8'))
-        response.close()
-        response.release_conn()
-
-        # Configure graph schema
-        graph_manager = get_graph_schema_manager()
-        result = graph_manager.configure_schema_from_mapping(mapping)
-        graph_manager.close()
-
-        return {
-            "status": "success",
-            "schema_id": active_schema_id,
-            "configuration_result": result
-        }
-
-    except Exception as e:
-        logger.error(f"Graph schema configuration failed: {e}")
-        if isinstance(e, HTTPException):
-            raise
-        raise HTTPException(status_code=500, detail=f"Graph schema configuration failed: {str(e)}")
+    from .handlers.admin import handle_configure_graph_schema
+    return handle_configure_graph_schema(s3)
 
 
 @app.get("/api/admin/graph-schema/info")
@@ -301,18 +223,8 @@ async def get_graph_schema_info(
     token: str = Depends(verify_token)
 ):
     """Get current graph schema information"""
-    try:
-        from .services.graph_schema import get_graph_schema_manager
-
-        graph_manager = get_graph_schema_manager()
-        schema_info = graph_manager.get_current_schema_info()
-        graph_manager.close()
-
-        return schema_info
-
-    except Exception as e:
-        logger.error(f"Failed to get graph schema info: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get graph schema info: {str(e)}")
+    from .handlers.admin import handle_get_graph_schema_info
+    return handle_get_graph_schema_info()
 
 
 @app.post("/api/admin/neo4j/clear-schema")
