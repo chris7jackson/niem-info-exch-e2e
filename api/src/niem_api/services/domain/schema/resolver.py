@@ -6,11 +6,12 @@ from pathlib import Path
 from typing import Dict, Set, Optional, Any
 from xml.etree import ElementTree as ET
 
-from .element_level_treeshaker import ElementLevelTreeshaker, create_element_level_treeshaker
+from .treeshaker import ElementLevelTreeshaker, create_element_level_treeshaker
 
 logger = logging.getLogger(__name__)
 
-NIEM_XSD_LOCAL_PATH = Path(__file__).parent.parent.parent.parent / "third_party" / "niem-xsd"
+# Adjust path: domain/schema/resolver.py -> go up to api/ root
+NIEM_XSD_LOCAL_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / "third_party" / "niem-xsd"
 
 class NIEMDependencyResolver:
     """

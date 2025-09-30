@@ -5,7 +5,7 @@ import logging
 from typing import Dict, List, Any
 
 from neo4j.exceptions import ClientError
-from ..core.dependencies import get_neo4j_client
+from ....core.dependencies import get_neo4j_client
 
 logger = logging.getLogger(__name__)
 

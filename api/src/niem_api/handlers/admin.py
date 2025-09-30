@@ -77,7 +77,7 @@ def count_minio_objects(s3: Minio) -> Dict[str, int]:
     try:
         total_objects = 0
         bucket_count = 0
-        from ..services.storage import BUCKETS
+        from ..clients.s3_client import BUCKETS
         for bucket in BUCKETS:
             if s3.bucket_exists(bucket):
                 bucket_count += 1
@@ -94,7 +94,7 @@ def count_minio_objects(s3: Minio) -> Dict[str, int]:
 def reset_minio(s3: Minio):
     """Reset MinIO buckets - remove all objects and delete the buckets themselves, then recreate them"""
     try:
-        from ..services.storage import BUCKETS
+        from ..clients.s3_client import BUCKETS
         for bucket in BUCKETS:
             if s3.bucket_exists(bucket):
                 # First remove all objects
@@ -202,7 +202,7 @@ def reset_data_files(s3: Minio):
 def reset_neo4j():
     """Reset Neo4j database - clear all data and schema"""
     try:
-        from ..services.graph_schema import get_graph_schema_manager
+        from ..services.domain.graph import get_graph_schema_manager
         from ..core.dependencies import get_neo4j_client
 
         # Clear all data using Neo4j client
@@ -226,7 +226,7 @@ def reset_neo4j():
 def clear_neo4j_schema():
     """Clear Neo4j schema (indexes and constraints) only"""
     try:
-        from ..services.graph_schema import get_graph_schema_manager
+        from ..services.domain.graph import get_graph_schema_manager
 
         graph_manager = get_graph_schema_manager()
         result = graph_manager.reset_schema(confirm_reset=True)
@@ -312,7 +312,7 @@ def handle_configure_graph_schema(s3: Minio) -> Dict[str, Any]:
         HTTPException: If configuration fails
     """
     try:
-        from ..services.graph_schema import get_graph_schema_manager
+        from ..services.domain.graph import get_graph_schema_manager
         from .schema import get_active_schema_id
         import json
 
@@ -357,7 +357,7 @@ def handle_get_graph_schema_info() -> Dict[str, Any]:
         HTTPException: If retrieval fails
     """
     try:
-        from ..services.graph_schema import get_graph_schema_manager
+        from ..services.domain.graph import get_graph_schema_manager
 
         graph_manager = get_graph_schema_manager()
         schema_info = graph_manager.get_current_schema_info()

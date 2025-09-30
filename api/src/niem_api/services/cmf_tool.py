@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+"""
+CMF Tool Business Logic
+
+Handles business operations using the CMF tool:
+- XSD to CMF conversion
+- CMF to JSON Schema conversion
+
+Low-level CMF tool wrapper functions are in clients/cmf_client.py
+"""
 
 import json
 import logging
@@ -10,87 +19,34 @@ import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
+# Import from client layer
+from ..clients.cmf_client import (
+    CMFError,
+    is_cmf_available,
+    run_cmf_command,
+    download_and_setup_cmf,
+    get_cmf_version
+)
 
 logger = logging.getLogger(__name__)
 
-# CMF tool configuration - check both local and mounted paths
-# Go up 5 levels from services/cmf_tool.py to get to project root
-_LOCAL_CMF_PATH = Path(__file__).parent.parent.parent.parent.parent / "third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool"
-_MOUNTED_CMF_PATH = "/app/third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool"
+# Re-export client functions for backward compatibility
+__all__ = [
+    'CMFError',
+    'is_cmf_available',
+    'run_cmf_command',
+    'download_and_setup_cmf',
+    'get_cmf_version',
+    'convert_xsd_to_cmf',
+    'convert_cmf_to_jsonschema',
+]
 
-# Use local path if it exists, otherwise try mounted path
-if _LOCAL_CMF_PATH.exists():
-    CMF_TOOL_PATH = str(_LOCAL_CMF_PATH)
-elif Path(_MOUNTED_CMF_PATH).exists():
-    CMF_TOOL_PATH = _MOUNTED_CMF_PATH
-else:
-    CMF_TOOL_PATH = None
-CMF_TIMEOUT = 30  # seconds
-
-
-class CMFError(Exception):
-    """CMF tool error"""
-    pass
-
-
-async def download_and_setup_cmf():
-    """Check if mounted CMF tool is available"""
-    if is_cmf_available():
-        logger.info(f"CMF tool available at mounted path: {CMF_TOOL_PATH}")
-        return True
-    else:
-        logger.warning(f"CMF tool not found at expected mounted path: {CMF_TOOL_PATH}")
-        return False
-
-
-def run_cmf_command(cmd: list, timeout: int = CMF_TIMEOUT, working_dir: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Run a CMF tool command with timeout and safety checks.
-    """
-    if not CMF_TOOL_PATH:
-        raise CMFError("CMF tool not available. Please ensure it's properly installed.")
-
-    try:
-        full_cmd = [CMF_TOOL_PATH] + cmd
-        logger.info(f"Running CMF command: {' '.join(full_cmd)}")
-
-        # Set working directory
-        if working_dir is None:
-            working_dir = Path(CMF_TOOL_PATH).parent.parent
-
-        result = subprocess.run(
-            full_cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=working_dir
-        )
-
-        logger.debug(f"CMF command result: returncode={result.returncode}")
-        if result.stdout:
-            logger.debug(f"CMF stdout: {result.stdout}")
-        if result.stderr:
-            logger.debug(f"CMF stderr: {result.stderr}")
-
-        return {
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr
-        }
-    except subprocess.TimeoutExpired:
-        logger.error(f"CMF command timed out after {timeout} seconds")
-        raise CMFError(f"Operation timed out after {timeout} seconds")
-    except Exception as e:
-        logger.error(f"CMF command execution failed: {e}")
-        raise CMFError(f"Command execution failed: {e}")
-
-
-# CMF tool is only used for XML validation against schemas and XSD-to-JSON conversion
+# CMF tool is used for XML validation against schemas and XSD-to-JSON conversion
 
 
 
 
-async def convert_xsd_to_cmf(xsd_content: str, source_dir: Path = None, primary_filename: str = "schema.xsd") -> Dict[str, Any]:
+def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.xsd") -> Dict[str, Any]:
     """
     Convert XSD to CMF using CMF tool with NIEM dependency resolution.
     Returns the CMF content as a string.
@@ -210,8 +166,7 @@ async def convert_xsd_to_cmf(xsd_content: str, source_dir: Path = None, primary_
         # Note: Resolved schema directory cleanup is handled by the schema handler
         pass
 
-
-async def convert_cmf_to_jsonschema(cmf_content: str) -> Dict[str, Any]:
+def convert_cmf_to_jsonschema(cmf_content: str) -> Dict[str, Any]:
     """
     Convert CMF content to JSON Schema using CMF tool (m2jmsg command).
     """
@@ -282,23 +237,4 @@ async def convert_cmf_to_jsonschema(cmf_content: str) -> Dict[str, Any]:
             "error": f"CMF to JSON Schema conversion failed: {str(e)}"
         }
 
-def is_cmf_available() -> bool:
-    """Check if CMF tool is available"""
-    global CMF_TOOL_PATH
-    
-    # Re-check paths dynamically in case of import-time issues
-    if CMF_TOOL_PATH is None:
-        local_path = Path(__file__).parent.parent.parent.parent.parent / "third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool"
-        mounted_path = Path("/app/third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool")
-        
-        if local_path.exists():
-            CMF_TOOL_PATH = str(local_path)
-        elif mounted_path.exists():
-            CMF_TOOL_PATH = str(mounted_path)
-    
-    return CMF_TOOL_PATH is not None and Path(CMF_TOOL_PATH).exists()
-
-
-def get_cmf_version() -> str:
-    """Get CMF tool version"""
-    return "mounted"
+# Functions is_cmf_available() and get_cmf_version() are imported from clients.cmf_client

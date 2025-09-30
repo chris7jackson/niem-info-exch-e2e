@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 from fastapi import HTTPException, UploadFile
 from minio import Minio
 from ..services.cmf_tool import is_cmf_available
-from ..services.neo4j_client import Neo4jClient
+from ..clients.neo4j_client import Neo4jClient
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
     """
     import tempfile
     from pathlib import Path
-    from ..services.cmf_tool import run_cmf_command, CMFError
+    from ..clients.cmf_client import run_cmf_command, CMFError
 
     logger.info(f"Validating XML file {filename} against XSD schemas")
 
@@ -216,7 +216,7 @@ async def _store_processed_files(s3: Minio, content: bytes, filename: str, cyphe
         filename: Original filename
         cypher_statements: Generated Cypher statements
     """
-    from ..services.storage import upload_file
+    from ..clients.s3_client import upload_file
     import hashlib
     import time
 
@@ -429,7 +429,7 @@ def _generate_cypher_from_xml(xml_content: str, mapping: Dict[str, Any], filenam
         Tuple of (cypher_statements, stats)
     """
     try:
-        from ..services.import_xml_to_cypher import generate_for_xml_content
+        from ..services.domain.xml_to_graph import generate_for_xml_content
 
         # Generate Cypher statements using in-memory processing (no temporary files needed)
         cypher_statements, nodes, contains, edges = generate_for_xml_content(xml_content, mapping, filename)
@@ -466,7 +466,7 @@ async def handle_get_uploaded_files(s3: Minio) -> Dict[str, Any]:
         HTTPException: If retrieval fails
     """
     try:
-        from ..services.storage import list_files
+        from ..clients.s3_client import list_files
 
         files = await list_files(s3, "niem-data")
 

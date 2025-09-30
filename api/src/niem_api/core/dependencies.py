@@ -36,7 +36,7 @@ def get_neo4j_client():
     """Get or create global Neo4j client instance"""
     global _neo4j_client
     if _neo4j_client is None:
-        from ..services.neo4j_client import Neo4jClient
+        from ..clients.neo4j_client import Neo4jClient
 
         neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
         neo4j_user = os.getenv("NEO4J_USER", "neo4j")

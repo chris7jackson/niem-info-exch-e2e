@@ -15,8 +15,8 @@ from minio import Minio
 from minio.error import S3Error
 
 from ..models.models import SchemaResponse, NiemNdrReport, NiemNdrViolation
-from ..services.storage import upload_file
-from ..services.ndr_validator import NiemNdrValidator
+from ..clients.s3_client import upload_file
+from ..services.domain.schema import NiemNdrValidator
 from ..services.cmf_tool import convert_xsd_to_cmf, convert_cmf_to_jsonschema, is_cmf_available
 
 logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ def _resolve_niem_dependencies(source_dir: Path, schema_filename: str, xsd_conte
     Returns:
         Dictionary with copied files and statistics
     """
-    from ..services.niem_dependency_resolver import resolve_niem_schema_dependencies, get_treeshaking_statistics
+    from ..services.domain.schema import resolve_niem_schema_dependencies, get_treeshaking_statistics
 
     if skip_niem_resolution:
         logger.info("Skipping NIEM dependency resolution - using only uploaded files")
@@ -667,8 +667,8 @@ async def _generate_and_store_mapping(
 
     try:
         logger.error("*** DEBUG: Starting mapping generation process ***")
-        from ..services.cmf_to_mapping import generate_mapping_from_cmf_content
-        from ..services.validate_mapping_coverage import validate_mapping_coverage_from_data
+        from ..services.domain.schema import generate_mapping_from_cmf_content
+        from ..services.domain.schema import validate_mapping_coverage_from_data
 
         cmf_content = cmf_conversion_result["cmf_content"]
         logger.error(f"*** DEBUG: CMF content length: {len(cmf_content)} ***")

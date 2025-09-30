@@ -44,12 +44,12 @@ async def startup_tasks():
     try:
 
         # Create MinIO buckets
-        from .services.storage import create_buckets
+        from .clients.s3_client import create_buckets
         await create_buckets()
 
 
         # Download and setup CMF tool
-        from .services.cmf_tool import download_and_setup_cmf
+        from .clients.cmf_client import download_and_setup_cmf
         cmf_setup = await download_and_setup_cmf()
         if cmf_setup:
             logger.info("CMF tool setup completed successfully")
