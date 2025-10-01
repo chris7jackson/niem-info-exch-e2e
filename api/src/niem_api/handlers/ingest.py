@@ -54,7 +54,7 @@ def _load_mapping_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to load mapping.yaml: {str(e)}")
 
 
-async def _download_schema_files(s3: Minio, schema_id: str) -> str:
+def _download_schema_files(s3: Minio, schema_id: str) -> str:
     """Download schema XSD files from S3 to temporary directory.
 
     Args:
@@ -354,11 +354,13 @@ async def handle_xml_ingest(
         mapping = _load_mapping_from_s3(s3, schema_id)
 
         # Step 3: Download schema files for validation
-        schema_dir = await _download_schema_files(s3, schema_id)
+        schema_dir = _download_schema_files(s3, schema_id)
 
         # Step 4: Process files
         results = []
         total_statements_executed = 0
+        total_nodes = 0
+        total_relationships = 0
 
         # Initialize Neo4j client
         neo4j_client = Neo4jClient()
@@ -370,6 +372,8 @@ async def handle_xml_ingest(
                 )
                 results.append(result)
                 total_statements_executed += statements_executed
+                total_nodes += result.get("nodes_created", 0)
+                total_relationships += result.get("relationships_created", 0)
 
         finally:
             neo4j_client.driver.close()
@@ -377,6 +381,8 @@ async def handle_xml_ingest(
         return {
             "schema_id": schema_id,
             "files_processed": len(files),
+            "total_nodes_created": total_nodes,
+            "total_relationships_created": total_relationships,
             "total_statements_executed": total_statements_executed,
             "results": results
         }

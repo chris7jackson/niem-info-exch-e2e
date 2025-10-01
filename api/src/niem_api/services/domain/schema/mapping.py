@@ -22,6 +22,9 @@ CMF_NS = "https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
 STRUCT_NS = "https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/"
 NS = {"cmf": CMF_NS, "structures": STRUCT_NS}
 
+# NIEM type constants
+ASSOCIATION_TYPE = "nc.AssociationType"
+
 
 def to_qname(dotted: str) -> str:
     """Convert 'prefix.LocalName' to 'prefix:LocalName' (CMF uses dotted ids).
@@ -166,11 +169,11 @@ def _is_meaningful_class(class_info: Dict[str, Any]) -> bool:
         True if class has meaningful content
     """
     return any([
-        class_info["id"],
-        class_info["name"],
-        class_info["namespace_prefix"],
-        class_info["subclass_of"],
-        class_info["props"]
+        class_info.get("id"),
+        class_info.get("name"),
+        class_info.get("namespace_prefix"),
+        class_info.get("subclass_of"),
+        class_info.get("props", [])
     ])
 
 
@@ -213,6 +216,254 @@ def build_element_to_class(root: ET.Element) -> Dict[str, str]:
     return mapping
 
 
+def build_dataproperty_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
+    """Build index of DataProperty elements from CMF.
+
+    Args:
+        root: CMF XML root element
+
+    Returns:
+        Dictionary mapping DataProperty IDs to property information
+    """
+    index = {}
+    for element in root.findall(".//cmf:DataProperty", NS):
+        prop_id = element.attrib.get(f"{{{STRUCT_NS}}}id")
+        if not prop_id:
+            continue
+
+        # Extract datatype reference
+        datatype_ref = ref_of(element, "Datatype")
+
+        index[prop_id] = {
+            "id": prop_id,
+            "name": text_of(element, "Name"),
+            "datatype": datatype_ref,
+            "namespace": ref_of(element, "Namespace")
+        }
+
+    return index
+
+
+def build_datatype_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
+    """Build index of Datatype and Restriction elements from CMF to classify types.
+
+    Args:
+        root: CMF XML root element
+
+    Returns:
+        Dictionary mapping Datatype/Restriction IDs to type classification info
+    """
+    index = {}
+
+    # Process both Datatype and Restriction elements
+    for element_type in [".//cmf:Datatype", ".//cmf:Restriction"]:
+        for element in root.findall(element_type, NS):
+            dtype_id = element.attrib.get(f"{{{STRUCT_NS}}}id")
+            if not dtype_id:
+                continue
+
+            # Check for restriction base (indicates simple type)
+            restriction_base = element.find(".//cmf:RestrictionBase", NS)
+            restriction_of = element.find(".//cmf:RestrictionOf", NS)
+            is_restriction = restriction_base is not None or restriction_of is not None or element_type == ".//cmf:Restriction"
+
+            # Check for child properties (indicates complex type)
+            child_props = element.findall(".//cmf:ChildPropertyAssociation", NS)
+
+            # Classify type
+            if is_restriction and len(child_props) == 0:
+                type_class = "SIMPLE"
+            elif len(child_props) == 1:
+                # Single child - could be WRAPPER
+                type_class = "WRAPPER"
+            elif len(child_props) > 1:
+                type_class = "COMPLEX"
+            else:
+                type_class = "SIMPLE"  # Default
+
+            index[dtype_id] = {
+                "id": dtype_id,
+                "name": text_of(element, "Name"),
+                "class": type_class,
+                "child_count": len(child_props),
+                "child_props": [
+                    {
+                        "dataProperty": ref_of(cpa, "DataProperty"),
+                        "objectProperty": ref_of(cpa, "ObjectProperty"),
+                        "min": text_of(cpa, "MinOccursQuantity"),
+                        "max": text_of(cpa, "MaxOccursQuantity")
+                    }
+                    for cpa in child_props
+                ]
+            }
+
+    return index
+
+
+def _extract_scalar_properties(
+    class_props: List[Dict[str, Any]],
+    dataprop_index: Dict[str, Dict[str, Any]],
+    datatype_index: Dict[str, Dict[str, Any]],
+    max_depth: int = 3
+) -> List[Dict[str, str]]:
+    """Extract flattened scalar properties from class properties.
+
+    Args:
+        class_props: List of property associations from class
+        dataprop_index: Index of DataProperty definitions
+        datatype_index: Index of Datatype definitions
+        max_depth: Maximum depth to flatten nested types
+
+    Returns:
+        List of scalar property definitions with paths
+    """
+    scalar_props = []
+
+    for prop in class_props:
+        data_prop_ref = prop.get("dataProperty")
+        if not data_prop_ref:
+            continue
+
+        # Resolve DataProperty
+        data_prop = dataprop_index.get(data_prop_ref)
+        if not data_prop:
+            continue
+
+        # Get the datatype for this property
+        datatype_ref = data_prop.get("datatype")
+        if not datatype_ref:
+            continue
+
+        # Flatten properties recursively
+        flattened = _flatten_property(
+            data_prop_ref,
+            data_prop,
+            dataprop_index,
+            datatype_index,
+            max_depth=max_depth,
+            current_depth=0
+        )
+
+        scalar_props.extend(flattened)
+
+    return scalar_props
+
+
+def _flatten_property(
+    prop_ref: str,
+    data_prop: Dict[str, Any],
+    dataprop_index: Dict[str, Dict[str, Any]],
+    datatype_index: Dict[str, Dict[str, Any]],
+    max_depth: int,
+    current_depth: int,
+    path_prefix: str = ""
+) -> List[Dict[str, str]]:
+    """Recursively flatten a property based on its datatype classification.
+
+    Args:
+        prop_ref: Property reference ID
+        data_prop: DataProperty information
+        dataprop_index: Index of DataProperty definitions
+        datatype_index: Index of Datatype definitions
+        max_depth: Maximum recursion depth
+        current_depth: Current recursion depth
+        path_prefix: Accumulated path prefix
+
+    Returns:
+        List of flattened scalar property definitions
+    """
+    result = []
+
+    # Build property path
+    prop_qname = to_qname(prop_ref)
+    if path_prefix:
+        full_path = f"{path_prefix}.{prop_qname}"
+    else:
+        full_path = prop_qname
+
+    # Get datatype classification
+    datatype_ref = data_prop.get("datatype")
+    if not datatype_ref:
+        # No datatype - treat as simple scalar
+        result.append({
+            "path": full_path,
+            "neo4j_property": full_path.replace(":", "_").replace(".", "_")
+        })
+        return result
+
+    datatype = datatype_index.get(datatype_ref)
+    if not datatype:
+        # Unknown datatype - treat as simple scalar
+        result.append({
+            "path": full_path,
+            "neo4j_property": full_path.replace(":", "_").replace(".", "_")
+        })
+        return result
+
+    type_class = datatype.get("class", "SIMPLE")
+
+    # SIMPLE type - return as-is
+    if type_class == "SIMPLE":
+        result.append({
+            "path": full_path,
+            "neo4j_property": full_path.replace(":", "_").replace(".", "_")
+        })
+        return result
+
+    # Depth limit reached - stop flattening
+    if current_depth >= max_depth:
+        result.append({
+            "path": full_path,
+            "neo4j_property": full_path.replace(":", "_").replace(".", "_")
+        })
+        return result
+
+    # WRAPPER or COMPLEX - flatten children
+    child_props = datatype.get("child_props", [])
+
+    if type_class == "WRAPPER" and len(child_props) == 1:
+        # Single child - flatten directly
+        child_prop = child_props[0]
+        child_data_ref = child_prop.get("dataProperty")
+
+        if child_data_ref and child_data_ref in dataprop_index:
+            # Recurse into child
+            child_data = dataprop_index[child_data_ref]
+            result.extend(_flatten_property(
+                child_data_ref,
+                child_data,
+                dataprop_index,
+                datatype_index,
+                max_depth,
+                current_depth + 1,
+                full_path
+            ))
+    elif type_class == "COMPLEX" and len(child_props) > 0:
+        # Multiple children - flatten each with path prefix
+        for child_prop in child_props:
+            child_data_ref = child_prop.get("dataProperty")
+
+            if child_data_ref and child_data_ref in dataprop_index:
+                child_data = dataprop_index[child_data_ref]
+                result.extend(_flatten_property(
+                    child_data_ref,
+                    child_data,
+                    dataprop_index,
+                    datatype_index,
+                    max_depth,
+                    current_depth + 1,
+                    full_path
+                ))
+    else:
+        # No children or couldn't resolve - treat as scalar
+        result.append({
+            "path": full_path,
+            "neo4j_property": full_path.replace(":", "_").replace(".", "_")
+        })
+
+    return result
+
+
 def _partition_classes(
     class_index: Dict[str, Dict[str, Any]],
     class_to_element: Dict[str, str]
@@ -236,7 +487,7 @@ def _partition_classes(
             "info": class_info
         }
 
-        if class_info["subclass_of"] == "nc.AssociationType":
+        if class_info["subclass_of"] == ASSOCIATION_TYPE:
             association_ids.add(class_id)
             associations.append(class_data)
         else:
@@ -256,11 +507,12 @@ def _collect_used_prefixes(classes: List[Dict[str, Any]]) -> Set[str]:
     """
     used_prefixes = set()
     for class_info in classes:
-        if class_info["namespace_prefix"]:
-            used_prefixes.add(class_info["namespace_prefix"])
+        ns_prefix = class_info.get("namespace_prefix")
+        if ns_prefix:
+            used_prefixes.add(ns_prefix)
 
-        for prop in class_info["props"]:
-            for ref in (prop["objectProperty"], prop["dataProperty"]):
+        for prop in class_info.get("props", []):
+            for ref in (prop.get("objectProperty"), prop.get("dataProperty")):
                 if ref and "." in ref:
                     used_prefixes.add(ref.split(".", 1)[0])
 
@@ -287,11 +539,73 @@ def _create_label_for_class_function(
     return label_for_class
 
 
-def _build_objects_mapping(objects: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Build objects section of the mapping.
+def _build_complete_objects_list(
+    root: ET.Element,
+    class_index: Dict[str, Dict[str, Any]],
+    element_to_class: Dict[str, str],
+    association_ids: Set[str]
+) -> List[Dict[str, Any]]:
+    """Build complete list of objects from ALL ObjectProperties.
+
+    This includes both:
+    1. ObjectProperties with corresponding Class definitions (have properties)
+    2. ObjectProperties without Class definitions (act as references only)
+
+    Args:
+        root: CMF XML root element
+        class_index: Dictionary mapping class IDs to class info
+        element_to_class: Mapping from ObjectProperty IDs to Class IDs
+        association_ids: Set of association class IDs to exclude
+
+    Returns:
+        List of object dictionaries with element QNames and class info
+    """
+    objects = []
+    seen_qnames = set()
+
+    # Process all ObjectProperty elements
+    for obj_prop in root.findall(".//cmf:ObjectProperty", NS):
+        obj_prop_id = obj_prop.attrib.get(f"{{{STRUCT_NS}}}id")
+        if not obj_prop_id:
+            continue
+
+        # Get the class this property references
+        class_ref = element_to_class.get(obj_prop_id)
+
+        # Skip if this is an association
+        if class_ref and class_ref in association_ids:
+            continue
+
+        qn = to_qname(obj_prop_id)
+
+        # Skip duplicates
+        if qn in seen_qnames:
+            continue
+        seen_qnames.add(qn)
+
+        # Build object entry
+        obj_entry = {
+            "element_qname": obj_prop_id,
+            "class_id": class_ref,
+            "info": class_index.get(class_ref, {}) if class_ref else {}
+        }
+
+        objects.append(obj_entry)
+
+    return objects
+
+
+def _build_objects_mapping(
+    objects: List[Dict[str, Any]],
+    dataprop_index: Dict[str, Dict[str, Any]],
+    datatype_index: Dict[str, Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Build objects section of the mapping with extracted scalar properties.
 
     Args:
         objects: List of object class data
+        dataprop_index: Index of DataProperty definitions
+        datatype_index: Index of Datatype definitions
 
     Returns:
         List of object mapping entries
@@ -299,11 +613,17 @@ def _build_objects_mapping(objects: List[Dict[str, Any]]) -> List[Dict[str, Any]
     objects_mapping = []
     for obj in objects:
         qn = to_qname((obj["element_qname"] or obj["class_id"]))
+
+        # Extract scalar properties from this class
+        class_info = obj.get("info", {})
+        class_props = class_info.get("props", [])
+        scalar_props = _extract_scalar_properties(class_props, dataprop_index, datatype_index)
+
         objects_mapping.append({
             "qname": qn,
             "label": to_label(qn),
             "carries_structures_id": True,
-            "scalar_props": []
+            "scalar_props": scalar_props
         })
     return objects_mapping
 
@@ -359,7 +679,7 @@ def _build_associations_mapping(
         base_rel_name = to_qname(assoc["element_qname"] or assoc["class_id"])
         endpoints = []
 
-        for prop in class_info["props"]:
+        for prop in class_info.get("props", []):
             obj_prop = prop["objectProperty"]
             if obj_prop:
                 endpoint = _build_association_endpoint(
@@ -399,7 +719,7 @@ def _build_references_mapping(
         owner_qn = to_qname(obj["element_qname"] or obj["class_id"])
         class_info = obj["info"]
 
-        for prop in class_info["props"]:
+        for prop in class_info.get("props", []):
             obj_prop = prop["objectProperty"]
             if not obj_prop:
                 continue
@@ -460,20 +780,40 @@ def _generate_mapping_from_root(root: ET.Element) -> Dict[str, Any]:
     element_to_class = build_element_to_class(root)
     class_to_element = {v: k for k, v in element_to_class.items()}
 
-    # Partition classes and collect used prefixes
-    objects, associations, association_ids = _partition_classes(class_index, class_to_element)
+    # Build DataProperty and Datatype indexes for property extraction
+    dataprop_index = build_dataproperty_index(root)
+    datatype_index = build_datatype_index(root)
+
+    # Build CMF element index for augmentation detection
+    cmf_elements = set()
+    for element in root.findall(".//cmf:ObjectProperty", NS):
+        elem_id = element.attrib.get(f"{{{STRUCT_NS}}}id")
+        if elem_id:
+            cmf_elements.add(to_qname(elem_id))
+    for element in root.findall(".//cmf:DataProperty", NS):
+        elem_id = element.attrib.get(f"{{{STRUCT_NS}}}id")
+        if elem_id:
+            cmf_elements.add(to_qname(elem_id))
+
+    # Partition classes for associations
+    _, associations, association_ids = _partition_classes(class_index, class_to_element)
+
+    # Build complete object list from ALL ObjectProperties
+    objects = _build_complete_objects_list(root, class_index, element_to_class, association_ids)
+
+    # Collect used prefixes
     used_prefixes = _collect_used_prefixes(classes)
     used_ns_map = {k: v for k, v in prefixes_all.items() if k in used_prefixes}
 
     # Create helper function
     label_for_class = _create_label_for_class_function(class_to_element)
 
-    # Build mapping sections
-    objects_mapping = _build_objects_mapping(objects)
+    # Build mapping sections with property extraction
+    objects_mapping = _build_objects_mapping(objects, dataprop_index, datatype_index)
     associations_mapping = _build_associations_mapping(associations, element_to_class, label_for_class)
     references_mapping = _build_references_mapping(objects, element_to_class, association_ids, label_for_class)
 
-    # Assemble final mapping
+    # Assemble final mapping with metadata
     return {
         "namespaces": used_ns_map,
         "objects": objects_mapping,
@@ -483,6 +823,9 @@ def _generate_mapping_from_root(root: ET.Element) -> Dict[str, Any]:
         "polymorphism": {
             "strategy": "extraLabel",
             "store_actual_type_property": "xsiType"
+        },
+        "metadata": {
+            "cmf_element_index": sorted(list(cmf_elements))
         }
     }
 
@@ -652,8 +995,8 @@ def validate(cmf_xml, mapping_yaml):
     class_to_element = {v:k for k,v in element_to_class.items()}
 
     # Partition
-    assoc_ids = {c["id"] for c in classes if c["subclass_of"] == "nc.AssociationType"}
-    obj_ids   = {c["id"] for c in classes if c["subclass_of"] != "nc.AssociationType"}
+    assoc_ids = {c["id"] for c in classes if c["subclass_of"] == ASSOCIATION_TYPE}
+    obj_ids   = {c["id"] for c in classes if c["subclass_of"] != ASSOCIATION_TYPE}
 
     # Build mapping indexes
     objects_labels = {o["label"]: o for o in mapping.get("objects", [])}
@@ -665,7 +1008,7 @@ def validate(cmf_xml, mapping_yaml):
     report = {
         "namespaces": {
             "cmf_prefixes": sorted(cmf_ns.keys()),
-            "mapping_prefixes_used": sorted(list(collect_mapping_prefixes(mapping))),
+            "mapping_prefixes_used": list(collect_mapping_prefixes(mapping)),
             "missing_prefixes_in_cmf": [],
             "missing_prefixes_in_mapping_namespaces": [],
         },
@@ -702,7 +1045,7 @@ def validate(cmf_xml, mapping_yaml):
     assoc_total = 0
     assoc_mapped = 0
     for c in classes:
-        if c["subclass_of"] != "nc.AssociationType":
+        if c["subclass_of"] != ASSOCIATION_TYPE:
             continue
         assoc_total += 1
         assoc_qn = (class_to_element.get(c["id"]) or c["id"]).replace(".", ":")
@@ -732,10 +1075,10 @@ def validate(cmf_xml, mapping_yaml):
     refs_total = 0
     refs_mapped = 0
     for c in classes:
-        if c["subclass_of"] == "nc.AssociationType":
+        if c["subclass_of"] == ASSOCIATION_TYPE:
             continue
         owner_qn = (class_to_element.get(c["id"]) or c["id"]).replace(".", ":")
-        for p in c["props"]:
+        for p in c.get("props", []):
             op = p["objectProperty"]
             if not op:
                 continue
@@ -791,17 +1134,29 @@ def validate_mapping_coverage_from_data(cmf_content: str, mapping_dict: dict) ->
     import xml.etree.ElementTree as ET
 
     # Parse CMF from string instead of file
-    root = ET.fromstring(cmf_content)
+    try:
+        root = ET.fromstring(cmf_content)
+    except ET.ParseError as e:
+        return {
+            "summary": {
+                "has_critical_issues": True,
+                "overall_coverage_percentage": 0,
+                "association_coverage_percentage": 0,
+                "reference_coverage_percentage": 0,
+                "total_mapped_elements": 0,
+                "total_elements": 0
+            },
+            "error": f"Invalid CMF XML: {str(e)}"
+        }
 
     # Use the existing validation logic but with in-memory data
     cmf_ns = cmf_namespaces(root)
     classes = parse_classes(root)
     element_to_class = build_objectproperty_to_class(root)
-    class_to_element = {v:k for k,v in element_to_class.items()}
 
     # Partition
-    assoc_ids = {c["id"] for c in classes if c["subclass_of"] == "nc.AssociationType"}
-    obj_ids   = {c["id"] for c in classes if c["subclass_of"] != "nc.AssociationType"}
+    assoc_ids = {c["id"] for c in classes if c["subclass_of"] == ASSOCIATION_TYPE}
+    obj_ids   = {c["id"] for c in classes if c["subclass_of"] != ASSOCIATION_TYPE}
 
     # Build mapping indexes using provided dictionary instead of loading from file
     objects_labels = {o["label"]: o for o in mapping_dict.get("objects", [])}
@@ -848,18 +1203,22 @@ def validate_mapping_coverage_from_data(cmf_content: str, mapping_dict: dict) ->
     total_refs = 0
     mapped_refs = 0
     for c in classes:
-        if c["id"] in obj_ids:
-            for p in c["props"]:
-                if p["objectProperty"]:
-                    total_refs += 1
-                    target_class = element_to_class.get(p["objectProperty"])
-                    if target_class and target_class in assoc_ids:
-                        # This is an association reference - check if mapped
-                        if any(a["qname"] for a in mapping_dict.get("associations", []) if element_to_class.get(a["qname"]) == target_class):
-                            mapped_refs += 1
-                    elif (c["qname"] if "qname" in c else "", p["objectProperty"]) in refs_index:
-                        # This is a regular reference - check if mapped
+        c_id = c.get("id")
+        if not c_id or c_id not in obj_ids:
+            continue
+
+        for p in c.get("props", []):
+            obj_prop = p.get("objectProperty")
+            if obj_prop:
+                total_refs += 1
+                target_class = element_to_class.get(obj_prop)
+                if target_class and target_class in assoc_ids:
+                    # This is an association reference - check if mapped
+                    if any(a.get("qname") for a in mapping_dict.get("associations", []) if element_to_class.get(a.get("qname")) == target_class):
                         mapped_refs += 1
+                elif (c.get("qname", ""), obj_prop) in refs_index:
+                    # This is a regular reference - check if mapped
+                    mapped_refs += 1
 
     report["coverage"]["object_refs_total"] = total_refs
     report["coverage"]["object_refs_mapped"] = mapped_refs

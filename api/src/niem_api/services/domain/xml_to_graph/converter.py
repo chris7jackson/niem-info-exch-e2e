@@ -150,6 +150,150 @@ def build_assoc_index(associations: List[Dict[str, Any]]) -> Dict[str, Dict[str,
     return by_qn
 
 
+def is_augmentation(element_qname: str, cmf_element_index: set) -> bool:
+    """Check if an element QName is an augmentation (not in CMF index).
+
+    Args:
+        element_qname: Qualified name of element (e.g., "nc:Person")
+        cmf_element_index: Set of known CMF element QNames
+
+    Returns:
+        True if element is an augmentation/unmapped element
+    """
+    return element_qname not in cmf_element_index
+
+
+def extract_unmapped_properties(
+    elem: ET.Element,
+    ns_map: Dict[str, str],
+    cmf_element_index: set
+) -> Dict[str, Any]:
+    """Extract properties from unmapped/augmentation elements and attributes.
+
+    Args:
+        elem: XML element to process
+        ns_map: Namespace mapping
+        cmf_element_index: Set of known CMF element QNames
+
+    Returns:
+        Dictionary of augmentation properties with 'aug_' prefix
+    """
+    unmapped = {}
+
+    # Extract unmapped attributes
+    for attr, value in elem.attrib.items():
+        # Skip structural attributes
+        if attr.startswith(f"{{{STRUCT_NS}}}") or attr.startswith(f"{{{XSI_NS}}}"):
+            continue
+
+        attr_qn = qname_from_tag(attr, ns_map)
+        if is_augmentation(attr_qn, cmf_element_index):
+            prop_name = f"aug_{attr_qn.replace(':', '_').replace('.', '_')}"
+            unmapped[prop_name] = value
+
+    # Extract unmapped child elements with simple text content
+    for child in elem:
+        child_qn = qname_from_tag(child.tag, ns_map)
+
+        # Skip if element is in CMF (handled by mapping)
+        if not is_augmentation(child_qn, cmf_element_index):
+            continue
+
+        # Only extract if element has simple text content (no nested elements)
+        if child.text and child.text.strip() and len(list(child)) == 0:
+            prop_name = f"aug_{child_qn.replace(':', '_').replace('.', '_')}"
+            text_value = child.text.strip()
+
+            # Handle multiple occurrences (repeating elements)
+            if prop_name in unmapped:
+                # Convert to list on second occurrence
+                if not isinstance(unmapped[prop_name], list):
+                    unmapped[prop_name] = [unmapped[prop_name]]
+                unmapped[prop_name].append(text_value)
+            else:
+                unmapped[prop_name] = text_value
+
+    return unmapped
+
+
+def handle_complex_augmentation(
+    elem: ET.Element,
+    ns_map: Dict[str, str],
+    parent_node_id: str,
+    file_prefix: str,
+    nodes: Dict[str, List],
+    contains: List[Tuple]
+) -> str:
+    """Create separate augmentation node for complex nested structures.
+
+    Args:
+        elem: XML element (augmentation)
+        ns_map: Namespace mapping
+        parent_node_id: ID of parent node
+        file_prefix: File-specific prefix for ID generation
+        nodes: Nodes dictionary to update
+        contains: Containment edges list to update
+
+    Returns:
+        Augmentation node ID
+    """
+    elem_qn = qname_from_tag(elem.tag, ns_map)
+
+    # Generate synthetic ID for augmentation node
+    aug_node_id = synth_id(parent_node_id, elem_qn, f"aug_{elem_qn}", file_prefix)
+
+    # Recursively extract all properties
+    properties = _extract_all_properties_recursive(elem, ns_map)
+
+    # Create node with special 'Augmentation' label
+    nodes[aug_node_id] = ["Augmentation", elem_qn, properties]
+
+    # Link back to parent with special relationship
+    parent_label = nodes[parent_node_id][0] if parent_node_id in nodes else "Unknown"
+    contains.append((parent_node_id, parent_label, aug_node_id, "Augmentation", "AugmentedBy"))
+
+    return aug_node_id
+
+
+def _extract_all_properties_recursive(elem: ET.Element, ns_map: Dict[str, str]) -> Dict[str, Any]:
+    """Recursively extract all properties from complex augmentation element.
+
+    Args:
+        elem: XML element
+        ns_map: Namespace mapping
+
+    Returns:
+        Dictionary of flattened properties with dot notation
+    """
+    properties = {}
+
+    # Extract attributes
+    for attr, value in elem.attrib.items():
+        # Skip structural attributes
+        if attr.startswith(f"{{{STRUCT_NS}}}") or attr.startswith(f"{{{XSI_NS}}}"):
+            continue
+
+        qn = qname_from_tag(attr, ns_map)
+        prop_name = qn.replace(':', '_').replace('.', '_')
+        properties[prop_name] = value
+
+    # Extract child elements
+    for child in elem:
+        child_qn = qname_from_tag(child.tag, ns_map)
+        prop_name = child_qn.replace(':', '_').replace('.', '_')
+
+        # If child has text content and no nested elements, store it
+        if child.text and child.text.strip() and len(list(child)) == 0:
+            properties[prop_name] = child.text.strip()
+        elif len(list(child)) > 0:
+            # If child has nested elements, recurse with dot notation
+            nested_props = _extract_all_properties_recursive(child, ns_map)
+            for nested_key, nested_value in nested_props.items():
+                properties[f"{prop_name}.{nested_key}"] = nested_value
+
+    return properties
+
+
 def collect_scalar_setters(
     obj_rule: Dict[str, Any], elem: ET.Element, ns_map: Dict[str, str]
 ) -> List[Tuple[str, str]]:
@@ -166,7 +310,7 @@ def collect_scalar_setters(
     setters = []
     for prop in obj_rule.get("scalar_props", []) or []:
         path = prop["path"]  # e.g., "nc:PersonName/nc:PersonGivenName" or "@priv:foo"
-        key = prop["prop"]
+        key = prop.get("neo4j_property") or prop.get("prop", path.replace(":", "_").replace("/", "_").replace("@", ""))
         value = None
 
         # Handle attribute paths
@@ -213,7 +357,7 @@ def collect_scalar_setters(
 
 
 def generate_for_xml_content(
-    xml_content: str, mapping_dict: Dict[str, Any], filename: str = "memory"
+    xml_content: str, mapping_dict: Dict[str, Any], filename: str = "memory", cmf_element_index: set = None
 ) -> Tuple[str, Dict[str, Any], List[Tuple], List[Tuple]]:
     """Generate Cypher statements from XML content and mapping dictionary.
 
@@ -221,12 +365,19 @@ def generate_for_xml_content(
         xml_content: XML content as string
         mapping_dict: Mapping dictionary
         filename: Source filename for provenance
+        cmf_element_index: Set of known CMF element QNames for augmentation detection
 
     Returns:
         Tuple of (cypher_statements, nodes_dict, contains_list, edges_list)
     """
     # Load mapping from dictionary
     mapping, obj_rules, associations, references, ns_map = load_mapping_from_dict(mapping_dict)
+
+    # Extract CMF element index from mapping metadata if not provided
+    if cmf_element_index is None:
+        metadata = mapping_dict.get("metadata", {})
+        cmf_elements_list = metadata.get("cmf_element_index", [])
+        cmf_element_index = set(cmf_elements_list) if cmf_elements_list else set()
 
     # Prepare reference and association indices
     refs_by_owner = build_refs_index(references)
@@ -238,9 +389,10 @@ def generate_for_xml_content(
     # Generate file-specific prefix for node IDs to ensure uniqueness across files
     # Use timestamp + filename hash for uniqueness
     import time
+    import json
     file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode()).hexdigest()[:8]
 
-    nodes = {}  # id -> (label, qname, props_dict)
+    nodes = {}  # id -> (label, qname, props_dict, aug_props_dict)
     edges = []  # (from_id, from_label, to_id, to_label, rel_type, rel_props)
     contains = []  # (parent_id, parent_label, child_id, child_label, HAS_REL)
 
@@ -384,7 +536,7 @@ def generate_for_xml_content(
                 # Register the person entity (if not already registered)
                 if person_id not in nodes:
                     # Create nc:Person entity as the primary person
-                    nodes[person_id] = ["nc_Person", "nc:Person", {}]
+                    nodes[person_id] = ["nc_Person", "nc:Person", {}, {}]
 
                 # Create role relationship to person
                 edges.append((node_id, node_label, person_id, "nc_Person", "REPRESENTS_PERSON", {}))
@@ -401,12 +553,28 @@ def generate_for_xml_content(
                     for key, value in setters:
                         props[key] = value
 
+            # Extract augmentation properties (unmapped data)
+            aug_props = {}
+            if cmf_element_index:
+                aug_props = extract_unmapped_properties(elem, xml_ns_map, cmf_element_index)
+
+                # Check for complex augmentation children (nested structures)
+                for child in elem:
+                    child_qn = qname_from_tag(child.tag, xml_ns_map)
+                    if is_augmentation(child_qn, cmf_element_index) and len(list(child)) > 0:
+                        # Child is an unmapped element with nested structure
+                        # Create separate Augmentation node
+                        handle_complex_augmentation(child, xml_ns_map, node_id, file_prefix, nodes, contains)
+
             # Register node
             if node_id in nodes:
                 # Keep existing label, but extend props (don't overwrite)
                 nodes[node_id][2].update({k: v for k, v in props.items() if k not in nodes[node_id][2]})
+                # Merge augmentation properties
+                if aug_props:
+                    nodes[node_id][3].update({k: v for k, v in aug_props.items() if k not in nodes[node_id][3]})
             else:
-                nodes[node_id] = [node_label, elem_qn, props]
+                nodes[node_id] = [node_label, elem_qn, props, aug_props]
 
             # Create containment edge
             if parent_info:
@@ -491,11 +659,29 @@ def generate_for_xml_content(
     lines = [f"// Generated for {filename} using mapping"]
 
     # MERGE nodes
-    for nid, (label, qn, props) in nodes.items():
+    for nid, node_data in nodes.items():
+        label = node_data[0]
+        qn = node_data[1]
+        props = node_data[2]
+        aug_props = node_data[3] if len(node_data) > 3 else {}
+
         lines.append(f"MERGE (n:`{label}` {{id:'{nid}'}})")
         setbits = [f"n.qname='{qn}'", f"n.sourceDoc='{filename}'"]
+
+        # Add core mapped properties
         for key, value in sorted(props.items()):
             setbits.append(f"n.{key}='{value}'")
+
+        # Add augmentation properties
+        for key, value in sorted(aug_props.items()):
+            if isinstance(value, list):
+                # Store as JSON array for multiple values
+                json_value = json.dumps(value).replace("'", "\\'")
+                setbits.append(f"n.{key}='{json_value}'")
+            else:
+                escaped_value = str(value).replace("'", "\\'")
+                setbits.append(f"n.{key}='{escaped_value}'")
+
         lines.append("  ON CREATE SET " + ", ".join(setbits) + ";")
 
     # MERGE containment edges

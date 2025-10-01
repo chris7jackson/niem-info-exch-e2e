@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { CheckCircleIcon, CloudArrowUpIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, CloudArrowUpIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, StarIcon } from '@heroicons/react/24/outline';
+import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import apiClient, { Schema } from '../lib/api';
 import ExpandableError from './ExpandableError';
+
+interface FilePreview {
+  file: File;
+  id: string;
+}
 
 export default function SchemaManager() {
   const [schemas, setSchemas] = useState<Schema[]>([]);
@@ -10,6 +16,7 @@ export default function SchemaManager() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [skipNiemResolution, setSkipNiemResolution] = useState(false);
+  const [filePreviews, setFilePreviews] = useState<FilePreview[]>([]);
 
   useEffect(() => {
     loadSchemas();
@@ -27,9 +34,7 @@ export default function SchemaManager() {
     }
   };
 
-  const handleSchemaUpload = async (files: File[]) => {
-    if (files.length === 0) return;
-
+  const handleFilesSelected = (files: File[]) => {
     // Validate all files are XSD
     const invalidFiles = files.filter(file => !file.name.endsWith('.xsd'));
     if (invalidFiles.length > 0) {
@@ -37,14 +42,28 @@ export default function SchemaManager() {
       return;
     }
 
+    // Add files to preview list
+    const newPreviews: FilePreview[] = files.map(file => ({
+      file,
+      id: Math.random().toString(36).substring(7)
+    }));
+    setFilePreviews([...filePreviews, ...newPreviews]);
+    setError(null);
+  };
+
+  const handleSchemaUpload = async () => {
+    if (filePreviews.length === 0) return;
+
     try {
       setUploading(true);
       setError(null);
+      const files = filePreviews.map(fp => fp.file);
       const result = await apiClient.uploadSchema(files, skipNiemResolution);
 
       // Check NIEM NDR validation status
       if (result.niem_ndr_report && result.niem_ndr_report.status === 'pass') {
         await loadSchemas();
+        setFilePreviews([]); // Clear previews on success
       } else if (result.niem_ndr_report && result.niem_ndr_report.status === 'fail') {
         const errors = result.niem_ndr_report.violations
           .filter((v: any) => v.type === 'error')
@@ -54,12 +73,35 @@ export default function SchemaManager() {
       } else {
         // If no validation report or other status, assume success
         await loadSchemas();
+        setFilePreviews([]); // Clear previews on success
       }
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || 'Upload failed');
     } finally {
       setUploading(false);
     }
+  };
+
+  const removeFile = (id: string) => {
+    setFilePreviews(filePreviews.filter(fp => fp.id !== id));
+  };
+
+  const moveFile = (index: number, direction: 'up' | 'down') => {
+    const newPreviews = [...filePreviews];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (targetIndex < 0 || targetIndex >= newPreviews.length) return;
+
+    [newPreviews[index], newPreviews[targetIndex]] = [newPreviews[targetIndex], newPreviews[index]];
+    setFilePreviews(newPreviews);
+  };
+
+  const setPrimaryFile = (index: number) => {
+    if (index === 0) return; // Already primary
+    const newPreviews = [...filePreviews];
+    const [file] = newPreviews.splice(index, 1);
+    newPreviews.unshift(file);
+    setFilePreviews(newPreviews);
   };
 
   const handleActivateSchema = async (schemaId: string) => {
@@ -72,13 +114,21 @@ export default function SchemaManager() {
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: handleSchemaUpload,
+    onDrop: handleFilesSelected,
     accept: {
       'application/xml': ['.xsd'],
       'text/xml': ['.xsd'],
     },
-    maxFiles: 10, // Allow multiple related XSD files
+    maxFiles: 10,
   });
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
 
   return (
     <div className="space-y-6">
@@ -87,10 +137,6 @@ export default function SchemaManager() {
         <p className="mt-1 text-sm text-gray-600">
           Upload and manage NIEM XSD schemas for data validation. You can upload multiple related XSD files together.
         </p>
-        <div className="mt-2 text-sm text-blue-600 bg-blue-50 rounded-md p-3">
-          <strong>Note:</strong> When uploading multiple files, the <strong>first file selected</strong> will serve as the primary schema.
-          Order your file selection accordingly (primary schema first, then supporting files).
-        </div>
       </div>
 
       {error && (
@@ -126,27 +172,137 @@ export default function SchemaManager() {
           </label>
         </div>
 
-        <div
-          {...getRootProps()}
-          className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-            isDragActive
-              ? 'border-blue-400 bg-blue-50'
-              : 'border-gray-300 hover:border-gray-400'
-          }`}
-        >
-          <input {...getInputProps()} />
-          <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+        <div className="space-y-4">
+          {/* Drop Zone - Always visible */}
+          <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+              isDragActive
+                ? 'border-blue-400 bg-blue-50'
+                : 'border-gray-300 hover:border-gray-400'
+            }`}
+          >
+            <input {...getInputProps()} />
+            <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+            {isDragActive ? (
+              <p className="mt-2 text-sm text-gray-600">Drop the XSD file(s) here</p>
+            ) : (
+              <>
+                <p className="mt-2 text-sm text-gray-600">
+                  {filePreviews.length > 0
+                    ? 'Drag and drop more XSD file(s) here, or click to select'
+                    : 'Drag and drop XSD file(s) here, or click to select'}
+                </p>
+                <p className="text-xs text-gray-500">XSD files only, up to 10 files, 20MB total</p>
+              </>
+            )}
+          </div>
 
-          {uploading ? (
-            <p className="mt-2 text-sm text-gray-600">Uploading and validating...</p>
-          ) : isDragActive ? (
-            <p className="mt-2 text-sm text-gray-600">Drop the XSD file(s) here</p>
-          ) : (
+          {/* File Preview List */}
+          {filePreviews.length > 0 && (
             <>
-              <p className="mt-2 text-sm text-gray-600">
-                Drag and drop XSD file(s) here, or click to select
-              </p>
-              <p className="text-xs text-gray-500">XSD files only, up to 10 files, 20MB total</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-start">
+                <StarIconSolid className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <strong>Primary file:</strong> The first file in the list will be used as the primary schema.
+                  Use the controls to reorder files or set a different file as primary.
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
+              {filePreviews.map((fp, index) => (
+                <div key={fp.id} className={`p-4 ${index === 0 ? 'bg-blue-50' : 'bg-white'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center flex-1 min-w-0">
+                      {index === 0 && (
+                        <StarIconSolid className="h-5 w-5 text-blue-600 mr-2 flex-shrink-0" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {fp.file.name}
+                          </p>
+                          {index === 0 && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              Primary
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {formatFileSize(fp.file.size)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-1 ml-4">
+                      {index !== 0 && (
+                        <button
+                          onClick={() => setPrimaryFile(index)}
+                          className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                          title="Set as primary"
+                        >
+                          <StarIcon className="h-5 w-5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => moveFile(index, 'up')}
+                        disabled={index === 0}
+                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed rounded hover:bg-gray-100"
+                        title="Move up"
+                      >
+                        <ArrowUpIcon className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => moveFile(index, 'down')}
+                        disabled={index === filePreviews.length - 1}
+                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed rounded hover:bg-gray-100"
+                        title="Move down"
+                      >
+                        <ArrowDownIcon className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => removeFile(fp.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        title="Remove"
+                      >
+                        <XMarkIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => setFilePreviews([])}
+                className="text-sm text-gray-600 hover:text-gray-800"
+              >
+                Clear all
+              </button>
+              <button
+                onClick={handleSchemaUpload}
+                disabled={uploading || filePreviews.length === 0}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <CloudArrowUpIcon className="h-5 w-5 mr-2" />
+                    Upload {filePreviews.length} {filePreviews.length === 1 ? 'File' : 'Files'}
+                  </>
+                )}
+              </button>
+            </div>
             </>
           )}
         </div>

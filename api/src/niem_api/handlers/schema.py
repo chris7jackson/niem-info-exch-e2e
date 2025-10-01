@@ -39,6 +39,24 @@ def _extract_schema_imports(xsd_content: str) -> List[Dict[str, Any]]:
         'release.niem.gov'
     ]
 
+    # Load catalog mappings
+    catalog_path = Path(__file__).parent.parent.parent.parent.parent / 'third_party' / 'niem-xsd' / 'xml-catalog.xml'
+    catalog_map = {}
+
+    try:
+        if catalog_path.exists():
+            catalog_tree = ET.parse(catalog_path)
+            catalog_root = catalog_tree.getroot()
+            ns = {'cat': 'urn:oasis:names:tc:entity:xmlns:xml:catalog'}
+
+            for uri_elem in catalog_root.findall('cat:uri', ns):
+                name = uri_elem.get('name', '')
+                uri = uri_elem.get('uri', '')
+                if name and uri:
+                    catalog_map[name] = uri
+    except Exception as e:
+        logger.warning(f"Failed to load XML catalog: {e}")
+
     imports = []
     try:
         root = ET.fromstring(xsd_content)
@@ -47,10 +65,15 @@ def _extract_schema_imports(xsd_content: str) -> List[Dict[str, Any]]:
                 namespace = elem.get('namespace', '')
                 schema_location = elem.get('schemaLocation', '')
                 if schema_location:
+                    is_niem = any(indicator in namespace for indicator in NIEM_INDICATORS) if namespace else False
+                    needs_fetch = is_niem and namespace not in catalog_map
+
                     imports.append({
                         'namespace': namespace,
                         'schema_location': schema_location,
-                        'is_niem': any(indicator in namespace for indicator in NIEM_INDICATORS) if namespace else False
+                        'is_niem': is_niem,
+                        'needs_fetch': needs_fetch,
+                        'local_path': catalog_map.get(namespace)
                     })
     except Exception as e:
         logger.warning(f"Failed to parse schema imports: {e}")
@@ -301,7 +324,7 @@ def _create_error_response(error_type: str, error_msg: str, imports: List[Dict[s
     }
 
 
-async def _validate_schema_dependencies(xsd_content: str, schema_filename: str, source_dir: Path, skip_niem_resolution: bool = False) -> Dict[str, Any]:
+def _validate_schema_dependencies(xsd_content: str, schema_filename: str, source_dir: Path, skip_niem_resolution: bool = False) -> Dict[str, Any]:
     """Validate schema dependencies and create a detailed report.
 
     Args:
@@ -448,7 +471,7 @@ async def _validate_niem_ndr(primary_content: bytes, primary_filename: str) -> N
     return niem_ndr_report
 
 
-async def _handle_crashdriver_cmf() -> Dict[str, Any] | None:
+def _handle_crashdriver_cmf() -> Dict[str, Any] | None:
     """Handle special case for CrashDriver schema using pre-existing CMF file.
 
     Returns:
@@ -524,7 +547,7 @@ async def _convert_to_cmf(
 
         # Validate dependencies and create dependency report for primary schema
         logger.error("*** DEBUG: About to call _validate_schema_dependencies ***")
-        dependency_report = await _validate_schema_dependencies(
+        dependency_report = _validate_schema_dependencies(
             primary_content.decode(), primary_file.filename, temp_path, skip_niem_resolution
         )
         logger.error("*** DEBUG: _validate_schema_dependencies completed ***")
@@ -552,12 +575,12 @@ async def _convert_to_cmf(
             # Check if this is a CrashDriver schema and use pre-existing CMF file
             cmf_conversion_result = None
             if primary_file.filename.lower() == "crashdriver.xsd":
-                cmf_conversion_result = await _handle_crashdriver_cmf()
+                cmf_conversion_result = _handle_crashdriver_cmf()
 
             # Fall back to XSD conversion if CrashDriver CMF not found
             if cmf_conversion_result is None:
-                cmf_conversion_result = await convert_xsd_to_cmf(
-                    primary_content.decode(), resolved_temp_path, primary_file.filename
+                cmf_conversion_result = convert_xsd_to_cmf(
+                    resolved_temp_path, primary_file.filename
                 )
 
             logger.error(f"*** DEBUG: CMF conversion result: {cmf_conversion_result.get('status') if cmf_conversion_result else 'None'} ***")
@@ -594,7 +617,7 @@ async def _convert_to_cmf(
             json_schema_conversion_result = None
             try:
                 cmf_content = cmf_conversion_result["cmf_content"]
-                json_schema_conversion_result = await convert_cmf_to_jsonschema(cmf_content)
+                json_schema_conversion_result = convert_cmf_to_jsonschema(cmf_content)
                 if json_schema_conversion_result.get("status") != "success":
                     logger.warning(f"CMF to JSON Schema conversion failed: {json_schema_conversion_result.get('error', 'Unknown error')}")
                     json_schema_conversion_result = None
@@ -606,7 +629,7 @@ async def _convert_to_cmf(
 
         finally:
             # Clean up the resolved directory if it's different from temp_path
-            if resolved_temp_path != temp_path:
+            if 'resolved_temp_path' in locals() and resolved_temp_path and resolved_temp_path != temp_path:
                 try:
                     import shutil
                     shutil.rmtree(resolved_temp_path)
@@ -696,7 +719,7 @@ async def _generate_and_store_mapping(
         # Log results
         summary = coverage_result.get("summary", {})
         logger.info(f"Successfully generated and stored mapping YAML for schema {schema_id}")
-        logger.info(f"Mapping stats: {len(mapping_dict['namespaces'])} namespaces, {len(mapping_dict['objects'])} objects, {len(mapping_dict['associations'])} associations, {len(mapping_dict['references'])} references")
+        logger.info(f"Mapping stats: {len(mapping_dict.get('namespaces', {}))} namespaces, {len(mapping_dict.get('objects', []))} objects, {len(mapping_dict.get('associations', []))} associations, {len(mapping_dict.get('references', []))} references")
         logger.info(f"Coverage validation: {summary.get('overall_coverage_percentage', 0):.1f}% overall coverage")
 
         if summary.get("has_critical_issues", False):
@@ -820,7 +843,7 @@ async def handle_schema_activation(schema_id: str, s3: Minio):
         raise HTTPException(status_code=500, detail=f"Schema activation failed: {str(e)}")
 
 
-async def get_all_schemas(s3: Minio):
+def get_all_schemas(s3: Minio):
     """Get all schemas from MinIO storage"""
     try:
         schemas = []

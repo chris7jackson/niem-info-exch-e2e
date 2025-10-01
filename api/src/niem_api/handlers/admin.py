@@ -2,7 +2,7 @@
 
 import logging
 import secrets
-from typing import Dict
+from typing import Any, Dict
 
 from fastapi import HTTPException
 from minio import Minio
@@ -17,7 +17,7 @@ class Neo4jSchemaResetError(Exception):
 logger = logging.getLogger(__name__)
 
 
-async def handle_reset(
+def handle_reset(
     request: ResetRequest,
     s3: Minio
 ) -> ResetResponse:
@@ -34,8 +34,10 @@ async def handle_reset(
             counts.update(data_counts)
 
         if request.neo4j:
-            neo4j_counts = count_neo4j_objects()
-            counts.update({f"neo4j_{k}": v for k, v in neo4j_counts.items()})
+            neo4j_result = count_neo4j_objects()
+            # Extract only the numeric stats, not the status field
+            if "stats" in neo4j_result:
+                counts.update({f"neo4j_{k}": v for k, v in neo4j_result["stats"].items()})
 
 
         if request.dry_run:
@@ -199,8 +201,16 @@ def reset_data_files(s3: Minio):
         raise
 
 
-def reset_neo4j():
-    """Reset Neo4j database - clear all data and schema"""
+def reset_neo4j() -> Dict[str, Any]:
+    """
+    Reset Neo4j database - clear all data and schema.
+
+    Returns:
+        Dictionary with status and message
+
+    Raises:
+        HTTPException: If reset fails
+    """
     try:
         from ..services.domain.graph import get_graph_schema_manager
         from ..core.dependencies import get_neo4j_client
@@ -218,13 +228,26 @@ def reset_neo4j():
 
         graph_manager.close()
         logger.info("Neo4j reset completed")
+
+        return {
+            "status": "success",
+            "message": "Neo4j cleared completely (data and schema)"
+        }
     except Exception as e:
         logger.error(f"Neo4j reset failed: {e}")
-        raise
+        raise HTTPException(status_code=500, detail=f"Failed to clear Neo4j: {str(e)}")
 
 
-def clear_neo4j_schema():
-    """Clear Neo4j schema (indexes and constraints) only"""
+def clear_neo4j_schema() -> Dict[str, Any]:
+    """
+    Clear Neo4j schema (indexes and constraints) only.
+
+    Returns:
+        Dictionary with status, message, and result details
+
+    Raises:
+        HTTPException: If schema clear fails
+    """
     try:
         from ..services.domain.graph import get_graph_schema_manager
 
@@ -236,14 +259,27 @@ def clear_neo4j_schema():
             raise Neo4jSchemaResetError(f"Schema clear failed: {result['error']}")
 
         logger.info(f"Neo4j schema cleared: {len(result.get('dropped_constraints', []))} constraints, {len(result.get('dropped_indexes', []))} indexes")
-        return result
+
+        return {
+            "status": "success",
+            "message": "Neo4j schema cleared successfully",
+            "result": result
+        }
     except Exception as e:
         logger.error(f"Neo4j schema clear failed: {e}")
-        raise
+        raise HTTPException(status_code=500, detail=f"Failed to clear Neo4j schema: {str(e)}")
 
 
-def clear_neo4j_data():
-    """Clear Neo4j data (nodes and relationships) only"""
+def clear_neo4j_data() -> Dict[str, Any]:
+    """
+    Clear Neo4j data (nodes and relationships) only.
+
+    Returns:
+        Dictionary with status, message, and deletion counts
+
+    Raises:
+        HTTPException: If data clear fails
+    """
     try:
         from ..core.dependencies import get_neo4j_client
 
@@ -261,14 +297,29 @@ def clear_neo4j_data():
 
         logger.info(f"Cleared Neo4j data: {node_count} nodes, {rel_count} relationships")
 
-        return {"nodes_deleted": node_count, "relationships_deleted": rel_count}
+        return {
+            "status": "success",
+            "message": "Neo4j data cleared successfully",
+            "result": {
+                "nodes_deleted": node_count,
+                "relationships_deleted": rel_count
+            }
+        }
     except Exception as e:
         logger.error(f"Neo4j data clear failed: {e}")
-        raise
+        raise HTTPException(status_code=500, detail=f"Failed to clear Neo4j data: {str(e)}")
 
 
-def count_neo4j_objects():
-    """Count Neo4j nodes and relationships"""
+def count_neo4j_objects() -> Dict[str, Any]:
+    """
+    Count Neo4j nodes, relationships, indexes, and constraints.
+
+    Returns:
+        Dictionary with status and statistics
+
+    Raises:
+        HTTPException: If counting fails
+    """
     try:
         from ..core.dependencies import get_neo4j_client
 
@@ -289,14 +340,17 @@ def count_neo4j_objects():
         user_indexes = [idx for idx in indexes if idx.get("type", "").lower() not in ["lookup", "token"]]
 
         return {
-            "nodes": node_count,
-            "relationships": rel_count,
-            "indexes": len(user_indexes),
-            "constraints": len(constraints)
+            "status": "success",
+            "stats": {
+                "nodes": node_count,
+                "relationships": rel_count,
+                "indexes": len(user_indexes),
+                "constraints": len(constraints)
+            }
         }
     except Exception as e:
         logger.error(f"Failed to count Neo4j objects: {e}")
-        return {"nodes": 0, "relationships": 0, "indexes": 0, "constraints": 0}
+        raise HTTPException(status_code=500, detail=f"Failed to get Neo4j stats: {str(e)}")
 
 
 def handle_configure_graph_schema(s3: Minio) -> Dict[str, Any]:

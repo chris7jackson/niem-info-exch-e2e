@@ -99,7 +99,7 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
             <h3 className="text-sm font-medium text-gray-900">Active Schema</h3>
             {activeSchema ? (
               <p className="text-sm text-gray-600">
-                {activeSchema.filename} (ID: {activeSchema.schema_id.substring(0, 8)}...)
+                {activeSchema.primary_filename}
               </p>
             ) : (
               <p className="text-sm text-red-600">

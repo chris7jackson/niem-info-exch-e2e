@@ -25,7 +25,8 @@ from ..clients.cmf_client import (
     is_cmf_available,
     run_cmf_command,
     download_and_setup_cmf,
-    get_cmf_version
+    get_cmf_version,
+    CMF_TOOL_PATH
 )
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ __all__ = [
     'run_cmf_command',
     'download_and_setup_cmf',
     'get_cmf_version',
+    'CMF_TOOL_PATH',
     'convert_xsd_to_cmf',
     'convert_cmf_to_jsonschema',
 ]

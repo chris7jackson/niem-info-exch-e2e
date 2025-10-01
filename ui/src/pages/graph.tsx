@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import cytoscape from 'cytoscape';
+import apiClient from '@/lib/api';
 
 interface GraphNode {
   id: string;
@@ -26,6 +27,7 @@ interface GraphData {
     relationshipCount: number;
   };
 }
+
 
 // Data-agnostic color generation using HSL for consistent, distinguishable colors
 const generateDistinguishableColors = (count: number): string[] => {
@@ -123,7 +125,7 @@ export default function GraphPage() {
   const cyInstance = useRef<cytoscape.Core | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cypherQuery, setCypherQuery] = useState('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 500');
+  const [cypherQuery, setCypherQuery] = useState('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m');
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [selectedLayout, setSelectedLayout] = useState('cose');
   const [showNodeLabels, setShowNodeLabels] = useState(true);
@@ -134,12 +136,9 @@ export default function GraphPage() {
     if (!validLayouts.includes(selectedLayout)) {
       setSelectedLayout('cose');
     }
-    loadInitialGraph();
+    // Auto-load complete graph on mount
+    executeQuery('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m');
   }, []);
-
-  const loadInitialGraph = async () => {
-    await executeQuery(cypherQuery);
-  };
 
   const executeQuery = async (query: string) => {
     setLoading(true);
@@ -453,37 +452,17 @@ export default function GraphPage() {
     executeQuery(cypherQuery);
   };
 
-  // Neo4j Browser-style queries that match common usage patterns
+  // Simplified query options - default shows everything
   const explorationQueries = [
     {
       name: 'Complete Graph',
       query: 'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m',
-      description: 'Show ALL nodes and relationships (no limit)'
+      description: 'Show ALL nodes and relationships'
     },
     {
-      name: 'All Nodes',
-      query: 'MATCH (n) RETURN n',
-      description: 'Show all nodes without relationships'
-    },
-    {
-      name: 'All Connected',
-      query: 'MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 500',
-      description: 'All relationships with connected nodes (500 limit)'
-    },
-    {
-      name: 'Person Roles',
-      query: 'MATCH (role)-[r:REPRESENTS_PERSON]-(person:nc_Person) RETURN role, r, person',
-      description: 'Show NIEM role-based relationships to person entities'
-    },
-    {
-      name: 'Metadata Links',
-      query: 'MATCH (n)-[r:HAS_METADATA]-(m) RETURN n, r, m',
-      description: 'Show all metadata relationships'
-    },
-    {
-      name: 'Reference Network',
-      query: 'MATCH (n)-[r]-(m) WHERE type(r) IN ["J_CHARGE", "NC_METADATA", "PRIV_PRIVACYMETADATA"] RETURN n, r, m',
-      description: 'Show NIEM reference relationships'
+      name: 'Limited (100)',
+      query: 'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 100',
+      description: 'Show first 100 nodes/relationships'
     }
   ];
 
@@ -498,19 +477,18 @@ export default function GraphPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">NIEM Graph Explorer</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Graph Schema</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Enhanced graph visualization for NIEM data with specialized relationship styling and exploration patterns.
-          Features role-based person modeling and NIEM reference relationships.
+          View all nodes and relationships in the graph. By default, shows the complete graph structure.
         </p>
       </div>
 
       {/* Query Input Section */}
       <div className="bg-white shadow rounded-lg">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Cypher Query</h3>
+          <h3 className="text-lg font-medium text-gray-900">Query Options</h3>
           <p className="mt-1 text-sm text-gray-600">
-            Explore your data using Cypher patterns. Choose from exploration templates or write custom queries.
+            By default, shows all nodes and relationships. Use "Limited (100)" for large graphs.
           </p>
         </div>
         <div className="p-6">
@@ -529,11 +507,11 @@ export default function GraphPage() {
               />
             </div>
 
-            {/* Exploration Query Templates */}
+            {/* Quick Query Options */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Exploration Patterns
-              </label>
+              <div className="block text-sm font-medium text-gray-700 mb-2">
+                Quick Options
+              </div>
               <div className="flex flex-wrap gap-2">
                 {explorationQueries.map((query) => (
                   <button
@@ -586,7 +564,7 @@ export default function GraphPage() {
                 disabled={loading}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                {loading ? 'Executing...' : 'Execute Query'}
+                {loading ? 'Loading...' : 'Show Graph'}
               </button>
             </div>
           </form>
@@ -724,8 +702,8 @@ export default function GraphPage() {
 
           <div className="mt-4 text-xs text-gray-500">
             <p>
-              <strong>NIEM-Enhanced Neo4j Visualization</strong> - Specialized for NIEM data structures with role-based person modeling,
-              reference relationships, and optimized layout for crash driver scenarios.
+              <strong>Graph Visualization</strong> - Interactive view of all nodes and relationships.
+              Click nodes/edges for details, drag to pan, scroll to zoom.
             </p>
           </div>
         </div>

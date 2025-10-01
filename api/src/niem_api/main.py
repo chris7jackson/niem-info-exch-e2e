@@ -73,9 +73,10 @@ app = FastAPI(
 )
 
 # CORS middleware
+allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # UI origin
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -156,7 +157,7 @@ async def activate_schema(
 async def get_schemas(s3=Depends(get_s3_client)):
     """Get all schemas"""
     from .handlers.schema import get_all_schemas
-    return await get_all_schemas(s3)
+    return get_all_schemas(s3)
 
 
 # Data Ingestion Routes
@@ -205,7 +206,7 @@ async def reset_system(
 ):
     """Reset system components"""
     from .handlers.admin import handle_reset
-    return await handle_reset(request, s3)
+    return handle_reset(request, s3)
 
 
 @app.post("/api/admin/graph-schema/configure")
@@ -232,19 +233,8 @@ async def clear_neo4j_schema_endpoint(
     token: str = Depends(verify_token)
 ):
     """Clear Neo4j schema (indexes and constraints) only"""
-    try:
-        from .handlers.admin import clear_neo4j_schema
-
-        result = clear_neo4j_schema()
-        return {
-            "status": "success",
-            "message": "Neo4j schema cleared successfully",
-            "result": result
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to clear Neo4j schema: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to clear Neo4j schema: {str(e)}")
+    from .handlers.admin import clear_neo4j_schema
+    return clear_neo4j_schema()
 
 
 @app.post("/api/admin/neo4j/clear-data")
@@ -252,19 +242,8 @@ async def clear_neo4j_data_endpoint(
     token: str = Depends(verify_token)
 ):
     """Clear Neo4j data (nodes and relationships) only"""
-    try:
-        from .handlers.admin import clear_neo4j_data
-
-        result = clear_neo4j_data()
-        return {
-            "status": "success",
-            "message": "Neo4j data cleared successfully",
-            "result": result
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to clear Neo4j data: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to clear Neo4j data: {str(e)}")
+    from .handlers.admin import clear_neo4j_data
+    return clear_neo4j_data()
 
 
 @app.post("/api/admin/neo4j/clear-all")
@@ -272,18 +251,8 @@ async def clear_neo4j_all(
     token: str = Depends(verify_token)
 ):
     """Clear all Neo4j data and schema"""
-    try:
-        from .handlers.admin import reset_neo4j
-
-        reset_neo4j()
-        return {
-            "status": "success",
-            "message": "Neo4j cleared completely (data and schema)"
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to clear Neo4j: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to clear Neo4j: {str(e)}")
+    from .handlers.admin import reset_neo4j
+    return reset_neo4j()
 
 
 @app.get("/api/admin/neo4j/stats")
@@ -291,18 +260,8 @@ async def get_neo4j_stats(
     token: str = Depends(verify_token)
 ):
     """Get Neo4j database statistics"""
-    try:
-        from .handlers.admin import count_neo4j_objects
-
-        stats = count_neo4j_objects()
-        return {
-            "status": "success",
-            "stats": stats
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to get Neo4j stats: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get Neo4j stats: {str(e)}")
+    from .handlers.admin import count_neo4j_objects
+    return count_neo4j_objects()
 
 
 @app.post("/api/graph/query")
@@ -311,25 +270,12 @@ async def execute_graph_query(
     token: str = Depends(verify_token)
 ):
     """Execute a Cypher query and return ALL graph data exactly as Neo4j provides it"""
-    try:
-        from .handlers.graph import execute_cypher_query
+    from .handlers.graph import execute_cypher_query
 
-        cypher_query = request.get("query", "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100")
-        limit = request.get("limit", 100)
+    cypher_query = request.get("query")
+    limit = request.get("limit")  # None if not provided
 
-        # Add limit to query if not already present and user hasn't specified their own
-        if "LIMIT" not in cypher_query.upper() and limit:
-            cypher_query += f" LIMIT {limit}"
-
-        result = execute_cypher_query(cypher_query)
-        return {
-            "status": "success",
-            "data": result
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to execute graph query: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to execute graph query: {str(e)}")
+    return execute_cypher_query(cypher_query, limit)
 
 
 @app.get("/api/graph/full")
@@ -338,39 +284,12 @@ async def get_full_graph(
     token: str = Depends(verify_token)
 ):
     """Get the complete graph structure with all nodes and relationships"""
-    try:
-        from .handlers.graph import get_full_graph
-
-        result = get_full_graph(limit)
-        return {
-            "status": "success",
-            "data": result
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to get full graph: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get full graph: {str(e)}")
-
-
-@app.get("/api/graph/summary")
-async def get_database_summary(
-    token: str = Depends(verify_token)
-):
-    """Get comprehensive database summary with all node types and relationship types"""
-    try:
-        from .handlers.graph import get_database_summary
-
-        result = get_database_summary()
-        return {
-            "status": "success",
-            "data": result
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to get database summary: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get database summary: {str(e)}")
+    from .handlers.graph import get_full_graph
+    return get_full_graph(limit)
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    host = os.getenv("API_HOST", "0.0.0.0")
+    port = int(os.getenv("API_PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)
