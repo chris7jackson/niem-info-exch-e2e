@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { IngestResult, IngestFileResult } from '../lib/api';
+import IngestValidationErrors from './IngestValidationErrors';
 
 interface IngestResultsProps {
   results: IngestResult;
@@ -40,36 +41,38 @@ export default function IngestResults({ results }: IngestResultsProps) {
       <div className="space-y-2">
         <h4 className="text-sm font-medium text-gray-900">File Details</h4>
         {results.results.map((file, index) => (
-          <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-            <div className="flex items-center">
-              {file.status === 'success' ? (
-                <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
-              ) : (
-                <XCircleIcon className="h-5 w-5 text-red-500 mr-2" />
-              )}
-              <span className="text-sm font-medium text-gray-900">{file.filename}</span>
+          <div key={index} className="space-y-2">
+            <div className="flex items-center justify-between bg-gray-50 p-3 rounded">
+              <div className="flex items-center">
+                {file.status === 'success' ? (
+                  <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
+                ) : (
+                  <XCircleIcon className="h-5 w-5 text-red-500 mr-2" />
+                )}
+                <span className="text-sm font-medium text-gray-900">{file.filename}</span>
+              </div>
+              <div className="text-right">
+                {file.status === 'success' ? (
+                  <div className="text-sm text-gray-600">
+                    {file.nodes_created || 0} nodes, {file.relationships_created || 0} relationships
+                  </div>
+                ) : (
+                  <div className="text-sm text-red-600">
+                    {file.validation_details ? 'Validation failed' : (file.error || 'Unknown error')}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="text-right">
-              {file.status === 'success' ? (
-                <div className="text-sm text-gray-600">
-                  {file.nodes_created || 0} nodes, {file.relationships_created || 0} relationships
-                </div>
-              ) : (
-                <div className="text-sm text-red-600">{file.error}</div>
-              )}
-            </div>
+            {/* Show detailed validation errors if available */}
+            {file.status === 'failed' && file.validation_details && (
+              <IngestValidationErrors
+                filename={file.filename}
+                validationResult={file.validation_details}
+              />
+            )}
           </div>
         ))}
       </div>
-
-      {failedFiles > 0 && (
-        <div className="mt-4 p-4 bg-red-50 rounded-lg">
-          <div className="text-sm text-red-700">
-            <strong>Warning:</strong> {failedFiles} file{failedFiles !== 1 ? 's' : ''} failed to process.
-            Please check the file format and try again.
-          </div>
-        </div>
-      )}
     </div>
   );
 }

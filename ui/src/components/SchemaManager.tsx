@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
-import { useDropzone } from 'react-dropzone';
+import React, { useState, useEffect, DragEvent } from 'react';
 import { CheckCircleIcon, CloudArrowUpIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, StarIcon } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import apiClient, { Schema } from '../lib/api';
 import ExpandableError from './ExpandableError';
+import ValidationResults from './ValidationResults';
 
 interface FilePreview {
   file: File;
   id: string;
+  path: string; // Relative path from upload root
 }
 
 export default function SchemaManager() {
@@ -15,8 +16,9 @@ export default function SchemaManager() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [skipNiemResolution, setSkipNiemResolution] = useState(false);
   const [filePreviews, setFilePreviews] = useState<FilePreview[]>([]);
+  const [lastValidationResult, setLastValidationResult] = useState<any | null>(null);
+  const [skipNiemNdr, setSkipNiemNdr] = useState(false);
 
   useEffect(() => {
     loadSchemas();
@@ -42,11 +44,18 @@ export default function SchemaManager() {
       return;
     }
 
-    // Add files to preview list
-    const newPreviews: FilePreview[] = files.map(file => ({
-      file,
-      id: Math.random().toString(36).substring(7)
-    }));
+    // Add files to preview list, capturing directory paths
+    const newPreviews: FilePreview[] = files.map(file => {
+      // Try to get relative path from webkitRelativePath (when folder is selected)
+      // Otherwise use just the filename
+      const path = (file as any).webkitRelativePath || file.name;
+
+      return {
+        file,
+        id: Math.random().toString(36).substring(7),
+        path
+      };
+    });
     setFilePreviews([...filePreviews, ...newPreviews]);
     setError(null);
   };
@@ -58,17 +67,52 @@ export default function SchemaManager() {
       setUploading(true);
       setError(null);
       const files = filePreviews.map(fp => fp.file);
-      const result = await apiClient.uploadSchema(files, skipNiemResolution);
+      const filePaths = filePreviews.map(fp => fp.path);
+      const result = await apiClient.uploadSchema(files, filePaths, skipNiemNdr);
+
+      // Store validation results
+      setLastValidationResult(result);
 
       // Check NIEM NDR validation status
       if (result.niem_ndr_report && result.niem_ndr_report.status === 'pass') {
         await loadSchemas();
         setFilePreviews([]); // Clear previews on success
       } else if (result.niem_ndr_report && result.niem_ndr_report.status === 'fail') {
-        const errors = result.niem_ndr_report.violations
+        // Group violations by file
+        const violationsByFile: { [key: string]: any[] } = {};
+        result.niem_ndr_report.violations
           .filter((v: any) => v.type === 'error')
-          .map((v: any) => v.message);
-        const errorMessage = `Schema upload rejected due to NIEM NDR validation failures. Found ${errors.length} NIEM NDR violations: ${errors.join('; ')}.`;
+          .forEach((v: any) => {
+            const file = v.file || 'Unknown file';
+            if (!violationsByFile[file]) {
+              violationsByFile[file] = [];
+            }
+            violationsByFile[file].push(v);
+          });
+
+        // Build error message with file grouping
+        const totalErrors = result.niem_ndr_report.violations.filter((v: any) => v.type === 'error').length;
+        const fileCount = Object.keys(violationsByFile).length;
+
+        let errorMessage = `Schema upload rejected due to NIEM NDR validation failures. Found ${totalErrors} NIEM NDR violations across ${fileCount} files:\n\n`;
+
+        // Show first 3 violations from each file, limit to 3 files
+        const filesToShow = Object.keys(violationsByFile).slice(0, 3);
+        filesToShow.forEach((file) => {
+          const violations = violationsByFile[file];
+          errorMessage += `\n${file} (${violations.length} violations):\n`;
+          violations.slice(0, 3).forEach((v: any) => {
+            errorMessage += `  - ${v.rule}: ${v.message}\n`;
+          });
+          if (violations.length > 3) {
+            errorMessage += `  ... and ${violations.length - 3} more violations\n`;
+          }
+        });
+
+        if (Object.keys(violationsByFile).length > 3) {
+          errorMessage += `\n... and ${Object.keys(violationsByFile).length - 3} more files with violations`;
+        }
+
         setError(errorMessage);
       } else {
         // If no validation report or other status, assume success
@@ -113,14 +157,64 @@ export default function SchemaManager() {
     }
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: handleFilesSelected,
-    accept: {
-      'application/xml': ['.xsd'],
-      'text/xml': ['.xsd'],
-    },
-    maxFiles: 10,
-  });
+  // Don't use react-dropzone's getRootProps/getInputProps since we want folder-only upload
+  const [isDragActive, setIsDragActive] = useState(false);
+
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+
+    const items = Array.from(e.dataTransfer.items);
+    const files: File[] = [];
+
+    // Recursively read all files from dropped folders
+    const readEntries = async (entry: any) => {
+      if (entry.isFile) {
+        const file = await new Promise<File>((resolve) => entry.file(resolve));
+        if (file.name.endsWith('.xsd')) {
+          files.push(file);
+        }
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        const entries = await new Promise<any[]>((resolve) => {
+          reader.readEntries(resolve);
+        });
+        for (const subEntry of entries) {
+          await readEntries(subEntry);
+        }
+      }
+    };
+
+    (async () => {
+      for (const item of items) {
+        const entry = item.webkitGetAsEntry();
+        if (entry) {
+          await readEntries(entry);
+        }
+      }
+      if (files.length > 0) {
+        handleFilesSelected(files);
+      }
+    })();
+  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -135,7 +229,8 @@ export default function SchemaManager() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Schema Management</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Upload and manage NIEM XSD schemas for data validation. You can upload multiple related XSD files together.
+          Upload and manage NIEM XSD schemas for data validation. You must upload ALL required files together,
+          including the main schema, all NIEM reference schemas, and any custom reference schemas.
         </p>
       </div>
 
@@ -143,7 +238,15 @@ export default function SchemaManager() {
         <ExpandableError
           title="Schema Upload Error"
           message={error}
-          maxLength={150}
+          maxLength={300}
+        />
+      )}
+
+      {/* Validation Results */}
+      {lastValidationResult && (
+        <ValidationResults
+          ndrReport={lastValidationResult.niem_ndr_report}
+          importReport={lastValidationResult.import_validation_report}
         />
       )}
 
@@ -151,49 +254,75 @@ export default function SchemaManager() {
       <div className="bg-white shadow rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Upload XSD Schema(s)</h3>
 
-        {/* Skip NIEM Resolution Option */}
-        <div className="mb-6">
-          <label className="flex items-start space-x-3">
-            <input
-              type="checkbox"
-              checked={skipNiemResolution}
-              onChange={(e) => setSkipNiemResolution(e.target.checked)}
-              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <div className="min-w-0 flex-1">
-              <span className="text-sm font-medium text-gray-700">
-                Skip NIEM dependency resolution
-              </span>
-              <p className="text-sm text-gray-500 mt-1">
-                Use this option when uploading complete, self-contained schema sets that include all required NIEM dependencies.
-                This will skip automatic NIEM schema resolution and use only the files you upload.
+        {/* Important Notice */}
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <svg className="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div className="flex-1 text-sm">
+              <p className="font-semibold text-amber-900 mb-1">Upload Complete Schema Set</p>
+              <p className="text-amber-800">
+                You must upload ALL required XSD files together:
+              </p>
+              <ul className="list-disc list-inside mt-2 space-y-1 text-amber-800">
+                <li>Main schema file (will be set as primary)</li>
+                <li>All NIEM reference schemas (niem-core.xsd, structures.xsd, etc.)</li>
+                <li>All custom reference schemas your schema imports</li>
+              </ul>
+              <p className="mt-2 text-amber-800">
+                All files will be validated against NIEM NDR rules and checked for missing dependencies.
               </p>
             </div>
-          </label>
+          </div>
         </div>
 
         <div className="space-y-4">
-          {/* Drop Zone - Always visible */}
+          {/* Hidden folder input */}
+          <input
+            type="file"
+            ref={(input) => {
+              if (input) {
+                input.setAttribute('webkitdirectory', '');
+                input.setAttribute('directory', '');
+              }
+            }}
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              handleFilesSelected(files);
+              e.target.value = ''; // Reset input
+            }}
+            style={{ display: 'none' }}
+            id="folder-input"
+          />
+
+          {/* Drop Zone - Folder only */}
           <div
-            {...getRootProps()}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => document.getElementById('folder-input')?.click()}
             className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
               isDragActive
                 ? 'border-blue-400 bg-blue-50'
                 : 'border-gray-300 hover:border-gray-400'
             }`}
           >
-            <input {...getInputProps()} />
             <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
             {isDragActive ? (
-              <p className="mt-2 text-sm text-gray-600">Drop the XSD file(s) here</p>
+              <p className="mt-2 text-sm text-gray-600">Drop the folder here</p>
             ) : (
               <>
-                <p className="mt-2 text-sm text-gray-600">
-                  {filePreviews.length > 0
-                    ? 'Drag and drop more XSD file(s) here, or click to select'
-                    : 'Drag and drop XSD file(s) here, or click to select'}
+                <p className="mt-2 text-sm font-medium text-gray-900">
+                  Select Schema Folder
                 </p>
-                <p className="text-xs text-gray-500">XSD files only, up to 10 files, 20MB total</p>
+                <p className="mt-1 text-sm text-gray-600">
+                  Drag and drop a folder containing XSD schemas, or click to browse
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  All .xsd files in the folder and subfolders will be uploaded
+                </p>
               </>
             )}
           </div>
@@ -222,7 +351,7 @@ export default function SchemaManager() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center">
                           <p className="text-sm font-medium text-gray-900 truncate">
-                            {fp.file.name}
+                            {fp.path}
                           </p>
                           {index === 0 && (
                             <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
@@ -276,12 +405,23 @@ export default function SchemaManager() {
             </div>
 
             <div className="flex items-center justify-between pt-2">
-              <button
-                onClick={() => setFilePreviews([])}
-                className="text-sm text-gray-600 hover:text-gray-800"
-              >
-                Clear all
-              </button>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setFilePreviews([])}
+                  className="text-sm text-gray-600 hover:text-gray-800"
+                >
+                  Clear all
+                </button>
+                <label className="inline-flex items-center text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={skipNiemNdr}
+                    onChange={(e) => setSkipNiemNdr(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                  <span className="ml-2">Skip NIEM NDR validation</span>
+                </label>
+              </div>
               <button
                 onClick={handleSchemaUpload}
                 disabled={uploading || filePreviews.length === 0}

@@ -12,12 +12,31 @@ export interface Schema {
   active: boolean;
 }
 
+export interface ValidationError {
+  file: string;
+  line?: number;
+  column?: number;
+  message: string;
+  severity: string;
+  rule?: string;
+  context?: string;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+  warnings: ValidationError[];
+  summary: string;
+  raw_output?: string;
+}
+
 export interface IngestFileResult {
   filename: string;
   status: string;
   nodes_created?: number;
   relationships_created?: number;
   error?: string;
+  validation_details?: ValidationResult;
 }
 
 export interface IngestResponse {
@@ -59,15 +78,14 @@ class ApiClient {
   }
 
   // Schema Management
-  async uploadSchema(files: File[], skipNiemResolution: boolean = false): Promise<any> {
+  async uploadSchema(files: File[], filePaths: string[], skipNiemNdr: boolean = false): Promise<any> {
     const formData = new FormData();
     files.forEach(file => {
       formData.append('files', file);
     });
-
-    if (skipNiemResolution) {
-      formData.append('skip_niem_resolution', 'true');
-    }
+    // Send file paths as JSON array
+    formData.append('file_paths', JSON.stringify(filePaths));
+    formData.append('skip_niem_ndr', skipNiemNdr.toString());
 
     const response = await this.client.post('/api/schema/xsd', formData, {
       headers: {
