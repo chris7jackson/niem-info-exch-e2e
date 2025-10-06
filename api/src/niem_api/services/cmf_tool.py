@@ -45,9 +45,6 @@ __all__ = [
 
 # CMF tool is used for XML validation against schemas and XSD-to-JSON conversion
 
-
-
-
 def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.xsd") -> Dict[str, Any]:
     """
     Convert XSD to CMF using CMF tool with NIEM dependency resolution.
@@ -77,27 +74,6 @@ def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.
         # Main schema file should be in the source directory
         main_schema_file = source_dir / primary_filename
 
-        # Special handling for CrashDriver schema - return pre-existing CMF directly
-        if primary_filename.lower() == "crashdriver.xsd":
-            logger.info("*** DETECTED CRASHDRIVER SCHEMA - USING PRE-EXISTING CMF FILE ***")
-            try:
-                crashdriver_cmf_path = Path("/app/third_party/niem-crashdriver/crashdriverxsd.cmf")
-                if crashdriver_cmf_path.exists():
-                    with open(crashdriver_cmf_path, 'r', encoding='utf-8') as f:
-                        cmf_content = f.read()
-
-                    logger.info(f"*** Successfully loaded pre-existing CrashDriver CMF file ({len(cmf_content)} chars) ***")
-                    return {
-                        "status": "success",
-                        "cmf_content": cmf_content,
-                        "message": "Using pre-existing CrashDriver CMF file",
-                        "cmf_file_path": str(crashdriver_cmf_path)
-                    }
-                else:
-                    logger.warning(f"*** CrashDriver CMF file not found at {crashdriver_cmf_path}, falling back to CMF tool ***")
-            except Exception as e:
-                logger.error(f"*** Failed to load pre-existing CMF file: {e}, falling back to CMF tool ***")
-
         if not main_schema_file.exists():
             return {
                 "status": "error",
@@ -109,11 +85,13 @@ def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.
 
         # Convert XSD to CMF using source directory as working directory
         # This ensures all reference schemas are accessible via relative paths
+        # IMPORTANT: Use relative path for primary file so CMF tool can resolve imports
         logger.info(f"Converting XSD to CMF with working directory: {source_dir}")
-        logger.info(f"Main schema file: {main_schema_file}")
+        logger.info(f"Primary schema file (relative): {primary_filename}")
+        logger.info(f"Primary schema file (absolute): {main_schema_file}")
 
         result = run_cmf_command(
-            ["x2m", "-o", str(cmf_file), str(main_schema_file)],
+            ["x2m", "-o", "model.cmf", primary_filename],
             working_dir=str(source_dir)
         )
 
@@ -239,4 +217,3 @@ def convert_cmf_to_jsonschema(cmf_content: str) -> Dict[str, Any]:
             "error": f"CMF to JSON Schema conversion failed: {str(e)}"
         }
 
-# Functions is_cmf_available() and get_cmf_version() are imported from clients.cmf_client

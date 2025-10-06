@@ -2,15 +2,13 @@
 NIEM Schema Processing Domain
 
 Handles NIEM schema operations:
-- Tree shaking (element-level dependency analysis)
-- Dependency resolution (fetching required NIEM schemas)
+- Schema validation (dependency checking within uploaded files)
 - Validation (NIEM Naming & Design Rules conformance)
 - Mapping generation (CMF to YAML mapping)
 - Mapping validation (coverage analysis)
 """
 
-from .treeshaker import ElementLevelTreeshaker, create_element_level_treeshaker
-from .resolver import resolve_niem_schema_dependencies, get_treeshaking_statistics
+from .resolver import validate_schema_dependencies
 from .validator import NiemNdrValidator, validate_niem_conformance
 from .mapping import (
     generate_mapping_from_cmf_content,
@@ -19,13 +17,9 @@ from .mapping import (
 )
 
 __all__ = [
-    # Treeshaker
-    'ElementLevelTreeshaker',
-    'create_element_level_treeshaker',
-    # Resolver
-    'resolve_niem_schema_dependencies',
-    'get_treeshaking_statistics',
-    # Validator
+    # Schema validation
+    'validate_schema_dependencies',
+    # NDR Validator
     'NiemNdrValidator',
     'validate_niem_conformance',
     # Mapping

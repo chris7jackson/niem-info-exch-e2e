@@ -12,8 +12,7 @@ from ..clients.neo4j_client import Neo4jClient
 
 logger = logging.getLogger(__name__)
 
-
-async def _get_schema_id(s3: Minio, schema_id: str | None) -> str:
+def _get_schema_id(s3: Minio, schema_id: str | None) -> str:
     """Get schema ID, using provided or active schema.
 
     Args:
@@ -114,11 +113,12 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
         filename: File being validated (for logging purposes)
 
     Raises:
-        HTTPException: If validation fails
+        HTTPException: If validation fails (with structured error details in response)
     """
     import tempfile
     from pathlib import Path
-    from ..clients.cmf_client import run_cmf_command, CMFError
+    from ..clients.cmf_client import run_cmf_command, parse_cmf_validation_output, CMFError
+    from ..models.models import ValidationError, ValidationResult
 
     logger.info(f"Validating XML file {filename} against XSD schemas")
 
@@ -143,28 +143,82 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
             cmd = ["xval"]
             for xsd_file in xsd_files:
                 cmd.extend(["--schema", str(xsd_file)])
-            cmd.extend(["--file", xml_file])
+            cmd.extend(["--file", str(xml_file)])  # Fixed: convert PosixPath to str
 
-            # Run validation
+            # Run XSD validation command
             result = run_cmf_command(cmd, working_dir=temp_dir)
 
-            if result["returncode"] != 0:
-                error_msg = f"XML validation failed for {filename}"
-                if result["stderr"]:
-                    error_msg += f": {result['stderr']}"
-                if result["stdout"]:
-                    error_msg += f"\n{result['stdout']}"
-                logger.error(error_msg)
-                raise HTTPException(status_code=400, detail=error_msg)
+            # Parse validation output into structured errors
+            parsed = parse_cmf_validation_output(result["stdout"], result["stderr"], filename)
+
+            # IMPORTANT: xval returns exit code 0 even when validation fails
+            # Check both return code AND parsed errors
+            validation_failed = result["returncode"] != 0 or parsed["has_errors"]
+
+            if validation_failed:
+                # Build structured error response
+                error_list = parsed["errors"]
+                warning_list = parsed["warnings"]
+
+                # Create ValidationResult for structured response
+                validation_result = ValidationResult(
+                    valid=False,
+                    errors=[ValidationError(**err) for err in error_list],
+                    warnings=[ValidationError(**warn) for warn in warning_list],
+                    summary=f"Validation failed with {len(error_list)} error(s) and {len(warning_list)} warning(s)",
+                    raw_output=result["stdout"] + "\n" + result["stderr"]
+                )
+
+                # Build detailed error message for logging
+                error_details = []
+                for err in error_list[:5]:  # Show first 5 errors
+                    loc = f"{err['file']}"
+                    if err['line']:
+                        loc += f":{err['line']}"
+                    if err['column']:
+                        loc += f":{err['column']}"
+                    error_details.append(f"  - {loc}: {err['message']}")
+
+                error_summary = f"Validation failed for {filename}"
+                if error_details:
+                    error_summary += ":\n" + "\n".join(error_details)
+                    if len(error_list) > 5:
+                        error_summary += f"\n  ... and {len(error_list) - 5} more error(s)"
+
+                logger.error(error_summary)
+
+                # Return structured validation result in HTTPException detail
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "message": f"Validation error: {filename}",
+                        "validation_result": validation_result.model_dump()
+                    }
+                )
 
             logger.info(f"Successfully validated {filename} against XSD schemas")
 
+    except HTTPException:
+        # Re-raise HTTPException from validation failure (already has detail message)
+        raise
     except CMFError as e:
         logger.error(f"CMF tool error during validation: {e}")
-        raise HTTPException(status_code=500, detail=f"Validation error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": f"CMF tool error: {str(e)}",
+                "validation_result": None
+            }
+        )
     except Exception as e:
         logger.error(f"Unexpected error during XML validation: {e}")
-        raise HTTPException(status_code=500, detail=f"Validation error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": f"Validation error: {str(e)}",
+                "validation_result": None
+            }
+        )
 
 
 def _clean_cypher_statement(statement: str) -> str:
@@ -266,21 +320,25 @@ def _create_success_result(filename: str, statements_executed: int, stats: Dict[
     }
 
 
-def _create_error_result(filename: str, error_msg: str) -> Dict[str, Any]:
+def _create_error_result(filename: str, error_msg: str, validation_result: Dict[str, Any] = None) -> Dict[str, Any]:
     """Create error result dictionary.
 
     Args:
         filename: Failed filename
         error_msg: Error message
+        validation_result: Optional structured validation result
 
     Returns:
         Error result dictionary
     """
-    return {
+    result = {
         "filename": filename,
         "status": "failed",
         "error": error_msg
     }
+    if validation_result:
+        result["validation_details"] = validation_result
+    return result
 
 
 async def _process_single_file(
@@ -332,9 +390,29 @@ async def _process_single_file(
             logger.error(f"Failed to execute Cypher for {file.filename}: {e}")
             return _create_error_result(file.filename, f"Cypher execution failed: {str(e)}"), 0
 
+    except HTTPException as e:
+        # HTTPException from validation - extract detail message and validation result
+        if hasattr(e, 'detail') and isinstance(e.detail, dict):
+            error_msg = e.detail.get('message', str(e.detail))
+            validation_result = e.detail.get('validation_result')
+
+            # If no validation_result but message indicates validation failure, provide helpful default
+            if not validation_result and 'validation' in error_msg.lower():
+                error_msg = f"{error_msg}. CMF validation failed - check that the XML conforms to the active schema."
+        else:
+            error_msg = e.detail if hasattr(e, 'detail') else str(e)
+            validation_result = None
+
+            # Provide helpful default message for validation errors
+            if 'validation' in error_msg.lower() and not validation_result:
+                error_msg = f"{error_msg}. Check that the XML file conforms to the active schema."
+
+        logger.error(f"Failed to process file {file.filename}: {error_msg}")
+        return _create_error_result(file.filename, error_msg, validation_result), 0
     except Exception as e:
         logger.error(f"Failed to process file {file.filename}: {e}")
-        return _create_error_result(file.filename, str(e)), 0
+        error_msg = f"{str(e)}. Unexpected error during processing."
+        return _create_error_result(file.filename, error_msg), 0
 
 
 async def handle_xml_ingest(
@@ -348,7 +426,7 @@ async def handle_xml_ingest(
     schema_dir = None
     try:
         # Step 1: Get schema ID (use provided or get active)
-        schema_id = await _get_schema_id(s3, schema_id)
+        schema_id = _get_schema_id(s3, schema_id)
 
         # Step 2: Load mapping specification
         mapping = _load_mapping_from_s3(s3, schema_id)

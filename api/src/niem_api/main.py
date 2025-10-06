@@ -126,20 +126,33 @@ async def readiness_check():
 @app.post("/api/schema/xsd", response_model=SchemaResponse)
 async def upload_schema(
     files: List[UploadFile] = File(...),
-    skip_niem_resolution: bool = Form(False),
+    file_paths: str = Form("[]"),
+    skip_niem_ndr: bool = Form(False),
     token: str = Depends(verify_token),
     s3=Depends(get_s3_client)
 ):
-    """Upload and validate XSD schema(s) - supports multiple related XSD files
+    """Upload and validate XSD schema(s) - supports multiple related XSD files.
+
+    All required schema files (main schema, NIEM references, and custom references)
+    must be uploaded together. The system validates that all dependencies are present.
 
     Args:
-        files: XSD schema files to upload
-        skip_niem_resolution: If True, only use uploaded files without NIEM dependency resolution
+        files: XSD schema files to upload (must include all referenced schemas)
+        file_paths: JSON array of relative file paths (preserves directory structure)
+        skip_niem_ndr: If True, skip NIEM NDR validation
         token: Authentication token
         s3: MinIO client dependency
     """
+    import json
     from .handlers.schema import handle_schema_upload
-    return await handle_schema_upload(files, s3, skip_niem_resolution)
+
+    # Parse file paths JSON
+    try:
+        paths = json.loads(file_paths)
+    except json.JSONDecodeError:
+        paths = []
+
+    return await handle_schema_upload(files, s3, skip_niem_ndr, paths)
 
 
 @app.post("/api/schema/activate/{schema_id}")

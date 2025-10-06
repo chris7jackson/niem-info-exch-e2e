@@ -3,41 +3,29 @@
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Set, Optional, Any
+from typing import Dict, Set, Optional
 from xml.etree import ElementTree as ET
-
-from .treeshaker import ElementLevelTreeshaker, create_element_level_treeshaker
 
 logger = logging.getLogger(__name__)
 
-# Adjust path: domain/schema/resolver.py -> go up to api/ root
-NIEM_XSD_LOCAL_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / "third_party" / "niem-xsd"
 
-class NIEMDependencyResolver:
+class SchemaValidator:
     """
-    Resolves NIEM schema dependencies using local third_party files.
+    Validates that all schema dependencies exist within uploaded files.
 
-    Supports both file-level treeshaking (default) and element-level treeshaking
-    for maximum size reduction while maintaining schema correctness.
+    This validator ensures that all xs:import statements and namespace references
+    in uploaded schemas can be resolved to other uploaded files, without fetching
+    from external sources.
     """
 
-    def __init__(self, enable_element_treeshaking: bool = True):
-        self._cache: Dict[str, str] = {}
-        self._local_xsd_path = NIEM_XSD_LOCAL_PATH
-        self._namespace_to_file_cache: Dict[str, str] = {}
-        self._enable_element_treeshaking = enable_element_treeshaking
-        self._element_treeshaker: Optional[ElementLevelTreeshaker] = None
+    def __init__(self):
+        pass
 
-        if self._enable_element_treeshaking:
-            self._element_treeshaker = create_element_level_treeshaker()
-            logger.info("Element-level treeshaking enabled for maximum size reduction")
-
-    def _extract_schema_locations(self, xsd_content: str) -> Set[str]:
-        """Extract schemaLocation paths from XSD imports and namespace URIs from xmlns declarations"""
+    def _extract_schema_imports(self, xsd_content: str) -> Set[str]:
+        """Extract schemaLocation paths from XSD imports"""
         schema_locations = set()
 
         try:
-            # Parse XML to find xs:import elements and xmlns declarations
             root = ET.fromstring(xsd_content)
 
             # Find all xs:import elements with schemaLocation
@@ -47,93 +35,18 @@ class NIEMDependencyResolver:
                     if schema_location:
                         schema_locations.add(schema_location)
 
-            # Extract xmlns namespace declarations from root element
-            for key, value in root.attrib.items():
-                # Look for xmlns:prefix or xmlns attributes
-                if key.startswith('{http://www.w3.org/2000/xmlns/}') or key == 'xmlns':
-                    # This is a namespace URI that might correspond to a NIEM schema
-                    namespace_uri = value
-                    if self._is_niem_namespace(namespace_uri):
-                        # Convert namespace URI to schema file path
-                        file_path = self._namespace_uri_to_file_path(namespace_uri)
-                        schema_locations.add(file_path)
-                        logger.debug(f"Found NIEM namespace dependency: {namespace_uri} -> {file_path}")
-
         except ET.ParseError as e:
-            logger.error(f"Failed to parse XSD for dependency extraction: {e}")
+            logger.error(f"Failed to parse XSD for import extraction: {e}")
 
-            # Fallback to regex parsing for both schemaLocation and xmlns
-            # Extract schemaLocation attributes
+            # Fallback to regex parsing
             import_pattern = r'schemaLocation\s*=\s*["\']([^"\']+)["\']'
             for match in re.finditer(import_pattern, xsd_content):
                 schema_locations.add(match.group(1))
 
-            # Extract xmlns declarations
-            xmlns_pattern = r'xmlns(?::[^=\s]+)?\s*=\s*["\']([^"\']+)["\']'
-            for match in re.finditer(xmlns_pattern, xsd_content):
-                namespace_uri = match.group(1)
-                if self._is_niem_namespace(namespace_uri):
-                    # Convert namespace URI to schema file path
-                    file_path = self._namespace_uri_to_file_path(namespace_uri)
-                    schema_locations.add(file_path)
-                    logger.debug(f"Found NIEM namespace dependency (regex): {namespace_uri} -> {file_path}")
-
         return schema_locations
 
-    def _is_niem_namespace(self, namespace_uri: str) -> bool:
-        """Check if a namespace URI corresponds to a NIEM schema"""
-        niem_patterns = [
-            'https://docs.oasis-open.org/niemopen/ns/model/niem-core/',
-            'https://docs.oasis-open.org/niemopen/ns/model/domains/',
-            'https://docs.oasis-open.org/niemopen/ns/model/adapters/',
-            'https://docs.oasis-open.org/niemopen/ns/model/structures/',
-            'https://docs.oasis-open.org/niemopen/ns/model/appinfo/',
-            'https://docs.oasis-open.org/niemopen/ns/model/codes/'
-        ]
-
-        return any(namespace_uri.startswith(pattern) for pattern in niem_patterns)
-
-    def _build_namespace_to_file_mapping(self) -> Dict[str, str]:
-        """Dynamically build mapping from namespace URIs to file paths by scanning NIEM directory"""
-        if self._namespace_to_file_cache:
-            return self._namespace_to_file_cache
-
-        logger.info("Building dynamic namespace to file mapping from NIEM directory")
-
-        if not self._local_xsd_path.exists():
-            logger.warning(f"NIEM directory not found: {self._local_xsd_path}")
-            return {}
-
-        # Scan all XSD files in the NIEM directory
-        for xsd_file in self._local_xsd_path.rglob("*.xsd"):
-            try:
-                with open(xsd_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
-
-                # Extract targetNamespace from each schema
-                root = ET.fromstring(content)
-                target_namespace = root.get('targetNamespace')
-
-                if target_namespace and self._is_niem_namespace(target_namespace):
-                    # Convert absolute path to relative path from NIEM directory
-                    relative_path = xsd_file.relative_to(self._local_xsd_path)
-                    self._namespace_to_file_cache[target_namespace] = str(relative_path)
-                    logger.debug(f"Mapped namespace: {target_namespace} -> {relative_path}")
-
-            except Exception as e:
-                logger.warning(f"Failed to parse {xsd_file} for namespace mapping: {e}")
-
-        logger.info(f"Built namespace mapping for {len(self._namespace_to_file_cache)} NIEM schemas")
-        return self._namespace_to_file_cache
-
-    def _namespace_uri_to_file_path(self, namespace_uri: str) -> str:
-        """Convert a NIEM namespace URI to the corresponding schema file path"""
-        namespace_mapping = self._build_namespace_to_file_mapping()
-        return namespace_mapping.get(namespace_uri, namespace_uri)
-
-
     def _extract_imported_namespaces(self, xsd_content: str) -> Set[str]:
-        """Extract namespace URIs from xs:import elements and xsi:schemaLocation."""
+        """Extract namespace URIs from xs:import elements"""
         imported_namespaces = set()
 
         try:
@@ -176,7 +89,7 @@ class NIEMDependencyResolver:
         return imported_namespaces
 
     def _extract_namespace_declarations(self, xsd_content: str) -> Dict[str, str]:
-        """Extract namespace prefix to URI mappings from schema root element."""
+        """Extract namespace prefix to URI mappings from schema root element"""
         namespace_map = {}
 
         try:
@@ -209,7 +122,7 @@ class NIEMDependencyResolver:
         return namespace_map
 
     def _find_used_namespace_prefixes(self, xsd_content: str) -> Set[str]:
-        """Find all namespace prefixes that are actually used in element/type references."""
+        """Find all namespace prefixes that are actually used in element/type references"""
         used_prefixes = set()
 
         # Pattern to find prefixed element/type references like "nc:Person", "j:Crash", etc.
@@ -231,308 +144,188 @@ class NIEMDependencyResolver:
         logger.debug(f"Found used namespace prefixes: {used_prefixes}")
         return used_prefixes
 
-    def _resolve_transitive_dependencies(self, required_files: Set[str], niem_base_path: Path) -> Set[str]:
+    def validate_uploaded_schemas(self, uploaded_schemas: Dict[str, str]) -> Dict[str, any]:
         """
-        Recursively resolve transitive dependencies by analyzing imports in required NIEM schemas.
-
-        Args:
-            required_files: Set of initially required NIEM schema files
-            niem_base_path: Path to NIEM schema base directory
-
-        Returns:
-            Set of all required files including transitive dependencies
-        """
-        namespace_mapping = self._build_namespace_to_file_mapping()
-
-        all_required = set(required_files)
-        to_process = set(required_files)
-        processed = set()
-
-        while to_process:
-            current_file = to_process.pop()
-            if current_file in processed:
-                continue
-
-            processed.add(current_file)
-            logger.debug(f"Processing transitive dependencies for: {current_file}")
-
-            # Read the NIEM schema file
-            schema_file_path = niem_base_path / current_file
-            if not schema_file_path.exists():
-                logger.warning(f"NIEM schema not found for transitive analysis: {schema_file_path}")
-                continue
-
-            try:
-                with open(schema_file_path, 'r', encoding='utf-8') as f:
-                    schema_content = f.read()
-
-                # Extract imports from this NIEM schema
-                imported_namespaces = self._extract_imported_namespaces(schema_content)
-
-                # Extract namespace declarations and usage
-                namespace_prefixes = self._extract_namespace_declarations(schema_content)
-                used_prefixes = self._find_used_namespace_prefixes(schema_content)
-
-                logger.debug(f"  Found {len(imported_namespaces)} imports and {len(used_prefixes)} used prefixes in {current_file}")
-
-                # Find additional NIEM dependencies
-                for prefix in used_prefixes:
-                    if prefix in namespace_prefixes:
-                        namespace_uri = namespace_prefixes[prefix]
-                        if namespace_uri in namespace_mapping:
-                            dep_file = namespace_mapping[namespace_uri]
-                            if dep_file not in all_required:
-                                logger.info(f"Transitive dependency: {current_file} -> {dep_file}")
-                                all_required.add(dep_file)
-                                to_process.add(dep_file)
-
-                # Also check explicit imports (include if imported AND namespace prefix is used)
-                for namespace_uri in imported_namespaces:
-                    if namespace_uri in namespace_mapping:
-                        dep_file = namespace_mapping[namespace_uri]
-                        if dep_file not in all_required:
-                            # Find the prefix for this namespace URI
-                            namespace_prefix = None
-                            for prefix, uri in namespace_prefixes.items():
-                                if uri == namespace_uri:
-                                    namespace_prefix = prefix
-                                    break
-
-                            # Include if the corresponding prefix is actually used
-                            if namespace_prefix and namespace_prefix in used_prefixes:
-                                logger.info(f"Transitive import (used): {current_file} -> {dep_file} (prefix: {namespace_prefix})")
-                                all_required.add(dep_file)
-                                to_process.add(dep_file)
-                            else:
-                                logger.debug(f"Skipping unused import: {current_file} -> {dep_file} (prefix: {namespace_prefix}, used: {namespace_prefix in used_prefixes if namespace_prefix else 'no prefix'})")
-
-            except Exception as e:
-                logger.warning(f"Failed to analyze transitive dependencies for {current_file}: {e}")
-
-        logger.info(f"Transitive analysis: {len(required_files)} direct -> {len(all_required)} total dependencies")
-        return all_required
-
-    def resolve_niem_dependencies(self, uploaded_schemas: Dict[str, str], target_dir: Path) -> Set[str]:
-        """
-        Analyze uploaded schemas to determine which NIEM dependencies are actually used.
-
-        Supports both file-level treeshaking (backward compatible) and element-level
-        treeshaking for maximum size reduction.
+        Validate that all dependencies in uploaded schemas can be resolved within the uploaded files.
 
         Args:
             uploaded_schemas: Dict mapping filename to XSD content for all uploaded files
-            target_dir: Directory where NIEM schemas should be copied
 
         Returns:
-            Set of NIEM schema file paths that were copied
+            Dict with validation results including per-file details
         """
-        logger.info(f"Analyzing NIEM dependencies for {len(uploaded_schemas)} schemas")
+        logger.info(f"Validating dependencies for {len(uploaded_schemas)} uploaded schemas")
 
-        if self._enable_element_treeshaking and self._element_treeshaker:
-            return self._resolve_with_element_treeshaking(uploaded_schemas, target_dir)
-        else:
-            return self._resolve_with_file_treeshaking(uploaded_schemas, target_dir)
-
-    def _resolve_with_element_treeshaking(self, uploaded_schemas: Dict[str, str], target_dir: Path) -> Set[str]:
-        """
-        Resolve dependencies using element-level treeshaking for maximum size reduction.
-
-        This method analyzes which specific XML Schema elements are used and generates
-        minimal schema files containing only those elements and their dependencies.
-
-        Args:
-            uploaded_schemas: Dictionary mapping filename to schema content
-            target_dir: Target directory for minimal schemas
-
-        Returns:
-            Set of schema file paths that were generated
-        """
-        logger.info("Using element-level treeshaking for maximum size reduction")
-
-        try:
-            # Load all available NIEM schemas
-            niem_schemas = self._load_all_niem_schemas()
-            logger.info(f"Loaded {len(niem_schemas)} NIEM schemas for element analysis")
-
-            # Perform element-level treeshaking analysis
-            treeshaking_result = self._element_treeshaker.analyze_and_treeshake(
-                uploaded_schemas=uploaded_schemas,
-                niem_schemas=niem_schemas,
-                niem_base_path=self._local_xsd_path
-            )
-
-            # Extract results
-            minimal_schemas = treeshaking_result['minimal_schemas']
-            statistics = treeshaking_result['statistics']
-
-            # Log reduction statistics
-            logger.info(f"Element-level treeshaking completed:")
-            logger.info(f"  Processing time: {statistics['processing_time_seconds']:.2f}s")
-            logger.info(f"  Original elements: {statistics['original_element_count']}")
-            logger.info(f"  Required elements: {statistics['required_element_count']}")
-            logger.info(f"  Element reduction: {statistics['element_reduction_percent']:.1f}%")
-            logger.info(f"  Schemas generated: {len(minimal_schemas)}")
-
-            # Write minimal schemas to target directory
-            copied_files = set()
-            niem_target_dir = target_dir / "niem"
-
-            for schema_path, minimal_content in minimal_schemas.items():
-                target_file = niem_target_dir / schema_path
-                target_file.parent.mkdir(parents=True, exist_ok=True)
-
-                # Write the minimal schema content
-                with open(target_file, 'w', encoding='utf-8') as f:
-                    f.write(minimal_content)
-
-                copied_files.add(schema_path)
-                logger.info(f"Generated minimal schema: {target_file}")
-
-            logger.info(f"Element-level treeshaking generated {len(copied_files)} minimal schemas")
-            return copied_files
-
-        except Exception as e:
-            logger.error(f"Element-level treeshaking failed: {e}")
-            logger.info("Falling back to file-level treeshaking")
-            return self._resolve_with_file_treeshaking(uploaded_schemas, target_dir)
-
-    def _resolve_with_file_treeshaking(self, uploaded_schemas: Dict[str, str], target_dir: Path) -> Set[str]:
-        """
-        Resolve dependencies using file-level treeshaking (original implementation).
-
-        This method performs file-level dependency analysis and copies complete
-        schema files that are required.
-
-        Args:
-            uploaded_schemas: Dictionary mapping filename to schema content
-            target_dir: Target directory for schema files
-
-        Returns:
-            Set of schema file paths that were copied
-        """
-        logger.info("Using file-level treeshaking")
-
-        namespace_mapping = self._build_namespace_to_file_mapping()
-
-        # First pass: Find directly used NIEM schemas
-        required_niem_files = set()
-
+        # Build a map of target namespaces to filenames from uploaded schemas
+        namespace_to_file = {}
         for filename, content in uploaded_schemas.items():
-            logger.debug(f"Analyzing schema: {filename}")
+            try:
+                root = ET.fromstring(content)
+                target_namespace = root.get('targetNamespace')
+                if target_namespace:
+                    namespace_to_file[target_namespace] = filename
+                    logger.debug(f"Mapped namespace {target_namespace} -> {filename}")
+            except ET.ParseError:
+                logger.warning(f"Failed to parse {filename} for targetNamespace")
 
-            # Extract imports from this schema
-            imported_namespaces = self._extract_imported_namespaces(content)
+        # Track per-file validation details
+        file_details = []
+        total_missing_count = 0
 
-            # Extract namespace prefixes and their usage
+        # Validate each uploaded schema
+        for filename, content in uploaded_schemas.items():
+            logger.debug(f"Validating dependencies in {filename}")
+
+            file_imports = []
+            file_namespaces = []
+
+            # Check schemaLocation imports
+            schema_imports = self._extract_schema_imports(content)
+            imported_namespaces_set = self._extract_imported_namespaces(content)
+
+            for schema_location in schema_imports:
+                # Normalize the path (convert backslashes to forward slashes)
+                normalized_location = schema_location.replace('\\', '/')
+                import_filename = Path(schema_location).name
+
+                # Check if this file exists in uploaded schemas
+                found = False
+
+                # First, try exact match with schema location (handles relative paths like niem/domains/justice.xsd)
+                if normalized_location in uploaded_schemas:
+                    found = True
+                # Second, try matching just the basename (backwards compatibility)
+                elif import_filename in uploaded_schemas:
+                    found = True
+                else:
+                    # Also check if any uploaded schema path ends with this import path
+                    for uploaded_name in uploaded_schemas.keys():
+                        normalized_uploaded = uploaded_name.replace('\\', '/')
+                        if normalized_uploaded.endswith(normalized_location) or normalized_uploaded.endswith(import_filename):
+                            found = True
+                            break
+
+                # Get namespace for this import
+                import_namespace = ""
+                for ns in imported_namespaces_set:
+                    # Try to match namespace to this import
+                    import_namespace = ns
+                    break
+
+                status = 'satisfied' if found else 'missing'
+                if not found:
+                    total_missing_count += 1
+
+                file_imports.append({
+                    'schema_location': schema_location,
+                    'namespace': import_namespace,
+                    'status': status,
+                    'expected_filename': import_filename
+                })
+
+                if not found:
+                    logger.warning(f"{filename} imports {schema_location} which is not in uploaded files")
+
+            # Check namespace references
             namespace_prefixes = self._extract_namespace_declarations(content)
             used_prefixes = self._find_used_namespace_prefixes(content)
 
-            # Determine which NIEM namespaces are actually used
+            # Check that used namespace prefixes have corresponding uploaded schemas
             for prefix in used_prefixes:
                 if prefix in namespace_prefixes:
                     namespace_uri = namespace_prefixes[prefix]
-                    if namespace_uri in namespace_mapping:
-                        required_file = namespace_mapping[namespace_uri]
-                        required_niem_files.add(required_file)
-                        logger.info(f"Schema {filename} uses NIEM namespace {prefix}:{namespace_uri} -> {required_file}")
 
-            # Also include explicitly imported NIEM namespaces
-            for namespace_uri in imported_namespaces:
-                if namespace_uri in namespace_mapping:
-                    required_file = namespace_mapping[namespace_uri]
-                    required_niem_files.add(required_file)
-                    logger.info(f"Schema {filename} imports NIEM namespace {namespace_uri} -> {required_file}")
+                    # Skip standard XML/XSD namespaces
+                    standard_namespaces = [
+                        'http://www.w3.org/2001/XMLSchema',
+                        'http://www.w3.org/2001/XMLSchema-instance',
+                        'http://www.w3.org/XML/1998/namespace'
+                    ]
 
-        # Second pass: Find transitive dependencies
-        niem_base_path = self._local_xsd_path
-        if niem_base_path and niem_base_path.exists():
-            logger.info(f"Analyzing transitive NIEM dependencies from {len(required_niem_files)} direct dependencies...")
-            logger.info(f"Direct dependencies: {sorted(list(required_niem_files))}")
-            required_niem_files = self._resolve_transitive_dependencies(required_niem_files, niem_base_path)
-            logger.info(f"After transitive analysis: {sorted(list(required_niem_files))}")
-        else:
-            logger.warning(f"NIEM base path does not exist: {niem_base_path}")
+                    if namespace_uri in standard_namespaces:
+                        continue
 
-        logger.info(f"File-level treeshaking complete: {len(required_niem_files)} NIEM schemas required out of {len(namespace_mapping)} available")
-        logger.info(f"Required NIEM files: {sorted(list(required_niem_files))}")
+                    status = 'satisfied' if namespace_uri in namespace_to_file else 'missing'
+                    if status == 'missing':
+                        total_missing_count += 1
 
-        # Copy required NIEM files to target directory
-        copied_files = set()
+                    file_namespaces.append({
+                        'prefix': prefix,
+                        'namespace_uri': namespace_uri,
+                        'status': status
+                    })
 
-        if niem_base_path.exists():
-            for required_file in required_niem_files:
-                source_file = niem_base_path / required_file
-                if source_file.exists():
-                    # Create target path with niem/ prefix
-                    target_file = target_dir / "niem" / required_file
-                    target_file.parent.mkdir(parents=True, exist_ok=True)
+                    if status == 'missing':
+                        logger.warning(f"{filename} uses prefix {prefix}:{namespace_uri} but no uploaded schema provides this namespace")
 
-                    # Copy the NIEM schema file
-                    import shutil
-                    shutil.copy2(source_file, target_file)
-                    copied_files.add(str(required_file))
-                    logger.info(f"Copied NIEM schema: {source_file} -> {target_file}")
-                else:
-                    logger.warning(f"Required NIEM schema not found: {source_file}")
-        else:
-            logger.warning(f"NIEM base directory not found: {niem_base_path}")
+            file_details.append({
+                'filename': filename,
+                'imports': file_imports,
+                'namespaces_used': file_namespaces
+            })
 
-        logger.info(f"Copied {len(copied_files)} NIEM schema files")
-        return copied_files
+        # Determine if validation passed
+        validation_passed = total_missing_count == 0
 
-    def _load_all_niem_schemas(self) -> Dict[str, str]:
-        """
-        Load all available NIEM schema files for element analysis.
+        # Build legacy missing lists for backward compatibility
+        missing_imports = []
+        missing_namespaces = []
+        for file_info in file_details:
+            for imp in file_info['imports']:
+                if imp['status'] == 'missing':
+                    missing_imports.append({
+                        'source_file': file_info['filename'],
+                        'schema_location': imp['schema_location'],
+                        'expected_filename': imp['expected_filename']
+                    })
+            for ns in file_info['namespaces_used']:
+                if ns['status'] == 'missing':
+                    missing_namespaces.append({
+                        'source_file': file_info['filename'],
+                        'prefix': ns['prefix'],
+                        'namespace_uri': ns['namespace_uri']
+                    })
 
-        Returns:
-            Dictionary mapping relative path to schema content
-        """
-        niem_schemas = {}
+        result = {
+            'valid': validation_passed,
+            'total_schemas': len(uploaded_schemas),
+            'namespace_mappings': namespace_to_file,
+            'missing_imports': missing_imports,
+            'missing_namespaces': missing_namespaces,
+            'file_details': file_details,
+            'total_missing_count': total_missing_count,
+            'summary': self._build_validation_summary(missing_imports, missing_namespaces)
+        }
 
-        if not self._local_xsd_path.exists():
-            logger.warning(f"NIEM XSD path does not exist: {self._local_xsd_path}")
-            return niem_schemas
+        logger.info(f"Validation result: {'PASS' if result['valid'] else 'FAIL'} - {result['summary']}")
+        return result
 
-        try:
-            for xsd_file in self._local_xsd_path.rglob("*.xsd"):
-                relative_path = xsd_file.relative_to(self._local_xsd_path)
+    def _build_validation_summary(self, missing_imports: list, missing_namespaces: list) -> str:
+        """Build a human-readable validation summary"""
+        if not missing_imports and not missing_namespaces:
+            return "All dependencies resolved successfully"
 
-                try:
-                    with open(xsd_file, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        niem_schemas[str(relative_path)] = content
-                except Exception as e:
-                    logger.warning(f"Failed to read NIEM schema {xsd_file}: {e}")
+        parts = []
+        if missing_imports:
+            parts.append(f"{len(missing_imports)} missing schema imports")
+        if missing_namespaces:
+            parts.append(f"{len(missing_namespaces)} unresolved namespaces")
 
-            logger.debug(f"Loaded {len(niem_schemas)} NIEM schema files")
-
-        except Exception as e:
-            logger.error(f"Failed to load NIEM schemas: {e}")
-
-        return niem_schemas
-
+        return ", ".join(parts)
 
 
+# Global validator instance
+_validator = SchemaValidator()
 
-# Global resolver instance with element-level treeshaking enabled
-_resolver = NIEMDependencyResolver(enable_element_treeshaking=True)
 
+def validate_schema_dependencies(uploaded_schemas: Dict[str, str]) -> Dict[str, any]:
+    """
+    Convenience function to validate that all schema dependencies exist within uploaded files.
 
-def resolve_niem_schema_dependencies(uploaded_schemas: Dict[str, str], target_dir: Path) -> Set[str]:
-    """Convenience function to resolve NIEM dependencies and copy required schemas"""
-    return _resolver.resolve_niem_dependencies(uploaded_schemas, target_dir)
+    Args:
+        uploaded_schemas: Dict mapping filename to XSD content
 
-def get_treeshaking_statistics(required_files: Set[str]) -> Dict:
-    """Generate statistics about treeshaking benefits."""
-    namespace_mapping = _resolver._build_namespace_to_file_mapping()
-    total_files = len(namespace_mapping)
-    required_count = len(required_files)
-    savings_percent = ((total_files - required_count) / total_files) * 100 if total_files > 0 else 0
-
-    return {
-        "total_niem_files": total_files,
-        "required_files": required_count,
-        "eliminated_files": total_files - required_count,
-        "space_savings_percent": round(savings_percent, 1),
-        "required_file_list": sorted(list(required_files))
-    }
+    Returns:
+        Dict with validation results
+    """
+    return _validator.validate_uploaded_schemas(uploaded_schemas)

@@ -66,11 +66,6 @@ benchmark_*/
 dist/
 build/
 
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
 # Large files
 *.zip
 *.tar.gz
@@ -98,3 +93,6 @@ docker-compose.override.yml
 # Temporary directories
 tmp/
 temp/
+
+# AI Files
+claude.md

@@ -29,33 +29,9 @@ def _extract_schema_imports(xsd_content: str) -> List[Dict[str, Any]]:
         xsd_content: XSD content as string
 
     Returns:
-        List of import dictionaries with namespace, schema_location, and is_niem flags
+        List of import dictionaries with namespace and schema_location
     """
     import xml.etree.ElementTree as ET
-
-    NIEM_INDICATORS = [
-        'docs.oasis-open.org/niemopen',
-        'niem.gov',
-        'release.niem.gov'
-    ]
-
-    # Load catalog mappings
-    catalog_path = Path(__file__).parent.parent.parent.parent.parent / 'third_party' / 'niem-xsd' / 'xml-catalog.xml'
-    catalog_map = {}
-
-    try:
-        if catalog_path.exists():
-            catalog_tree = ET.parse(catalog_path)
-            catalog_root = catalog_tree.getroot()
-            ns = {'cat': 'urn:oasis:names:tc:entity:xmlns:xml:catalog'}
-
-            for uri_elem in catalog_root.findall('cat:uri', ns):
-                name = uri_elem.get('name', '')
-                uri = uri_elem.get('uri', '')
-                if name and uri:
-                    catalog_map[name] = uri
-    except Exception as e:
-        logger.warning(f"Failed to load XML catalog: {e}")
 
     imports = []
     try:
@@ -65,15 +41,9 @@ def _extract_schema_imports(xsd_content: str) -> List[Dict[str, Any]]:
                 namespace = elem.get('namespace', '')
                 schema_location = elem.get('schemaLocation', '')
                 if schema_location:
-                    is_niem = any(indicator in namespace for indicator in NIEM_INDICATORS) if namespace else False
-                    needs_fetch = is_niem and namespace not in catalog_map
-
                     imports.append({
                         'namespace': namespace,
-                        'schema_location': schema_location,
-                        'is_niem': is_niem,
-                        'needs_fetch': needs_fetch,
-                        'local_path': catalog_map.get(namespace)
+                        'schema_location': schema_location
                     })
     except Exception as e:
         logger.warning(f"Failed to parse schema imports: {e}")
@@ -141,165 +111,8 @@ def _setup_resolved_directory(source_dir: Path, schema_filename: str, xsd_conten
     return resolved_dir
 
 
-def _resolve_niem_dependencies(source_dir: Path, schema_filename: str, xsd_content: str, resolved_dir: Path, skip_niem_resolution: bool) -> Dict[str, Any]:
-    """Resolve NIEM dependencies and get statistics.
-
-    Args:
-        source_dir: Source directory
-        schema_filename: Primary schema filename
-        xsd_content: Primary schema content
-        resolved_dir: Directory to copy NIEM schemas to
-        skip_niem_resolution: Whether to skip NIEM resolution
-
-    Returns:
-        Dictionary with copied files and statistics
-    """
-    from ..services.domain.schema import resolve_niem_schema_dependencies, get_treeshaking_statistics
-
-    if skip_niem_resolution:
-        logger.info("Skipping NIEM dependency resolution - using only uploaded files")
-        return {
-            "copied_files": {},
-            "stats": {"required_files": 0, "total_niem_files": 0, "space_savings_percent": 100}
-        }
-
-    # Prepare file contents for NIEM analysis
-    file_contents_for_niem = {}
-    if source_dir and source_dir.exists():
-        for xsd_file in source_dir.glob("*.xsd"):
-            try:
-                with open(xsd_file, 'r', encoding='utf-8') as f:
-                    file_contents_for_niem[xsd_file.name] = f.read()
-            except Exception as e:
-                logger.warning(f"Failed to read {xsd_file} for NIEM analysis: {e}")
-    else:
-        file_contents_for_niem[schema_filename] = xsd_content
-
-    # Resolve dependencies
-    copied_niem_files = resolve_niem_schema_dependencies(file_contents_for_niem, resolved_dir)
-    treeshaking_stats = get_treeshaking_statistics(copied_niem_files)
-
-    logger.info(f"Treeshaking analysis: using {treeshaking_stats.get('required_files', 0)}/{treeshaking_stats.get('total_niem_files', 0)} NIEM schemas ({treeshaking_stats.get('space_savings_percent', 0)}% reduction)")
-
-    return {
-        "copied_files": copied_niem_files,
-        "stats": treeshaking_stats
-    }
 
 
-def _generate_niem_search_paths(resolved_dir: Path, schema_location: str, is_niem: bool) -> List[Path]:
-    """Generate possible search paths for a schema import.
-
-    Args:
-        resolved_dir: Resolved directory containing schemas
-        schema_location: Schema location from import
-        is_niem: Whether this is a NIEM schema
-
-    Returns:
-        List of possible paths to check
-    """
-    possible_paths = [
-        resolved_dir / schema_location,  # Direct path
-        resolved_dir / "niem" / schema_location,  # Under niem/ prefix
-        resolved_dir / schema_location.lstrip('../'),  # Remove ../ prefix
-    ]
-
-    if is_niem:
-        filename = Path(schema_location).name
-        possible_paths.extend([
-            resolved_dir / "niem" / "domains" / filename,
-            resolved_dir / "niem" / "utility" / filename,
-            resolved_dir / "niem" / "adapters" / filename,
-            resolved_dir / "niem" / "external" / filename,
-            resolved_dir / "niem" / filename,  # Root level like niem-core.xsd
-        ])
-
-    return possible_paths
-
-
-def _validate_imports(imports: List[Dict[str, Any]], resolved_dir: Path, skip_niem_resolution: bool) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
-    """Validate schema imports and categorize them.
-
-    Args:
-        imports: List of import declarations
-        resolved_dir: Directory containing resolved schemas
-        skip_niem_resolution: Whether NIEM resolution was skipped
-
-    Returns:
-        Tuple of (satisfied_imports, missing_imports, blocking_issues)
-    """
-    satisfied_imports = []
-    missing_imports = []
-    blocking_issues = []
-
-    if skip_niem_resolution:
-        # Assume all imports are satisfied when skipping NIEM resolution
-        for imp in imports:
-            satisfied_imports.append({
-                'schema_location': imp['schema_location'],
-                'namespace': imp['namespace'],
-                'status': 'assumed_uploaded',
-                'path': 'uploaded_files'
-            })
-        logger.info(f"Skipped validation for {len(imports)} imports - assuming all required files were uploaded")
-        return satisfied_imports, missing_imports, blocking_issues
-
-    # Perform actual validation
-    for imp in imports:
-        schema_location = imp['schema_location']
-        possible_paths = _generate_niem_search_paths(resolved_dir, schema_location, imp['is_niem'])
-
-        found_path = None
-        for path in possible_paths:
-            if path.exists():
-                found_path = path
-                break
-
-        if found_path:
-            satisfied_imports.append({
-                'schema_location': schema_location,
-                'namespace': imp['namespace'],
-                'status': 'found',
-                'path': str(found_path.relative_to(resolved_dir))
-            })
-        else:
-            missing_import = {
-                'schema_location': schema_location,
-                'namespace': imp['namespace'],
-                'status': 'missing',
-                'is_niem': imp['is_niem']
-            }
-            missing_imports.append(missing_import)
-
-            if imp['is_niem']:
-                blocking_issues.append(f"NIEM schema not found: {schema_location}")
-
-    return satisfied_imports, missing_imports, blocking_issues
-
-
-def _build_validation_summary(satisfied_imports: List[Dict[str, Any]], missing_imports: List[Dict[str, Any]], blocking_issues: List[str], imports: List[Dict[str, Any]], skip_niem_resolution: bool) -> str:
-    """Build validation summary message.
-
-    Args:
-        satisfied_imports: List of satisfied imports
-        missing_imports: List of missing imports
-        blocking_issues: List of blocking issues
-        imports: Original list of imports
-        skip_niem_resolution: Whether NIEM resolution was skipped
-
-    Returns:
-        Summary string
-    """
-    if skip_niem_resolution:
-        return f"Skipped NIEM resolution - assuming {len(imports)} dependencies are provided"
-
-    summary = f"Found {len(satisfied_imports)}/{len(imports)} dependencies"
-    if missing_imports:
-        summary += f", {len(missing_imports)} missing"
-    if blocking_issues:
-        summary += f", {len(blocking_issues)} blocking"
-
-    return summary
 
 
 def _create_error_response(error_type: str, error_msg: str, imports: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -324,85 +137,177 @@ def _create_error_response(error_type: str, error_msg: str, imports: List[Dict[s
     }
 
 
-def _validate_schema_dependencies(xsd_content: str, schema_filename: str, source_dir: Path, skip_niem_resolution: bool = False) -> Dict[str, Any]:
-    """Validate schema dependencies and create a detailed report.
+def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_content: str) -> Dict[str, Any]:
+    """Validate schema dependencies within uploaded files only.
 
     Args:
-        xsd_content: XSD content as string
-        schema_filename: Name of the schema file
-        source_dir: Directory containing the schema file
-        skip_niem_resolution: If True, skip NIEM dependency resolution
+        source_dir: Directory containing the schema files
+        schema_filename: Name of the primary schema file
+        xsd_content: Primary XSD content as string
 
     Returns:
-        Dictionary with validation results and dependency report
+        Dictionary with validation results and temp directory path
     """
-    logger.error("*** DEBUG: _validate_schema_dependencies function called ***")
+    logger.info("Validating schema dependencies within uploaded files")
 
     try:
-        # Step 1: Extract imports from schema
-        imports = _extract_schema_imports(xsd_content)
+        # Step 1: Setup resolved directory with all uploaded files
+        resolved_dir = _setup_resolved_directory(source_dir, schema_filename, xsd_content)
 
-        # Step 2: Read local schemas
-        local_schemas = _read_local_schemas(source_dir)
+        # Step 2: Read all uploaded schemas using relative paths as keys
+        uploaded_schemas = {}
+        if source_dir and source_dir.exists():
+            for xsd_file in source_dir.rglob("*.xsd"):
+                try:
+                    # Use relative path as key to match import schemaLocation references
+                    rel_path = str(xsd_file.relative_to(source_dir))
+                    with open(xsd_file, 'r', encoding='utf-8') as f:
+                        uploaded_schemas[rel_path] = f.read()
+                    logger.info(f"Read schema with key: {rel_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to read {xsd_file}: {e}")
+        else:
+            uploaded_schemas[schema_filename] = xsd_content
 
-        # Step 3: Setup resolved directory
-        logger.error("*** DEBUG: About to create comprehensive schema directory ***")
-        try:
-            resolved_dir = _setup_resolved_directory(source_dir, schema_filename, xsd_content)
+        # Step 3: Validate dependencies using the new resolver
+        from ..services.domain.schema import validate_schema_dependencies
+        validation_result = validate_schema_dependencies(uploaded_schemas)
 
-            logger.error("*** DEBUG: About to start treeshaking - this is the key point ***")
+        # Step 4: Build ImportValidationReport from file_details
+        from ..models.models import ImportValidationReport, FileImportInfo, ImportInfo, NamespaceUsage
 
-            # Step 4: Resolve NIEM dependencies
-            niem_result = _resolve_niem_dependencies(source_dir, schema_filename, xsd_content, resolved_dir, skip_niem_resolution)
+        file_import_infos = []
+        total_imports_count = 0
+        total_namespaces_count = 0
 
-            # Step 5: Validate imports
-            satisfied_imports, missing_imports, blocking_issues = _validate_imports(imports, resolved_dir, skip_niem_resolution)
+        for file_detail in validation_result.get('file_details', []):
+            # Build ImportInfo objects
+            imports = [
+                ImportInfo(
+                    schema_location=imp['schema_location'],
+                    namespace=imp.get('namespace', ''),
+                    status=imp['status'],
+                    expected_filename=imp.get('expected_filename')
+                )
+                for imp in file_detail.get('imports', [])
+            ]
+            total_imports_count += len(imports)
 
-            # Step 6: Build summary and determine if conversion can proceed
-            can_convert = len(blocking_issues) == 0 or skip_niem_resolution
-            summary = _build_validation_summary(satisfied_imports, missing_imports, blocking_issues, imports, skip_niem_resolution)
+            # Build NamespaceUsage objects
+            namespaces = [
+                NamespaceUsage(
+                    prefix=ns['prefix'],
+                    namespace_uri=ns['namespace_uri'],
+                    status=ns['status']
+                )
+                for ns in file_detail.get('namespaces_used', [])
+            ]
+            total_namespaces_count += len(namespaces)
 
-            return {
-                "can_convert": can_convert,
-                "summary": summary,
-                "total_imports": len(imports),
-                "satisfied_imports": satisfied_imports,
-                "missing_imports": missing_imports,
-                "blocking_issues": blocking_issues,
-                "resolved_schemas_count": len(local_schemas) if source_dir else 1,
-                "temp_path": resolved_dir
-            }
+            file_import_infos.append(FileImportInfo(
+                filename=file_detail['filename'],
+                imports=imports,
+                namespaces_used=namespaces
+            ))
 
-        except Exception as e:
-            logger.error(f"Failed to mount NIEM dependencies: {e}")
-            return _create_error_response("NIEM mounting failed", str(e), imports)
+        import_validation_report = ImportValidationReport(
+            status='pass' if validation_result['valid'] else 'fail',
+            files=file_import_infos,
+            summary=validation_result['summary'],
+            total_files=validation_result['total_schemas'],
+            total_imports=total_imports_count,
+            total_namespaces=total_namespaces_count,
+            missing_count=validation_result.get('total_missing_count', 0)
+        )
+
+        # Step 5: Build legacy response for backward compatibility
+        can_convert = validation_result['valid']
+        missing_deps = []
+        blocking_issues = []
+
+        # Format missing imports for response
+        for missing_import in validation_result.get('missing_imports', []):
+            missing_deps.append({
+                'schema_location': missing_import['schema_location'],
+                'source_file': missing_import['source_file'],
+                'status': 'missing'
+            })
+            blocking_issues.append(
+                f"Missing schema: {missing_import['expected_filename']} "
+                f"(imported by {missing_import['source_file']} as {missing_import['schema_location']})"
+            )
+
+        # Format missing namespaces for response
+        for missing_ns in validation_result.get('missing_namespaces', []):
+            missing_deps.append({
+                'namespace': missing_ns['namespace_uri'],
+                'prefix': missing_ns['prefix'],
+                'source_file': missing_ns['source_file'],
+                'status': 'missing'
+            })
+            blocking_issues.append(
+                f"Missing schema for namespace {missing_ns['namespace_uri']} "
+                f"(used as {missing_ns['prefix']}: in {missing_ns['source_file']})"
+            )
+
+        return {
+            "can_convert": can_convert,
+            "summary": validation_result['summary'],
+            "total_imports": len(validation_result.get('missing_imports', [])) + len(validation_result.get('missing_namespaces', [])),
+            "satisfied_imports": [],
+            "missing_imports": missing_deps,
+            "blocking_issues": blocking_issues,
+            "resolved_schemas_count": validation_result['total_schemas'],
+            "temp_path": resolved_dir,
+            "import_validation_report": import_validation_report
+        }
 
     except Exception as e:
         logger.error(f"Failed to validate schema dependencies: {e}")
-        return _create_error_response("Validation failed", str(e), [])
+        return {
+            "can_convert": False,
+            "summary": f"Validation failed: {str(e)}",
+            "total_imports": 0,
+            "satisfied_imports": [],
+            "missing_imports": [],
+            "blocking_issues": [f"Validation failed: {str(e)}"],
+            "resolved_schemas_count": 0,
+            "temp_path": None
+        }
 
 
-async def _validate_and_read_files(files: List[UploadFile]) -> tuple[Dict[str, bytes], UploadFile, str]:
+async def _validate_and_read_files(files: List[UploadFile], file_paths: List[str] = None) -> tuple[Dict[str, bytes], Dict[str, str], UploadFile, str]:
     """Validate and read uploaded files.
 
     Args:
         files: List of uploaded XSD files
+        file_paths: List of relative file paths (preserves directory structure)
 
     Returns:
-        Tuple of (file_contents, primary_file, schema_id)
+        Tuple of (file_contents, file_path_map, primary_file, schema_id)
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
 
     file_contents = {}
+    file_path_map = {}  # Maps filename -> relative path
     total_size = 0
 
-    for file in files:
+    # If no paths provided, use just filenames
+    if not file_paths:
+        file_paths = [file.filename for file in files]
+
+    if len(files) != len(file_paths):
+        raise HTTPException(status_code=400, detail="Number of files and paths must match")
+
+    for file, path in zip(files, file_paths):
         if not file.filename.endswith('.xsd'):
             raise HTTPException(status_code=400, detail=f"File {file.filename} must have .xsd extension")
 
         content = await file.read()
+        # Store by filename for backward compatibility, but track the path
         file_contents[file.filename] = content
+        file_path_map[file.filename] = path
         total_size += len(content)
 
     # Use the first file as the primary schema for ID generation
@@ -419,42 +324,109 @@ async def _validate_and_read_files(files: List[UploadFile]) -> tuple[Dict[str, b
     all_content = b''.join(file_contents.values()) + b''.join(f.filename.encode() for f in files)
     schema_id = hashlib.sha256(all_content + timestamp.encode()).hexdigest()
 
-    return file_contents, primary_file, schema_id
+    return file_contents, file_path_map, primary_file, schema_id
 
 
-async def _validate_niem_ndr(primary_content: bytes, primary_filename: str) -> NiemNdrReport:
-    """Validate NIEM NDR conformance.
+async def _validate_all_niem_ndr(file_contents: Dict[str, bytes]) -> NiemNdrReport:
+    """Validate NIEM NDR conformance for all uploaded files.
 
     Args:
-        primary_content: Primary schema file content
-        primary_filename: Primary schema filename
+        file_contents: Dictionary mapping filename to file content
 
     Returns:
-        NIEM NDR validation report
+        Aggregated NIEM NDR validation report
     """
-    logger.error(f"*** DEBUG: About to run NDR validation on {primary_filename}")
+    logger.info(f"Running NDR validation on {len(file_contents)} files")
     ndr_validator = NiemNdrValidator()
-    ndr_result = await ndr_validator.validate_xsd_conformance(primary_content.decode())
-    logger.error(f"*** DEBUG: NDR validation result: {ndr_result}")
 
-    # Convert NDR result to model
+    # Aggregate results across all files
+    all_violations = []
+    total_error_count = 0
+    total_warning_count = 0
+    total_info_count = 0
+    has_failures = False
+    has_errors = False
+
+    # Validate each file
+    for filename, content in file_contents.items():
+        logger.info(f"Validating {filename} against NIEM NDR rules")
+        try:
+            ndr_result = await ndr_validator.validate_xsd_conformance(content.decode())
+
+            # Track overall status
+            if ndr_result["status"] == "fail":
+                has_failures = True
+            if ndr_result["status"] == "error":
+                has_errors = True
+
+            # Add file context to violations
+            for violation in ndr_result.get("violations", []):
+                violation_with_file = violation.copy()
+                violation_with_file["file"] = filename
+                all_violations.append(violation_with_file)
+
+            # Aggregate counts
+            summary = ndr_result.get("summary", {})
+            total_error_count += summary.get("error_count", 0)
+            total_warning_count += summary.get("warning_count", 0)
+            total_info_count += summary.get("info_count", 0)
+
+        except Exception as e:
+            logger.error(f"Failed to validate {filename}: {e}")
+            has_errors = True
+            all_violations.append({
+                "type": "error",
+                "rule": "validation_error",
+                "message": f"Failed to validate {filename}: {str(e)}",
+                "location": filename,
+                "file": filename
+            })
+            total_error_count += 1
+
+    # Determine overall status
+    if has_errors:
+        status = "error"
+    elif has_failures or total_error_count > 0:
+        status = "fail"
+    else:
+        status = "pass"
+
+    # Build aggregated summary
+    aggregated_summary = {
+        "total_violations": len(all_violations),
+        "error_count": total_error_count,
+        "warning_count": total_warning_count,
+        "info_count": total_info_count,
+        "files_validated": len(file_contents)
+    }
+
+    # Convert violations to model
     ndr_violations = [
-        NiemNdrViolation(**violation) for violation in ndr_result.get("violations", [])
+        NiemNdrViolation(**violation) for violation in all_violations
     ]
+
+    message = f"Validated {len(file_contents)} files"
+    if total_error_count > 0:
+        message += f", found {total_error_count} errors"
+    if total_warning_count > 0:
+        message += f", {total_warning_count} warnings"
+
     niem_ndr_report = NiemNdrReport(
-        status=ndr_result["status"],
-        message=ndr_result["message"],
-        conformance_target=ndr_result["conformance_target"],
+        status=status,
+        message=message,
+        conformance_target="all",
         violations=ndr_violations,
-        summary=ndr_result.get("summary", {})
+        summary=aggregated_summary
     )
 
     # Check if NIEM validation failed - reject upload if validation fails
-    if ndr_result["status"] == "fail":
-        error_messages = [v["message"] for v in ndr_result.get("violations", []) if v["type"] == "error"]
-        violation_summary = f"Found {ndr_result['summary']['error_count']} NIEM NDR violations"
+    if status == "fail":
+        error_messages = [v["message"] for v in all_violations if v["type"] == "error"]
+        violation_summary = f"Found {total_error_count} NIEM NDR violations across {len(file_contents)} files"
         if error_messages:
-            violation_summary += f": {'; '.join(error_messages)}"
+            violation_summary += f": {'; '.join(error_messages[:3])}"  # Show first 3 errors
+            if len(error_messages) > 3:
+                violation_summary += f" ... and {len(error_messages) - 3} more"
 
         raise HTTPException(
             status_code=400,
@@ -462,68 +434,35 @@ async def _validate_niem_ndr(primary_content: bytes, primary_filename: str) -> N
         )
 
     # Check if validation encountered an error
-    if ndr_result["status"] == "error":
+    if status == "error":
         raise HTTPException(
             status_code=500,
-            detail=f"NIEM NDR validation error: {ndr_result['message']}"
+            detail=f"NIEM NDR validation error: {message}"
         )
 
     return niem_ndr_report
 
 
-def _handle_crashdriver_cmf() -> Dict[str, Any] | None:
-    """Handle special case for CrashDriver schema using pre-existing CMF file.
-
-    Returns:
-        CMF conversion result or None if not CrashDriver
-    """
-    logger.error("*** DETECTED CRASHDRIVER SCHEMA - USING PRE-EXISTING CMF FILE ***")
-    print("*** PRINT: DETECTED CRASHDRIVER SCHEMA - USING PRE-EXISTING CMF FILE ***")
-    try:
-        crashdriver_cmf_path = Path("/app/third_party/niem-crashdriver/crashdriverxsd.cmf")
-        logger.error(f"*** Looking for CMF file at: {crashdriver_cmf_path} ***")
-        print(f"*** PRINT: Looking for CMF file at: {crashdriver_cmf_path} ***")
-        if crashdriver_cmf_path.exists():
-            with open(crashdriver_cmf_path, 'r', encoding='utf-8') as f:
-                cmf_content = f.read()
-
-            logger.error("*** Successfully loaded pre-existing CrashDriver CMF file ***")
-            print("*** PRINT: Successfully loaded pre-existing CrashDriver CMF file ***")
-            return {
-                "status": "success",
-                "cmf_content": cmf_content,
-                "message": "Using pre-existing CrashDriver CMF file"
-            }
-        else:
-            logger.error(f"*** CrashDriver CMF file not found at {crashdriver_cmf_path}, falling back to XSD conversion ***")
-            print(f"*** PRINT: CrashDriver CMF file not found at {crashdriver_cmf_path}, falling back to XSD conversion ***")
-            return None
-    except Exception as e:
-        logger.error(f"*** Failed to load pre-existing CMF file: {e}, falling back to XSD conversion ***")
-        print(f"*** PRINT: Failed to load pre-existing CMF file: {e}, falling back to XSD conversion ***")
-        return None
 
 
 async def _convert_to_cmf(
     file_contents: Dict[str, bytes],
+    file_path_map: Dict[str, str],
     primary_file: UploadFile,
-    primary_content: bytes,
-    skip_niem_resolution: bool
+    primary_content: bytes
 ) -> tuple[Dict[str, Any] | None, Dict[str, Any] | None]:
     """Convert XSD to CMF and optionally to JSON Schema.
 
     Args:
         file_contents: Dictionary of filename to file content
+        file_path_map: Dictionary of filename to relative path
         primary_file: Primary uploaded file
         primary_content: Primary file content
-        skip_niem_resolution: Skip NIEM dependency resolution
 
     Returns:
         Tuple of (cmf_conversion_result, json_schema_conversion_result)
     """
-    print(f"*** PRINT: Starting CMF conversion section for {primary_file.filename} ***")
-    logger.error(f"*** DEBUG: CMF tool available: {is_cmf_available()} ***")
-    print(f"*** PRINT: CMF tool available: {is_cmf_available()} ***")
+    logger.info(f"Starting CMF conversion for {primary_file.filename}")
 
     if not is_cmf_available():
         logger.error("CMF tool not available")
@@ -538,52 +477,49 @@ async def _convert_to_cmf(
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
 
-        # Write all uploaded schema files to temp directory
+        # Write all uploaded schema files to temp directory WITH directory structure
         for filename, content in file_contents.items():
-            schema_file_path = temp_path / filename
+            # Get the relative path for this file (preserves directory structure)
+            relative_path = file_path_map.get(filename, filename)
+            schema_file_path = temp_path / relative_path
+
+            # Create parent directories if needed
+            schema_file_path.parent.mkdir(parents=True, exist_ok=True)
+
             with open(schema_file_path, 'w', encoding='utf-8') as f:
                 f.write(content.decode())
-            logger.info(f"Created temporary schema file: {schema_file_path}")
+            logger.info(f"Created temporary schema file: {relative_path}")
 
-        # Validate dependencies and create dependency report for primary schema
-        logger.error("*** DEBUG: About to call _validate_schema_dependencies ***")
+        # Validate dependencies within uploaded files
+        logger.info("Validating schema dependencies")
+        # Get primary file's relative path
+        primary_file_path = file_path_map.get(primary_file.filename, primary_file.filename)
         dependency_report = _validate_schema_dependencies(
-            primary_content.decode(), primary_file.filename, temp_path, skip_niem_resolution
+            temp_path, primary_file_path, primary_content.decode()
         )
-        logger.error("*** DEBUG: _validate_schema_dependencies completed ***")
         logger.info(f"Dependency validation: {dependency_report['summary']}")
 
         # Get the resolved directory path for cleanup
         resolved_temp_path = dependency_report.get("temp_path", temp_path)
 
         try:
-            # Only proceed with CMF conversion if critical dependencies are satisfied
-            logger.error(f"*** DEBUG: dependency_report can_convert: {dependency_report.get('can_convert', 'NOT_SET')} ***")
-            print(f"*** PRINT: dependency_report can_convert: {dependency_report.get('can_convert', 'NOT_SET')} ***")
-
+            # Only proceed with CMF conversion if all dependencies are satisfied
             if not dependency_report["can_convert"]:
                 logger.error(f"Cannot convert to CMF: {dependency_report['blocking_issues']}")
-                blocking_issues_str = ', '.join(dependency_report['blocking_issues'])
+                blocking_issues_str = '\n- '.join([''] + dependency_report['blocking_issues'])
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Schema upload failed: Missing critical dependencies - {blocking_issues_str}"
+                    detail=f"Schema upload failed: Missing required dependencies. Please upload all referenced schema files:{blocking_issues_str}"
                 )
 
-            logger.info("All critical dependencies satisfied, proceeding with CMF conversion")
-            logger.error(f"*** DEBUG: Primary file name: '{primary_file.filename}' ***")
+            logger.info("All dependencies satisfied, proceeding with CMF conversion")
 
-            # Check if this is a CrashDriver schema and use pre-existing CMF file
-            cmf_conversion_result = None
-            if primary_file.filename.lower() == "crashdriver.xsd":
-                cmf_conversion_result = _handle_crashdriver_cmf()
+            # Convert XSD to CMF using resolved temp path with primary file's relative path
+            cmf_conversion_result = convert_xsd_to_cmf(
+                resolved_temp_path, primary_file_path
+            )
 
-            # Fall back to XSD conversion if CrashDriver CMF not found
-            if cmf_conversion_result is None:
-                cmf_conversion_result = convert_xsd_to_cmf(
-                    resolved_temp_path, primary_file.filename
-                )
-
-            logger.error(f"*** DEBUG: CMF conversion result: {cmf_conversion_result.get('status') if cmf_conversion_result else 'None'} ***")
+            logger.info(f"CMF conversion result: {cmf_conversion_result.get('status') if cmf_conversion_result else 'None'}")
 
             if cmf_conversion_result.get("status") != "success":
                 error_msg = cmf_conversion_result.get('error', 'Unknown CMF conversion error')
@@ -612,6 +548,7 @@ async def _convert_to_cmf(
 
             # Add dependency report to CMF result
             cmf_conversion_result["dependency_report"] = dependency_report
+            cmf_conversion_result["import_validation_report"] = dependency_report.get("import_validation_report")
 
             # Convert CMF to JSON Schema
             json_schema_conversion_result = None
@@ -642,6 +579,7 @@ async def _store_schema_files(
     s3: Minio,
     schema_id: str,
     file_contents: Dict[str, bytes],
+    file_path_map: Dict[str, str],
     cmf_conversion_result: Dict[str, Any] | None,
     json_schema_conversion_result: Dict[str, Any] | None
 ) -> None:
@@ -651,12 +589,17 @@ async def _store_schema_files(
         s3: MinIO client
         schema_id: Generated schema ID
         file_contents: Original XSD file contents
+        file_path_map: Dictionary of filename to relative path
         cmf_conversion_result: CMF conversion result
         json_schema_conversion_result: JSON Schema conversion result
     """
-    # Store all original XSD files in MinIO
+    # Store all original XSD files in MinIO WITH directory structure
     for filename, content in file_contents.items():
-        await upload_file(s3, "niem-schemas", f"{schema_id}/{filename}", content, "application/xml")
+        # Use the relative path to preserve directory structure
+        relative_path = file_path_map.get(filename, filename)
+        object_path = f"{schema_id}/source/{relative_path}"
+        await upload_file(s3, "niem-schemas", object_path, content, "application/xml")
+        logger.info(f"Stored schema file: {object_path}")
 
     # Store CMF file if conversion succeeded
     if cmf_conversion_result and cmf_conversion_result.get("cmf_content"):
@@ -723,7 +666,7 @@ async def _generate_and_store_mapping(
         logger.info(f"Coverage validation: {summary.get('overall_coverage_percentage', 0):.1f}% overall coverage")
 
         if summary.get("has_critical_issues", False):
-            logger.warning(f"Mapping has critical validation issues - check coverage_validation section in mapping.yaml")
+            logger.warning("Mapping has critical validation issues - check coverage_validation section in mapping.yaml")
 
     except Exception as e:
         logger.error(f"Failed to generate mapping YAML: {e}")
@@ -771,33 +714,37 @@ async def _store_schema_metadata(
 async def handle_schema_upload(
     files: List[UploadFile],
     s3: Minio,
-    skip_niem_resolution: bool = False
+    skip_niem_ndr: bool = False,
+    file_paths: List[str] = None
 ) -> SchemaResponse:
     """Handle XSD schema upload and validation - supports multiple related XSD files
 
     Args:
         files: List of uploaded XSD files
         s3: MinIO client for storage
-        skip_niem_resolution: If True, only use uploaded files without NIEM dependency resolution
+        skip_niem_ndr: If True, skip NIEM NDR validation
+        file_paths: List of relative file paths (preserves directory structure)
     """
     try:
-        logger.error(f"*** DEBUG: skip_niem_resolution parameter = {skip_niem_resolution} ***")
-
         # Step 1: Validate and read files
-        file_contents, primary_file, schema_id = await _validate_and_read_files(files)
+        file_contents, file_path_map, primary_file, schema_id = await _validate_and_read_files(files, file_paths)
         primary_content = file_contents[primary_file.filename]
         timestamp = datetime.now(timezone.utc).isoformat()
 
-        # Step 2: Validate NIEM NDR conformance
-        niem_ndr_report = await _validate_niem_ndr(primary_content, primary_file.filename)
+        # Step 2: Validate NIEM NDR conformance for ALL files (unless skipped)
+        niem_ndr_report = None
+        if not skip_niem_ndr:
+            niem_ndr_report = await _validate_all_niem_ndr(file_contents)
+        else:
+            logger.info("Skipping NIEM NDR validation as requested")
 
         # Step 3: Convert to CMF and JSON Schema
         cmf_conversion_result, json_schema_conversion_result = await _convert_to_cmf(
-            file_contents, primary_file, primary_content, skip_niem_resolution
+            file_contents, file_path_map, primary_file, primary_content
         )
 
         # Step 4: Store all schema files
-        await _store_schema_files(s3, schema_id, file_contents, cmf_conversion_result, json_schema_conversion_result)
+        await _store_schema_files(s3, schema_id, file_contents, file_path_map, cmf_conversion_result, json_schema_conversion_result)
 
         # Step 5: Generate and store mapping YAML
         await _generate_and_store_mapping(s3, schema_id, cmf_conversion_result)
@@ -805,10 +752,13 @@ async def handle_schema_upload(
         # Step 6: Store metadata and mark as active
         await _store_schema_metadata(s3, schema_id, primary_file, file_contents, timestamp)
 
+        # Extract import validation report from CMF conversion result
+        import_validation_report = cmf_conversion_result.get("import_validation_report")
 
         return SchemaResponse(
             schema_id=schema_id,
             niem_ndr_report=niem_ndr_report,
+            import_validation_report=import_validation_report,
             is_active=True  # Latest uploaded schema is automatically active
         )
 

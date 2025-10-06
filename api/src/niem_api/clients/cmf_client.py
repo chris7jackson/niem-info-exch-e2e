@@ -139,6 +139,89 @@ async def download_and_setup_cmf() -> bool:
         return False
 
 
+def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> Dict[str, Any]:
+    """
+    Parse CMF tool validation output into structured error information.
+
+    The CMF xval tool outputs validation errors with markers like [error], [warning], etc.
+    This function extracts those into structured ValidationError objects.
+
+    Args:
+        stdout: Standard output from CMF command
+        stderr: Standard error from CMF command
+        filename: File being validated (for context)
+
+    Returns:
+        Dictionary with:
+        - errors: List of error dictionaries
+        - warnings: List of warning dictionaries
+        - has_errors: Boolean indicating if errors were found
+
+    Example output line:
+        [error] file.xml:42:15: cvc-complex-type.2.4.a: Invalid content
+    """
+    from typing import List
+    import re
+
+    errors: List[Dict[str, Any]] = []
+    warnings: List[Dict[str, Any]] = []
+
+    # Combine stdout and stderr for parsing
+    combined_output = (stdout or "") + "\n" + (stderr or "")
+
+    # Pattern to match CMF error/warning lines
+    # Format: [severity] filename:line:column: message
+    # Or: [severity] message (without location)
+    pattern = r'\[(error|warning|info)\]\s+(?:([^:]+):(\d+):(\d+):\s*)?(.+)'
+
+    for line in combined_output.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+
+        match = re.match(pattern, line, re.IGNORECASE)
+        if match:
+            severity = match.group(1).lower()
+            file_ref = match.group(2) or filename
+            line_num = int(match.group(3)) if match.group(3) else None
+            column = int(match.group(4)) if match.group(4) else None
+            message = match.group(5).strip()
+
+            error_dict = {
+                "file": file_ref,
+                "line": line_num,
+                "column": column,
+                "message": message,
+                "severity": severity,
+                "rule": None,  # CMF doesn't always provide rule IDs
+                "context": None
+            }
+
+            if severity == "error":
+                errors.append(error_dict)
+            elif severity == "warning":
+                warnings.append(error_dict)
+
+    # If no structured errors found but output exists, create a generic error
+    if not errors and not warnings and combined_output.strip():
+        if "[error]" in combined_output.lower() or "error" in combined_output.lower():
+            errors.append({
+                "file": filename,
+                "line": None,
+                "column": None,
+                "message": combined_output.strip()[:500],  # Limit message length
+                "severity": "error",
+                "rule": None,
+                "context": None
+            })
+
+    return {
+        "errors": errors,
+        "warnings": warnings,
+        "has_errors": len(errors) > 0
+    }
+
+
 def run_cmf_command(
     cmd: list,
     timeout: int = CMF_TIMEOUT,

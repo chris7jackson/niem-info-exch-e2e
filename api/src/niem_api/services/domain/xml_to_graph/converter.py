@@ -670,17 +670,21 @@ def generate_for_xml_content(
 
         # Add core mapped properties
         for key, value in sorted(props.items()):
-            setbits.append(f"n.{key}='{value}'")
+            # Escape property names with dots using backticks
+            prop_key = f"`{key}`" if '.' in key else key
+            setbits.append(f"n.{prop_key}='{value}'")
 
         # Add augmentation properties
         for key, value in sorted(aug_props.items()):
+            # Escape property names with dots using backticks
+            prop_key = f"`{key}`" if '.' in key else key
             if isinstance(value, list):
                 # Store as JSON array for multiple values
                 json_value = json.dumps(value).replace("'", "\\'")
-                setbits.append(f"n.{key}='{json_value}'")
+                setbits.append(f"n.{prop_key}='{json_value}'")
             else:
                 escaped_value = str(value).replace("'", "\\'")
-                setbits.append(f"n.{key}='{escaped_value}'")
+                setbits.append(f"n.{prop_key}='{escaped_value}'")
 
         lines.append("  ON CREATE SET " + ", ".join(setbits) + ";")
 
