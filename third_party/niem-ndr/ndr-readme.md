@@ -67,8 +67,7 @@ niem-ndr/
 The NIEM API uses these tools for:
 
 1. **Schema Validation**: `all-complete.sch` is pre-compiled into XSLT for fast schema validation
-2. **Instance Validation**: `ins-generated.sch` is used for validating XML instances
-3. **Rule Functions**: `src/ndr-functions.xsl` provides supporting functions for validation
+2. **Rule Functions**: `src/ndr-functions.xsl` provides supporting functions for validation
 
 The validation process is handled by `src/niem_api/services/ndr_validator.py` which:
 - Pre-compiles schematron files at startup for optimal performance

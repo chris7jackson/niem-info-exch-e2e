@@ -1,86 +1,78 @@
 {
-  "@context": {},
-  "Crash": {
-    "ActivityDate": {
-      "Date": "1907-05-04"
-    },
-    "ActivityLocation": {
-      "Location2DGeospatialCoordinate": {
-        "GeographicCoordinateLatitude": {
-          "LatitudeDegreeValue": 51.87
-        },
-        "GeographicCoordinateLongitude": {
-          "LongitudeDegreeValue": -1.28
-        }
-      }
-    },
-    "CrashVehicle": {
-      "CrashDriver": {
+  "@context": {
+    "exch": "http://example.com/CrashDriver/1.2/",
+    "hs": "https://docs.oasis-open.org/niemopen/ns/model/domains/humanServices/6.0/",
+    "j": "https://docs.oasis-open.org/niemopen/ns/model/domains/justice/6.0/",
+    "nc": "https://docs.oasis-open.org/niemopen/ns/model/niem-core/6.0/",
+    "priv": "http://example.com/PrivacyMetadata/2.0/",
+    "unece": "https://docs.oasis-open.org/niemopen/ns/model/codes/unece_rec20/6.0/"
+  },
+
+  "j:Crash": {
+    "nc:ActivityDate": [{ "nc:Date": "1907-05-04" }],
+    "nc:ActivityLocation": [{
+      "nc:Location2DGeospatialCoordinate": [{
+        "nc:GeographicCoordinateLatitude": { "nc:LatitudeDegreeValue": [51.87] },
+        "nc:GeographicCoordinateLongitude": { "nc:LongitudeDegreeValue": [-1.28] }
+      }]
+    }],
+    "j:CrashVehicle": [{
+      "j:CrashDriver": {
         "@id": "#P01",
-        "PersonBirthDate": {
-          "Date": "1890-05-04"
+        "nc:PersonBirthDate": [{ "nc:Date": "1890-05-04" }],
+        "nc:PersonName": [{
+          "nc:personNameCommentText": "copied",
+          "nc:PersonGivenName": ["Peter"],
+          "nc:PersonMiddleName": ["Death", "Bredon"],
+          "nc:PersonSurName": ["Wimsey"]
+        }],
+        "j:PersonAugmentation": {
+          "j:PersonAdultIndicator": true
         },
-        "PersonName": {
-          "@personNameCommentText": "copied",
-          "PersonGivenName": "Peter",
-          "PersonMiddleName": [
-            "Death",
-            "Bredon"
-          ],
-          "PersonSurName": "Wimsey"
-        },
-        "PersonAugmentation": {
-          "PersonAdultIndicator": true
-        },
-        "PersonFictionalCharacterIndicator": true,
-        "DriverLicense": {
-          "DriverLicenseCardIdentification": {
-            "IdentificationID": "A1234567"
+        "exch:PersonFictionalCharacterIndicator": true,
+        "j:DriverLicense": {
+          "j:DriverLicenseCardIdentification": {
+            "nc:IdentificationID": "A1234567"
           }
         }
       }
-    },
-    "CrashPerson": {
+    }],
+    "j:CrashPerson": [{
       "@id": "#P01",
-      "CrashPersonInjury": {
-        "@privacyMetadataRef": "PMD01 PMD02",
-        "InjuryDescriptionText": "Broken Arm",
-        "InjurySeverityCode": 3
-      }
-    }
+      "j:CrashPersonInjury": [{
+        "nc:InjuryDescriptionText": ["Broken Arm"],
+        "j:InjurySeverityCode": ["3"],
+        "priv:privacyMetadata": [
+          { "@id": "PMD01" },
+          { "@id": "PMD02" }
+        ]
+      }]
+    }]
   },
-  "Charge": {
+
+  "j:Charge": {
     "@id": "CH01",
-    "@metadataRef": "JMD01",
-    "ChargeDescriptionText": "Furious Driving",
-    "ChargeFelonyIndicator": false
+    "nc:metadata": { "@id": "JMD01" },
+    "j:ChargeDescriptionText": ["Furious Driving"],
+    "j:ChargeFelonyIndicator": false
   },
-  "PersonChargeAssociation": {
-    "@metadataRef": "JMD01",
-    "Person": {
-      "@id": "#P01",
-      "@nil": "true"
-    },
-    "Charge": {
-      "@ref": "CH01",
-      "@nil": "true"
-    },
-    "JuvenileAsAdultIndicator": false
-  },
-  "Metadata": {
+
+  "j:PersonChargeAssociation": [{
+    "nc:metadata": { "@id": "JMD01" },
+    "nc:Person": { "@id": "#P01" },
+    "j:Charge": { "@id": "CH01" },
+    "j:JuvenileAsAdultIndicator": false
+  }],
+
+  "nc:Metadata": [{
     "@id": "JMD01",
-    "MetadataAugmentation": {
-      "CriminalInformationIndicator": true
+    "j:MetadataAugmentation": {
+      "j:CriminalInformationIndicator": true
     }
-  },
-  "PrivacyMetadata": [
-    {
-      "@id": "PMD01",
-      "PrivacyCode": "PII"
-    },
-    {
-      "@id": "PMD02",
-      "PrivacyCode": "MEDICAL"
-    }
+  }],
+
+  "priv:PrivacyMetadata": [
+    { "@id": "PMD01", "priv:PrivacyCode": ["PII"] },
+    { "@id": "PMD02", "priv:PrivacyCode": ["MEDICAL"] }
   ]
 }

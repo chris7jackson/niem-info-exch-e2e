@@ -470,8 +470,7 @@ class NiemNdrValidator:
             "type": violation_type,
             "rule": rule_context or test,
             "message": message or f"Violation at {location}",
-            "location": location,
-            "test": test
+            "location": location
         }
 
     def get_conformance_target_description(self) -> str:

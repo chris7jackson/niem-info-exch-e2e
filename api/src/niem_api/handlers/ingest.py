@@ -262,7 +262,7 @@ def _validate_json_content(json_content: str, json_schema: Dict[str, Any], filen
     Raises:
         HTTPException: If validation fails (with structured error details in response)
     """
-    from jsonschema import validate, ValidationError as JSONSchemaValidationError
+    from jsonschema import Draft7Validator
     from ..models.models import ValidationError, ValidationResult
 
     logger.info(f"Validating NIEM JSON file {filename} against JSON Schema")
@@ -284,8 +284,46 @@ def _validate_json_content(json_content: str, json_schema: Dict[str, Any], filen
                 if not found_niem:
                     logger.info(f"JSON file {filename} has @context but no common NIEM namespace prefixes (nc, j, structures)")
 
-        # Validate against JSON Schema
-        validate(instance=data, schema=json_schema)
+        # Validate against JSON Schema - collect ALL errors instead of stopping at first
+        validator = Draft7Validator(json_schema)
+        validation_errors = list(validator.iter_errors(data))
+
+        if validation_errors:
+            # Build list of all validation errors
+            errors = []
+            for err in validation_errors:
+                json_path = ".".join(str(p) for p in err.path) if err.path else "root"
+                error = ValidationError(
+                    file=filename,
+                    line=None,  # JSON Schema validation doesn't provide line numbers
+                    column=None,
+                    message=err.message,
+                    severity="error",
+                    rule=err.validator,  # e.g., "required", "type", "pattern"
+                    context=json_path
+                )
+                errors.append(error)
+
+            validation_result = ValidationResult(
+                valid=False,
+                errors=errors,
+                warnings=[],
+                summary=f"Validation failed with {len(errors)} error(s) and 0 warning(s)"
+            )
+
+            logger.error(f"JSON Schema validation failed for {filename} with {len(errors)} error(s)")
+            for err in errors[:10]:  # Log first 10 errors
+                logger.error(f"  - {err.context}: {err.message}")
+            if len(errors) > 10:
+                logger.error(f"  ... and {len(errors) - 10} more error(s)")
+
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": f"Validation error: {filename}",
+                    "validation_result": validation_result.model_dump()
+                }
+            )
 
         logger.info(f"Successfully validated {filename} against JSON Schema")
 
@@ -314,39 +352,9 @@ def _validate_json_content(json_content: str, json_schema: Dict[str, Any], filen
             }
         )
 
-    except JSONSchemaValidationError as e:
-        logger.error(f"JSON Schema validation failed for {filename}: {e.message}")
-
-        # Build JSON path from validation error
-        json_path = ".".join(str(p) for p in e.path) if e.path else "root"
-
-        error = ValidationError(
-            file=filename,
-            line=None,  # JSON Schema validation doesn't provide line numbers
-            column=None,
-            message=e.message,
-            severity="error",
-            rule=e.validator,  # e.g., "required", "type", "pattern"
-            context=json_path
-        )
-
-        validation_result = ValidationResult(
-            valid=False,
-            errors=[error],
-            warnings=[],
-            summary=f"Validation failed with 1 error(s) and 0 warning(s)"
-        )
-
-        logger.error(f"Validation error at {json_path}: {e.message}")
-
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": f"Validation error: {filename}",
-                "validation_result": validation_result.model_dump()
-            }
-        )
-
+    except HTTPException:
+        # Re-raise HTTPException from validation (already has proper detail)
+        raise
     except Exception as e:
         logger.error(f"Unexpected error during JSON validation: {e}")
         raise HTTPException(

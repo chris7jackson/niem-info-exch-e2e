@@ -12,7 +12,7 @@ class NiemNdrViolation(BaseModel):
     rule: str
     message: str
     location: str
-    test: Optional[str] = None
+    file: Optional[str] = None  # Source file where violation was found
 
 
 class NiemNdrReport(BaseModel):
