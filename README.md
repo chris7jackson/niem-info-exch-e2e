@@ -29,6 +29,11 @@ XSD Upload → NDR Validation → Schema Storage (MinIO)
 XML/JSON Upload → CMF Validation → Graph Parsing → Neo4j Storage → File Storage (MinIO)
 ```
 
+## Third-Party Dependencies
+
+This project includes vendored third-party tools in the `third_party/` directory. See individual README files for license information, update instructions, and attribution details:
+- **NIEM CMF Tool** (`third_party/niem-cmf/`) - Apache 2.0 licensed validation tooling from [niemopen/cmftool](https://github.com/niemopen/cmftool)
+
 ## Quick Start
 
 ### Prerequisites
