@@ -33,7 +33,8 @@ pytest-benchmark==4.0.0
 
 # Security testing
 bandit==1.7.5  # Security linter
-safety==2.3.5  # Dependency vulnerability scanner
+# safety removed due to packaging dependency conflict
+# Use pip-audit or trivy instead for vulnerability scanning
 
 # Documentation testing
 pytest-doctestplus==1.0.0
