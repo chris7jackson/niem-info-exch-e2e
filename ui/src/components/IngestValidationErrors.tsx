@@ -9,7 +9,6 @@ interface IngestValidationErrorsProps {
 
 export default function IngestValidationErrors({ filename, validationResult }: IngestValidationErrorsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showRawOutput, setShowRawOutput] = useState(false);
 
   const { errors, warnings, summary } = validationResult;
   const totalIssues = errors.length + warnings.length;
@@ -110,27 +109,6 @@ export default function IngestValidationErrors({ filename, validationResult }: I
             </div>
           )}
 
-          {/* Raw Output Toggle */}
-          {validationResult.raw_output && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <button
-                onClick={() => setShowRawOutput(!showRawOutput)}
-                className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2"
-              >
-                {showRawOutput ? (
-                  <ChevronDownIcon className="h-4 w-4" />
-                ) : (
-                  <ChevronRightIcon className="h-4 w-4" />
-                )}
-                {showRawOutput ? 'Hide' : 'Show'} raw validation output
-              </button>
-              {showRawOutput && (
-                <pre className="mt-2 text-xs bg-gray-900 text-gray-100 p-3 rounded overflow-x-auto">
-                  {validationResult.raw_output}
-                </pre>
-              )}
-            </div>
-          )}
         </div>
       )}
     </div>

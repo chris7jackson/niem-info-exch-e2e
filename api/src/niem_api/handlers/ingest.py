@@ -165,8 +165,7 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
                     valid=False,
                     errors=[ValidationError(**err) for err in error_list],
                     warnings=[ValidationError(**warn) for warn in warning_list],
-                    summary=f"Validation failed with {len(error_list)} error(s) and {len(warning_list)} warning(s)",
-                    raw_output=result["stdout"] + "\n" + result["stderr"]
+                    summary=f"Validation failed with {len(error_list)} error(s) and {len(warning_list)} warning(s)"
                 )
 
                 # Build detailed error message for logging

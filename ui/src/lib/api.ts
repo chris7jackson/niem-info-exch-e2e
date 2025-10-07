@@ -27,7 +27,6 @@ export interface ValidationResult {
   errors: ValidationError[];
   warnings: ValidationError[];
   summary: string;
-  raw_output?: string;
 }
 
 export interface IngestFileResult {

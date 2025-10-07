@@ -90,4 +90,3 @@ class ValidationResult(BaseModel):
     errors: List[ValidationError] = []
     warnings: List[ValidationError] = []
     summary: str  # Human-readable summary
-    raw_output: Optional[str] = None  # Full validator output for debugging

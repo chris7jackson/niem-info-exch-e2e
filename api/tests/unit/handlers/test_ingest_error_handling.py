@@ -95,15 +95,13 @@ class TestIngestErrorHandling:
             valid=False,
             errors=errors,
             warnings=warnings,
-            summary="2 errors, 1 warning",
-            raw_output="[error] test output"
+            summary="2 errors, 1 warning"
         )
 
         assert result.valid is False
         assert len(result.errors) == 2
         assert len(result.warnings) == 1
         assert result.summary == "2 errors, 1 warning"
-        assert result.raw_output == "[error] test output"
 
     def test_validation_error_optional_fields(self):
         """Test ValidationError with optional fields."""

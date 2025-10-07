@@ -17,7 +17,7 @@ export default function IngestResults({ results }: IngestResultsProps) {
 
       {/* Summary */}
       <div className="bg-gray-50 p-4 rounded-lg mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
           <div>
             <div className="text-2xl font-bold text-gray-900">{results.files_processed}</div>
             <div className="text-sm text-gray-600">Files Processed</div>
@@ -25,6 +25,10 @@ export default function IngestResults({ results }: IngestResultsProps) {
           <div>
             <div className="text-2xl font-bold text-green-600">{successfulFiles}</div>
             <div className="text-sm text-gray-600">Successful</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-red-600">{failedFiles}</div>
+            <div className="text-sm text-gray-600">Failed</div>
           </div>
           <div>
             <div className="text-2xl font-bold text-blue-600">{results.total_nodes_created}</div>
