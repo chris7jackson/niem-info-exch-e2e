@@ -56,6 +56,24 @@ def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.
     if not CMF_TOOL_PATH:
         raise CMFError("CMF tool not available")
 
+    # Security: Validate primary_filename to prevent path traversal
+    if not primary_filename or not isinstance(primary_filename, str):
+        raise CMFError("Invalid primary filename")
+
+    # Security: Ensure filename contains no path separators (prevent directory traversal)
+    if os.path.sep in primary_filename or "/" in primary_filename or "\\" in primary_filename:
+        raise CMFError(f"Filename must not contain path separators: {primary_filename}")
+
+    # Security: Ensure filename doesn't contain path traversal sequences
+    if ".." in primary_filename:
+        raise CMFError(f"Filename must not contain '..' sequences: {primary_filename}")
+
+    # Security: Use only the basename to strip any directory components
+    safe_filename = os.path.basename(primary_filename)
+    if safe_filename != primary_filename:
+        logger.warning(f"Stripped directory components from filename: {primary_filename} -> {safe_filename}")
+        primary_filename = safe_filename
+
     # Use the pre-resolved directory from schema handler (already contains local files + all NIEM schemas)
     logger.info(f"Using pre-resolved directory with all schemas: {source_dir}")
 

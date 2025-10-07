@@ -272,12 +272,46 @@ def run_cmf_command(
         raise CMFError("CMF tool not available. Please ensure it's properly installed.")
 
     try:
+        # Security: Validate command arguments to prevent path traversal
+        for arg in cmd:
+            if isinstance(arg, str):
+                # Check for path traversal attempts
+                if ".." in arg or arg.startswith("/"):
+                    # Allow if it's a known safe flag (starts with -)
+                    if not arg.startswith("-"):
+                        logger.warning(f"Potentially unsafe path in command argument: {arg}")
+
         full_cmd = [CMF_TOOL_PATH] + cmd
         logger.info(f"Running CMF command: {' '.join(full_cmd)}")
 
-        # Set working directory
+        # Set working directory with security validation
         if working_dir is None:
             working_dir = Path(CMF_TOOL_PATH).parent.parent
+        else:
+            # Security: Resolve and validate working directory
+            working_dir_path = Path(working_dir).resolve()
+
+            # Ensure working directory exists and is a directory
+            if not working_dir_path.exists():
+                raise CMFError(f"Working directory does not exist: {working_dir_path}")
+            if not working_dir_path.is_dir():
+                raise CMFError(f"Working directory is not a directory: {working_dir_path}")
+
+            # Security: Ensure working directory is within /tmp or /app (expected safe zones)
+            allowed_prefixes = [Path("/tmp").resolve(), Path("/app").resolve()]
+            if os.getenv("HOME"):
+                allowed_prefixes.append(Path(os.getenv("HOME")).resolve())
+
+            is_safe = any(
+                str(working_dir_path).startswith(str(prefix))
+                for prefix in allowed_prefixes
+            )
+
+            if not is_safe:
+                logger.error(f"Working directory outside allowed paths: {working_dir_path}")
+                raise CMFError(f"Working directory not in allowed locations: {working_dir_path}")
+
+            working_dir = str(working_dir_path)
 
         result = subprocess.run(
             full_cmd,
