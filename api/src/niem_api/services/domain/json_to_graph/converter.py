@@ -265,7 +265,7 @@ def generate_for_json_content(
 
         if obj_rule:
             # Extract label and properties
-            label = obj_rule.get("neo4j_label", local_from_qname(qname))
+            label = obj_rule.get("label", local_from_qname(qname))
             props = extract_properties(obj, obj_rule, context)
             props_dict = dict(props)
 
