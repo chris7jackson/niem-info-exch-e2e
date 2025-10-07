@@ -201,9 +201,13 @@ async def ingest_json(
     token: str = Depends(verify_token),
     s3=Depends(get_s3_client)
 ):
-    """Ingest JSON files directly to Neo4j"""
+    """Ingest NIEM JSON files directly to Neo4j.
+
+    NIEM JSON uses JSON-LD features (@context, @id, @type) with NIEM-specific conventions.
+    Files are validated against JSON Schema and converted to graph using the same mapping as XML.
+    """
     from .handlers.ingest import handle_json_ingest
-    return await handle_json_ingest(files, schema_id)
+    return await handle_json_ingest(files, s3, schema_id)
 
 
 @app.get("/api/ingest/files")
