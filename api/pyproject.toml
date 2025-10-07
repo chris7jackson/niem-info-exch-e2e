@@ -1,0 +1,161 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "niem-api"
+version = "1.0.0"
+description = "NIEM Information Exchange API"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+# Exclude directories
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    ".pytest_cache",
+    ".mypy_cache",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "S",   # flake8-bandit (security)
+    "T20", # flake8-print (no print statements)
+]
+
+ignore = [
+    "S101",  # Allow assert statements (used in tests)
+    "S104",  # Allow binding to all interfaces (0.0.0.0)
+    "S108",  # Allow /tmp usage (for temp files)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",  # Allow asserts in tests
+    "S105",  # Allow hardcoded passwords in tests
+    "S106",  # Allow hardcoded passwords in tests
+]
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]
+exclude = '''
+/(
+    \.git
+  | __pycache__
+  | \.venv
+  | venv
+  | build
+  | dist
+  | \.pytest_cache
+  | \.mypy_cache
+)/
+'''
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Gradually enable
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+
+# Exclude directories
+exclude = [
+    "^tests/",
+    "^build/",
+    "^dist/",
+]
+
+# Per-module options
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    "minio.*",
+    "boto3.*",
+    "neo4j.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Markers for test categorization
+markers = [
+    "unit: Unit tests (fast, no external dependencies)",
+    "integration: Integration tests (require Neo4j, MinIO)",
+    "slow: Slow running tests",
+]
+
+# Coverage settings
+addopts = [
+    "--verbose",
+    "--strict-markers",
+    "--strict-config",
+    "--cov-branch",
+]
+
+# Asyncio configuration
+asyncio_mode = "auto"
+
+# Timeout for tests (prevent hanging)
+timeout = 300
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 80.0
+
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"

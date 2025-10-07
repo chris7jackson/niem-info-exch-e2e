@@ -1,0 +1,255 @@
+name: Main Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Manual trigger for testing
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '18'
+
+jobs:
+  # =============================================================================
+  # INTEGRATION TESTS
+  # =============================================================================
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      neo4j:
+        image: neo4j:5.20.0-community
+        env:
+          NEO4J_AUTH: neo4j/testpassword
+          NEO4J_PLUGINS: '["apoc"]'
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p testpassword 'RETURN 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 7687:7687
+          - 7474:7474
+
+      minio:
+        image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 9000:9000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: 'api/requirements*.txt'
+
+      - name: Install dependencies
+        run: |
+          cd api
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Wait for services to be healthy
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:9000/minio/health/live; do sleep 2; done'
+          echo "MinIO is ready"
+
+      - name: Run integration tests
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: testpassword
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
+          MINIO_SECURE: false
+        run: |
+          cd api
+          pytest tests/integration/ \
+            --verbose \
+            --junit-xml=integration-report.xml
+
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: api/integration-report.xml
+
+  # =============================================================================
+  # DOCKER BUILD & SMOKE TESTS
+  # =============================================================================
+
+  docker-build-test:
+    name: Docker Build & Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and start services
+        run: |
+          docker compose up -d --build
+
+      - name: Wait for services to be ready
+        run: |
+          timeout 120 bash -c 'until curl -f http://localhost:8000/healthz; do sleep 5; done'
+          timeout 120 bash -c 'until curl -f http://localhost:3000; do sleep 5; done'
+          echo "All services are healthy"
+
+      - name: Run smoke tests
+        run: |
+          # Test API health endpoints
+          echo "Testing API healthz..."
+          curl -f http://localhost:8000/healthz
+
+          echo "Testing API readyz..."
+          curl -f http://localhost:8000/readyz
+
+          # Test UI is accessible
+          echo "Testing UI..."
+          curl -f http://localhost:3000
+
+          echo "✅ All smoke tests passed"
+
+      - name: View service logs on failure
+        if: failure()
+        run: |
+          echo "=== API Logs ==="
+          docker compose logs api
+          echo "=== UI Logs ==="
+          docker compose logs ui
+          echo "=== Neo4j Logs ==="
+          docker compose logs neo4j
+          echo "=== MinIO Logs ==="
+          docker compose logs minio
+
+      - name: Stop services
+        if: always()
+        run: docker compose down
+
+  # =============================================================================
+  # SECURITY SCANNING (NON-BLOCKING)
+  # =============================================================================
+
+  security-scan:
+    name: Security Scanning (Trivy)
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    continue-on-error: true  # Non-blocking
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Upload Trivy results as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-security-scan
+          path: trivy-results.sarif
+
+  # =============================================================================
+  # CODE ANALYSIS (NON-BLOCKING)
+  # =============================================================================
+
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Non-blocking
+
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      matrix:
+        language: ['python', 'javascript']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # =============================================================================
+  # PIPELINE STATUS
+  # =============================================================================
+
+  pipeline-status:
+    name: Pipeline Status
+    runs-on: ubuntu-latest
+    needs: [integration-tests, docker-build-test, security-scan, codeql-analysis]
+    if: always()
+
+    steps:
+      - name: Check critical gates
+        run: |
+          integration_result="${{ needs.integration-tests.result }}"
+          docker_result="${{ needs.docker-build-test.result }}"
+
+          # Security and CodeQL are non-blocking
+          security_result="${{ needs.security-scan.result }}"
+          codeql_result="${{ needs.codeql-analysis.result }}"
+
+          echo "=== Pipeline Results ==="
+          echo "Integration Tests: $integration_result"
+          echo "Docker Build & Smoke: $docker_result"
+          echo "Security Scan: $security_result (non-blocking)"
+          echo "CodeQL Analysis: $codeql_result (non-blocking)"
+          echo ""
+
+          # Only fail on critical gates
+          if [[ "$integration_result" == "success" && "$docker_result" == "success" ]]; then
+            echo "✅ All critical gates passed!"
+            exit 0
+          else
+            echo "❌ Critical gates failed!"
+            exit 1
+          fi
