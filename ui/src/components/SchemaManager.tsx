@@ -74,10 +74,7 @@ export default function SchemaManager() {
       setLastValidationResult(result);
 
       // Check NIEM NDR validation status
-      if (result.niem_ndr_report && result.niem_ndr_report.status === 'pass') {
-        await loadSchemas();
-        setFilePreviews([]); // Clear previews on success
-      } else if (result.niem_ndr_report && result.niem_ndr_report.status === 'fail') {
+      if (result.niem_ndr_report && result.niem_ndr_report.status === 'fail') {
         // Set a simple error message - detailed violations will be shown in ValidationResults component
         const violations = result.niem_ndr_report.violations || [];
         const totalErrors = violations.filter((v: any) => v.type === 'error').length;
@@ -88,19 +85,19 @@ export default function SchemaManager() {
 
         setError(`Schema upload rejected: Found ${totalErrors} NIEM NDR violations across ${fileCount} file(s). See details below.`);
       } else {
-        // If no validation report or other status, assume success
+        // If validation passed or no validation report, assume success
         await loadSchemas();
         setFilePreviews([]); // Clear previews on success
       }
     } catch (err: any) {
-      // Handle detailed error response with NDR violations
+      // Handle detailed error response with NDR and import validation errors
       try {
         const detail = err.response?.data?.detail;
-        if (detail && typeof detail === 'object' && detail.niem_ndr_report) {
-          // Store the full NDR report for display
+        if (detail && typeof detail === 'object' && (detail.niem_ndr_report || detail.import_validation_report)) {
+          // Store both validation reports for display
           setLastValidationResult({
-            niem_ndr_report: detail.niem_ndr_report,
-            import_validation_report: null
+            niem_ndr_report: detail.niem_ndr_report || null,
+            import_validation_report: detail.import_validation_report || null
           });
           setError(detail.message || 'Schema validation failed');
         } else if (typeof detail === 'string') {

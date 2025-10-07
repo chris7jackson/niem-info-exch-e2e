@@ -47,8 +47,8 @@ interface NiemNdrReport {
 }
 
 interface ValidationResultsProps {
-  ndrReport?: NiemNdrReport;
-  importReport?: ImportValidationReport;
+  readonly ndrReport?: NiemNdrReport;
+  readonly importReport?: ImportValidationReport;
 }
 
 export default function ValidationResults({ ndrReport, importReport }: ValidationResultsProps) {
@@ -94,19 +94,25 @@ export default function ValidationResults({ ndrReport, importReport }: Validatio
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="text-sm font-medium text-gray-500">NIEM NDR Validation</div>
           <div className="mt-2 flex items-center">
-            {ndrStatus === 'pass' ? (
-              <>
-                <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
-                <span className="text-sm text-green-700">Passed</span>
-              </>
-            ) : ndrStatus === 'fail' ? (
-              <>
-                <XCircleIcon className="h-5 w-5 text-red-500 mr-2" />
-                <span className="text-sm text-red-700">{ndrReport?.summary.error_count || 0} errors</span>
-              </>
-            ) : (
-              <span className="text-sm text-gray-500">Unknown</span>
-            )}
+            {(() => {
+              if (ndrStatus === 'pass') {
+                return (
+                  <>
+                    <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
+                    <span className="text-sm text-green-700">Passed</span>
+                  </>
+                );
+              }
+              if (ndrStatus === 'fail') {
+                return (
+                  <>
+                    <XCircleIcon className="h-5 w-5 text-red-500 mr-2" />
+                    <span className="text-sm text-red-700">{ndrReport?.summary.error_count || 0} errors</span>
+                  </>
+                );
+              }
+              return <span className="text-sm text-gray-500">Unknown</span>;
+            })()}
           </div>
           {ndrReport && ndrReport.summary.warning_count > 0 && (
             <div className="mt-1 text-xs text-yellow-600">
@@ -118,21 +124,30 @@ export default function ValidationResults({ ndrReport, importReport }: Validatio
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="text-sm font-medium text-gray-500">Import Validation</div>
           <div className="mt-2 flex items-center">
-            {importStatus === 'pass' ? (
-              <>
-                <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
-                <span className="text-sm text-green-700">All resolved</span>
-              </>
-            ) : importStatus === 'fail' ? (
-              <>
-                <XCircleIcon className="h-5 w-5 text-red-500 mr-2" />
-                <span className="text-sm text-red-700">{importReport?.missing_count || 0} missing</span>
-              </>
-            ) : (
-              <span className="text-sm text-gray-500">Unknown</span>
-            )}
+            {(() => {
+              if (!importReport) {
+                return <span className="text-sm text-gray-500">Not checked</span>;
+              }
+              if (importStatus === 'pass') {
+                return (
+                  <>
+                    <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
+                    <span className="text-sm text-green-700">All resolved</span>
+                  </>
+                );
+              }
+              if (importStatus === 'fail') {
+                return (
+                  <>
+                    <XCircleIcon className="h-5 w-5 text-red-500 mr-2" />
+                    <span className="text-sm text-red-700">{importReport.missing_count || 0} missing</span>
+                  </>
+                );
+              }
+              return <span className="text-sm text-gray-500">Unknown</span>;
+            })()}
           </div>
-          {importReport && (
+          {importReport && importReport.status !== 'unknown' && (
             <div className="mt-1 text-xs text-gray-600">
               {importReport.total_imports} imports, {importReport.total_namespaces} namespaces
             </div>
@@ -182,7 +197,7 @@ export default function ValidationResults({ ndrReport, importReport }: Validatio
                   {expandedFiles[`ndr-${filename}`] && (
                     <div className="px-3 pb-3 space-y-2">
                       {violations.map((v, idx) => (
-                        <div key={idx} className="text-xs">
+                        <div key={`${v.rule}-${v.location}-${idx}`} className="text-xs">
                           <div className="flex items-start">
                             {v.type === 'error' ? (
                               <XCircleIcon className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
@@ -260,7 +275,7 @@ export default function ValidationResults({ ndrReport, importReport }: Validatio
                           <div>
                             <div className="text-xs font-medium text-gray-500 mb-1">Imports:</div>
                             {file.imports.map((imp, idx) => (
-                              <div key={idx} className="flex items-center text-xs py-1">
+                              <div key={`import-${imp.schema_location}-${idx}`} className="flex items-center text-xs py-1">
                                 {imp.status === 'satisfied' ? (
                                   <CheckCircleIcon className="h-3 w-3 text-green-500 mr-2 flex-shrink-0" />
                                 ) : (
@@ -275,7 +290,7 @@ export default function ValidationResults({ ndrReport, importReport }: Validatio
                           <div>
                             <div className="text-xs font-medium text-gray-500 mb-1">Namespaces:</div>
                             {file.namespaces_used.map((ns, idx) => (
-                              <div key={idx} className="flex items-center text-xs py-1">
+                              <div key={`namespace-${ns.prefix}-${ns.namespace_uri}-${idx}`} className="flex items-center text-xs py-1">
                                 {ns.status === 'satisfied' ? (
                                   <CheckCircleIcon className="h-3 w-3 text-green-500 mr-2 flex-shrink-0" />
                                 ) : (

@@ -419,24 +419,8 @@ async def _validate_all_niem_ndr(file_contents: Dict[str, bytes]) -> NiemNdrRepo
         summary=aggregated_summary
     )
 
-    # Check if NIEM validation failed - reject upload if validation fails
-    # Return the full niem_ndr_report in the exception detail for UI to display
-    if status == "fail":
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": f"Schema upload rejected due to NIEM NDR validation failures. Found {total_error_count} NIEM NDR violations across {len(file_contents)} files.",
-                "niem_ndr_report": niem_ndr_report.model_dump()
-            }
-        )
-
-    # Check if validation encountered an error
-    if status == "error":
-        raise HTTPException(
-            status_code=500,
-            detail=f"NIEM NDR validation error: {message}"
-        )
-
+    # Return report without raising exception - let caller decide how to handle failures
+    # This allows combining NDR and import validation results before failing
     return niem_ndr_report
 
 
@@ -500,14 +484,12 @@ async def _convert_to_cmf(
         resolved_temp_path = dependency_report.get("temp_path", temp_path)
 
         try:
-            # Only proceed with CMF conversion if all dependencies are satisfied
+            # Check if all dependencies are satisfied
             if not dependency_report["can_convert"]:
                 logger.error(f"Cannot convert to CMF: {dependency_report['blocking_issues']}")
-                blocking_issues_str = '\n- '.join([''] + dependency_report['blocking_issues'])
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Schema upload failed: Missing required dependencies. Please upload all referenced schema files:{blocking_issues_str}"
-                )
+                # Return early with dependency report but don't raise exception
+                # Let caller combine with NDR validation and decide how to fail
+                return {"status": "dependency_failed", "dependency_report": dependency_report, "import_validation_report": dependency_report.get("import_validation_report")}, None
 
             logger.info("All dependencies satisfied, proceeding with CMF conversion")
 
@@ -528,20 +510,10 @@ async def _convert_to_cmf(
                     for detail in error_details:
                         logger.error(f"CMF Error Detail: {detail}")
 
-                # Create user-friendly error message
-                detail_msg = f"Schema upload failed: CMF conversion error - {error_msg}"
-                if error_details:
-                    # Include first few lines of error details for context
-                    detail_summary = error_details[0][:500] if error_details[0] else ""
-                    if len(detail_summary) > 0:
-                        detail_msg += f"\n\nError details: {detail_summary}"
-                        if len(error_details[0]) > 500:
-                            detail_msg += "... (truncated)"
-
-                raise HTTPException(
-                    status_code=400,
-                    detail=detail_msg
-                )
+                # Return CMF error without raising - let caller combine with NDR validation
+                cmf_conversion_result["dependency_report"] = dependency_report
+                cmf_conversion_result["import_validation_report"] = dependency_report.get("import_validation_report")
+                return cmf_conversion_result, None
 
             # Add dependency report to CMF result
             cmf_conversion_result["dependency_report"] = dependency_report
@@ -739,6 +711,40 @@ async def handle_schema_upload(
         cmf_conversion_result, json_schema_conversion_result = await _convert_to_cmf(
             file_contents, file_path_map, primary_file, primary_content
         )
+
+        # Step 3.5: Check both validations and fail with combined reports if either failed
+        ndr_has_errors = niem_ndr_report and niem_ndr_report.status in ("fail", "error")
+        import_has_errors = cmf_conversion_result and cmf_conversion_result.get("status") in ("dependency_failed", "fail", "error")
+
+        if ndr_has_errors or import_has_errors:
+            # Extract import validation report
+            import_validation_report = cmf_conversion_result.get("import_validation_report") if cmf_conversion_result else None
+
+            # Build combined error message
+            error_parts = []
+            if ndr_has_errors:
+                ndr_error_count = niem_ndr_report.summary.get("error_count", 0)
+                error_parts.append(f"NIEM NDR validation found {ndr_error_count} error(s)")
+            if import_has_errors:
+                cmf_status = cmf_conversion_result.get("status")
+                if cmf_status == "dependency_failed":
+                    blocking_issues = cmf_conversion_result.get("dependency_report", {}).get("blocking_issues", [])
+                    error_parts.append(f"Missing {len(blocking_issues)} required schema dependencies")
+                else:
+                    error_parts.append(f"CMF conversion failed: {cmf_conversion_result.get('error', 'Unknown error')}")
+
+            combined_message = "Schema upload rejected: " + " and ".join(error_parts)
+
+            # Raise exception with both validation reports
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": combined_message,
+                    "niem_ndr_report": niem_ndr_report.model_dump() if niem_ndr_report else None,
+                    "import_validation_report": import_validation_report.model_dump() if import_validation_report else None,
+                    "cmf_error": cmf_conversion_result.get("error") if import_has_errors else None
+                }
+            )
 
         # Step 4: Store all schema files
         await _store_schema_files(s3, schema_id, file_contents, file_path_map, cmf_conversion_result, json_schema_conversion_result)
