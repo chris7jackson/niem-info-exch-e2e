@@ -157,6 +157,10 @@ jobs:
     needs: [integration-tests]
     continue-on-error: true  # Non-blocking
 
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
