@@ -13,9 +13,8 @@ httpx==0.25.2  # Already in main requirements
 requests-mock==1.11.0  # Mock HTTP requests
 
 # Database testing with containers
-testcontainers==3.7.1
-testcontainers[neo4j]==3.7.1
-testcontainers[minio]==3.7.1
+# Note: Using services directly in CI instead of testcontainers for better compatibility
+# testcontainers==3.7.1
 
 # Mocking and fixtures
 factory-boy==3.3.0  # Object factories for tests

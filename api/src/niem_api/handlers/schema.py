@@ -420,17 +420,14 @@ async def _validate_all_niem_ndr(file_contents: Dict[str, bytes]) -> NiemNdrRepo
     )
 
     # Check if NIEM validation failed - reject upload if validation fails
+    # Return the full niem_ndr_report in the exception detail for UI to display
     if status == "fail":
-        error_messages = [v["message"] for v in all_violations if v["type"] == "error"]
-        violation_summary = f"Found {total_error_count} NIEM NDR violations across {len(file_contents)} files"
-        if error_messages:
-            violation_summary += f": {'; '.join(error_messages[:3])}"  # Show first 3 errors
-            if len(error_messages) > 3:
-                violation_summary += f" ... and {len(error_messages) - 3} more"
-
         raise HTTPException(
             status_code=400,
-            detail=f"Schema upload rejected due to NIEM NDR validation failures. {violation_summary}"
+            detail={
+                "message": f"Schema upload rejected due to NIEM NDR validation failures. Found {total_error_count} NIEM NDR violations across {len(file_contents)} files.",
+                "niem_ndr_report": niem_ndr_report.model_dump()
+            }
         )
 
     # Check if validation encountered an error
@@ -855,3 +852,58 @@ def get_schema_metadata(s3: Minio, schema_id: str) -> Optional[Dict]:
         return json.loads(metadata_obj.read().decode())
     except S3Error:
         return None
+
+
+def get_schema_graph(s3: Minio, schema_id: str) -> Dict[str, Any]:
+    """Get the parsed graph structure of a schema for visualization.
+
+    Args:
+        s3: MinIO client
+        schema_id: Schema ID to retrieve
+
+    Returns:
+        Dict with keys: nodes, edges, namespaces, metadata
+
+    Raises:
+        HTTPException: If schema not found or CMF parsing fails
+    """
+    try:
+        from ..services.domain.schema.cmf_parser import CMFParser, CMFParseError
+
+        # Check if schema exists
+        metadata = get_schema_metadata(s3, schema_id)
+        if not metadata:
+            raise HTTPException(status_code=404, detail="Schema not found")
+
+        # Retrieve CMF file from MinIO
+        try:
+            cmf_obj = s3.get_object("niem-schemas", f"{schema_id}/schema.cmf")
+            cmf_content = cmf_obj.read().decode('utf-8')
+        except S3Error as e:
+            logger.error(f"Failed to retrieve CMF for schema {schema_id}: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="Storage service temporarily unavailable"
+            )
+
+        # Parse CMF into graph structure
+        try:
+            parser = CMFParser()
+            graph_data = parser.parse(cmf_content)
+        except CMFParseError as e:
+            logger.error(f"Failed to parse CMF for schema {schema_id}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to parse CMF: {str(e)}"
+            )
+
+        # Add schema_id to metadata
+        graph_data['metadata']['schemaId'] = schema_id
+
+        return graph_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get schema graph: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get schema graph: {str(e)}")

@@ -2,8 +2,9 @@
 
 import pytest
 import json
+import os
 from io import BytesIO
-from testcontainers.minio import MinioContainer
+from minio import Minio
 
 from niem_api.services.storage import (
     upload_file,
@@ -17,6 +18,22 @@ from niem_api.services.storage import (
 @pytest.mark.integration
 class TestMinioIntegration:
     """Integration tests for MinIO storage operations"""
+
+    @pytest.fixture
+    def minio_client(self):
+        """MinIO client connected to service (GitHub Actions or local)"""
+        endpoint = os.getenv("MINIO_ENDPOINT", "localhost:9001")
+        access_key = os.getenv("MINIO_ACCESS_KEY", "minio")
+        secret_key = os.getenv("MINIO_SECRET_KEY", "minio123")
+        secure = os.getenv("MINIO_SECURE", "false").lower() == "true"
+
+        client = Minio(
+            endpoint,
+            access_key=access_key,
+            secret_key=secret_key,
+            secure=secure
+        )
+        return client
 
     @pytest.fixture(scope="class")
     def minio_container(self):

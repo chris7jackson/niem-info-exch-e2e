@@ -2,7 +2,7 @@
 
 import pytest
 import asyncio
-from testcontainers.neo4j import Neo4jContainer
+import os
 
 from niem_api.services.neo4j_client import Neo4jClient
 from niem_api.services.graph_schema import GraphSchemaManager
@@ -12,18 +12,14 @@ from niem_api.services.graph_schema import GraphSchemaManager
 class TestNeo4jIntegration:
     """Integration tests for Neo4j database operations"""
 
-    @pytest.fixture(scope="class")
-    def neo4j_container(self):
-        """Start Neo4j test container"""
-        with Neo4jContainer("neo4j:5.20.0-community") as neo4j:
-            neo4j.with_env("NEO4J_AUTH", "neo4j/testpassword")
-            yield neo4j
-
     @pytest.fixture
-    def neo4j_client(self, neo4j_container):
-        """Neo4j client connected to test container"""
-        uri = neo4j_container.get_connection_url()
-        client = Neo4jClient(uri, "neo4j", "testpassword")
+    def neo4j_client(self):
+        """Neo4j client connected to service (GitHub Actions or local)"""
+        uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+        user = os.getenv("NEO4J_USER", "neo4j")
+        password = os.getenv("NEO4J_PASSWORD", "testpassword")
+
+        client = Neo4jClient(uri, user, password)
         yield client
         client.close()
 

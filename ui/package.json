@@ -26,7 +26,10 @@
     "@heroicons/react": "^2.0.18",
     "clsx": "^2.0.0",
     "react-dropzone": "^14.2.3",
-    "cytoscape": "^3.28.1"
+    "cytoscape": "^3.28.1",
+    "cytoscape-dagre": "^2.5.0",
+    "cytoscape-cose-bilkent": "^4.1.0",
+    "dagre": "^0.8.5"
   },
   "devDependencies": {
     "@types/node": "^20.10.4",

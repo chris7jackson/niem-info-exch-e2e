@@ -78,49 +78,40 @@ export default function SchemaManager() {
         await loadSchemas();
         setFilePreviews([]); // Clear previews on success
       } else if (result.niem_ndr_report && result.niem_ndr_report.status === 'fail') {
-        // Group violations by file
-        const violationsByFile: { [key: string]: any[] } = {};
-        result.niem_ndr_report.violations
-          .filter((v: any) => v.type === 'error')
-          .forEach((v: any) => {
-            const file = v.file || 'Unknown file';
-            if (!violationsByFile[file]) {
-              violationsByFile[file] = [];
-            }
-            violationsByFile[file].push(v);
-          });
+        // Set a simple error message - detailed violations will be shown in ValidationResults component
+        const violations = result.niem_ndr_report.violations || [];
+        const totalErrors = violations.filter((v: any) => v.type === 'error').length;
+        const fileCount = violations.reduce((acc: any, v: any) => {
+          if (v.type === 'error') acc.add(v.file || 'Unknown');
+          return acc;
+        }, new Set()).size;
 
-        // Build error message with file grouping
-        const totalErrors = result.niem_ndr_report.violations.filter((v: any) => v.type === 'error').length;
-        const fileCount = Object.keys(violationsByFile).length;
-
-        let errorMessage = `Schema upload rejected due to NIEM NDR validation failures. Found ${totalErrors} NIEM NDR violations across ${fileCount} files:\n\n`;
-
-        // Show first 3 violations from each file, limit to 3 files
-        const filesToShow = Object.keys(violationsByFile).slice(0, 3);
-        filesToShow.forEach((file) => {
-          const violations = violationsByFile[file];
-          errorMessage += `\n${file} (${violations.length} violations):\n`;
-          violations.slice(0, 3).forEach((v: any) => {
-            errorMessage += `  - ${v.rule}: ${v.message}\n`;
-          });
-          if (violations.length > 3) {
-            errorMessage += `  ... and ${violations.length - 3} more violations\n`;
-          }
-        });
-
-        if (Object.keys(violationsByFile).length > 3) {
-          errorMessage += `\n... and ${Object.keys(violationsByFile).length - 3} more files with violations`;
-        }
-
-        setError(errorMessage);
+        setError(`Schema upload rejected: Found ${totalErrors} NIEM NDR violations across ${fileCount} file(s). See details below.`);
       } else {
         // If no validation report or other status, assume success
         await loadSchemas();
         setFilePreviews([]); // Clear previews on success
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'Upload failed');
+      // Handle detailed error response with NDR violations
+      try {
+        const detail = err.response?.data?.detail;
+        if (detail && typeof detail === 'object' && detail.niem_ndr_report) {
+          // Store the full NDR report for display
+          setLastValidationResult({
+            niem_ndr_report: detail.niem_ndr_report,
+            import_validation_report: null
+          });
+          setError(detail.message || 'Schema validation failed');
+        } else if (typeof detail === 'string') {
+          setError(detail);
+        } else {
+          setError(err.message || 'Upload failed');
+        }
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        setError('Upload failed. Please check the console for details.');
+      }
     } finally {
       setUploading(false);
     }

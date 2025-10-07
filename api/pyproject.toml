@@ -8,6 +8,9 @@ version = "1.0.0"
 description = "NIEM Information Exchange API"
 requires-python = ">=3.12"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.ruff]
 line-length = 120
 target-version = "py312"
