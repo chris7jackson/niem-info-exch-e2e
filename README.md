@@ -33,6 +33,7 @@ XML/JSON Upload → CMF Validation → Graph Parsing → Neo4j Storage → File 
 
 This project includes vendored third-party tools in the `third_party/` directory. See individual README files for license information, update instructions, and attribution details:
 - **NIEM CMF Tool** (`third_party/niem-cmf/`) - Apache 2.0 licensed validation tooling from [niemopen/cmftool](https://github.com/niemopen/cmftool)
+- **NIEM NDR Tools** (`third_party/niem-ndr/`) - CC BY 4.0 licensed validation rules and execution tools from [NIEM/NIEM-NDR](https://github.com/NIEM/NIEM-NDR) and [niemopen/niem-naming-design-rules](https://github.com/niemopen/niem-naming-design-rules)
 
 ## Quick Start
 
