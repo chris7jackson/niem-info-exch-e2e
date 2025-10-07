@@ -33,22 +33,24 @@ jobs:
           - 7687:7687
           - 7474:7474
 
-      minio:
-        image: minio/minio:RELEASE.2024-09-13T20-26-02Z
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 9000:9000
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Start MinIO
+        run: |
+          docker run -d \
+            --name minio \
+            -p 9000:9000 \
+            -p 9001:9001 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:latest \
+            server /data --console-address ":9001"
+
+          # Wait for MinIO to be ready
+          timeout 60 bash -c 'until curl -f http://localhost:9000/minio/health/live 2>/dev/null; do sleep 2; done'
+          echo "✅ MinIO is ready"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -63,11 +65,6 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-test.txt
-
-      - name: Wait for services to be healthy
-        run: |
-          timeout 60 bash -c 'until curl -f http://localhost:9000/minio/health/live; do sleep 2; done'
-          echo "MinIO is ready"
 
       - name: Run integration tests
         env:
