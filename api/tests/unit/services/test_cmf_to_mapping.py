@@ -3,7 +3,7 @@
 import pytest
 from xml.etree import ElementTree as ET
 
-from niem_api.services.cmf_to_mapping import (
+from niem_api.services.domain.schema.mapping import (
     generate_mapping_from_cmf_content,
     to_qname,
     to_label,
