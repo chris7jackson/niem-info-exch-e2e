@@ -60,19 +60,14 @@ def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.
     if not primary_filename or not isinstance(primary_filename, str):
         raise CMFError("Invalid primary filename")
 
-    # Security: Ensure filename contains no path separators (prevent directory traversal)
-    if os.path.sep in primary_filename or "/" in primary_filename or "\\" in primary_filename:
-        raise CMFError(f"Filename must not contain path separators: {primary_filename}")
-
     # Security: Ensure filename doesn't contain path traversal sequences
     if ".." in primary_filename:
         raise CMFError(f"Filename must not contain '..' sequences: {primary_filename}")
 
-    # Security: Use only the basename to strip any directory components
-    safe_filename = os.path.basename(primary_filename)
-    if safe_filename != primary_filename:
-        logger.warning(f"Stripped directory components from filename: {primary_filename} -> {safe_filename}")
-        primary_filename = safe_filename
+    # Normalize path separators to forward slashes for consistency
+    # Keep the relative path intact since files are stored with directory structure preserved
+    primary_filename = primary_filename.replace("\\", "/")
+    logger.info(f"Primary filename for CMF conversion: {primary_filename}")
 
     # Use the pre-resolved directory from schema handler (already contains local files + all NIEM schemas)
     logger.info(f"Using pre-resolved directory with all schemas: {source_dir}")
@@ -185,8 +180,9 @@ def convert_cmf_to_jsonschema(cmf_content: str) -> Dict[str, Any]:
 
             try:
                 # Convert CMF to JSON Schema
+                # Security: Use relative paths (just filenames) since we're in temp_dir
                 logger.info("Converting CMF to JSON Schema...")
-                result = run_cmf_command(["m2jmsg", "-o", json_schema_file, cmf_file], working_dir=temp_dir)
+                result = run_cmf_command(["m2jmsg", "-o", "schema.json", "model.cmf"], working_dir=temp_dir)
 
                 if result["returncode"] != 0:
                     errors = []

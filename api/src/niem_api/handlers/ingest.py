@@ -140,10 +140,15 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
             logger.info(f"Found {len(xsd_files)} XSD schema files for validation")
 
             # Build xval command with all schema files
+            # Security: Use relative paths from temp_dir to avoid absolute path validation errors
             cmd = ["xval"]
             for xsd_file in xsd_files:
-                cmd.extend(["--schema", str(xsd_file)])
-            cmd.extend(["--file", str(xml_file)])  # Fixed: convert PosixPath to str
+                # Convert to relative path from temp_dir
+                rel_path = Path(xsd_file).relative_to(temp_dir)
+                cmd.extend(["--schema", str(rel_path)])
+            # Convert xml_file to relative path from temp_dir
+            xml_rel_path = Path(xml_file).relative_to(temp_dir)
+            cmd.extend(["--file", str(xml_rel_path)])
 
             # Run XSD validation command
             result = run_cmf_command(cmd, working_dir=temp_dir)

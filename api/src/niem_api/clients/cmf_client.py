@@ -34,6 +34,28 @@ else:
 
 CMF_TIMEOUT = 30  # Default command timeout in seconds
 
+# Security: Allowlist of valid CMF tool subcommands
+# Only these commands can be executed via run_cmf_command()
+ALLOWED_CMF_COMMANDS = {
+    "x2m",      # XSD to CMF conversion
+    "m2jmsg",   # CMF to JSON Schema message conversion
+    "xval",     # XML validation
+    "version",  # Get CMF tool version
+    "help",     # Help command
+}
+
+# Security: Allowlist of valid CMF tool flags
+# Only these flags are allowed in command arguments
+ALLOWED_CMF_FLAGS = {
+    "-o", "--output",           # Output file specification
+    "-s", "--schema",           # Schema file specification
+    "-f", "--file",             # Input file specification
+    "-h", "--help",             # Help flag
+    "-v", "--version",          # Version flag
+    "--niem-version",           # NIEM version specification
+    "--no-validation",          # Skip validation
+}
+
 
 class CMFError(Exception):
     """
@@ -222,6 +244,66 @@ def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> Dict
     }
 
 
+def _validate_cmf_command(cmd: list) -> None:
+    """
+    Validate CMF command arguments against allowlist to prevent command injection.
+
+    This enforces a strict allowlist policy:
+    1. First argument must be a valid CMF subcommand
+    2. Flags must be in the allowed flags list
+    3. File paths must not contain path traversal sequences
+
+    Args:
+        cmd: Command arguments to validate
+
+    Raises:
+        CMFError: If command contains disallowed arguments or suspicious patterns
+
+    Security:
+        This function is critical for preventing command injection attacks.
+        All user-controlled input to run_cmf_command() must pass through this validation.
+    """
+    if not cmd or len(cmd) == 0:
+        raise CMFError("Command cannot be empty")
+
+    # Security: First argument must be a valid CMF subcommand from allowlist
+    subcommand = cmd[0]
+    if subcommand not in ALLOWED_CMF_COMMANDS:
+        raise CMFError(f"Invalid CMF subcommand: {subcommand}. Allowed: {', '.join(ALLOWED_CMF_COMMANDS)}")
+
+    # Security: Validate remaining arguments
+    i = 1
+    while i < len(cmd):
+        arg = cmd[i]
+
+        if not isinstance(arg, str):
+            raise CMFError(f"All command arguments must be strings, got {type(arg)}")
+
+        # Check if it's a flag
+        if arg.startswith("-"):
+            if arg not in ALLOWED_CMF_FLAGS:
+                raise CMFError(f"Invalid CMF flag: {arg}. Allowed: {', '.join(ALLOWED_CMF_FLAGS)}")
+        else:
+            # It's a file path or value - validate it
+            # Security: Reject absolute paths (they should be relative to working_dir)
+            if arg.startswith("/"):
+                raise CMFError(f"Absolute paths not allowed in command arguments: {arg}")
+
+            # Security: Reject path traversal sequences
+            if ".." in arg:
+                raise CMFError(f"Path traversal sequences not allowed: {arg}")
+
+            # Security: Basic filename validation - must end with expected extensions or be simple values
+            # Allow: filenames, relative paths within working dir
+            # Reject: shell metacharacters
+            dangerous_chars = [";", "|", "&", "$", "`", "(", ")", "<", ">", "\n", "\r"]
+            for char in dangerous_chars:
+                if char in arg:
+                    raise CMFError(f"Dangerous character '{char}' found in argument: {arg}")
+
+        i += 1
+
+
 def run_cmf_command(
     cmd: list,
     timeout: int = CMF_TIMEOUT,
@@ -272,14 +354,8 @@ def run_cmf_command(
         raise CMFError("CMF tool not available. Please ensure it's properly installed.")
 
     try:
-        # Security: Validate command arguments to prevent path traversal
-        for arg in cmd:
-            if isinstance(arg, str):
-                # Check for path traversal attempts
-                if ".." in arg or arg.startswith("/"):
-                    # Allow if it's a known safe flag (starts with -)
-                    if not arg.startswith("-"):
-                        logger.warning(f"Potentially unsafe path in command argument: {arg}")
+        # Security: Validate command against allowlist to prevent command injection
+        _validate_cmf_command(cmd)
 
         full_cmd = [CMF_TOOL_PATH] + cmd
         logger.info(f"Running CMF command: {' '.join(full_cmd)}")
