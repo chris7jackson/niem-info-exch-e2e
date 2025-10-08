@@ -65,6 +65,63 @@ docker compose ps
 
 Open http://localhost:3000 in your browser
 
+### 3. Rebuilding After Code Changes
+
+When new code is pushed or you make local changes, you need to rebuild and restart the affected services.
+
+#### Rebuild All Services (API + UI)
+
+```bash
+# Stop services
+docker compose down
+
+# Rebuild and restart all services
+docker compose up -d --build
+
+# Or in one command:
+docker compose up -d --build --force-recreate
+```
+
+#### Rebuild Specific Service
+
+**API only** (Python/FastAPI changes):
+```bash
+docker compose up -d --build --force-recreate api
+```
+
+**UI only** (Next.js/React changes):
+```bash
+docker compose up -d --build --force-recreate ui
+```
+
+#### View Logs
+
+Check logs during/after rebuild to verify successful startup:
+
+```bash
+# All services
+docker compose logs -f
+
+# Specific service
+docker compose logs -f api
+docker compose logs -f ui
+
+# Last 50 lines
+docker compose logs --tail=50 api
+```
+
+#### Common Rebuild Scenarios
+
+| Scenario | Command | Notes |
+|----------|---------|-------|
+| Pull latest code | `git pull && docker compose up -d --build` | Rebuilds changed services |
+| API code changes | `docker compose up -d --build api` | Python dependencies cached unless requirements change |
+| UI code changes | `docker compose up -d --build ui` | npm dependencies cached unless package.json changes |
+| Environment changes | `docker compose down && docker compose up -d` | No rebuild needed for .env changes |
+| Dependency updates | `docker compose build --no-cache api` then `docker compose up -d` | Forces fresh install of all dependencies |
+| Complete reset | `docker compose down -v && docker compose up -d --build` | Removes volumes (deletes all data!) |
+
+
 ## Complete Walkthrough: CrashDriver Sample Data
 
 This section provides a comprehensive end-to-end walkthrough using the included CrashDriver sample data, demonstrating schema validation, data ingestion, error handling, graph visualization, and system administration.
