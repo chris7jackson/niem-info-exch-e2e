@@ -300,18 +300,36 @@ async def _validate_and_read_files(files: List[UploadFile], file_paths: List[str
     if len(files) != len(file_paths):
         raise HTTPException(status_code=400, detail="Number of files and paths must match")
 
+    # Filter to only XSD files, log warning if non-XSD files are present
+    xsd_files = []
+    xsd_paths = []
+    non_xsd_count = 0
+
     for file, path in zip(files, file_paths):
         if not file.filename.endswith('.xsd'):
-            raise HTTPException(status_code=400, detail=f"File {file.filename} must have .xsd extension")
+            logger.warning(f"Ignoring non-XSD file: {file.filename}")
+            non_xsd_count += 1
+            continue
 
+        xsd_files.append(file)
+        xsd_paths.append(path)
+
+    if non_xsd_count > 0:
+        logger.info(f"Filtered out {non_xsd_count} non-XSD file(s), processing {len(xsd_files)} XSD file(s)")
+
+    if not xsd_files:
+        raise HTTPException(status_code=400, detail="No XSD files found in upload")
+
+    # Process only XSD files
+    for file, path in zip(xsd_files, xsd_paths):
         content = await file.read()
         # Store by filename for backward compatibility, but track the path
         file_contents[file.filename] = content
         file_path_map[file.filename] = path
         total_size += len(content)
 
-    # Use the first file as the primary schema for ID generation
-    primary_file = files[0]
+    # Use the first XSD file as the primary schema for ID generation
+    primary_file = xsd_files[0]
 
     # Validate total file size (configurable limit, defaults to 20MB)
     max_file_size_mb = int(os.getenv("MAX_SCHEMA_FILE_SIZE_MB", "20"))

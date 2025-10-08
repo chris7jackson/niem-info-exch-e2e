@@ -37,15 +37,26 @@ export default function SchemaManager() {
   };
 
   const handleFilesSelected = (files: File[]) => {
-    // Validate all files are XSD
-    const invalidFiles = files.filter(file => !file.name.endsWith('.xsd'));
-    if (invalidFiles.length > 0) {
-      setError(`Please upload only XSD files. Invalid files: ${invalidFiles.map(f => f.name).join(', ')}`);
-      return;
+    // Filter to only XSD files, ignore non-XSD files
+    const xsdFiles = files.filter(file => file.name.endsWith('.xsd'));
+    const nonXsdCount = files.length - xsdFiles.length;
+
+    // Show informational message if non-XSD files were filtered
+    if (nonXsdCount > 0) {
+      const xsdFilePlural = xsdFiles.length === 1 ? '' : 's';
+      const nonXsdFilePlural = nonXsdCount === 1 ? '' : 's';
+
+      let msg: string;
+      if (xsdFiles.length > 0) {
+        msg = `Added ${xsdFiles.length} XSD file${xsdFilePlural}, ignored ${nonXsdCount} non-XSD file${nonXsdFilePlural}`;
+      } else {
+        msg = `No XSD files found. ${nonXsdCount} non-XSD file${nonXsdFilePlural} ignored.`;
+      }
+      console.info(msg);
     }
 
-    // Add files to preview list, capturing directory paths
-    const newPreviews: FilePreview[] = files.map(file => {
+    // Add XSD files to preview list, capturing directory paths
+    const newPreviews: FilePreview[] = xsdFiles.map(file => {
       // Try to get relative path from webkitRelativePath (when folder is selected)
       // Otherwise use just the filename
       const path = (file as any).webkitRelativePath || file.name;
