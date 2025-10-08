@@ -1,0 +1,33 @@
+# Ensure shell scripts always use LF line endings (critical for Unix shebang)
+*.sh text eol=lf
+third_party/niem-cmf/cmftool-*/bin/cmftool text eol=lf
+third_party/niem-ndr/**/*.sh text eol=lf
+
+# Standard text file handling
+*.py text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.xml text eol=lf
+*.xsd text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.sql text eol=lf
+
+# Explicitly declare files that should not be converted
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.db binary
+*.sqlite binary

@@ -2,10 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies including Java for CMF tool
+# Install system dependencies including Java for CMF tool and dos2unix for Windows compatibility
 RUN apt-get update && apt-get install -y \
     curl \
     openjdk-21-jre-headless \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -25,8 +26,11 @@ RUN mkdir -p /data /app/third_party && \
 
 # Create entrypoint script to fix permissions on mounted volumes (Windows compatibility)
 RUN echo '#!/bin/sh\n\
-# Fix execute permissions on CMF tool if mounted (Windows volume mount fix)\n\
+# Fix line endings and execute permissions on CMF tool if mounted (Windows fix)\n\
 if [ -f /app/third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool ]; then\n\
+    # Convert CRLF to LF (Windows line ending fix)\n\
+    dos2unix /app/third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool 2>/dev/null || true\n\
+    # Set execute permissions\n\
     chmod +x /app/third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool 2>/dev/null || true\n\
 fi\n\
 # Switch to appuser and execute command\n\
