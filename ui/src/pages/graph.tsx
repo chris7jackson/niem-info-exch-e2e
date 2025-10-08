@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import cytoscape from 'cytoscape';
-import apiClient from '@/lib/api';
 
 interface GraphNode {
   id: string;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DocumentIcon, CogIcon, CircleStackIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { DocumentIcon, CogIcon, CircleStackIcon } from '@heroicons/react/24/outline';
 import apiClient from '../lib/api';
 
 interface Stats {
@@ -61,10 +61,10 @@ export default function Dashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        {cards.map((card, index) => {
+        {cards.map((card) => {
           const Icon = card.icon;
           return (
-            <div key={index} className="bg-white overflow-hidden shadow rounded-lg">
+            <div key={card.title} className="bg-white overflow-hidden shadow rounded-lg">
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -104,8 +104,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-4">
               <h3 className="text-lg font-medium">
-                <span className="absolute inset-0" aria-hidden="true" />
-                Manage Schemas
+                <span className="absolute inset-0" aria-hidden="true"/>Manage Schemas
               </h3>
               <p className="mt-2 text-sm text-gray-500">
                 Upload and activate NIEM XSD schemas for data validation.
@@ -124,8 +123,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-4">
               <h3 className="text-lg font-medium">
-                <span className="absolute inset-0" aria-hidden="true" />
-                Upload Data
+                <span className="absolute inset-0" aria-hidden="true"/>Upload Data
               </h3>
               <p className="mt-2 text-sm text-gray-500">
                 Upload XML or JSON files for validation and ingestion.
@@ -144,8 +142,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-4">
               <h3 className="text-lg font-medium">
-                <span className="absolute inset-0" aria-hidden="true" />
-                Explore Graph
+                <span className="absolute inset-0" aria-hidden="true"/>Explore Graph
               </h3>
               <p className="mt-2 text-sm text-gray-500">
                 Visualize and explore the ingested data graph.

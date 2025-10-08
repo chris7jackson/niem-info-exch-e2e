@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import cytoscape, { Core, EdgeDefinition, NodeDefinition } from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import coseBilkent from 'cytoscape-cose-bilkent';
@@ -13,18 +13,18 @@ if (typeof cytoscape !== 'undefined') {
 }
 
 export interface SchemaGraphProps {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  namespaces: Namespace[];
-  layout: 'tree' | 'force';
-  selectedNodeId?: string | null;
-  onNodeSelect?: (nodeId: string | null) => void;
-  onEdgeSelect?: (edgeId: string | null) => void;
-  filterNamespaces?: string[];
-  filterNodeTypes?: string[];
-  searchTerm?: string;
-  expandedNodes?: Set<string>;
-  maxDepth?: number;
+  readonly nodes: GraphNode[];
+  readonly edges: GraphEdge[];
+  readonly namespaces: Namespace[];
+  readonly layout: 'tree' | 'force';
+  readonly selectedNodeId?: string | null;
+  readonly onNodeSelect?: (nodeId: string | null) => void;
+  readonly onEdgeSelect?: (edgeId: string | null) => void;
+  readonly filterNamespaces?: string[];
+  readonly filterNodeTypes?: string[];
+  readonly searchTerm?: string;
+  readonly expandedNodes?: Set<string>;
+  readonly maxDepth?: number;
 }
 
 /**
@@ -51,7 +51,6 @@ export default function SchemaGraph({
 }: SchemaGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
-  const [isReady, setIsReady] = useState(false);
 
   // Build dynamic color map from namespace categories
   const getCategoryColorMap = (namespaces: Namespace[]): Map<string, string> => {
@@ -138,7 +137,7 @@ export default function SchemaGraph({
       return (
         node.label.toLowerCase().includes(term) ||
         node.id.toLowerCase().includes(term) ||
-        (node.documentation && node.documentation.toLowerCase().includes(term))
+        (node.documentation?.toLowerCase().includes(term))
       );
     };
 
@@ -174,7 +173,11 @@ export default function SchemaGraph({
           selected ? 'selected' : '',
         ].filter(Boolean).join(' '),
         style: {
-          'background-color': selected ? '#fbbf24' : (highlighted ? '#fef3c7' : color),
+          'background-color': (() => {
+            if (selected) return '#fbbf24';
+            if (highlighted) return '#fef3c7';
+            return color;
+          })(),
           'shape': shape,
           'width': Math.min(120, Math.max(40, 40 + (node.metadata.usageCount || 0) * 2)),
           'height': Math.min(120, Math.max(40, 40 + (node.metadata.usageCount || 0) * 2)),
@@ -309,7 +312,6 @@ export default function SchemaGraph({
     });
 
     cyRef.current = cy;
-    setIsReady(true);
 
     return () => {
       cy.destroy();

@@ -3,8 +3,8 @@ import { ExclamationTriangleIcon, ChevronDownIcon, ChevronRightIcon } from '@her
 import { ValidationResult, ValidationError } from '../lib/api';
 
 interface IngestValidationErrorsProps {
-  filename: string;
-  validationResult: ValidationResult;
+  readonly filename: string;
+  readonly validationResult: ValidationResult;
 }
 
 export default function IngestValidationErrors({ filename, validationResult }: IngestValidationErrorsProps) {
@@ -18,9 +18,11 @@ export default function IngestValidationErrors({ filename, validationResult }: I
   }
 
   const renderValidationError = (error: ValidationError, index: number | string) => {
-    const location = error.line
-      ? `${error.file}:${error.line}${error.column ? `:${error.column}` : ''}`
-      : error.file;
+    const location = (() => {
+      if (!error.line) return error.file;
+      const baseLocation = `${error.file}:${error.line}`;
+      return error.column ? baseLocation + ':' + error.column : baseLocation;
+    })();
 
     const severityColor = error.severity === 'error' ? 'text-red-700' : 'text-yellow-700';
     const bgColor = error.severity === 'error' ? 'bg-red-50' : 'bg-yellow-50';

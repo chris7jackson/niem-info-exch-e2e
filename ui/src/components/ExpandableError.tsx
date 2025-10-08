@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { XCircleIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 interface ExpandableErrorProps {
-  title?: string;
-  message: string;
-  maxLength?: number;
+  readonly title?: string;
+  readonly message: string;
+  readonly maxLength?: number;
 }
 
 export default function ExpandableError({

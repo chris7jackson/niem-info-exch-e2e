@@ -17,7 +17,7 @@ export default function SchemaManager() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filePreviews, setFilePreviews] = useState<FilePreview[]>([]);
-  const [lastValidationResult, setLastValidationResult] = useState<any | null>(null);
+  const [lastValidationResult, setLastValidationResult] = useState<unknown>(null);
   const [skipNiemNdr, setSkipNiemNdr] = useState(false);
 
   useEffect(() => {
@@ -60,6 +60,62 @@ export default function SchemaManager() {
     setError(null);
   };
 
+  const buildNdrErrorMessage = (result: any): string => {
+    const violations = result.niem_ndr_report.violations || [];
+    const totalErrors = violations.filter((v: any) => v.type === 'error').length;
+    const fileCount = violations.reduce((acc: any, v: any) => {
+      if (v.type === 'error') acc.add(v.file || 'Unknown');
+      return acc;
+    }, new Set()).size;
+    return `Found ${totalErrors} NIEM NDR violations across ${fileCount} file(s)`;
+  };
+
+  const buildImportErrorMessage = (result: any): string => {
+    const missingCount = result.import_validation_report.missing_count || 0;
+    return `Missing ${missingCount} required schema dependencies`;
+  };
+
+  const handleValidationErrors = (result: any) => {
+    const ndrHasErrors = result.niem_ndr_report && result.niem_ndr_report.status === 'fail';
+    const importHasErrors = result.import_validation_report && result.import_validation_report.status === 'fail';
+
+    if (ndrHasErrors || importHasErrors) {
+      const errorParts = [];
+      if (ndrHasErrors) errorParts.push(buildNdrErrorMessage(result));
+      if (importHasErrors) errorParts.push(buildImportErrorMessage(result));
+      setError(`Schema upload rejected: ${errorParts.join('. ')}. See details below.`);
+    } else {
+      loadSchemas();
+      setFilePreviews([]);
+    }
+  };
+
+  const handleUploadError = (err: any) => {
+    console.log('Schema upload error:', err);
+    console.log('Error response data:', err.response?.data);
+
+    try {
+      const detail = err.response?.data?.detail;
+      console.log('Detail object:', detail);
+
+      if (detail && typeof detail === 'object' && (detail.niem_ndr_report || detail.import_validation_report)) {
+        setLastValidationResult({
+          niem_ndr_report: detail.niem_ndr_report || null,
+          import_validation_report: detail.import_validation_report || null
+        });
+        setError(detail.message || 'Schema validation failed');
+      } else if (typeof detail === 'string') {
+        setError(detail);
+      } else {
+        console.error('Could not extract validation reports from error');
+        setError(err.message || 'Upload failed');
+      }
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      setError('Upload failed. Please check the console for details.');
+    }
+  };
+
   const handleSchemaUpload = async () => {
     if (filePreviews.length === 0) return;
 
@@ -70,64 +126,10 @@ export default function SchemaManager() {
       const filePaths = filePreviews.map(fp => fp.path);
       const result = await apiClient.uploadSchema(files, filePaths, skipNiemNdr);
 
-      // Store validation results
       setLastValidationResult(result);
-
-      // Check both NDR and import validation status
-      const ndrHasErrors = result.niem_ndr_report && result.niem_ndr_report.status === 'fail';
-      const importHasErrors = result.import_validation_report && result.import_validation_report.status === 'fail';
-
-      if (ndrHasErrors || importHasErrors) {
-        // Build error message for validation failures
-        const errorParts = [];
-
-        if (ndrHasErrors) {
-          const violations = result.niem_ndr_report.violations || [];
-          const totalErrors = violations.filter((v: any) => v.type === 'error').length;
-          const fileCount = violations.reduce((acc: any, v: any) => {
-            if (v.type === 'error') acc.add(v.file || 'Unknown');
-            return acc;
-          }, new Set()).size;
-          errorParts.push(`Found ${totalErrors} NIEM NDR violations across ${fileCount} file(s)`);
-        }
-
-        if (importHasErrors) {
-          const missingCount = result.import_validation_report.missing_count || 0;
-          errorParts.push(`Missing ${missingCount} required schema dependencies`);
-        }
-
-        setError(`Schema upload rejected: ${errorParts.join('. ')}. See details below.`);
-      } else {
-        // Both validations passed - success!
-        await loadSchemas();
-        setFilePreviews([]); // Clear previews on success
-      }
+      handleValidationErrors(result);
     } catch (err: any) {
-      // Handle detailed error response with NDR and import validation errors
-      console.log('Schema upload error:', err);
-      console.log('Error response data:', err.response?.data);
-
-      try {
-        const detail = err.response?.data?.detail;
-        console.log('Detail object:', detail);
-
-        if (detail && typeof detail === 'object' && (detail.niem_ndr_report || detail.import_validation_report)) {
-          // Store both validation reports for display
-          setLastValidationResult({
-            niem_ndr_report: detail.niem_ndr_report || null,
-            import_validation_report: detail.import_validation_report || null
-          });
-          setError(detail.message || 'Schema validation failed');
-        } else if (typeof detail === 'string') {
-          setError(detail);
-        } else {
-          console.error('Could not extract validation reports from error');
-          setError(err.message || 'Upload failed');
-        }
-      } catch (parseError) {
-        console.error('Error parsing response:', parseError);
-        setError('Upload failed. Please check the console for details.');
-      }
+      handleUploadError(err);
     } finally {
       setUploading(false);
     }
@@ -139,7 +141,12 @@ export default function SchemaManager() {
 
   const moveFile = (index: number, direction: 'up' | 'down') => {
     const newPreviews = [...filePreviews];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const targetIndex = (() => {
+      if (direction === 'up') {
+        return index - 1;
+      }
+      return index + 1;
+    })();
 
     if (targetIndex < 0 || targetIndex >= newPreviews.length) return;
 
@@ -167,24 +174,24 @@ export default function SchemaManager() {
   // Don't use react-dropzone's getRootProps/getInputProps since we want folder-only upload
   const [isDragActive, setIsDragActive] = useState(false);
 
-  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+  const handleDragEnter = (e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(true);
   };
 
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = (e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
   };
 
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
@@ -250,10 +257,10 @@ export default function SchemaManager() {
       )}
 
       {/* Validation Results */}
-      {lastValidationResult && (
+      {lastValidationResult && typeof lastValidationResult === 'object' && lastValidationResult !== null && (
         <ValidationResults
-          ndrReport={lastValidationResult.niem_ndr_report}
-          importReport={lastValidationResult.import_validation_report}
+          ndrReport={(lastValidationResult as any).niem_ndr_report}
+          importReport={(lastValidationResult as any).import_validation_report}
         />
       )}
 
@@ -304,7 +311,8 @@ export default function SchemaManager() {
           />
 
           {/* Drop Zone - Folder only */}
-          <div
+          <button
+            type="button"
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -332,7 +340,7 @@ export default function SchemaManager() {
                 </p>
               </>
             )}
-          </div>
+          </button>
 
           {/* File Preview List */}
           {filePreviews.length > 0 && (
@@ -349,7 +357,9 @@ export default function SchemaManager() {
 
             <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
               {filePreviews.map((fp, index) => (
-                <div key={fp.id} className={`p-4 ${index === 0 ? 'bg-blue-50' : 'bg-white'}`}>
+                <div key={fp.id} className={`p-4 ${(() => {
+                  return index === 0 ? 'bg-blue-50' : 'bg-white';
+                })()}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center flex-1 min-w-0">
                       {index === 0 && (
@@ -445,7 +455,9 @@ export default function SchemaManager() {
                 ) : (
                   <>
                     <CloudArrowUpIcon className="h-5 w-5 mr-2" />
-                    Upload {filePreviews.length} {filePreviews.length === 1 ? 'File' : 'Files'}
+                    Upload {filePreviews.length} {(() => {
+                      return filePreviews.length === 1 ? 'File' : 'Files';
+                    })()}
                   </>
                 )}
               </button>
@@ -461,15 +473,22 @@ export default function SchemaManager() {
           <h3 className="text-lg font-medium text-gray-900">Uploaded Schemas</h3>
         </div>
 
-        {loading ? (
-          <div className="p-6 text-center">
-            <div className="text-sm text-gray-500">Loading schemas...</div>
-          </div>
-        ) : schemas.length === 0 ? (
-          <div className="p-6 text-center">
-            <div className="text-sm text-gray-500">No schemas uploaded yet</div>
-          </div>
-        ) : (
+        {(() => {
+          if (loading) {
+            return (
+              <div className="p-6 text-center">
+                <div className="text-sm text-gray-500">Loading schemas...</div>
+              </div>
+            );
+          }
+          if (schemas.length === 0) {
+            return (
+              <div className="p-6 text-center">
+                <div className="text-sm text-gray-500">No schemas uploaded yet</div>
+              </div>
+            );
+          }
+          return (
           <div className="divide-y divide-gray-200">
             {schemas.map((schema) => (
               <div key={schema.schema_id} className="p-6">
@@ -477,7 +496,9 @@ export default function SchemaManager() {
                   <div className="flex-1">
                     <div className="flex items-center">
                       <h4 className="text-sm font-medium text-gray-900">
-                        {schema.primary_filename || schema.filename}
+                        {(() => {
+                          return schema.primary_filename || schema.filename;
+                        })()}
                         {schema.all_filenames && schema.all_filenames.length > 1 && (
                           <span className="ml-2 text-xs text-gray-500">
                             (+{schema.all_filenames.length - 1} more files)
@@ -519,7 +540,8 @@ export default function SchemaManager() {
               </div>
             ))}
           </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

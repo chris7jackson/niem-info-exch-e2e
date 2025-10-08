@@ -5,7 +5,7 @@ import Head from 'next/head';
 import clsx from 'clsx';
 
 interface LayoutProps {
-  children: ReactNode;
+  readonly children: ReactNode;
 }
 
 const navigation = [

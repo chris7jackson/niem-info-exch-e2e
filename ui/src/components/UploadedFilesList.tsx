@@ -3,8 +3,8 @@ import { DocumentIcon, CalendarIcon, ArrowPathIcon } from '@heroicons/react/24/o
 import apiClient, { UploadedFile } from '../lib/api';
 
 interface UploadedFilesListProps {
-  contentType?: 'xml' | 'json' | 'all';
-  refreshTrigger?: number; // Used to trigger refresh from parent
+  readonly contentType?: 'xml' | 'json' | 'all';
+  readonly refreshTrigger?: number; // Used to trigger refresh from parent
 }
 
 export default function UploadedFilesList({ contentType = 'all', refreshTrigger }: UploadedFilesListProps) {
@@ -57,7 +57,6 @@ export default function UploadedFilesList({ contentType = 'all', refreshTrigger 
   };
 
   const getFileIcon = (filename: string) => {
-    const extension = filename.toLowerCase().split('.').pop();
     return <DocumentIcon className="h-5 w-5 text-gray-400" />;
   };
 

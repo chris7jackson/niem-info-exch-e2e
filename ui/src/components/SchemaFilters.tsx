@@ -5,17 +5,17 @@ import { Namespace, GraphNode } from '@/lib/api';
 import { MagnifyingGlassIcon, FunnelIcon } from '@heroicons/react/24/outline';
 
 export interface SchemaFiltersProps {
-  namespaces: Namespace[];
-  nodes: GraphNode[];
-  selectedNamespaces: string[];
-  selectedNodeTypes: string[];
-  searchTerm: string;
-  maxDepth: number;
-  onNamespaceChange: (namespaces: string[]) => void;
-  onNodeTypeChange: (nodeTypes: string[]) => void;
-  onSearchChange: (term: string) => void;
-  onDepthChange: (depth: number) => void;
-  onClearFilters: () => void;
+  readonly namespaces: Namespace[];
+  readonly nodes: GraphNode[];
+  readonly selectedNamespaces: string[];
+  readonly selectedNodeTypes: string[];
+  readonly searchTerm: string;
+  readonly maxDepth: number;
+  readonly onNamespaceChange: (namespaces: string[]) => void;
+  readonly onNodeTypeChange: (nodeTypes: string[]) => void;
+  readonly onSearchChange: (term: string) => void;
+  readonly onDepthChange: (depth: number) => void;
+  readonly onClearFilters: () => void;
 }
 
 /**
@@ -39,7 +39,7 @@ export default function SchemaFilters({
   const [isExpanded, setIsExpanded] = useState(true);
 
   // Extract unique node types from data
-  const availableNodeTypes = Array.from(new Set(nodes.map(n => n.nodeType))).sort();
+  const availableNodeTypes = Array.from(new Set(nodes.map(n => n.nodeType))).sort((a, b) => a.localeCompare(b));
 
   // Handle namespace checkbox toggle
   const handleNamespaceToggle = (prefix: string) => {
@@ -114,7 +114,7 @@ export default function SchemaFilters({
         <div className="flex-1 p-4 space-y-6">
           {/* Search */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-2">
               Search
             </label>
             <div className="relative">
@@ -122,6 +122,7 @@ export default function SchemaFilters({
                 <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
               </div>
               <input
+                id="search-input"
                 type="text"
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
@@ -158,9 +159,9 @@ export default function SchemaFilters({
           {/* Namespaces */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <span className="block text-sm font-medium text-gray-700">
                 Namespaces
-              </label>
+              </span>
               <button
                 onClick={handleSelectAllNamespaces}
                 className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
@@ -176,6 +177,7 @@ export default function SchemaFilters({
                     checked={selectedNamespaces.includes(ns.prefix)}
                     onChange={() => handleNamespaceToggle(ns.prefix)}
                     className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    aria-label={`Toggle namespace ${ns.prefix}`}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -197,9 +199,9 @@ export default function SchemaFilters({
           {/* Node Types */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <span className="block text-sm font-medium text-gray-700">
                 Node Types
-              </label>
+              </span>
               <button
                 onClick={handleSelectAllNodeTypes}
                 className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
@@ -217,6 +219,7 @@ export default function SchemaFilters({
                       checked={selectedNodeTypes.includes(nodeType)}
                       onChange={() => handleNodeTypeToggle(nodeType)}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      aria-label={`Toggle node type ${nodeType}`}
                     />
                     <div className="flex-1 flex items-center justify-between">
                       <span className="text-sm text-gray-900 capitalize">{nodeType}</span>

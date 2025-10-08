@@ -1,10 +1,10 @@
 import React from 'react';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
-import { IngestResult, IngestFileResult } from '../lib/api';
+import { IngestResult } from '../lib/api';
 import IngestValidationErrors from './IngestValidationErrors';
 
 interface IngestResultsProps {
-  results: IngestResult;
+  readonly results: IngestResult;
 }
 
 export default function IngestResults({ results }: IngestResultsProps) {
@@ -44,8 +44,8 @@ export default function IngestResults({ results }: IngestResultsProps) {
       {/* File Details */}
       <div className="space-y-2">
         <h4 className="text-sm font-medium text-gray-900">File Details</h4>
-        {results.results.map((file, index) => (
-          <div key={index} className="space-y-2">
+        {results.results.map((file) => (
+          <div key={file.filename} className="space-y-2">
             <div className="flex items-center justify-between bg-gray-50 p-3 rounded">
               <div className="flex items-center">
                 {file.status === 'success' ? (

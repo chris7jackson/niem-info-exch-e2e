@@ -4,10 +4,10 @@ import { GraphNode, GraphEdge } from '@/lib/api';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 export interface SchemaDetailPanelProps {
-  node: GraphNode | null;
-  edges: GraphEdge[];
-  onClose: () => void;
-  onNavigate?: (nodeId: string) => void;
+  readonly node: GraphNode | null;
+  readonly edges: GraphEdge[];
+  readonly onClose: () => void;
+  readonly onNavigate?: (nodeId: string) => void;
 }
 
 /**
@@ -99,7 +99,7 @@ export default function SchemaDetailPanel({
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-2">Extends</h3>
             <button
-              onClick={() => onNavigate && onNavigate(extendsEdge.target)}
+              onClick={() => onNavigate?.(extendsEdge.target)}
               className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
             >
               {extendsEdge.target}
@@ -118,7 +118,7 @@ export default function SchemaDetailPanel({
                 <div key={prop.id} className="border border-gray-200 rounded p-2">
                   <div className="flex items-start justify-between">
                     <button
-                      onClick={() => onNavigate && onNavigate(prop.target)}
+                      onClick={() => onNavigate?.(prop.target)}
                       className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
                     >
                       {prop.label}
@@ -147,7 +147,7 @@ export default function SchemaDetailPanel({
                 <div key={assoc.id} className="border border-gray-200 rounded p-2">
                   <div className="flex items-start justify-between">
                     <button
-                      onClick={() => onNavigate && onNavigate(assoc.target)}
+                      onClick={() => onNavigate?.(assoc.target)}
                       className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
                     >
                       {assoc.label}
@@ -175,7 +175,7 @@ export default function SchemaDetailPanel({
               {augmentations.map(aug => (
                 <div key={aug.id} className="border border-gray-200 rounded p-2">
                   <button
-                    onClick={() => onNavigate && onNavigate(aug.source)}
+                    onClick={() => onNavigate?.(aug.source)}
                     className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
                   >
                     {aug.label}
@@ -212,7 +212,12 @@ export default function SchemaDetailPanel({
                   <div key={key} className="flex justify-between text-xs">
                     <span className="text-gray-500 capitalize">{key}:</span>
                     <span className="text-gray-900 font-mono">
-                      {typeof value === 'boolean' ? (value ? 'true' : 'false') : String(value)}
+                      {(() => {
+                        if (typeof value === 'boolean') {
+                          return value ? 'true' : 'false';
+                        }
+                        return String(value);
+                      })()}
                     </span>
                   </div>
                 );

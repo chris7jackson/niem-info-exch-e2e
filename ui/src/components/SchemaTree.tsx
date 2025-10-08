@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronRightIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
 interface SchemaTreeProps {
-  structure: {
+  readonly structure: {
     schema_id: string;
     primary_filename: string;
     files: FileStructure[];
@@ -364,7 +364,7 @@ export default function SchemaTree({ structure }: SchemaTreeProps) {
               <div className="mt-2 ml-4 border-l-2 border-gray-200 pl-2">
                 <div className="text-xs text-gray-500 font-semibold mb-1">Restrictions</div>
                 {simpleType.restrictions.map((restriction, i) => (
-                  <div key={i} className="ml-2 py-1 text-sm">
+                  <div key={`${restriction.type}-${restriction.value}-${i}`} className="ml-2 py-1 text-sm">
                     <span className="text-gray-600">{restriction.type}:</span>
                     <span className="ml-2 text-gray-800">{restriction.value}</span>
                   </div>

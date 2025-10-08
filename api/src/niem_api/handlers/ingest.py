@@ -115,92 +115,89 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
     Raises:
         HTTPException: If validation fails (with structured error details in response)
     """
-    import tempfile
     from pathlib import Path
     from ..clients.cmf_client import run_cmf_command, parse_cmf_validation_output, CMFError
     from ..models.models import ValidationError, ValidationResult
 
     logger.info(f"Validating XML file {filename} against XSD schemas")
 
+    schema_path = Path(schema_dir)
+
+    # Write XML content to file in the schema directory
+    xml_file = schema_path / filename
     try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Write XML content to temporary file
-            xml_file = Path(temp_dir) / filename
-            with open(xml_file, 'w', encoding='utf-8') as f:
-                f.write(xml_content)
+        with open(xml_file, 'w', encoding='utf-8') as f:
+            f.write(xml_content)
 
-            # Find all XSD files in schema directory
-            schema_path = Path(schema_dir)
-            xsd_files = list(schema_path.rglob("*.xsd"))
+        # Find all XSD files in schema directory
+        xsd_files = list(schema_path.rglob("*.xsd"))
 
-            if not xsd_files:
-                logger.warning(f"No XSD files found in {schema_dir}, skipping validation")
-                return
+        if not xsd_files:
+            logger.warning(f"No XSD files found in {schema_dir}, skipping validation")
+            return
 
-            logger.info(f"Found {len(xsd_files)} XSD schema files for validation")
+        logger.info(f"Found {len(xsd_files)} XSD schema files for validation")
 
-            # Build xval command with all schema files
-            # Security: Use relative paths from temp_dir to avoid absolute path validation errors
-            cmd = ["xval"]
-            for xsd_file in xsd_files:
-                # Convert to relative path from temp_dir
-                rel_path = Path(xsd_file).relative_to(temp_dir)
-                cmd.extend(["--schema", str(rel_path)])
-            # Convert xml_file to relative path from temp_dir
-            xml_rel_path = Path(xml_file).relative_to(temp_dir)
-            cmd.extend(["--file", str(xml_rel_path)])
+        # Build xval command with relative paths from schema_dir
+        cmd = ["xval"]
+        for xsd_file in xsd_files:
+            rel_path = xsd_file.relative_to(schema_path)
+            cmd.extend(["--schema", str(rel_path)])
 
-            # Run XSD validation command
-            result = run_cmf_command(cmd, working_dir=temp_dir)
+        xml_rel_path = xml_file.relative_to(schema_path)
+        cmd.extend(["--file", str(xml_rel_path)])
 
-            # Parse validation output into structured errors
-            parsed = parse_cmf_validation_output(result["stdout"], result["stderr"], filename)
+        # Run XSD validation command with schema_dir as working directory
+        result = run_cmf_command(cmd, working_dir=schema_dir)
 
-            # IMPORTANT: xval returns exit code 0 even when validation fails
-            # Check both return code AND parsed errors
-            validation_failed = result["returncode"] != 0 or parsed["has_errors"]
+        # Parse validation output into structured errors
+        parsed = parse_cmf_validation_output(result["stdout"], result["stderr"], filename)
 
-            if validation_failed:
-                # Build structured error response
-                error_list = parsed["errors"]
-                warning_list = parsed["warnings"]
+        # IMPORTANT: xval returns exit code 0 even when validation fails
+        # Check both return code AND parsed errors
+        validation_failed = result["returncode"] != 0 or parsed["has_errors"]
 
-                # Create ValidationResult for structured response
-                validation_result = ValidationResult(
-                    valid=False,
-                    errors=[ValidationError(**err) for err in error_list],
-                    warnings=[ValidationError(**warn) for warn in warning_list],
-                    summary=f"Validation failed with {len(error_list)} error(s) and {len(warning_list)} warning(s)"
-                )
+        if validation_failed:
+            # Build structured error response
+            error_list = parsed["errors"]
+            warning_list = parsed["warnings"]
 
-                # Build detailed error message for logging
-                error_details = []
-                for err in error_list[:5]:  # Show first 5 errors
-                    loc = f"{err['file']}"
-                    if err['line']:
-                        loc += f":{err['line']}"
-                    if err['column']:
-                        loc += f":{err['column']}"
-                    error_details.append(f"  - {loc}: {err['message']}")
+            # Create ValidationResult for structured response
+            validation_result = ValidationResult(
+                valid=False,
+                errors=[ValidationError(**err) for err in error_list],
+                warnings=[ValidationError(**warn) for warn in warning_list],
+                summary=f"Validation failed with {len(error_list)} error(s) and {len(warning_list)} warning(s)"
+            )
 
-                error_summary = f"Validation failed for {filename}"
-                if error_details:
-                    error_summary += ":\n" + "\n".join(error_details)
-                    if len(error_list) > 5:
-                        error_summary += f"\n  ... and {len(error_list) - 5} more error(s)"
+            # Build detailed error message for logging
+            error_details = []
+            for err in error_list[:5]:  # Show first 5 errors
+                loc = f"{err['file']}"
+                if err['line']:
+                    loc += f":{err['line']}"
+                if err['column']:
+                    loc += f":{err['column']}"
+                error_details.append(f"  - {loc}: {err['message']}")
 
-                logger.error(error_summary)
+            error_summary = f"Validation failed for {filename}"
+            if error_details:
+                error_summary += ":\n" + "\n".join(error_details)
+                if len(error_list) > 5:
+                    error_summary += f"\n  ... and {len(error_list) - 5} more error(s)"
 
-                # Return structured validation result in HTTPException detail
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "message": f"Validation error: {filename}",
-                        "validation_result": validation_result.model_dump()
-                    }
-                )
+            logger.error(error_summary)
 
-            logger.info(f"Successfully validated {filename} against XSD schemas")
+            # Return structured validation result in HTTPException detail
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": f"Validation error: {filename}",
+                    "validation_result": validation_result.model_dump()
+                }
+            )
+
+        logger.info(f"Successfully validated {filename} against XSD schemas")
 
     except HTTPException:
         # Re-raise HTTPException from validation failure (already has detail message)
@@ -223,6 +220,11 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
                 "validation_result": None
             }
         )
+    finally:
+        # Clean up XML file from schema directory
+        if xml_file.exists():
+            xml_file.unlink()
+            logger.debug(f"Cleaned up XML file: {filename}")
 
 
 def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
