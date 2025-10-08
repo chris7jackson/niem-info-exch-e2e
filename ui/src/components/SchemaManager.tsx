@@ -73,26 +73,44 @@ export default function SchemaManager() {
       // Store validation results
       setLastValidationResult(result);
 
-      // Check NIEM NDR validation status
-      if (result.niem_ndr_report && result.niem_ndr_report.status === 'fail') {
-        // Set a simple error message - detailed violations will be shown in ValidationResults component
-        const violations = result.niem_ndr_report.violations || [];
-        const totalErrors = violations.filter((v: any) => v.type === 'error').length;
-        const fileCount = violations.reduce((acc: any, v: any) => {
-          if (v.type === 'error') acc.add(v.file || 'Unknown');
-          return acc;
-        }, new Set()).size;
+      // Check both NDR and import validation status
+      const ndrHasErrors = result.niem_ndr_report && result.niem_ndr_report.status === 'fail';
+      const importHasErrors = result.import_validation_report && result.import_validation_report.status === 'fail';
 
-        setError(`Schema upload rejected: Found ${totalErrors} NIEM NDR violations across ${fileCount} file(s). See details below.`);
+      if (ndrHasErrors || importHasErrors) {
+        // Build error message for validation failures
+        const errorParts = [];
+
+        if (ndrHasErrors) {
+          const violations = result.niem_ndr_report.violations || [];
+          const totalErrors = violations.filter((v: any) => v.type === 'error').length;
+          const fileCount = violations.reduce((acc: any, v: any) => {
+            if (v.type === 'error') acc.add(v.file || 'Unknown');
+            return acc;
+          }, new Set()).size;
+          errorParts.push(`Found ${totalErrors} NIEM NDR violations across ${fileCount} file(s)`);
+        }
+
+        if (importHasErrors) {
+          const missingCount = result.import_validation_report.missing_count || 0;
+          errorParts.push(`Missing ${missingCount} required schema dependencies`);
+        }
+
+        setError(`Schema upload rejected: ${errorParts.join('. ')}. See details below.`);
       } else {
-        // If validation passed or no validation report, assume success
+        // Both validations passed - success!
         await loadSchemas();
         setFilePreviews([]); // Clear previews on success
       }
     } catch (err: any) {
       // Handle detailed error response with NDR and import validation errors
+      console.log('Schema upload error:', err);
+      console.log('Error response data:', err.response?.data);
+
       try {
         const detail = err.response?.data?.detail;
+        console.log('Detail object:', detail);
+
         if (detail && typeof detail === 'object' && (detail.niem_ndr_report || detail.import_validation_report)) {
           // Store both validation reports for display
           setLastValidationResult({
@@ -103,6 +121,7 @@ export default function SchemaManager() {
         } else if (typeof detail === 'string') {
           setError(detail);
         } else {
+          console.error('Could not extract validation reports from error');
           setError(err.message || 'Upload failed');
         }
       } catch (parseError) {

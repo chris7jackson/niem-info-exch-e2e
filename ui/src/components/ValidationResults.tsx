@@ -80,6 +80,12 @@ export default function ValidationResults({ ndrReport, importReport }: Validatio
   const importStatus = importReport?.status || 'unknown';
   const overallSuccess = ndrStatus === 'pass' && importStatus === 'pass';
 
+  // Debug logging
+  console.log('ValidationResults - ndrReport:', ndrReport);
+  console.log('ValidationResults - importReport:', importReport);
+  console.log('ValidationResults - importStatus:', importStatus);
+  console.log('ValidationResults - importReport?.status:', importReport?.status);
+
   return (
     <div className="bg-white shadow rounded-lg p-6 space-y-4">
       <div className="flex items-center justify-between">
