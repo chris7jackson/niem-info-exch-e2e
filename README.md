@@ -67,181 +67,317 @@ Open http://localhost:3000 in your browser
 
 ## Complete Walkthrough: CrashDriver Sample Data
 
-This section provides a comprehensive walkthrough using the included CrashDriver sample data, which demonstrates a NIEM information exchange for crash incident reporting with driver and legal charge information.
+This section provides a comprehensive end-to-end walkthrough using the included CrashDriver sample data, demonstrating schema validation, data ingestion, error handling, graph visualization, and system administration.
 
-### Step 1: Upload the CrashDriver Schema
+### Step 1: Schema Upload - Testing Different Scenarios
 
-1. Navigate to the **"Schemas"** tab in the web interface
-2. Click the upload area or drag and drop the schema file:
-   ```
-   samples/CrashDriver-cmf/CrashDriver.xsd
-   ```
-3. The system will:
-   - Validate the XSD against NIEM NDR (National Data Representation) rules
-   - Use the CMF (Common Model Format) tool for validation
-   - Display any validation errors with expandable details if issues are found
-   - Store the schema in MinIO object storage upon successful validation
+The `samples/CrashDriver-cmf/` directory contains three schema folders to test different validation scenarios:
 
-**Expected Result**: The schema should upload successfully and appear in the schemas list. Click **"Activate"** to make it the active schema for data ingestion.
+#### 1.1 Valid Schema Set (CrashDriverSchemaSet/) ✅
 
-### Step 2: Understanding the CrashDriver Schema
+Navigate to the **"Schemas"** tab and upload the complete schema set:
 
-The CrashDriver schema (`CrashDriver.xsd`) defines:
+1. **Select all XSD files** from `samples/CrashDriver-cmf/CrashDriverSchemaSet/`:
+   - `CrashDriver.xsd` - Main exchange schema
+   - `PrivacyMetadata.xsd` - Privacy extension schema
+   - `niem/` folder - NIEM reference schemas (core, justice, human services)
+   - `utility/` folder - NIEM utility schemas (structures, appinfo)
 
-- **CrashDriverInfoType**: Main container for crash driver information
-- **Core Elements**:
-  - `j:Crash` - Crash incident details (date, location, vehicles)
-  - `j:Charge` - Legal charges associated with the incident
-  - `j:PersonChargeAssociation` - Links between persons and charges
-  - `nc:PersonUnionAssociation` - Person relationship associations
-  - `nc:Metadata` and `priv:PrivacyMetadata` - Metadata and privacy controls
+2. **Upload with NDR Validation Skipped** (for now):
+   - ⚠️ Check **"Skip NDR Validation"** checkbox
+   - Click upload
 
-**Namespaces Used**:
-- `nc:` - NIEM Core (common data elements)
-- `j:` - Justice domain (crash, charges, legal concepts)
-- `hs:` - Human Services domain (family relationships)
-- `priv:` - Privacy metadata extension
-- `structures:` - NIEM structural elements (references, IDs)
+   > **TODO**: NDR validation for schema sets requires resolving rules by schema type: references, extensions, etc. Currently only the extension NDR rules are being applied causing validation errors acrros other schema types that would otherwise be valid.
 
-### Step 3: Upload Sample XML Data
+3. **Expected Result**: Schema set uploads successfully and generates mapping
 
-Navigate to the **"Upload Data"** tab and select the **XML Files** sub-tab:
+**What this schema defines**:
+- `j:Crash` - Crash incident with date, location, vehicles
+- `j:CrashDriver` / `j:CrashPerson` - Driver/person information
+- `j:Charge` - Legal charges
+- `j:PersonChargeAssociation` - Links persons to charges
+- `nc:Metadata` / `priv:PrivacyMetadata` - Metadata and privacy controls
 
-1. **Upload CrashDriver1.xml**:
+#### 1.2 Invalid Schema - Missing Imports (CrashDriverMissingImports/) ❌
+
+Test error handling with incomplete schema:
+
+1. **Upload files** from `samples/CrashDriver-cmf/CrashDriverMissingImports/`:
+   - Only contains `CrashDriver.xsd` and `PrivacyMetadata.xsd`
+   - Missing required NIEM import schemas
+
+2. **Expected Result**:
+   - Upload fails with validation errors
+   - Error panel shows missing namespace/import errors
+   - Schema is NOT stored or made available for activation
+
+**Error Example**:
+```
+Validation Error: Cannot resolve import for namespace
+'https://docs.oasis-open.org/niemopen/ns/model/niem-core/6.0/'
+```
+
+#### 1.3 Invalid Schema - NDR Violations (CrashDriverInvalidNDR/) ❌
+
+Test NDR validation (when enabled):
+
+1. **Upload** `samples/CrashDriver-cmf/CrashDriverInvalidNDR/invalid-schema.xsd`
+2. **Without skipping NDR**: Upload will fail with NDR rule violations
+3. **With skip checked**: Upload succeeds but schema may not work correctly
+
+**Expected NDR Errors** (when validation enabled):
+- Element naming violations
+- Type definition errors
+- Structure/pattern issues
+
+### Step 2: Upload Valid XML Data
+
+With the active schema set from Step 1.1, navigate to **"Upload Data"** tab → **"XML Files"** sub-tab:
+
+#### 2.1 Valid XML Files ✅
+
+Upload valid crash driver data:
+
+1. **CrashDriver1.xml**:
    ```
    samples/CrashDriver-cmf/CrashDriver1.xml
    ```
-   This file contains:
-   - Crash incident from 1907-05-04 at coordinates (51.87, -1.28)
-   - Driver: Peter Death Bredon Wimsey (fictional character)
-   - Driver details: Birth date, license ID, adult status
-   - Injury information with privacy metadata references
+   - Crash on 1907-05-04 at coordinates (51.87, -1.28)
+   - Driver: Peter Death Bredon Wimsey (fictional character, born 1890-05-04)
+   - License: A1234567
+   - Injury with privacy metadata references
+   - Charge: "Furious Driving" (not a felony)
 
-2. **Upload CrashDriver2.xml**:
+2. **CrashDriver2.xml**:
    ```
    samples/CrashDriver-cmf/CrashDriver2.xml
    ```
-   Contains additional crash incident data with different persons and charges
+   - Additional crash incident with different driver and charges
 
-3. **Optional - Test Invalid Data**:
+**Expected Result**:
+- ✅ Validation passes
+- Creates 20-50+ nodes per file
+- Shows success message with node/relationship counts
+- Files stored in MinIO `niem-data` bucket
+- Graph structure reflects XML hierarchy
+
+#### 2.2 Invalid XML Files - Testing Error Handling ❌
+
+Upload invalid files to see error handling:
+
+1. **CrashDriverInvalid1.xml** - Schema validation errors:
    ```
-   samples/CrashDriver-cmf/CrashDriverInvalid.xml
+   samples/CrashDriver-cmf/CrashDriverInvalid1.xml
    ```
-   This will demonstrate XSD validation failure with detailed error messages
+   - Contains elements not defined in schema
+   - Shows expandable error panel with validation details
 
-**Processing Flow**:
-- Files undergo validation against the active XSD schema using the CMF tool
-- Valid XML is parsed into a graph structure
-- Each XML element becomes a Neo4j node with element tag as label
-- XML containment hierarchy becomes CONTAINS relationships
-- Text content and attributes are preserved as node properties
+2. **CrashDriverInvalid2.xml** - Different validation issues:
+   ```
+   samples/CrashDriver-cmf/CrashDriverInvalid2.xml
+   ```
+   - Type mismatches or required element violations
+   - Error panel shows specific line/column information
 
-### Step 4: Upload Sample JSON Data
+**Expected Error Display**:
+```
+❌ Validation failed: CrashDriverInvalid1.xml
+```
 
-Switch to the **JSON Files** sub-tab and upload:
+### Step 3: Upload Valid JSON Data
 
-1. **CrashDriver1.json** and **CrashDriver2.json**:
+Switch to **"JSON Files"** sub-tab:
+
+#### 3.1 Valid JSON Files ✅
+
+Upload JSON-LD formatted crash data:
+
+1. **CrashDriver1.json**:
    ```
    samples/CrashDriver-cmf/CrashDriver1.json
-   samples/CrashDriver-cmf/CrashDriver2.json
+   ```
+   - Same crash data as XML but in JSON-LD format
+   - Uses `@context` for namespace mappings
+   - Uses `@id` for references (replaces XML `structures:ref`)
+
+2. **Expected Result**:
+   - ✅ JSON Schema validation passes
+   - Creates graph with `qname` properties for proper display
+   - Nodes labeled with NIEM qualified names (e.g., `j:Crash`, `nc:Person`)
+
+#### 3.2 Invalid JSON Files - Testing Error Handling ❌
+
+Upload invalid JSON to test validation:
+
+1. **CrashDriverInvalid1.json** - Schema violations:
+   ```
+   samples/CrashDriver-cmf/CrashDriverInvalid1.json
+   ```
+   - Shows all validation errors at once (not just first error)
+   - Detailed error messages with JSON paths
+
+2. **CrashDriverInvalid2.json** - Additional test cases:
+   ```
+   samples/CrashDriver-cmf/CrashDriverInvalid2.json
    ```
 
-**JSON Processing**:
-- JSON objects become container nodes with sanitized key names as labels
-- Arrays become container nodes with indexed child nodes
-- Primitive values become leaf nodes with content
-- `@id` and `@context` JSON-LD elements are handled appropriately
+   > **TODO**: JSON schema validation doesn't have required fields when generated from CMF and allows all other optional fields which allows other json files not related to schema to be uploaded. 
 
-### Step 5: Verify Data Ingestion
+### Step 4: Graph Visualization
 
-**Check Upload Results**:
-- Review the ingestion results displayed after each upload
-- Look for successful node and relationship creation counts
-- Check the "Uploaded Files" section to see processed files
+Navigate to the **"Graph"** tab to explore the ingested data:
 
-**Expected Ingestion Results**:
-- Each CrashDriver XML/JSON file should create 50-100+ nodes
-- Relationships should reflect XML hierarchy and JSON nesting
-- No validation errors for valid files
+#### 4.1 View Complete Graph
 
-### Step 6: Explore the Graph in Neo4j
-
-Open the Neo4j Browser at http://localhost:7474 (username: `neo4j`, password: `password`)
-
-**Basic Graph Exploration**:
-
-1. **View all data**:
+1. **Default query** loads automatically:
    ```cypher
-   MATCH (n) RETURN n LIMIT 25
+   MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m
    ```
 
-2. **See node types created**:
+2. **Graph Display**:
+   - Nodes colored by type (auto-generated distinguishable colors)
+   - Node labels show `qname` (e.g., `j:Crash`, `nc:Person`, `exch:CrashDriverInfo`)
+   - Relationships labeled with types (`HAS_`, `J_PERSONCHARGEASSOCIATION`, etc.)
+   - Interactive: click nodes/edges for details in brower development console by inspecting element. 
+
+3. **Layout Options**:
+   - Force Physics (default) - Smart force-directed layout
+   - Circular - Nodes arranged in circle
+   - Grid - Systematic arrangement
+   - Hierarchical - Tree-like structure
+   - Concentric - Layered by connectivity
+
+4. **Legend Panel** (right side):
+   - Shows all node types with colors
+   - Lists relationship types with styling
+   - Interaction help
+
+### Step 5: Neo4j Direct Access
+
+Open Neo4j Browser at **http://localhost:7474** (username: `neo4j`, password: `password`):
+
+#### Explore Data Structure
+
+1. **View full graph**:
    ```cypher
-   MATCH (n) RETURN DISTINCT labels(n), count(n) ORDER BY count(n) DESC
+   MATCH (m) RETURN m
    ```
 
-3. **View relationship types**:
-   ```cypher
-   MATCH ()-[r]->() RETURN type(r), count(r) ORDER BY count(r) DESC
-   ```
+### Step 6: Verify Data Storage in MinIO
 
-### Step 7: Data Storage Verification
+Access MinIO at **http://localhost:9002** (username: `minio`, password: `minio123`):
 
-**MinIO Object Storage** (http://localhost:9001, user: `minio`, password: `minio123`):
-- Check `niem-schemas` bucket for the uploaded XSD schema
-- Check `niem-data` bucket for the ingested XML/JSON files
-- Files are stored with timestamps and hash prefixes for uniqueness
+1. **niem-schemas bucket**:
+   - Contains uploaded XSD schemas
+   - CMF JSON representations
+   - Generated mapping YAML files
+   - Files organized by timestamp and hash
 
+2. **niem-data bucket**:
+   - Contains ingested XML/JSON files
+   - Original file content preserved
+   - File metadata and executed cypher query
 
-### Step 8: Test Error Handling
+### Step 7: System Administration
 
-**Upload Invalid Data**:
-1. Try uploading `CrashDriverInvalid.xml` to see XSD validation errors
-2. The expandable error component will show detailed validation failures
-3. Try uploading files without an active schema to see validation requirements
+Navigate to the **"Admin"** tab:
 
-**Expected Error Types**:
-- Schema validation failures for files that don't conform to the active XSD schema (via CMF tool)
-- Missing active schema errors
-- File format validation errors
+#### 7.1 View System Status
 
-### Step 9: System Administration
+- **Neo4j Statistics**:
+  - Total node count
+  - Total relationship count
+  - Node types (labels) count
+  - Relationship types count
 
-**View System Status**:
-- Go to the **"Admin"** tab to see Neo4j statistics
-- Check node counts, relationship counts, and graph health
+- **Storage Status**:
+  - MinIO bucket information
+  - Schema storage status
 
-**Reset System** (if needed):
-```bash
-curl -X POST http://localhost:8000/api/admin/reset \
-  -H "Authorization: Bearer devtoken" \
-  -H "Content-Type: application/json" \
-  -d '{"neo4j":true,"minio":true,"dry_run":false}'
-```
+#### 7.2 Reset the System
+
+To clean all data and start fresh:
+
+**Option 1: UI Admin Panel** (if available)
+1. Go to Admin tab
+2. Click "Reset System" button
+3. Confirm reset operation
+
+### Step 8: Full Cycle Test
+
+Complete end-to-end test workflow:
+
+1. ✅ Upload valid schema set (CrashDriverSchemaSet/, skip NDR)
+2. ✅ Activate schema
+3. ✅ Upload CrashDriver1.xml → Verify success
+4. ❌ Upload CrashDriverInvalid1.xml → View errors
+5. ✅ Upload CrashDriver1.json → Verify success
+6. ❌ Upload CrashDriverInvalid1.json → View errors
+7. 📊 View graph visualization → Explore nodes/relationships
+8. 🔍 Query in Neo4j Browser → Run custom Cypher
+9. 💾 Check MinIO → Verify file storage
+10. 🔄 Admin reset → Clean system
+11. 🔁 Repeat with different schemas/data
 
 ## Key Features Demonstrated
 
 This walkthrough demonstrates:
 
-1. **NIEM Compliance**: Full NDR validation and CMF tool integration
-2. **Multi-format Support**: Both XML and JSON ingestion from the same schema
-3. **Graph Modeling**: Hierarchical XML/JSON structures as connected graph data
-4. **Privacy Controls**: Privacy metadata handling and references
-5. **Error Handling**: Comprehensive validation with user-friendly error display
-6. **Real-time Processing**: Immediate graph creation from uploaded data
-7. **Data Provenance**: Source file tracking in all generated nodes
+1. **Schema Validation**:
+   - ✅ Valid schema set upload with complete NIEM imports
+   - ❌ Error handling for missing imports/dependencies
+   - ⚠️ NDR validation with skip option for complex schema sets
+   - 📋 Automatic mapping generation from XSD to graph model
+
+2. **Multi-format Data Ingestion**:
+   - XML with NIEM structures (ID/ref pattern)
+   - JSON-LD with @context and @id references
+   - Same graph model from both formats
+
+3. **Comprehensive Error Handling**:
+   - Schema validation errors with detailed messages
+   - XML validation against XSD with line/column info
+   - JSON Schema validation with all errors displayed at once
+   - User-friendly expandable error panels
+
+4. **Graph Modeling**:
+   - XML/JSON hierarchy → Neo4j graph structure
+   - Qualified names (qname) for readable node labels
+   - Privacy metadata and reference relationships
+   - Source file tracking for data provenance
+
+5. **Interactive Graph Visualization**:
+   - Auto-colored nodes by type
+   - Multiple layout algorithms
+   - Custom Cypher query support
+   - Click for node/relationship details
+
+6. **System Administration**:
+   - Real-time statistics (node/relationship counts)
+   - Complete system reset capability
+   - MinIO storage verification
+   - Health monitoring
 
 ## Next Steps
 
-- Experiment with other NIEM-compliant XSD schemas
-- Try different XML/JSON data structures
+- Upload your own NIEM-compliant XSD schemas
+- Test with different NIEM domains (Justice, Immigration, Emergency Management, etc.)
+- Experiment with custom privacy extensions
+- Build custom Cypher queries for your use case
 
+## Known Issues & TODO
 
-TODO LIST:
-1. Determing way to flatten graph creation to specified entities so that it's not a deep graph where every element attribute becomes a node. Current view is difficult to read and parse.
-2. Graph visualization is limited and needs a better implementation of fetching and showing graph data on UI. 
-3. Graph generation process and pipeline needs review. 
-4. Design documentation needs to be updated to reflect current architecture and components. 
+### High Priority
+1. **NDR Validation for Schema Sets**: NDR validation for schema sets requires resolving rules by schema type: references, extensions, etc. Currently only the extension NDR rules are being applied causing validation errors across reference schemas such as the domain schemas such as justice.xsd or hs.xsd that would otherwise be valid.
+
+2. **Graph Visualizations**: Limitations on rebuilding graph UI from neo4j browser for full set of nodes and edges. 
+
+### Medium Priority
+
+3. **Design Documentation**: Update architecture diagrams and component documentation to reflect current implementation.
+
+4. **Version Control**: Implement semantic versioning mapped to NIEM versions for proper release management. See [GitHub Issues #1-5] for detailed plan.
+
 
 
 
