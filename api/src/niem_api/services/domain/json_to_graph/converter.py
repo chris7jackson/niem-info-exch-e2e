@@ -371,9 +371,9 @@ def generate_cypher_from_structures(
 
     # Generate MERGE statements for nodes
     for node_id, (label, qname, props, aug_props) in nodes.items():
-        # Build properties string
+        # Build properties string - include qname for display consistency with XML
         props_parts = []
-        all_props = {**props, **aug_props}
+        all_props = {**props, **aug_props, "qname": qname}  # Add qname to properties
         for key, value in all_props.items():
             props_parts.append(f"{key}: '{value}'")
 
