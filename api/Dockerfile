@@ -18,12 +18,25 @@ COPY src/ ./src/
 # Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
-# Create data directory and fix permissions
-RUN mkdir -p /data && chown appuser:appgroup /data
-RUN chown -R appuser:appgroup /app/src
+# Create data directory and third_party directory for volume mounts
+RUN mkdir -p /data /app/third_party && \
+    chown appuser:appgroup /data && \
+    chown -R appuser:appgroup /app/src /app/third_party
 
-USER appuser
+# Create entrypoint script to fix permissions on mounted volumes (Windows compatibility)
+RUN echo '#!/bin/sh\n\
+# Fix execute permissions on CMF tool if mounted (Windows volume mount fix)\n\
+if [ -f /app/third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool ]; then\n\
+    chmod +x /app/third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool 2>/dev/null || true\n\
+fi\n\
+# Switch to appuser and execute command\n\
+exec gosu appuser "$@"' > /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+# Install gosu for safe user switching in entrypoint (Windows volume permission fix)
+RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
 
 EXPOSE ${API_PORT:-8000}
 
-CMD uvicorn src.niem_api.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000}
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["sh", "-c", "uvicorn src.niem_api.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000}"]
