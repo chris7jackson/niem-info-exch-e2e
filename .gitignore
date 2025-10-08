@@ -53,6 +53,8 @@ pip-log.txt
 pip-delete-this-directory.txt
 .coverage
 .pytest_cache/
+*.egg-info/
+*.egg
 
 # Docker
 *.dockerfile.local
@@ -96,3 +98,5 @@ temp/
 
 # AI Files
 claude.md
+
+third_party/niem-model
