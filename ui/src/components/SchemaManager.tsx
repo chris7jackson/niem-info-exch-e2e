@@ -174,24 +174,24 @@ export default function SchemaManager() {
   // Don't use react-dropzone's getRootProps/getInputProps since we want folder-only upload
   const [isDragActive, setIsDragActive] = useState(false);
 
-  const handleDragEnter = (e: DragEvent<HTMLButtonElement>) => {
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(true);
   };
 
-  const handleDragLeave = (e: DragEvent<HTMLButtonElement>) => {
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
   };
 
-  const handleDragOver = (e: DragEvent<HTMLButtonElement>) => {
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
-  const handleDrop = (e: DragEvent<HTMLButtonElement>) => {
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
@@ -311,8 +311,7 @@ export default function SchemaManager() {
           />
 
           {/* Drop Zone - Folder only */}
-          <button
-            type="button"
+          <div
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -340,7 +339,7 @@ export default function SchemaManager() {
                 </p>
               </>
             )}
-          </button>
+          </div>
 
           {/* File Preview List */}
           {filePreviews.length > 0 && (
