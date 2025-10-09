@@ -6,7 +6,6 @@ Handles NIEM schema operations:
 - Validation (NIEM Naming & Design Rules conformance)
 - Mapping generation (CMF to YAML mapping)
 - Mapping validation (coverage analysis)
-- CMF parsing (graph structure extraction)
 """
 
 from .resolver import validate_schema_dependencies
@@ -16,7 +15,6 @@ from .mapping import (
     generate_mapping_from_cmf_file,
     validate_mapping_coverage_from_data
 )
-from .cmf_parser import CMFParser, CMFParseError
 
 __all__ = [
     # Schema validation
@@ -28,7 +26,4 @@ __all__ = [
     'generate_mapping_from_cmf_content',
     'generate_mapping_from_cmf_file',
     'validate_mapping_coverage_from_data',
-    # CMF Parser
-    'CMFParser',
-    'CMFParseError',
 ]

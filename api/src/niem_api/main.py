@@ -173,13 +173,6 @@ async def get_schemas(s3=Depends(get_s3_client)):
     return get_all_schemas(s3)
 
 
-@app.get("/api/schema/{schema_id}/graph")
-async def get_schema_graph_endpoint(schema_id: str, s3=Depends(get_s3_client)):
-    """Get parsed schema graph structure for visualization"""
-    from .handlers.schema import get_schema_graph
-    return get_schema_graph(s3, schema_id)
-
-
 # Data Ingestion Routes
 
 @app.post("/api/ingest/xml")

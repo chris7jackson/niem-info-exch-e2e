@@ -64,59 +64,6 @@ export interface UploadedFile {
   content_type: string;
 }
 
-// Schema Graph Types
-export interface GraphNode {
-  id: string;
-  label: string;
-  namespace: string;
-  namespaceURI: string;
-  namespaceCategory: string; // Data-driven - not an enum
-  nodeType: string; // Data-driven - not an enum
-  documentation?: string;
-  hasChildren: boolean;
-  depth: number;
-  metadata: {
-    [key: string]: any; // Flexible metadata based on nodeType
-  };
-}
-
-export interface GraphEdge {
-  id: string;
-  source: string;
-  target: string;
-  label: string;
-  edgeType: string; // Data-driven - not an enum
-  cardinality?: string;
-  documentation?: string;
-}
-
-export interface Namespace {
-  id: string;
-  prefix: string;
-  uri: string;
-  category: string; // Data-driven - not an enum
-  label: string;
-  documentation?: string;
-  classCount: number;
-  propertyCount: number;
-}
-
-export interface GraphMetadata {
-  schemaId: string;
-  totalNodes: number;
-  totalEdges: number;
-  namespaceCount: number;
-  parseDate: string;
-  cmfVersion: string;
-}
-
-export interface SchemaGraph {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  namespaces: Namespace[];
-  metadata: GraphMetadata;
-}
-
 class ApiClient {
   private client: AxiosInstance;
 
@@ -154,11 +101,6 @@ class ApiClient {
 
   async activateSchema(schemaId: string): Promise<any> {
     const response = await this.client.post(`/api/schema/activate/${schemaId}`);
-    return response.data;
-  }
-
-  async getSchemaGraph(schemaId: string): Promise<SchemaGraph> {
-    const response = await this.client.get(`/api/schema/${schemaId}/graph`);
     return response.data;
   }
 
