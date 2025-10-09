@@ -9,11 +9,6 @@ from minio import Minio
 
 from ..models.models import ResetRequest, ResetResponse
 
-
-class Neo4jSchemaResetError(Exception):
-    """Raised when Neo4j schema reset operation fails"""
-    pass
-
 logger = logging.getLogger(__name__)
 
 
