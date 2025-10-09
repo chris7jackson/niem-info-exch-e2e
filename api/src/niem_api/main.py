@@ -226,52 +226,6 @@ async def reset_system(
     return handle_reset(request, s3)
 
 
-@app.post("/api/admin/graph-schema/configure")
-async def configure_graph_schema(
-    token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
-):
-    """Configure graph schema from active mapping"""
-    from .handlers.admin import handle_configure_graph_schema
-    return handle_configure_graph_schema(s3)
-
-
-@app.get("/api/admin/graph-schema/info")
-async def get_graph_schema_info(
-    token: str = Depends(verify_token)
-):
-    """Get current graph schema information"""
-    from .handlers.admin import handle_get_graph_schema_info
-    return handle_get_graph_schema_info()
-
-
-@app.post("/api/admin/neo4j/clear-schema")
-async def clear_neo4j_schema_endpoint(
-    token: str = Depends(verify_token)
-):
-    """Clear Neo4j schema (indexes and constraints) only"""
-    from .handlers.admin import clear_neo4j_schema
-    return clear_neo4j_schema()
-
-
-@app.post("/api/admin/neo4j/clear-data")
-async def clear_neo4j_data_endpoint(
-    token: str = Depends(verify_token)
-):
-    """Clear Neo4j data (nodes and relationships) only"""
-    from .handlers.admin import clear_neo4j_data
-    return clear_neo4j_data()
-
-
-@app.post("/api/admin/neo4j/clear-all")
-async def clear_neo4j_all(
-    token: str = Depends(verify_token)
-):
-    """Clear all Neo4j data and schema"""
-    from .handlers.admin import reset_neo4j
-    return reset_neo4j()
-
-
 @app.get("/api/admin/neo4j/stats")
 async def get_neo4j_stats(
     token: str = Depends(verify_token)

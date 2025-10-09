@@ -139,33 +139,6 @@ class ApiClient {
     return response.data.stats;
   }
 
-  async clearNeo4jData(): Promise<any> {
-    const response = await this.client.post('/api/admin/neo4j/clear-data');
-    return response.data;
-  }
-
-  async clearNeo4jSchema(): Promise<any> {
-    const response = await this.client.post('/api/admin/neo4j/clear-schema');
-    return response.data;
-  }
-
-  async clearNeo4jAll(): Promise<any> {
-    const response = await this.client.post('/api/admin/neo4j/clear-all');
-    return response.data;
-  }
-
-
-  // Graph Schema Management
-  async configureGraphSchema(): Promise<any> {
-    const response = await this.client.post('/api/admin/graph-schema/configure');
-    return response.data;
-  }
-
-  async getGraphSchemaInfo(): Promise<any> {
-    const response = await this.client.get('/api/admin/graph-schema/info');
-    return response.data;
-  }
-
   // System Reset
   async resetSystem(options: {
     schemas?: boolean;
