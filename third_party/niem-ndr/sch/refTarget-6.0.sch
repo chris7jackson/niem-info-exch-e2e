@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<schema
-  xmlns="http://purl.oclc.org/dsdl/schematron"
-  xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+<schema 
+  xmlns="http://purl.oclc.org/dsdl/schematron" 
+  xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform" 
   queryBinding="xslt2">
-
-  <ns prefix="appinfo" uri="https://docs.oasis-open.org/niemopen/ns/model/appinfo/6.0/"/>
+  
+  <ns prefix="appinfo" uri="https://docs.oasis-open.org/niemopen/ns/model/appinfo/6.0/"/>  
   <ns prefix="catalog" uri="urn:oasis:names:tc:entity:xmlns:xml:catalog"/>
   <ns prefix="ct" uri="https://docs.oasis-open.org/niemopen/ns/specification/conformanceTargets/6.0/"/>
   <ns prefix="impl" uri="http://example.org/impl"/>
@@ -19,7 +19,7 @@
   <xsl:include href="src/ndr-functions.xsl"/>
 
   <!-- Rules applicable to all conforming schema documents -->
-
+  
   <include href="rule/7-2a.xml"/>    <!-- Name of Class, Datatype, and Property components -->
   <include href="rule/7-2b.xml"/>    <!-- Name of Class, Datatype, and Property components -->
   <include href="rule/7-4.xml"/>     <!-- Name of adapter classes -->
@@ -162,10 +162,19 @@
   <include href="rule/9-85.xml"/>    <!-- LocalTerm appinfo applies to schema -->
   <include href="rule/10-5.xml"/>    <!-- Consistent import schema document -->
   <include href="rule/10-6.xml"/>    <!-- Consistent import labels -->
+  <!-- Rules applicable only to reference schema documents -->
 
-  <!-- TODO: Add schema type detection (ref, ext, sub) and type-specific rules
-       - Extension-specific rules (8-13, 9-94)
-       - Reference schema rules
-       - Subset schema rules -->
-
+  <include href="rule/8-9.xml"/>     <!-- Reference namespace asserts conformance -->
+  <include href="rule/8-10.xml"/>    <!-- Reference namespace does not have wildcard -->
+  <include href="rule/8-12.xml"/>    <!-- Reference namespace uses reference namespace components -->
+  <include href="rule/9-86.xml"/>    <!-- No simple type disallowed derivation -->
+  <include href="rule/9-87.xml"/>    <!-- No use of fixed on simple type facets -->
+  <include href="rule/9-88a.xml"/>   <!-- No disallowed substitutions -->
+  <include href="rule/9-88b.xml"/>   <!-- No disallowed substitutions -->
+  <include href="rule/9-88c.xml"/>   <!-- No disallowed substitutions -->
+  <include href="rule/9-89a.xml"/>   <!-- No disallowed derivation -->
+  <include href="rule/9-89b.xml"/>   <!-- No disallowed derivation -->
+  <include href="rule/9-89c.xml"/>   <!-- No disallowed derivation -->
+  <include href="rule/9-90.xml"/>    <!-- Element declaration is nillable -->
+  <include href="rule/9-91.xml"/>    <!-- No xs:choice -->
 </schema>

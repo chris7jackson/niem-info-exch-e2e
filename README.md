@@ -35,6 +35,34 @@ This project includes vendored third-party tools in the `third_party/` directory
 - **NIEM CMF Tool** (`third_party/niem-cmf/`) - Apache 2.0 licensed validation tooling from [niemopen/cmftool](https://github.com/niemopen/cmftool)
 - **NIEM NDR Tools** (`third_party/niem-ndr/`) - CC BY 4.0 licensed validation rules and execution tools from [NIEM/NIEM-NDR](https://github.com/NIEM/NIEM-NDR) and [niemopen/niem-naming-design-rules](https://github.com/niemopen/niem-naming-design-rules)
 
+## API Documentation
+
+The API provides automatic interactive documentation via FastAPI:
+
+### Interactive Documentation (once system is running)
+
+- **Swagger UI**: http://localhost:8000/docs
+  - Full interactive API explorer with "Try it out" buttons
+  - Test endpoints directly from your browser
+  - See request/response schemas in real-time
+
+- **ReDoc**: http://localhost:8000/redoc
+  - Clean, readable API reference documentation
+  - Better for printing or detailed review
+  - Three-column layout for easy navigation
+
+- **OpenAPI Schema**: http://localhost:8000/openapi.json
+  - Raw OpenAPI 3.0 specification
+  - Import into Postman, Insomnia, or other API clients
+
+### Main API Endpoints
+
+- **Schema Management**: Upload, validate, and activate NIEM XSD schemas
+- **Data Ingestion**: Upload and validate XML/JSON files against schemas
+- **NDR Validation**: Type-aware NIEM NDR validation (reference/extension/subset schemas)
+- **Graph Operations**: Query and manage Neo4j graph data
+- **System Admin**: Health checks, statistics, reset operations
+
 ## Quick Start
 
 ### Prerequisites
@@ -82,18 +110,6 @@ docker compose up -d --build
 docker compose up -d --build --force-recreate
 ```
 
-#### Rebuild Specific Service
-
-**API only** (Python/FastAPI changes):
-```bash
-docker compose up -d --build --force-recreate api
-```
-
-**UI only** (Next.js/React changes):
-```bash
-docker compose up -d --build --force-recreate ui
-```
-
 #### View Logs
 
 Check logs during/after rebuild to verify successful startup:
@@ -118,7 +134,7 @@ docker compose logs --tail=50 api
 | API code changes | `docker compose up -d --build api` | Python dependencies cached unless requirements change |
 | UI code changes | `docker compose up -d --build ui` | npm dependencies cached unless package.json changes |
 | Environment changes | `docker compose down && docker compose up -d` | No rebuild needed for .env changes |
-| Dependency updates | `docker compose build --no-cache api` then `docker compose up -d` | Forces fresh install of all dependencies |
+| Dependency updates | `docker compose build --no-cache` then `docker compose up -d` | Forces fresh install of all dependencies |
 | Complete reset | `docker compose down -v && docker compose up -d --build` | Removes volumes (deletes all data!) |
 
 

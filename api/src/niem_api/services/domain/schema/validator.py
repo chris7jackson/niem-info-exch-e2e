@@ -16,251 +16,198 @@ class NiemNdrValidator:
     """Python wrapper for NIEM NDR validation tools"""
 
     def __init__(self, ndr_tools_path: Optional[str] = None):
-        """Initialize the validator with path to NDR tools"""
+        """Initialize the validator with path to NDR tools and pre-compiled XSLTs"""
         if ndr_tools_path is None:
             # Default to the mounted third_party directory
             ndr_tools_path = Path("/app/third_party/niem-ndr")
 
         self.ndr_tools_path = Path(ndr_tools_path)
-        self.schematron_bin = self.ndr_tools_path / "bin" / "schematron"
-        self.validation_xslt_path = None  # Will be set after pre-compilation
+        self.sch_dir = self.ndr_tools_path / "sch"
 
-        if not self.schematron_bin.exists():
-            raise FileNotFoundError(f"NDR schematron tool not found at {self.schematron_bin}")
+        # Map to pre-compiled XSLT files (no compilation needed!)
+        self.validation_xslt_paths = {
+            'ref': self.sch_dir / 'refTarget-6.0.xsl',
+            'ext': self.sch_dir / 'extTarget-6.0.xsl',
+            'sub': self.sch_dir / 'subTarget-6.0.xsl',
+        }
 
-        # Pre-compile the schematron at initialization
-        self._precompile_schematron()
+        # Verify all pre-compiled XSLT files exist
+        for schema_type, xslt_path in self.validation_xslt_paths.items():
+            if not xslt_path.exists():
+                raise FileNotFoundError(f"Pre-compiled XSLT not found: {xslt_path}")
 
-        # Pre-generate instance validation schematron at initialization
-        self._pregenerate_instance_schematron()
+        logger.info(f"Initialized NIEM NDR validator with pre-compiled XSLTs from {self.sch_dir}")
 
-    def _precompile_schematron(self):
-        """Pre-compile the schematron into validation XSLT for reuse"""
-        try:
-            # Create persistent directory for compiled XSLT in /tmp (writable)
-            compiled_dir = Path("/tmp/compiled_xslt")
-            compiled_dir.mkdir(exist_ok=True)
-
-            # Path for the final validation XSLT
-            validation_xslt_file = compiled_dir / "niem_ndr_validation.xsl"
-
-            # If already compiled, reuse it
-            if validation_xslt_file.exists():
-                logger.info(f"Using existing pre-compiled NIEM NDR validation XSLT: {validation_xslt_file}")
-                self.validation_xslt_path = validation_xslt_file
-                return
-
-            logger.info("Pre-compiling NIEM NDR schematron for optimal performance...")
-
-            # Saxon and schematron paths
-            saxon_jar = self.ndr_tools_path / "pkg" / "saxon" / "saxon9he.jar"
-            if not saxon_jar.exists():
-                raise FileNotFoundError(f"Saxon JAR not found: {saxon_jar}")
-
-            schematron_file = self.ndr_tools_path / "all-complete.sch"
-            if not schematron_file.exists():
-                raise FileNotFoundError(f"Comprehensive schematron file not found: {schematron_file}")
-
-            # ISO schematron XSLT files
-            iso_dir = self.ndr_tools_path / "pkg" / "iso-schematron-xslt2"
-            include_xsl = iso_dir / "iso_dsdl_include.xsl"
-            abstract_xsl = iso_dir / "iso_abstract_expand.xsl"
-            svrl_xsl = iso_dir / "iso_svrl_for_xslt2.xsl"
-
-            # Intermediate files
-            include_file = compiled_dir / "niem_ndr_include.xml"
-            abstract_file = compiled_dir / "niem_ndr_abstract.xml"
-
-            # Step 1: Include processing
-            import subprocess
-            cmd1 = [
-                "java", "-jar", str(saxon_jar),
-                f"-o:{include_file}",
-                f"-xsl:{include_xsl}",
-                str(schematron_file)
-            ]
-
-            result1 = subprocess.run(cmd1, capture_output=True, text=True)
-            if result1.returncode != 0:
-                raise Exception(f"Include processing failed: {result1.stderr}")
-
-            # Step 2: Abstract expansion
-            cmd2 = [
-                "java", "-jar", str(saxon_jar),
-                f"-o:{abstract_file}",
-                f"-xsl:{abstract_xsl}",
-                str(include_file)
-            ]
-
-            result2 = subprocess.run(cmd2, capture_output=True, text=True)
-            if result2.returncode != 0:
-                raise Exception(f"Abstract expansion failed: {result2.stderr}")
-
-            # Step 3: Generate SVRL XSLT (final validation XSLT)
-            cmd3 = [
-                "java", "-jar", str(saxon_jar),
-                f"-o:{validation_xslt_file}",
-                f"-xsl:{svrl_xsl}",
-                str(abstract_file),
-                "allow-foreign=true",
-                "full-path-notation=4"
-            ]
-
-            result3 = subprocess.run(cmd3, capture_output=True, text=True)
-            if result3.returncode != 0:
-                raise Exception(f"SVRL XSLT generation failed: {result3.stderr}")
-
-            # Copy required source files to the compiled directory for includes
-            src_dir = compiled_dir / "src"
-            src_dir.mkdir(exist_ok=True)
-
-            # Copy ndr-functions.xsl and other required files
-            ndr_src_dir = self.ndr_tools_path / "src"
-            if ndr_src_dir.exists():
-                import shutil
-                # Copy specific required files
-                required_files = ["ndr-functions.xsl", "xsltpp.xsl"]
-                for filename in required_files:
-                    src_file = ndr_src_dir / filename
-                    if src_file.exists():
-                        shutil.copy2(src_file, src_dir / filename)
-                        logger.info(f"Copied {filename} to compiled src directory")
-                    else:
-                        logger.warning(f"Required file {filename} not found in {ndr_src_dir}")
-
-                # Also copy any other .xsl files that might be needed
-                for src_file in ndr_src_dir.iterdir():
-                    if src_file.suffix == '.xsl' and src_file.name not in required_files:
-                        shutil.copy2(src_file, src_dir / src_file.name)
-                        logger.debug(f"Copied additional file {src_file.name} to compiled src directory")
-
-            # Clean up intermediate files
-            include_file.unlink(missing_ok=True)
-            abstract_file.unlink(missing_ok=True)
-
-            self.validation_xslt_path = validation_xslt_file
-            logger.info(f"Successfully pre-compiled NIEM NDR validation XSLT: {validation_xslt_file}")
-
-        except Exception as e:
-            logger.error(f"Failed to pre-compile schematron: {e}")
-            raise
-
-    def _pregenerate_instance_schematron(self):
-        """Pre-generate the base instance validation schematron template at initialization"""
-        try:
-            # Create persistent directory for instance schematron templates in /tmp (writable)
-            instance_sch_dir = Path("/tmp/compiled_xslt/instance_schematrons")
-            instance_sch_dir.mkdir(parents=True, exist_ok=True)
-
-            # Path for the base instance schematron template
-            self.base_instance_schematron_path = instance_sch_dir / "base_instance_template.sch"
-
-            # If already generated, reuse it
-            if self.base_instance_schematron_path.exists():
-                logger.info(f"Using existing base instance schematron template: {self.base_instance_schematron_path}")
-                return
-
-            logger.info("Pre-generating base instance schematron template...")
-
-            # Read the base all-complete.sch template
-            base_schematron = self.ndr_tools_path / "all-complete.sch"
-            if not base_schematron.exists():
-                raise FileNotFoundError(f"Base schematron template not found: {base_schematron}")
-
-            with open(base_schematron, 'r', encoding='utf-8') as f:
-                schematron_content = f.read()
-
-            # Create the base instance schematron template with placeholder for schema-specific rules
-            instance_schematron = self._create_base_instance_schematron(schematron_content)
-
-            # Write the base instance schematron template
-            with open(self.base_instance_schematron_path, 'w', encoding='utf-8') as f:
-                f.write(instance_schematron)
-
-            logger.info(f"Successfully pre-generated base instance schematron template: {self.base_instance_schematron_path}")
-
-        except Exception as e:
-            logger.error(f"Failed to pre-generate instance schematron: {e}")
-            # Set fallback path
-            self.base_instance_schematron_path = self.ndr_tools_path / "all-complete.sch"
-
-    def _create_base_instance_schematron(self, base_content: str) -> str:
-        """Create base instance schematron template with common instance validation rules"""
-        # Add instance-specific validation rules that apply to all schemas
-        instance_rules = '''
-  <!-- Base instance validation rules for all NIEM schemas -->
-
-  <!-- Check that root element has proper conformance targets -->
-  <pattern id="instance-conformance-targets">
-    <rule context="/*">
-      <assert test="@ct:conformanceTargets">
-        Root element must have conformance targets attribute
-      </assert>
-      <assert test="contains(@ct:conformanceTargets, 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#InfoExchangeMessage') or
-                    contains(@ct:conformanceTargets, 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#InfoExchangePackageDocument')">
-        Root element must declare conformance to NIEM instance conformance targets
-      </assert>
-    </rule>
-  </pattern>
-
-  <!-- Validate structure namespace usage -->
-  <pattern id="instance-structures">
-    <rule context="//*[@structures:id]">
-      <assert test="matches(@structures:id, '^[A-Za-z]([A-Za-z0-9\\-_])*$')">
-        structures:id must follow NIEM identifier pattern
-      </assert>
-    </rule>
-    <rule context="//*[@structures:ref]">
-      <assert test="//*[@structures:id = current()/@structures:ref]">
-        structures:ref must reference an element with matching structures:id
-      </assert>
-    </rule>
-  </pattern>
-
-  <!-- Validate that required elements are present -->
-  <pattern id="instance-required-elements">
-    <rule context="/*">
-      <assert test="namespace-uri() != ''">
-        Root element must be in a namespace
-      </assert>
-    </rule>
-  </pattern>
-
-  <!-- SCHEMA_SPECIFIC_RULES_PLACEHOLDER -->
-
-</schema>'''
-
-        # Insert instance rules before the closing </schema> tag
-        if '</schema>' in base_content:
-            base_content = base_content.replace('</schema>', instance_rules)
-        else:
-            # If no closing tag found, append the rules
-            base_content += instance_rules
-
-        return base_content
-
-    async def validate_xsd_conformance(self, xsd_content: str) -> Dict:
+    def _detect_schema_type(self, xsd_content: str) -> str:
         """
-        Validate XSD content against comprehensive NIEM NDR rules
+        Detect NIEM schema type from ct:conformanceTargets attribute.
 
-        TODO: Implement schema type detection (ref, ext, sub) and use appropriate
-        validation rules based on conformance targets found in the schema
+        Parses the XSD content to extract the conformanceTargets attribute
+        and determines the schema type based on the fragment identifier.
 
         Args:
             xsd_content: The XSD file content as string
 
         Returns:
-            Dict containing validation results
+            Schema type: 'ref', 'ext', 'sub', or 'unknown'
         """
         try:
+            # Parse the XSD to find conformanceTargets attribute
+            root = ET.fromstring(xsd_content.encode('utf-8'))
+
+            # Define namespace for conformance targets
+            ct_ns = "https://docs.oasis-open.org/niemopen/ns/specification/conformanceTargets/6.0/"
+
+            # Get conformanceTargets attribute
+            conformance_attr = root.get(f"{{{ct_ns}}}conformanceTargets")
+
+            if not conformance_attr:
+                logger.warning("No ct:conformanceTargets attribute found in schema, using fallback")
+                return "unknown"
+
+            # Parse space-separated conformance target URIs
+            targets = conformance_attr.split()
+
+            # Check for schema type fragment identifiers (priority: ref > ext > sub)
+            # Reference schemas are most strict, so prioritize them
+            for target in targets:
+                if "#ReferenceSchemaDocument" in target:
+                    logger.info("Detected ReferenceSchemaDocument conformance target")
+                    return "ref"
+
+            for target in targets:
+                if "#ExtensionSchemaDocument" in target:
+                    logger.info("Detected ExtensionSchemaDocument conformance target")
+                    return "ext"
+
+            for target in targets:
+                if "#SubsetSchemaDocument" in target:
+                    logger.info("Detected SubsetSchemaDocument conformance target")
+                    return "sub"
+
+            # Found conformanceTargets but no recognized schema type
+            logger.warning(f"Unknown conformance targets: {conformance_attr}, using fallback")
+            return "unknown"
+
+        except ET.ParseError as e:
+            logger.error(f"Failed to parse XSD for schema type detection: {e}")
+            return "unknown"
+        except Exception as e:
+            logger.error(f"Unexpected error during schema type detection: {e}")
+            return "unknown"
+
+    def _generate_composite_schematron(self, schema_type: str) -> Path:
+        """
+        Generate composite schematron file by merging fragments.
+
+        Combines hdr.sch (header + namespaces), all.sch (common rules),
+        and type-specific rules (ref.sch/ext.sch/sub.sch) into a single
+        schematron file.
+
+        Args:
+            schema_type: Schema type ('ref', 'ext', or 'sub')
+
+        Returns:
+            Path to generated composite schematron file
+
+        Raises:
+            FileNotFoundError: If required schematron fragments are missing
+        """
+        try:
+            # Define source files
+            hdr_file = self.ndr_tools_path / "src" / "hdr.sch"
+            all_file = self.ndr_tools_path / "src" / "all.sch"
+            type_file = self.ndr_tools_path / "src" / f"{schema_type}.sch"
+
+            # Verify all source files exist
+            for file_path in [hdr_file, all_file, type_file]:
+                if not file_path.exists():
+                    raise FileNotFoundError(f"Required schematron fragment not found: {file_path}")
+
+            # Create output directory
+            composite_dir = Path("/tmp/compiled_xslt/composite_schematrons")
+            composite_dir.mkdir(parents=True, exist_ok=True)
+
+            # Output path
+            output_file = composite_dir / f"{schema_type}_composite.sch"
+
+            # If already generated, return it
+            if output_file.exists():
+                logger.info(f"Using existing composite schematron: {output_file}")
+                return output_file
+
+            logger.info(f"Generating composite schematron for schema type '{schema_type}'...")
+
+            # Read header (contains namespaces and xsl:include)
+            with open(hdr_file, 'r', encoding='utf-8') as f:
+                hdr_content = f.read()
+
+            # Read common rules (all schemas)
+            with open(all_file, 'r', encoding='utf-8') as f:
+                all_content = f.read()
+
+            # Read type-specific rules
+            with open(type_file, 'r', encoding='utf-8') as f:
+                type_content = f.read()
+
+            # Build composite schematron
+            # hdr.sch has opening tags and namespaces (no closing </schema>)
+            # all.sch and type.sch only have <include> statements (no XML structure)
+            composite_content = hdr_content.strip()
+
+            # Add comment separating common rules
+            composite_content += "\n\n  <!-- Rules applicable to all conforming schema documents -->\n"
+            composite_content += all_content.strip()
+
+            # Add comment separating type-specific rules
+            type_name_map = {
+                'ref': 'reference',
+                'ext': 'extension',
+                'sub': 'subset'
+            }
+            composite_content += f"\n\n  <!-- Rules applicable only to {type_name_map[schema_type]} schema documents -->\n"
+            composite_content += type_content.strip()
+
+            # Close the schema element
+            composite_content += "\n\n</schema>\n"
+
+            # Write composite file
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(composite_content)
+
+            logger.info(f"Successfully generated composite schematron: {output_file}")
+            return output_file
+
+        except Exception as e:
+            logger.error(f"Failed to generate composite schematron for type '{schema_type}': {e}")
+            raise
+
+    async def validate_xsd_conformance(self, xsd_content: str) -> Dict:
+        """
+        Validate XSD content against type-specific NIEM NDR rules.
+
+        Detects the schema type from ct:conformanceTargets attribute and applies
+        the appropriate validation rules (ref/ext/sub/fallback).
+
+        Args:
+            xsd_content: The XSD file content as string
+
+        Returns:
+            Dict containing validation results with schema type metadata
+        """
+        try:
+            # Detect schema type before validation
+            schema_type = self._detect_schema_type(xsd_content)
+            logger.info(f"Detected schema type: {schema_type}")
+
             # Create temporary file for XSD content
             with tempfile.NamedTemporaryFile(mode='w', suffix='.xsd', delete=False) as temp_file:
                 temp_file.write(xsd_content)
                 temp_file_path = temp_file.name
 
             try:
-                # Run NDR validation using extension schematron
-                result = await self._run_ndr_validation(temp_file_path)
+                # Run NDR validation with schema type
+                result = await self._run_ndr_validation(temp_file_path, schema_type)
                 return result
             finally:
                 # Clean up temporary file
@@ -271,7 +218,8 @@ class NiemNdrValidator:
             return {
                 "status": "error",
                 "message": f"NDR validation failed: {str(e)}",
-                "conformance_target": "all",
+                "detected_schema_type": "unknown",
+                "conformance_target": "unknown",
                 "violations": [],
                 "summary": {
                     "total_violations": 0,
@@ -284,7 +232,9 @@ class NiemNdrValidator:
 
     async def validate_xml_conformance(self, xml_content: str, schema_id: str = None) -> Dict:
         """
-        Validate XML content against NIEM NDR rules using general schematron validation only
+        Validate XML content against NIEM NDR rules using general schematron validation only.
+
+        Note: XML instances don't have conformance targets, so we use the fallback validation.
 
         Args:
             xml_content: The XML content as string
@@ -300,8 +250,8 @@ class NiemNdrValidator:
                 temp_file_path = temp_file.name
 
             try:
-                # Only use the pre-compiled general schema validation
-                result = await self._run_ndr_validation(temp_file_path)
+                # XML instances don't have conformance targets - use subset (most lenient)
+                result = await self._run_ndr_validation(temp_file_path, 'sub')
                 return result
             finally:
                 # Clean up temporary file
@@ -312,6 +262,7 @@ class NiemNdrValidator:
             return {
                 "status": "error",
                 "message": f"XML NDR validation failed: {str(e)}",
+                "detected_schema_type": "unknown",
                 "conformance_target": "general",
                 "violations": [],
                 "summary": {
@@ -323,23 +274,45 @@ class NiemNdrValidator:
             }
 
 
-    async def _run_ndr_validation(self, file_path: str) -> Dict:
-        """Run the actual NDR validation using pre-compiled XSLT"""
-        logger.error(f"*** DEBUG: Starting NDR validation for {file_path}")
+    async def _run_ndr_validation(self, file_path: str, schema_type: str) -> Dict:
+        """
+        Run the actual NDR validation using pre-compiled type-specific XSLT.
+
+        Args:
+            file_path: Path to XSD file to validate
+            schema_type: Detected schema type ('ref', 'ext', 'sub', or 'unknown')
+
+        Returns:
+            Dict containing validation results with schema type metadata
+        """
+        logger.info(f"Starting NDR validation for {file_path} with schema type '{schema_type}'")
         try:
-            # Verify we have the pre-compiled XSLT
-            if not self.validation_xslt_path or not self.validation_xslt_path.exists():
-                raise FileNotFoundError(f"Pre-compiled validation XSLT not found: {self.validation_xslt_path}")
+            # Handle unknown schema type - fall back to subset (most lenient)
+            if schema_type not in self.validation_xslt_paths:
+                logger.warning(f"Unknown schema type '{schema_type}', defaulting to subset validation")
+                schema_type = 'sub'
+
+            # Select appropriate pre-compiled XSLT
+            validation_xslt_path = self.validation_xslt_paths[schema_type]
+            logger.info(f"Using validation XSLT: {validation_xslt_path}")
 
             # Get Saxon JAR path
             saxon_jar = self.ndr_tools_path / "pkg" / "saxon" / "saxon9he.jar"
             if not saxon_jar.exists():
                 raise FileNotFoundError(f"Saxon JAR not found: {saxon_jar}")
 
-            # Run validation using pre-compiled XSLT (no compilation needed!)
+            # Read source file content for snippet extraction
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    source_content = f.read()
+            except Exception as e:
+                logger.warning(f"Could not read source file for snippet extraction: {e}")
+                source_content = None
+
+            # Run validation using pre-compiled XSLT
             cmd = [
                 "java", "-jar", str(saxon_jar),
-                f"-xsl:{self.validation_xslt_path}",
+                f"-xsl:{validation_xslt_path}",
                 file_path
             ]
 
@@ -352,24 +325,47 @@ class NiemNdrValidator:
             svrl_output = stdout.decode('utf-8')
             stderr_output = stderr.decode('utf-8')
 
-            # Debug logging to see what we're getting
-            logger.error(f"*** DEBUG: SVRL stdout length: {len(svrl_output)}")
-            logger.error(f"*** DEBUG: SVRL stderr: {stderr_output}")
-            logger.error(f"*** DEBUG: SVRL stdout (first 500 chars): {svrl_output[:500]}")
-            logger.error(f"*** DEBUG: Contains failed-assert: {'failed-assert' in svrl_output}")
-            logger.error(f"*** DEBUG: Failed assertion count: {svrl_output.count('<svrl:failed-assert')}")
+            # Debug logging
+            logger.debug(f"SVRL stdout length: {len(svrl_output)}")
+            logger.debug(f"SVRL stderr: {stderr_output}")
+            logger.debug(f"Failed assertion count: {svrl_output.count('<svrl:failed-assert')}")
 
-            result = self._parse_svrl_output(svrl_output, stderr_output)
-            result["conformance_target"] = "all"  # Using comprehensive all.sch validation
+            # Parse SVRL output with source content for snippet extraction
+            result = self._parse_svrl_output(svrl_output, stderr_output, source_content)
+
+            # Add schema type metadata
+            result["detected_schema_type"] = schema_type
+            result["conformance_target"] = self._get_conformance_target_uri(schema_type)
+            result["rules_applied"] = self._get_rule_count(schema_type)
 
             return result
 
         except Exception as e:
-            logger.error(f"*** DEBUG: Exception in NDR validation: {e}")
             logger.error(f"Failed to run NDR validation: {e}")
             raise
 
-    def _parse_svrl_output(self, svrl_content: str, stderr_content: str) -> Dict:
+    def _get_conformance_target_uri(self, schema_type: str) -> str:
+        """Get conformance target URI for schema type."""
+        target_map = {
+            'ref': 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#ReferenceSchemaDocument',
+            'ext': 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#ExtensionSchemaDocument',
+            'sub': 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#SubsetSchemaDocument',
+        }
+        # Default to subset if unknown type
+        return target_map.get(schema_type, target_map['sub'])
+
+    def _get_rule_count(self, schema_type: str) -> int:
+        """Get approximate rule count for schema type."""
+        # Based on pre-compiled XSLT files in sch/ directory
+        rule_count_map = {
+            'ref': 154,  # refTarget-6.0.xsl - most strict
+            'ext': 145,  # extTarget-6.0.xsl - moderate
+            'sub': 144,  # subTarget-6.0.xsl - most lenient
+        }
+        # Default to subset rules if unknown type
+        return rule_count_map.get(schema_type, 144)
+
+    def _parse_svrl_output(self, svrl_content: str, stderr_content: str, source_content: Optional[str] = None) -> Dict:
         """Parse SVRL (Schematron Validation Report Language) output"""
         try:
             violations = []
@@ -421,13 +417,13 @@ class NiemNdrValidator:
 
             # Extract failed assertions and successful reports
             for failed_assert in root.findall('.//svrl:failed-assert', ns):
-                violation = self._extract_violation_from_element(failed_assert, 'error')
+                violation = self._extract_violation_from_element(failed_assert, 'error', source_content)
                 violations.append(violation)
                 summary["error_count"] += 1
                 summary["total_violations"] += 1
 
             for report in root.findall('.//svrl:successful-report', ns):
-                violation = self._extract_violation_from_element(report, 'warning')
+                violation = self._extract_violation_from_element(report, 'warning', source_content)
                 violations.append(violation)
                 summary["warning_count"] += 1
                 summary["total_violations"] += 1
@@ -451,7 +447,76 @@ class NiemNdrValidator:
                 "summary": {"total_violations": 0, "error_count": 1, "warning_count": 0, "info_count": 0}
             }
 
-    def _extract_violation_from_element(self, element, violation_type: str) -> Dict:
+    def _extract_source_snippet_from_xpath(self, source_content: str, xpath_location: str) -> Optional[Dict]:
+        """
+        Extract source code snippet based on XPath location from SVRL output.
+
+        Args:
+            source_content: The full XML source file content
+            xpath_location: XPath expression like "/*[local-name()='schema'][1]/*[local-name()='complexType'][1]"
+
+        Returns:
+            Dict with snippet, line_number, or None if extraction fails
+        """
+        try:
+            import re
+
+            # Parse XPath to extract element types and indices
+            # Example: /*[local-name()='schema'][1]/*[local-name()='complexType'][2]
+            # We want to find: schema -> 2nd complexType child
+
+            # Extract path components
+            path_pattern = r"\*\[local-name\(\)='([^']+)'\]\[(\d+)\]"
+            matches = re.findall(path_pattern, xpath_location)
+
+            if not matches:
+                logger.debug(f"Could not parse XPath location: {xpath_location}")
+                return None
+
+            # Split source into lines for line-by-line processing
+            lines = source_content.split('\n')
+
+            # Find the target element by walking the XPath
+            # Start with the root element (skip schema since it's implicit)
+            target_element_name = matches[-1][0] if len(matches) > 1 else matches[0][0]
+            target_index = int(matches[-1][1]) if len(matches) > 1 else int(matches[0][1])
+
+            # Find all occurrences of the target element in the source
+            element_pattern = f"<(xs:|xsd:)?{target_element_name}[\\s>]"
+            occurrences = []
+
+            for line_num, line in enumerate(lines, start=1):
+                if re.search(element_pattern, line):
+                    occurrences.append(line_num)
+
+            # Get the nth occurrence (XPath indices are 1-based)
+            if target_index <= len(occurrences):
+                error_line = occurrences[target_index - 1]
+
+                # Extract context window (2 lines before + error line + 2 lines after)
+                context_start = max(0, error_line - 3)  # -3 because lines are 0-indexed
+                context_end = min(len(lines), error_line + 2)
+
+                # Build snippet with line numbers
+                snippet_lines = []
+                for i in range(context_start, context_end):
+                    line_number = i + 1
+                    prefix = "> " if line_number == error_line else "  "
+                    snippet_lines.append(f"{prefix}{line_number:3}  {lines[i]}")
+
+                return {
+                    "snippet": '\n'.join(snippet_lines),
+                    "line_number": error_line
+                }
+            else:
+                logger.debug(f"Could not find occurrence {target_index} of {target_element_name}")
+                return None
+
+        except Exception as e:
+            logger.debug(f"Failed to extract source snippet: {e}")
+            return None
+
+    def _extract_violation_from_element(self, element, violation_type: str, source_content: Optional[str] = None) -> Dict:
         """Extract violation details from SVRL element"""
         ns = {'svrl': 'http://purl.oclc.org/dsdl/svrl'}
 
@@ -466,12 +531,21 @@ class NiemNdrValidator:
         # Extract rule ID if available
         rule_context = element.get('id', '')
 
-        return {
+        # Build base violation dict
+        violation = {
             "type": violation_type,
             "rule": rule_context or test,
             "message": message or f"Violation at {location}",
             "location": location
         }
+
+        # Add source snippet if source content is available
+        if source_content and location:
+            snippet_data = self._extract_source_snippet_from_xpath(source_content, location)
+            if snippet_data:
+                violation["source_snippet"] = snippet_data
+
+        return violation
 
     def get_conformance_target_description(self) -> str:
         """Get description for the comprehensive conformance target"""
