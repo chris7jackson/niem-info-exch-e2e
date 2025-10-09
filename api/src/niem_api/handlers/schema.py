@@ -364,6 +364,9 @@ async def _validate_all_niem_ndr(file_contents: Dict[str, bytes]) -> NiemNdrRepo
     total_info_count = 0
     has_failures = False
     has_errors = False
+    detected_schema_type = None
+    rules_applied = None
+    conformance_target = "all"
 
     # Validate each file
     for filename, content in file_contents.items():
@@ -376,6 +379,13 @@ async def _validate_all_niem_ndr(file_contents: Dict[str, bytes]) -> NiemNdrRepo
                 has_failures = True
             if ndr_result["status"] == "error":
                 has_errors = True
+
+            # Capture schema type info from first successful validation
+            # (all files in a schema set should have the same type)
+            if detected_schema_type is None and ndr_result.get("detected_schema_type"):
+                detected_schema_type = ndr_result["detected_schema_type"]
+                rules_applied = ndr_result.get("rules_applied")
+                conformance_target = ndr_result.get("conformance_target", "all")
 
             # Add file context to violations
             for violation in ndr_result.get("violations", []):
@@ -432,7 +442,9 @@ async def _validate_all_niem_ndr(file_contents: Dict[str, bytes]) -> NiemNdrRepo
     niem_ndr_report = NiemNdrReport(
         status=status,
         message=message,
-        conformance_target="all",
+        conformance_target=conformance_target,
+        detected_schema_type=detected_schema_type,
+        rules_applied=rules_applied,
         violations=ndr_violations,
         summary=aggregated_summary
     )
@@ -839,8 +851,8 @@ def get_all_schemas(s3: Minio):
 
                 # Load metadata for this schema
                 try:
-                    metadata_obj = s3.get_object("niem-schemas", f"{schema_dir}/metadata.json")
-                    metadata = json.loads(metadata_obj.read().decode())
+                    from ..clients.s3_client import get_json_content
+                    metadata = get_json_content(s3, "niem-schemas", f"{schema_dir}/metadata.json")
 
                     # Mark as active if it matches the active schema
                     metadata["active"] = (metadata["schema_id"] == active_schema_id)
@@ -861,9 +873,9 @@ def get_all_schemas(s3: Minio):
 
 def get_active_schema_id(s3: Minio) -> Optional[str]:
     """Get the currently active schema ID"""
+    from ..clients.s3_client import get_json_content
     try:
-        active_obj = s3.get_object("niem-schemas", "active_schema.json")
-        active_data = json.loads(active_obj.read().decode())
+        active_data = get_json_content(s3, "niem-schemas", "active_schema.json")
         return active_data.get("active_schema_id")
     except S3Error:
         return None
@@ -871,8 +883,8 @@ def get_active_schema_id(s3: Minio) -> Optional[str]:
 
 def get_schema_metadata(s3: Minio, schema_id: str) -> Optional[Dict]:
     """Get metadata for a specific schema"""
+    from ..clients.s3_client import get_json_content
     try:
-        metadata_obj = s3.get_object("niem-schemas", f"{schema_id}/metadata.json")
-        return json.loads(metadata_obj.read().decode())
+        return get_json_content(s3, "niem-schemas", f"{schema_id}/metadata.json")
     except S3Error:
         return None

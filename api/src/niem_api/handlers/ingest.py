@@ -42,13 +42,9 @@ def _load_mapping_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
     Returns:
         Mapping dictionary
     """
+    from ..clients.s3_client import get_yaml_content
     try:
-        mapping_response = s3.get_object("niem-schemas", f"{schema_id}/mapping.yaml")
-        mapping_content = mapping_response.read().decode('utf-8')
-        mapping = yaml.safe_load(mapping_content)
-        mapping_response.close()
-        mapping_response.release_conn()
-        return mapping
+        return get_yaml_content(s3, "niem-schemas", f"{schema_id}/mapping.yaml")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load mapping.yaml: {str(e)}")
 
@@ -65,6 +61,8 @@ def _download_schema_files(s3: Minio, schema_id: str) -> str:
     """
     import tempfile
     from pathlib import Path
+    from ..clients.s3_client import download_file
+    import asyncio
 
     temp_dir = tempfile.mkdtemp(prefix="schema_validation_")
     logger.info(f"Downloading schema files for {schema_id} to {temp_dir}")
@@ -76,11 +74,8 @@ def _download_schema_files(s3: Minio, schema_id: str) -> str:
         xsd_count = 0
         for obj in objects:
             if obj.object_name.endswith('.xsd'):
-                # Download the file
-                response = s3.get_object("niem-schemas", obj.object_name)
-                content = response.read()
-                response.close()
-                response.release_conn()
+                # Download the file using helper
+                content = asyncio.run(download_file(s3, "niem-schemas", obj.object_name))
 
                 # Create subdirectories if needed
                 relative_path = obj.object_name.replace(f"{schema_id}/source/", "")
@@ -240,12 +235,9 @@ def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
     Raises:
         HTTPException: If JSON Schema not found
     """
+    from ..clients.s3_client import get_json_content
     try:
-        schema_response = s3.get_object("niem-schemas", f"{schema_id}/schema.json")
-        schema_content = schema_response.read().decode('utf-8')
-        json_schema = json.loads(schema_content)
-        schema_response.close()
-        schema_response.release_conn()
+        json_schema = get_json_content(s3, "niem-schemas", f"{schema_id}/schema.json")
         logger.info(f"Downloaded JSON Schema for schema {schema_id}")
         return json_schema
     except Exception as e:

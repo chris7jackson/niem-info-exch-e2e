@@ -197,3 +197,113 @@ async def list_files(client: Minio, bucket: str, prefix: str = "") -> List[Dict[
         else:
             logger.error(f"Failed to list files in {bucket}: {e}")
             raise
+
+
+def get_text_content(client: Minio, bucket: str, object_name: str) -> str:
+    """
+    Get object content as decoded UTF-8 string with proper connection cleanup.
+
+    Args:
+        client: MinIO client instance
+        bucket: Source bucket name
+        object_name: Object key/path within bucket
+
+    Returns:
+        Object content as UTF-8 string
+
+    Raises:
+        S3Error: If download fails (object not found, permissions, connectivity)
+
+    Example:
+        ```python
+        client = get_s3_client()
+        yaml_content = get_text_content(client, "niem-schemas", "schema/mapping.yaml")
+        ```
+
+    Note:
+        Properly closes and releases HTTP connection after reading.
+    """
+    try:
+        response = client.get_object(bucket, object_name)
+        content = response.read().decode('utf-8')
+        response.close()
+        response.release_conn()
+        return content
+    except S3Error as e:
+        logger.error(f"Failed to get text content from {object_name} in {bucket}: {e}")
+        raise
+
+
+def get_json_content(client: Minio, bucket: str, object_name: str) -> Dict[str, Any]:
+    """
+    Get object content as parsed JSON with proper connection cleanup.
+
+    Args:
+        client: MinIO client instance
+        bucket: Source bucket name
+        object_name: Object key/path within bucket
+
+    Returns:
+        Parsed JSON object as dictionary
+
+    Raises:
+        S3Error: If download fails
+        json.JSONDecodeError: If content is not valid JSON
+
+    Example:
+        ```python
+        client = get_s3_client()
+        metadata = get_json_content(client, "niem-schemas", "schema/metadata.json")
+        schema_id = metadata["schema_id"]
+        ```
+
+    Note:
+        Properly closes and releases HTTP connection after reading.
+    """
+    import json
+    try:
+        response = client.get_object(bucket, object_name)
+        content = response.read().decode('utf-8')
+        response.close()
+        response.release_conn()
+        return json.loads(content)
+    except S3Error as e:
+        logger.error(f"Failed to get JSON content from {object_name} in {bucket}: {e}")
+        raise
+
+
+def get_yaml_content(client: Minio, bucket: str, object_name: str) -> Dict[str, Any]:
+    """
+    Get object content as parsed YAML with proper connection cleanup.
+
+    Args:
+        client: MinIO client instance
+        bucket: Source bucket name
+        object_name: Object key/path within bucket
+
+    Returns:
+        Parsed YAML object as dictionary
+
+    Raises:
+        S3Error: If download fails
+        yaml.YAMLError: If content is not valid YAML
+
+    Example:
+        ```python
+        client = get_s3_client()
+        mapping = get_yaml_content(client, "niem-schemas", "schema/mapping.yaml")
+        ```
+
+    Note:
+        Properly closes and releases HTTP connection after reading.
+    """
+    import yaml
+    try:
+        response = client.get_object(bucket, object_name)
+        content = response.read().decode('utf-8')
+        response.close()
+        response.release_conn()
+        return yaml.safe_load(content)
+    except S3Error as e:
+        logger.error(f"Failed to get YAML content from {object_name} in {bucket}: {e}")
+        raise
