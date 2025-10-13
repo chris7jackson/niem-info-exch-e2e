@@ -424,26 +424,27 @@ MATCH (a:`nc_Person` {id:'abc123_P01'}),
 MERGE (a)-[:`J_PERSONCHARGEASSOCIATION`]->(b)
 ```
 
-#### 5. Role-Based Person Modeling
+#### 5. Role-Based Entity Modeling (Schema-Agnostic)
 
-**Special Case:** NIEM uses role elements (like `j:CrashDriver`) that reference a core `nc:Person` entity.
+**Pattern:** NIEM uses role elements (like `j:CrashDriver`, `j:VehicleOperator`) that reference core entities using `structures:uri`.
 
 **XML Example:**
 ```xml
 <j:CrashDriver structures:uri="#P01">
   <nc:PersonName>...</nc:PersonName>
 </j:CrashDriver>
+<nc:Person structures:id="P01">...</nc:Person>
 ```
 
 **Creates:**
-1. `nc:Person` node with id `P01` (core entity)
-2. `j:CrashDriver` role node with synthetic ID
-3. `REPRESENTS_PERSON` relationship from role to person
+1. Entity node (type determined by actual element - Person, Organization, Vehicle, etc.)
+2. Role node with synthetic ID
+3. `REPRESENTS` relationship from role to entity (label resolved when entity element is encountered)
 
 ```cypher
-MERGE (p:`nc_Person` {id:'abc123_P01'})
+MERGE (e:`nc_Person` {id:'abc123_P01'})  # Entity type determined by actual element
 MERGE (r:`j_CrashDriver` {id:'abc123_syn_cd01'})
-MERGE (r)-[:`REPRESENTS_PERSON`]->(p)
+MERGE (r)-[:`REPRESENTS`]->(e)
 ```
 
 **JSON Example:**
@@ -452,10 +453,14 @@ MERGE (r)-[:`REPRESENTS_PERSON`]->(p)
   "j:CrashDriver": {
     "@id": "#P01",
     "nc:PersonName": [...]
+  },
+  "nc:Person": {
+    "@id": "P01",
+    ...
   }
 }
 ```
-Same graph structure is created!
+Same graph structure is created! Works with any entity type (Person, Organization, Vehicle, Location, Item, etc.)
 
 #### 6. Augmentation Properties (Unmapped Data)
 
@@ -635,7 +640,7 @@ Both converters now achieve **full parity** and create **identical graphs**:
 | **Reference Detection** | `structures:ref` + `xsi:nil="true"` | Object with only `@id` key | Different (format-specific) |
 | **Association Handling** | Uses `associations[]` mapping | Uses `associations[]` mapping | ✅ **Identical** |
 | **Reference Handling** | Uses `references[]` mapping | Uses `references[]` mapping | ✅ **Identical** |
-| **Role-Based Modeling** | `structures:uri` → person + role | `@id="#P01"` → person + role | ✅ **Identical** |
+| **Role-Based Modeling** | `structures:uri` → entity + role | `@id="#P01"` → entity + role | ✅ **Identical** |
 | **Augmentation Extraction** | `cmf_element_index` check | `cmf_element_index` check | ✅ **Identical** |
 | **Scalar Property Extraction** | Nested path traversal | Nested path traversal | ✅ **Identical** |
 | **Node Structure** | `[label, qname, props, aug_props]` | `[label, qname, props, aug_props]` | ✅ **Identical** |
@@ -650,7 +655,7 @@ Both converters:
 2. ✅ **Follow the same rules** for:
    - Association relationship types (from `associations[]`)
    - Reference relationship types (from `references[]`)
-   - Role-based person modeling (`REPRESENTS_PERSON`)
+   - Role-based entity modeling (`REPRESENTS`)
    - Node creation and labeling
    - Property extraction (both scalar and augmentation)
 3. ✅ **Generate identical Cypher** patterns for nodes and edges

@@ -484,7 +484,7 @@ def generate_for_xml_content(
         is_nil = elem.attrib.get(f"{{{XSI_NS}}}nil") == "true"
 
         # Check if element is just a reference (ref or uri with nil)
-        # These should create containment relationships but not new nodes
+        # These create the entity node (from element QName) and containment relationships
         if (ref or uri_ref) and is_nil:
             # Extract the target ID
             target_id = None
@@ -493,12 +493,18 @@ def generate_for_xml_content(
             elif uri_ref:
                 target_id = f"{file_prefix}_{uri_ref[1:]}" if uri_ref.startswith("#") else f"{file_prefix}_{uri_ref}"
 
+            # Create or register entity node if not already exists
+            # Use element QName to determine entity type (e.g., <nc:Person> creates nc:Person entity)
+            if target_id and target_id not in nodes:
+                entity_label = elem_qn.replace(":", "_")
+                nodes[target_id] = [entity_label, elem_qn, {}, {}]
+
             # Create containment relationship from parent to referenced node
             if parent_info and target_id:
                 parent_id, parent_label = parent_info
                 rel = "HAS_" + re.sub(r'[^A-Za-z0-9]', '_', local_from_qname(elem_qn)).upper()
-                # We don't know the target label yet, so we'll resolve it later
-                contains.append((parent_id, parent_label, target_id, None, rel))
+                entity_label = nodes[target_id][0] if target_id in nodes else elem_qn.replace(":", "_")
+                contains.append((parent_id, parent_label, target_id, entity_label, rel))
 
             # Traverse children (though ref/nil elements typically have none)
             for ch in list(elem):
@@ -521,11 +527,12 @@ def generate_for_xml_content(
                 # Prefix structures:id with file_prefix to ensure uniqueness across files
                 node_id = f"{file_prefix}_{sid}"
             elif uri_ref:
-                # Handle structures:uri="#P01" -> create role node + person reference
+                # Handle structures:uri="#P01" -> create role node + entity reference
+                # Entity type is determined by actual entity element in document
                 if uri_ref.startswith("#"):
-                    person_id = f"{file_prefix}_{uri_ref[1:]}"  # Remove the "#" prefix and add file_prefix
+                    entity_id = f"{file_prefix}_{uri_ref[1:]}"  # Remove the "#" prefix and add file_prefix
                 else:
-                    person_id = f"{file_prefix}_{uri_ref}"
+                    entity_id = f"{file_prefix}_{uri_ref}"
 
                 # Create the role node with synthetic ID
                 parent_id = parent_info[0] if parent_info else "root"
@@ -533,13 +540,12 @@ def generate_for_xml_content(
                 ordinal_path = "/".join(chain)
                 node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
 
-                # Register the person entity (if not already registered)
-                if person_id not in nodes:
-                    # Create nc:Person entity as the primary person
-                    nodes[person_id] = ["nc_Person", "nc:Person", {}, {}]
+                # DON'T create entity node here - defer to actual entity element in document
+                # This allows the pattern to work with any entity type (Person, Organization, etc.)
 
-                # Create role relationship to person
-                edges.append((node_id, node_label, person_id, "nc_Person", "REPRESENTS_PERSON", {}))
+                # Create role-to-entity relationship with deferred label resolution
+                # Label will be resolved when entity node is encountered/created
+                edges.append((node_id, node_label, entity_id, None, "REPRESENTS", {}))
             else:
                 parent_id = parent_info[0] if parent_info else "root"
                 chain = [qname_from_tag(e.tag, xml_ns_map) for e in path_stack] + [elem_qn]
