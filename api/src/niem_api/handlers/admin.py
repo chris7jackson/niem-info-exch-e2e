@@ -196,6 +196,22 @@ def reset_data_files(s3: Minio):
         raise
 
 
+def reset_neo4j():
+    """Reset Neo4j database - delete all nodes and relationships"""
+    try:
+        from ..core.dependencies import get_neo4j_client
+
+        neo4j_client = get_neo4j_client()
+
+        # Delete all nodes and relationships
+        neo4j_client.query("MATCH (n) DETACH DELETE n")
+        logger.info("Deleted all nodes and relationships from Neo4j")
+
+    except Exception as e:
+        logger.error(f"Neo4j reset failed: {e}")
+        raise
+
+
 def count_neo4j_objects() -> Dict[str, Any]:
     """
     Count Neo4j nodes, relationships, indexes, and constraints.
