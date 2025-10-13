@@ -95,12 +95,27 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
       {/* Active Schema Status */}
       <div className="bg-white shadow rounded-lg p-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-gray-900">Active Schema</h3>
+          <div className="flex-1">
+            <h3 className="text-sm font-medium text-gray-900">
+              {contentType === 'json' ? 'Validation Schema' : 'Active Schema'}
+            </h3>
             {activeSchema ? (
-              <p className="text-sm text-gray-600">
-                {activeSchema.primary_filename}
-              </p>
+              <>
+                {contentType === 'xml' ? (
+                  <p className="text-sm text-gray-600">
+                    {activeSchema.primary_filename}
+                  </p>
+                ) : (
+                  <div className="mt-1">
+                    <p className="text-sm text-gray-900 font-medium">
+                      schema.json
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Generated via cmftool from {activeSchema.primary_filename}
+                    </p>
+                  </div>
+                )}
+              </>
             ) : (
               <p className="text-sm text-red-600">
                 No active schema. Please upload and activate a schema first.
@@ -109,7 +124,7 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
           </div>
           <button
             onClick={loadActiveSchema}
-            className="text-sm text-blue-600 hover:text-blue-500"
+            className="text-sm text-blue-600 hover:text-blue-500 ml-4"
           >
             Refresh
           </button>
