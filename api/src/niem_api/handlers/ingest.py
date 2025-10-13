@@ -49,7 +49,7 @@ def _load_mapping_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to load mapping.yaml: {str(e)}")
 
 
-def _download_schema_files(s3: Minio, schema_id: str) -> str:
+async def _download_schema_files(s3: Minio, schema_id: str) -> str:
     """Download schema XSD files from S3 to temporary directory.
 
     Args:
@@ -62,7 +62,6 @@ def _download_schema_files(s3: Minio, schema_id: str) -> str:
     import tempfile
     from pathlib import Path
     from ..clients.s3_client import download_file
-    import asyncio
 
     temp_dir = tempfile.mkdtemp(prefix="schema_validation_")
     logger.info(f"Downloading schema files for {schema_id} to {temp_dir}")
@@ -75,7 +74,7 @@ def _download_schema_files(s3: Minio, schema_id: str) -> str:
         for obj in objects:
             if obj.object_name.endswith('.xsd'):
                 # Download the file using helper
-                content = asyncio.run(download_file(s3, "niem-schemas", obj.object_name))
+                content = await download_file(s3, "niem-schemas", obj.object_name)
 
                 # Create subdirectories if needed
                 relative_path = obj.object_name.replace(f"{schema_id}/source/", "")
@@ -580,7 +579,7 @@ async def handle_xml_ingest(
         mapping = _load_mapping_from_s3(s3, schema_id)
 
         # Step 3: Download schema files for validation
-        schema_dir = _download_schema_files(s3, schema_id)
+        schema_dir = await _download_schema_files(s3, schema_id)
 
         # Step 4: Process files
         results = []
