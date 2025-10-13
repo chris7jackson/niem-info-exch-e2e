@@ -6,7 +6,7 @@ This directory contains NIEM NDR validation tools and schematron files from two 
 
 - **License:** Creative Commons Attribution 4.0 International (CC BY 4.0) - see LICENSE file
 - **NIEM Version:** 6.0
-- **Date Added:** September 22, 2024
+- **Date Added:** September 22, 2025
 - **Modifications:** Custom `all-complete.sch` created locally (see below)
 
 ## Source Repositories
@@ -19,7 +19,7 @@ The files in this directory are fetched from two main NIEM source repositories:
 - **Files fetched:**
   - `bin/` - Schematron execution scripts and tools
   - `pkg/` - Supporting packages including Saxon JAR and ISO schematron XSLT files
-- **Last Updated:** September 22, 2024
+- **Last Updated:** September 22, 2025
 
 ### 2. NIEM Naming Design Rules (Validation Rules)
 - **Repository:** https://github.com/niemopen/niem-naming-design-rules/
@@ -27,7 +27,7 @@ The files in this directory are fetched from two main NIEM source repositories:
 - **Files fetched:**
   - `rule/` - Individual schematron rule files for specific NDR rules (159 files)
   - `src/` - Source schematron files and supporting XSLT functions
-- **Last Updated:** September 22, 2024
+- **Last Updated:** September 22, 2025
 
 ## Custom Files (Local Modifications)
 

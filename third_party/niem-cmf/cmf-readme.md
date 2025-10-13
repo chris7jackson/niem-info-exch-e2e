@@ -4,7 +4,7 @@
 - **Source Repository:** https://github.com/niemopen/cmftool
 - **License:** Apache License 2.0 (see LICENSE file in this directory)
 - **Current Version:** v1.0-alpha.8
-- **Date Added:** September 23, 2024
+- **Date Added:** September 23, 2025
 - **Modifications:** None - vendored as-is from official release
 
 ## Purpose
