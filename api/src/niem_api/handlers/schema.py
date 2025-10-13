@@ -577,6 +577,7 @@ async def _convert_to_cmf(
 async def _store_schema_files(
     s3: Minio,
     schema_id: str,
+    primary_filename: str,
     file_contents: Dict[str, bytes],
     file_path_map: Dict[str, str],
     cmf_conversion_result: Dict[str, Any] | None,
@@ -587,6 +588,7 @@ async def _store_schema_files(
     Args:
         s3: MinIO client
         schema_id: Generated schema ID
+        primary_filename: Name of the primary XSD file
         file_contents: Original XSD file contents
         file_path_map: Dictionary of filename to relative path
         cmf_conversion_result: CMF conversion result
@@ -600,17 +602,22 @@ async def _store_schema_files(
         await upload_file(s3, "niem-schemas", object_path, content, "application/xml")
         logger.info(f"Stored schema file: {object_path}")
 
+    # Extract base name from primary filename (remove .xsd extension)
+    base_name = primary_filename.rsplit('.xsd', 1)[0] if primary_filename.endswith('.xsd') else primary_filename
+
     # Store CMF file if conversion succeeded
     if cmf_conversion_result and cmf_conversion_result.get("cmf_content"):
         cmf_content = cmf_conversion_result["cmf_content"].encode('utf-8')
-        await upload_file(s3, "niem-schemas", f"{schema_id}/schema.cmf", cmf_content, "application/xml")
-        logger.info(f"Successfully converted and stored CMF file for schema {schema_id}")
+        cmf_filename = f"{base_name}.cmf"
+        await upload_file(s3, "niem-schemas", f"{schema_id}/{cmf_filename}", cmf_content, "application/xml")
+        logger.info(f"Successfully converted and stored CMF file: {cmf_filename}")
 
     # Store JSON Schema file if conversion succeeded
     if json_schema_conversion_result and json_schema_conversion_result.get("jsonschema"):
         json_schema_content = json.dumps(json_schema_conversion_result["jsonschema"], indent=2).encode('utf-8')
-        await upload_file(s3, "niem-schemas", f"{schema_id}/schema.json", json_schema_content, "application/json")
-        logger.info(f"Successfully converted and stored JSON Schema file for schema {schema_id}")
+        json_filename = f"{base_name}.json"
+        await upload_file(s3, "niem-schemas", f"{schema_id}/{json_filename}", json_schema_content, "application/json")
+        logger.info(f"Successfully converted and stored JSON Schema file: {json_filename}")
 
 
 async def _generate_and_store_mapping(
@@ -777,7 +784,7 @@ async def handle_schema_upload(
             )
 
         # Step 4: Store all schema files
-        await _store_schema_files(s3, schema_id, file_contents, file_path_map, cmf_conversion_result, json_schema_conversion_result)
+        await _store_schema_files(s3, schema_id, primary_file.filename, file_contents, file_path_map, cmf_conversion_result, json_schema_conversion_result)
 
         # Step 5: Generate and store mapping YAML
         await _generate_and_store_mapping(s3, schema_id, cmf_conversion_result)

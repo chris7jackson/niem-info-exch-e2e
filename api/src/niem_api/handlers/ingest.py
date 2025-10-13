@@ -235,10 +235,27 @@ def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
         HTTPException: If JSON Schema not found
     """
     from ..clients.s3_client import get_json_content
+    from .schema import get_schema_metadata
+
     try:
-        json_schema = get_json_content(s3, "niem-schemas", f"{schema_id}/schema.json")
-        logger.info(f"Downloaded JSON Schema for schema {schema_id}")
+        # Get schema metadata to determine the JSON schema filename
+        metadata = get_schema_metadata(s3, schema_id)
+        if not metadata:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Schema metadata not found for schema {schema_id}"
+            )
+
+        # Extract base name from primary filename and construct JSON schema filename
+        primary_filename = metadata.get("primary_filename", "")
+        base_name = primary_filename.rsplit('.xsd', 1)[0] if primary_filename.endswith('.xsd') else primary_filename
+        json_filename = f"{base_name}.json"
+
+        json_schema = get_json_content(s3, "niem-schemas", f"{schema_id}/{json_filename}")
+        logger.info(f"Downloaded JSON Schema {json_filename} for schema {schema_id}")
         return json_schema
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=404,

@@ -108,7 +108,7 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
                 ) : (
                   <div className="mt-1">
                     <p className="text-sm text-gray-900 font-medium">
-                      schema.json
+                      {activeSchema.primary_filename.replace(/\.xsd$/i, '.json')}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       Generated via cmftool from {activeSchema.primary_filename}

@@ -21,7 +21,7 @@ This document explains how NIEM XML Schemas (XSD) and instance documents (XML an
                 ▼
          ┌──────────────┐
          │ CMF Document │
-         │ (schema.cmf) │
+         │ ({name}.cmf) │
          └──────┬───────┘
                 │
                 │  3. Mapping Generation
@@ -86,7 +86,7 @@ This document explains how NIEM XML Schemas (XSD) and instance documents (XML an
 
 **What Happens:**
 ```bash
-cmftool xsd2cmf --xsd {primary_schema.xsd} --output schema.cmf
+cmftool xsd2cmf --xsd {primary_schema.xsd} --output {primary_schema}.cmf
 ```
 
 The CMF document contains:
@@ -98,7 +98,7 @@ The CMF document contains:
 
 **Key Files:**
 - `api/src/niem_api/clients/cmf_client.py` - CMF tool wrapper
-- Output: `niem-schemas/{schema_id}/schema.cmf`
+- Output: `niem-schemas/{schema_id}/{primary_schema}.cmf` (e.g., `CrashDriver.cmf`)
 
 ### Step 3: CMF → mapping.yaml Generation
 
@@ -296,8 +296,8 @@ metadata:
 
 1. **Validation:**
    ```python
-   # Download JSON Schema from S3
-   json_schema = s3.get_object("niem-schemas", f"{schema_id}/schema.json")
+   # Download JSON Schema from S3 (e.g., CrashDriver.json)
+   json_schema = s3.get_object("niem-schemas", f"{schema_id}/{primary_schema}.json")
 
    # Validate JSON against JSON Schema
    validator = Draft7Validator(json_schema)
@@ -716,8 +716,8 @@ niem-schemas/
       {filename}.xsd         # Original XSD files (with directory structure)
       niem/
         niem-core.xsd       # NIEM reference schemas
-    schema.cmf              # Generated CMF document
-    schema.json             # Generated JSON Schema
+    {primary_schema}.cmf    # Generated CMF document (e.g., CrashDriver.cmf)
+    {primary_schema}.json   # Generated JSON Schema (e.g., CrashDriver.json)
     mapping.yaml            # Generated mapping specification
     metadata.json           # Schema metadata
   active_schema.json        # Pointer to active schema
