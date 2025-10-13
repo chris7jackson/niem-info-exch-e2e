@@ -1,5 +1,7 @@
 # NIEM Information Exchange - Proof of Concept
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 An demonstration of NIEM (National Information Exchange Model) data processing and graph ingestion system.
 
 ## Overview
@@ -440,16 +442,26 @@ This walkthrough demonstrates:
 
 ## Known Issues & TODO
 
-### High Priority
-1. **NDR Validation for Schema Sets**: NDR validation for schema sets requires resolving rules by schema type: references, extensions, etc. Currently only the extension NDR rules are being applied causing validation errors across reference schemas such as the domain schemas such as justice.xsd or hs.xsd that would otherwise be valid.
-
-2. **Graph Visualizations**: Limitations on rebuilding graph UI from neo4j browser for full set of nodes and edges. 
-
-### Medium Priority
+1. **Graph Visualizations**: Limitations on rebuilding graph UI from neo4j browser for full set of nodes and edges.
 
 3. **Design Documentation**: Update architecture diagrams and component documentation to reflect current implementation.
 
 4. **Version Control**: Implement semantic versioning mapped to NIEM versions for proper release management. See [GitHub Issues #1-5] for detailed plan.
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+Copyright 2025 Christopher Jackson
+
+### Third-Party Licenses
+
+This project includes third-party software components:
+
+- **NIEM CMF Tool** ([niemopen/cmftool](https://github.com/niemopen/cmftool)) - Apache License 2.0
+- **NIEM NDR Tools** ([NIEM/NIEM-NDR](https://github.com/NIEM/NIEM-NDR)) - Creative Commons Attribution 4.0 International
+
+See the [NOTICE](NOTICE) file for complete attribution details.
 
 
 

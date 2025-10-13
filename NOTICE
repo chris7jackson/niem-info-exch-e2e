@@ -1,0 +1,55 @@
+NIEM Information Exchange - End-to-End Proof of Concept
+Copyright 2025 Christopher Jackson
+
+This product includes software developed by Christopher Jackson.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+================================================================================
+
+This project includes third-party software components:
+
+--------------------------------------------------------------------------------
+NIEM CMF Tool (third_party/niem-cmf/)
+--------------------------------------------------------------------------------
+Copyright (c) niemopen
+Licensed under the Apache License, Version 2.0
+
+Source: https://github.com/niemopen/cmftool
+Description: Common Model Format validation tooling for NIEM schema processing
+
+For full license text, see: third_party/niem-cmf/LICENSE
+
+--------------------------------------------------------------------------------
+NIEM Naming & Design Rules (third_party/niem-ndr/)
+--------------------------------------------------------------------------------
+Copyright (c) NIEM
+Licensed under the Creative Commons Attribution 4.0 International License
+
+Source: https://github.com/NIEM/NIEM-NDR
+        https://github.com/niemopen/niem-naming-design-rules
+
+Description: NIEM NDR conformance validation rules and XSLT execution tools
+
+For full license text, see: third_party/niem-ndr/LICENSE
+
+================================================================================
+
+Additional Acknowledgments:
+
+This project demonstrates NIEM (National Information Exchange Model) data
+exchange patterns. NIEM is a community-driven standards initiative maintained
+by the NIEM Program Management Office.
+
+NIEM Website: https://niemopen.org/
+NIEM Open: https://github.com/niemopen
