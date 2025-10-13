@@ -357,7 +357,8 @@ def run_cmf_command(
         # Security: Validate command against allowlist to prevent command injection
         _validate_cmf_command(cmd)
 
-        full_cmd = [CMF_TOOL_PATH] + cmd
+        # Use 'sh' to invoke cmftool for cross-platform compatibility (Windows mounts)
+        full_cmd = ["sh", CMF_TOOL_PATH] + cmd
         logger.info(f"Running CMF command: {' '.join(full_cmd)}")
 
         # Set working directory with security validation
