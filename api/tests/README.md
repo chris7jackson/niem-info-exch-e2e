@@ -13,6 +13,9 @@ pip install -r requirements.txt
 
 # Install test dependencies
 pip install -r requirements-test.txt
+
+# Install the package in editable mode (required for imports to work)
+pip install -e .
 ```
 
 ## Running Tests

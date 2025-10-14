@@ -67,6 +67,7 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install -r requirements-test.txt
+        pip install -e .
 
     - name: Run unit tests
       working-directory: ./api
@@ -131,6 +132,7 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install -r requirements-test.txt
+        pip install -e .
 
     - name: Run integration tests
       working-directory: ./api
