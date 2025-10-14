@@ -18,6 +18,10 @@ COPY src/ ./src/
 # Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
+# Copy third-party tools and set ownership
+COPY --chown=appuser:appgroup third_party/niem-ndr /app/third_party/niem-ndr
+COPY --chown=appuser:appgroup third_party/niem-cmf /app/third_party/niem-cmf
+
 # Create data directory and fix permissions
 RUN mkdir -p /data && chown appuser:appgroup /data
 RUN chown -R appuser:appgroup /app/src
