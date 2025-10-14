@@ -9,8 +9,6 @@ from niem_api.handlers.admin import (
     handle_reset,
     count_schemas,
     count_data_files,
-    clear_neo4j_schema,
-    clear_neo4j_data,
     reset_neo4j,
     count_neo4j_objects
 )
@@ -85,23 +83,6 @@ class TestAdminHandlers:
             assert "confirm_token" in result
             assert "Dry run completed" in result["message"]
             assert result["counts"]["schemas"] == 5
-
-    @pytest.mark.asyncio
-    async def test_clear_neo4j_schema(self):
-        """Test clearing Neo4j schema only"""
-        with patch('niem_api.handlers.admin.get_neo4j_client') as mock_client:
-            mock_neo4j = Mock()
-            mock_client.return_value = mock_neo4j
-            mock_neo4j.query.return_value = [
-                {"name": "constraint1", "type": "UNIQUENESS"},
-                {"name": "index1", "type": "BTREE"}
-            ]
-
-            result = await clear_neo4j_schema()
-
-            assert "constraints_dropped" in result
-            assert "indexes_dropped" in result
-            mock_neo4j.query.assert_called()
 
     @pytest.mark.asyncio
     async def test_reset_neo4j_error_handling(self):

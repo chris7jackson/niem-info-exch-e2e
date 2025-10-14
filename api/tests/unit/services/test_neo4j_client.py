@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch
 from neo4j.exceptions import ServiceUnavailable, ClientError
 
-from niem_api.services.neo4j_client import Neo4jClient
+from niem_api.clients.neo4j_client import Neo4jClient
 
 
 class TestNeo4jClient:
@@ -23,13 +23,13 @@ class TestNeo4jClient:
     def neo4j_client(self, mock_driver):
         """Neo4j client with mocked driver"""
         driver, session = mock_driver
-        with patch('niem_api.services.neo4j_client.GraphDatabase.driver', return_value=driver):
+        with patch('niem_api.clients.neo4j_client.GraphDatabase.driver', return_value=driver):
             client = Neo4jClient("bolt://localhost:7687", "neo4j", "password")
             return client, session
 
     def test_neo4j_client_initialization(self):
         """Test Neo4j client initialization"""
-        with patch('niem_api.services.neo4j_client.GraphDatabase.driver') as mock_driver:
+        with patch('niem_api.clients.neo4j_client.GraphDatabase.driver') as mock_driver:
             client = Neo4jClient("bolt://localhost:7687", "neo4j", "password")
 
             assert client.uri == "bolt://localhost:7687"
@@ -175,7 +175,7 @@ class TestNeo4jClient:
         """Test Neo4j client as context manager"""
         driver, session = mock_driver
 
-        with patch('niem_api.services.neo4j_client.GraphDatabase.driver', return_value=driver):
+        with patch('niem_api.clients.neo4j_client.GraphDatabase.driver', return_value=driver):
             with Neo4jClient("bolt://localhost:7687", "neo4j", "password") as client:
                 assert client is not None
 
