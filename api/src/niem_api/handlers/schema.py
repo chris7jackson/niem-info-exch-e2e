@@ -602,8 +602,10 @@ async def _store_schema_files(
         await upload_file(s3, "niem-schemas", object_path, content, "application/xml")
         logger.info(f"Stored schema file: {object_path}")
 
-    # Extract base name from primary filename (remove .xsd extension)
-    base_name = primary_filename.rsplit('.xsd', 1)[0] if primary_filename.endswith('.xsd') else primary_filename
+    # Extract base name from primary filename (remove path and .xsd extension)
+    # Handle both forward slashes (Unix/Mac) and backslashes (Windows)
+    filename_only = primary_filename.replace('\\', '/').split('/')[-1]
+    base_name = filename_only.rsplit('.xsd', 1)[0] if filename_only.endswith('.xsd') else filename_only
 
     # Store CMF file if conversion succeeded
     if cmf_conversion_result and cmf_conversion_result.get("cmf_content"):
@@ -699,10 +701,18 @@ async def _store_schema_metadata(
         file_contents: All file contents
         timestamp: Upload timestamp
     """
+    # Calculate JSON schema and CMF filenames from primary filename
+    filename_only = primary_file.filename.replace('\\', '/').split('/')[-1]
+    base_name = filename_only.rsplit('.xsd', 1)[0] if filename_only.endswith('.xsd') else filename_only
+    json_schema_filename = f"{base_name}.json"
+    cmf_filename = f"{base_name}.cmf"
+
     # Store schema metadata in MinIO
     schema_metadata = {
         "schema_id": schema_id,
         "primary_filename": primary_file.filename,
+        "json_schema_filename": json_schema_filename,
+        "cmf_filename": cmf_filename,
         "all_filenames": list(file_contents.keys()),
         "uploaded_at": timestamp,
         "known_gaps": "",
@@ -895,3 +905,55 @@ def get_schema_metadata(s3: Minio, schema_id: str) -> Optional[Dict]:
         return get_json_content(s3, "niem-schemas", f"{schema_id}/metadata.json")
     except S3Error:
         return None
+
+
+async def handle_schema_file_download(schema_id: str, file_type: str, s3: Minio):
+    """Download generated schema files (CMF or JSON Schema).
+
+    Args:
+        schema_id: Schema ID
+        file_type: Type of file to download ('cmf' or 'json')
+        s3: MinIO client
+
+    Returns:
+        File content as bytes
+
+    Raises:
+        HTTPException: If schema not found or file type invalid
+    """
+    # Validate file type
+    if file_type not in ['cmf', 'json']:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type '{file_type}'. Must be 'cmf' or 'json'"
+        )
+
+    # Get schema metadata to determine filename
+    metadata = get_schema_metadata(s3, schema_id)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Schema not found")
+
+    # Determine the filename to download
+    if file_type == 'cmf':
+        filename = metadata.get('cmf_filename')
+    else:  # json
+        filename = metadata.get('json_schema_filename')
+
+    if not filename:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No {file_type.upper()} file found for this schema"
+        )
+
+    # Download file from MinIO
+    from ..clients.s3_client import download_file
+    try:
+        object_path = f"{schema_id}/{filename}"
+        content = await download_file(s3, "niem-schemas", object_path)
+        return content, filename
+    except S3Error as e:
+        logger.error(f"Failed to download {file_type} file for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"{file_type.upper()} file not found in storage"
+        )

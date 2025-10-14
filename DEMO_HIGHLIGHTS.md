@@ -14,9 +14,9 @@
         ii. The failing imports and files expected to exist are shown by file
 2. View Generated files @ Minio Browser (localhost/9002)
     a. XSD -> CMF
-        i. {primary_schema}.cmf (e.g., CrashDriver.cmf)
-    b. CMF -> JSON LD
-        i. {primary_schema}.json (e.g., CrashDriver.json)
+        i. schema.cmf (have multiple cmfs)
+    b. CMF -> JSON LD 
+        i. schema.json
     c. Mapping.Yaml
 3. Upload Instance Documents
     a. Can upload multiple files at once. Any errors will just stop the upload of the invalid file
@@ -35,45 +35,47 @@
 
 
 TODO: 
-- upload - keep all schema files, just ignore non-xsd files.
-- Show NDR validation error against exact line anad location found. (enh)
+
 - Visually show that the json is being validated against json ld schema generated via cmf tool. 
     - show confirmation screen. 
-- Show option to view generated files associated with uploaded schemas. 
-- Block same document or exactly same schema set from being uploaded multiple times? 
+- Show option to view generated files associated with uploaded schemas (cmf and json representations (same name as primary file?))
+    - show source on json upload.
+- (download option for generated)
 - GRAPH
     - Ensure XML data ingestion 
+- cmf tool need to fix mounting on windows. 
+
+- upload - keep all schema files, just ignore non-xsd files. (nice)
+- Show NDR validation error against exact line anad location found. (enh)
+- Block same document or exactly same schema set from being uploaded multiple times? (nice, DIFF the CMF?)
+
 - File Management
     - can name schema set for iepd. 
+    - data import wizard (higher complex)
+        - select which is the node
+        - select which are properties
+        - every node needs to be included...
+        - view graph schema structure
+            - tell me all the relatinsihps by entities
+            - assocation types
+    - interface to manage cmf? what if I'm using cmf to model usign UML or new exch 
+        - file mgmt for keeping track of cmf workflow
+            - browse cmf across files 
+        - in crashdriver, add xyz. extend or build new iepd. modeled in cmf using UML. Bouml. Wayfarer (tom carlson)? 
+        - so what - file mgmt separate for new iepd from cmf
+    - exammple: eng with federal agency. 10 eeg, 3 clients, roll up same reporting line
+        if I have to manage the build 10 iepds. 
+        xsd to json should show differnt file name. 
 - Security Hardening 
     - SSL 
     - Data encryption in transit
     - Data encryption at rest
-    
-
-- data import wizad
-- select fields 
-- use shema structure
-    - tell me all the relatinsihps by entities
-    - assocation types
-    - 
 
 
-
-- interface to manage cmf? what if I'm using cmf to model usign UML or new exch 
-- file mgmt for keeping track of cmf workflow
-    - browse cmf across files 
-
-- eng with federal agency. 10 eeg, 3 clients, roll up same reporting line
-    if I have to manage the build 10 iepds. 
-    xsd to json should show differnt file name. 
-
-
-augmentation point - is a 
+augmentation point - is 
 associations are rich content edges (should it be a node or just a rich edge?)
 references are edgse. 
 
-- quicly 
 - tree. 
     - cmf show as a tree.
     - xsd starts with a root and builds a tree which is exactly a knoweldge graph
@@ -82,6 +84,5 @@ references are edgse.
         node type a, node type b. 
         define an edge. 
         probably want to model the RDF description. 
-
 
     - RDF. 

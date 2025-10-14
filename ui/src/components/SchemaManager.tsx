@@ -182,6 +182,22 @@ export default function SchemaManager() {
     }
   };
 
+  const handleDownloadFile = async (schemaId: string, fileType: 'cmf' | 'json', filename: string) => {
+    try {
+      const blob = await apiClient.downloadSchemaFile(schemaId, fileType);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || err.message || 'Download failed');
+    }
+  };
+
   // Don't use react-dropzone's getRootProps/getInputProps since we want folder-only upload
   const [isDragActive, setIsDragActive] = useState(false);
 
@@ -528,6 +544,31 @@ export default function SchemaManager() {
                         <div className="mt-1 text-xs text-gray-400">
                           Files: {schema.all_filenames.join(', ')}
                         </div>
+                      )}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="text-xs text-gray-500 mr-2">Generated files:</span>
+                      {schema.cmf_filename && (
+                        <button
+                          onClick={() => handleDownloadFile(schema.schema_id, 'cmf', schema.cmf_filename!)}
+                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100"
+                        >
+                          <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          {schema.cmf_filename}
+                        </button>
+                      )}
+                      {schema.json_schema_filename && (
+                        <button
+                          onClick={() => handleDownloadFile(schema.schema_id, 'json', schema.json_schema_filename!)}
+                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded hover:bg-green-100"
+                        >
+                          <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          {schema.json_schema_filename}
+                        </button>
                       )}
                     </div>
                   </div>

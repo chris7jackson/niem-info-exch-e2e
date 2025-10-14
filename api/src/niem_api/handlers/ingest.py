@@ -247,8 +247,10 @@ def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
             )
 
         # Extract base name from primary filename and construct JSON schema filename
+        # Handle both forward slashes (Unix/Mac) and backslashes (Windows)
         primary_filename = metadata.get("primary_filename", "")
-        base_name = primary_filename.rsplit('.xsd', 1)[0] if primary_filename.endswith('.xsd') else primary_filename
+        filename_only = primary_filename.replace('\\', '/').split('/')[-1]
+        base_name = filename_only.rsplit('.xsd', 1)[0] if filename_only.endswith('.xsd') else filename_only
         json_filename = f"{base_name}.json"
 
         json_schema = get_json_content(s3, "niem-schemas", f"{schema_id}/{json_filename}")

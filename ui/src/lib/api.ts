@@ -7,6 +7,8 @@ export interface Schema {
   schema_id: string;
   filename: string;
   primary_filename?: string;
+  json_schema_filename?: string;
+  cmf_filename?: string;
   all_filenames?: string[];
   uploaded_at: string;
   active: boolean;
@@ -101,6 +103,13 @@ class ApiClient {
 
   async activateSchema(schemaId: string): Promise<any> {
     const response = await this.client.post(`/api/schema/activate/${schemaId}`);
+    return response.data;
+  }
+
+  async downloadSchemaFile(schemaId: string, fileType: 'cmf' | 'json'): Promise<Blob> {
+    const response = await this.client.get(`/api/schema/${schemaId}/file/${fileType}`, {
+      responseType: 'blob'
+    });
     return response.data;
   }
 

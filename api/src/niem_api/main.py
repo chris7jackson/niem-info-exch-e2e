@@ -173,6 +173,36 @@ async def get_schemas(s3=Depends(get_s3_client)):
     return get_all_schemas(s3)
 
 
+@app.get("/api/schema/{schema_id}/file/{file_type}")
+async def download_schema_file(
+    schema_id: str,
+    file_type: str,
+    token: str = Depends(verify_token),
+    s3=Depends(get_s3_client)
+):
+    """Download generated schema files (CMF or JSON Schema).
+
+    Args:
+        schema_id: ID of the schema
+        file_type: Type of file ('cmf' or 'json')
+    """
+    from .handlers.schema import handle_schema_file_download
+    from fastapi.responses import Response
+
+    content, filename = await handle_schema_file_download(schema_id, file_type, s3)
+
+    # Determine content type based on file type
+    content_type = "application/json" if file_type == "json" else "application/xml"
+
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+
 # Data Ingestion Routes
 
 @app.post("/api/ingest/xml")
