@@ -30,16 +30,16 @@ const mockSchemas = [
 const API_URL = 'http://localhost:8000'
 
 const server = setupServer(
-  http.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
+  http.get(`${API_URL}/api/schema`, () => {
     return HttpResponse.json(mockSchemas)
   }),
-  http.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
+  http.post(`${API_URL}/api/schema/xsd`, () => {
     return HttpResponse.json({
-        schema_id: 'new_schema',
-        niem_ndr_report: { status: 'pass', violations: [] },
-        import_validation_report: { status: 'pass' },
-        is_active: true
-      })
+      schema_id: 'new_schema',
+      niem_ndr_report: { status: 'pass', violations: [] },
+      import_validation_report: { status: 'pass' },
+      is_active: true
+    })
   }),
   http.post(`${API_URL}/api/schema/activate/:schemaId`, ({ params }) => {
     return HttpResponse.json({ active_schema_id: params.schemaId })
@@ -50,6 +50,22 @@ beforeAll(() => server.listen())
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
+/**
+ * SchemaManager Component Tests
+ *
+ * Purpose: Component rendering and data display tests
+ * - Smoke test: Verifies component renders without crashing
+ * - Data flow test: Ensures API data displays correctly
+ * - Interaction test: Tests schema activation workflow
+ *
+ * These tests use React Testing Library to render components
+ * in a test environment and MSW to mock API responses.
+ *
+ * NOT tested here:
+ * - File uploads (tested in E2E due to jsdom limitations)
+ * - Drag and drop interactions (tested in E2E)
+ * - Complex multi-step workflows (tested in E2E)
+ */
 describe('SchemaManager Component', () => {
   test('renders schema manager interface', async () => {
     render(<SchemaManager />)
@@ -73,110 +89,8 @@ describe('SchemaManager Component', () => {
     expect(screen.getByText(/active/i)).toBeInTheDocument()
   })
 
-  test('handles file selection via dropzone click', async () => {
-    const user = userEvent.setup()
-    render(<SchemaManager />)
 
-    // Wait for component to load
-    await waitFor(() => {
-      expect(screen.getByText(/select schema folder/i)).toBeInTheDocument()
-    })
 
-    // Create a mock file input
-    const file = new File(['<schema>test</schema>'], 'test.xsd', { type: 'application/xml' })
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement
-
-    if (input) {
-      // Simulate file selection
-      Object.defineProperty(input, 'files', {
-        value: [file],
-        writable: false
-      })
-
-      await user.upload(input, file)
-
-      await waitFor(() => {
-        expect(screen.getByText('test.xsd')).toBeInTheDocument()
-      })
-    }
-  })
-
-  test('handles successful schema upload', async () => {
-    const user = userEvent.setup()
-    render(<SchemaManager />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/select schema folder/i)).toBeInTheDocument()
-    })
-
-    const file = new File(['<schema>test</schema>'], 'test.xsd', { type: 'application/xml' })
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement
-
-    if (input) {
-      Object.defineProperty(input, 'files', {
-        value: [file],
-        writable: false
-      })
-
-      await user.upload(input, file)
-
-      const uploadButton = await screen.findByRole('button', { name: /upload \d+ file/i })
-      await user.click(uploadButton)
-
-      await waitFor(() => {
-        // After successful upload, file list should be cleared
-        expect(screen.queryByText('test.xsd')).not.toBeInTheDocument()
-      })
-    }
-  })
-
-  test('handles upload errors with validation failures', async () => {
-    server.use(
-      http.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
-        return HttpResponse.json({
-            detail: {
-              message: 'Schema validation failed',
-              niem_ndr_report: {
-                status: 'fail',
-                violations: [
-                  {
-                    type: 'error',
-                    file: 'test.xsd',
-                    message: 'Invalid NIEM element'
-                  }
-                ]
-              }
-            }
-          }, { status: 400 })
-      })
-    )
-
-    const user = userEvent.setup()
-    render(<SchemaManager />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/select schema folder/i)).toBeInTheDocument()
-    })
-
-    const file = new File(['<schema>invalid</schema>'], 'invalid.xsd', { type: 'application/xml' })
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement
-
-    if (input) {
-      Object.defineProperty(input, 'files', {
-        value: [file],
-        writable: false
-      })
-
-      await user.upload(input, file)
-
-      const uploadButton = await screen.findByRole('button', { name: /upload \d+ file/i })
-      await user.click(uploadButton)
-
-      await waitFor(() => {
-        expect(screen.getByText(/schema validation failed/i)).toBeInTheDocument()
-      })
-    }
-  })
 
   test('activates inactive schema', async () => {
     const user = userEvent.setup()
@@ -191,11 +105,11 @@ describe('SchemaManager Component', () => {
 
     // Mock successful activation
     server.use(
-      http.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
+      http.get(`${API_URL}/api/schema`, () => {
         return HttpResponse.json([
-            { ...mockSchemas[0], active: false },
-            { ...mockSchemas[1], active: true }
-          ])
+          { ...mockSchemas[0], active: false },
+          { ...mockSchemas[1], active: true }
+        ])
       })
     )
 
@@ -207,80 +121,6 @@ describe('SchemaManager Component', () => {
     })
   })
 
-  test('allows removing files before upload', async () => {
-    const user = userEvent.setup()
-    render(<SchemaManager />)
 
-    await waitFor(() => {
-      expect(screen.getByText(/select schema folder/i)).toBeInTheDocument()
-    })
-
-    const files = [
-      new File(['<schema>1</schema>'], 'test1.xsd', { type: 'application/xml' }),
-      new File(['<schema>2</schema>'], 'test2.xsd', { type: 'application/xml' })
-    ]
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement
-
-    if (input) {
-      Object.defineProperty(input, 'files', {
-        value: files,
-        writable: false
-      })
-
-      await user.upload(input, files)
-
-      await waitFor(() => {
-        expect(screen.getByText('test1.xsd')).toBeInTheDocument()
-        expect(screen.getByText('test2.xsd')).toBeInTheDocument()
-      })
-
-      // Find remove buttons
-      const removeButtons = screen.getAllByRole('button', { name: /remove/i })
-      expect(removeButtons.length).toBeGreaterThan(0)
-
-      await user.click(removeButtons[0])
-
-      await waitFor(() => {
-        // One file should remain
-        const fileNames = screen.queryAllByText(/test\d+\.xsd/)
-        expect(fileNames.length).toBeLessThan(2)
-      })
-    }
-  })
-
-  test('filters non-XSD files automatically', async () => {
-    const user = userEvent.setup()
-    render(<SchemaManager />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/select schema folder/i)).toBeInTheDocument()
-    })
-
-    const files = [
-      new File(['<schema>test</schema>'], 'test.xsd', { type: 'application/xml' }),
-      new File(['not xml'], 'test.txt', { type: 'text/plain' }),
-      new File(['{}'], 'test.json', { type: 'application/json' })
-    ]
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement
-
-    if (input) {
-      const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
-
-      Object.defineProperty(input, 'files', {
-        value: files,
-        writable: false
-      })
-
-      await user.upload(input, files)
-
-      await waitFor(() => {
-        expect(screen.getByText('test.xsd')).toBeInTheDocument()
-        expect(screen.queryByText('test.txt')).not.toBeInTheDocument()
-        expect(screen.queryByText('test.json')).not.toBeInTheDocument()
-      })
-
-      consoleSpy.mockRestore()
-    }
-  })
 })
 
