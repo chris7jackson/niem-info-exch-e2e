@@ -56,6 +56,14 @@ async def startup_tasks():
         else:
             logger.warning("CMF tool setup failed - some features may not be available")
 
+        # Setup scheval tool
+        from .clients.scheval_client import download_and_setup_scheval
+        scheval_setup = await download_and_setup_scheval()
+        if scheval_setup:
+            logger.info("Scheval tool setup completed successfully")
+        else:
+            logger.warning("Scheval tool setup failed - schematron validation may not be available")
+
         # Download and setup NIEMTran tool
         from .clients.niemtran_client import download_and_setup_niemtran
         niemtran_setup = await download_and_setup_niemtran()
