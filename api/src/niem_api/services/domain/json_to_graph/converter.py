@@ -224,12 +224,15 @@ def generate_for_json_content(
     contains = []  # (parent_id, parent_label, child_id, child_label, HAS_REL)
 
     # Get objects from @graph or treat data as single object
-    objects = data.get("@graph", [data] if "@type" in data or any(k for k in data.keys() if not k.startswith("@")) else [])
+    has_content = "@type" in data or any(k for k in data.keys() if not k.startswith("@"))
+    objects = data.get("@graph", [data] if has_content else [])
 
     # Process each object
     object_counter = 0
 
-    def process_jsonld_object(obj: dict[str, Any], parent_id: str = None, parent_label: str = None, property_name: str = None):
+    def process_jsonld_object(
+        obj: dict[str, Any], parent_id: str = None, parent_label: str = None, property_name: str = None
+    ):
         """Process a JSON-LD object and generate nodes/relationships."""
         nonlocal object_counter
 
@@ -273,7 +276,11 @@ def generate_for_json_content(
 
             # Create containment edge if nested
             if parent_id:
-                contains.append((parent_id, parent_label, obj_id, label, f"HAS_{local_from_qname(property_name) if property_name else 'CHILD'}"))
+                rel_type = (
+                    f"HAS_{local_from_qname(property_name)}"
+                    if property_name else 'HAS_CHILD'
+                )
+                contains.append((parent_id, parent_label, obj_id, label, rel_type))
 
             # Process nested properties
             for key, value in obj.items():
@@ -316,7 +323,11 @@ def generate_for_json_content(
             nodes[obj_id] = (label, qname or "Object", props_dict, {})
 
             if parent_id:
-                contains.append((parent_id, parent_label, obj_id, label, f"HAS_{local_from_qname(property_name) if property_name else 'CHILD'}"))
+                rel_type = (
+                    f"HAS_{local_from_qname(property_name)}"
+                    if property_name else 'HAS_CHILD'
+                )
+                contains.append((parent_id, parent_label, obj_id, label, rel_type))
 
             # Process nested
             for key, value in obj.items():

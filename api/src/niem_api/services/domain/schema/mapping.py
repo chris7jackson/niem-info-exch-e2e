@@ -265,7 +265,10 @@ def build_datatype_index(root: ET.Element) -> dict[str, dict[str, Any]]:
             # Check for restriction base (indicates simple type)
             restriction_base = element.find(".//cmf:RestrictionBase", NS)
             restriction_of = element.find(".//cmf:RestrictionOf", NS)
-            is_restriction = restriction_base is not None or restriction_of is not None or element_type == ".//cmf:Restriction"
+            is_restriction = (
+                restriction_base is not None or restriction_of is not None
+                or element_type == ".//cmf:Restriction"
+            )
 
             # Check for child properties (indicates complex type)
             child_props = element.findall(".//cmf:ChildPropertyAssociation", NS)

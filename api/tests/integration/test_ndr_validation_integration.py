@@ -26,7 +26,10 @@ class TestNdrValidationIntegration:
     @pytest.fixture
     def samples_path(self):
         """Path to sample XSD files"""
-        samples_path = Path(__file__).parent.parent.parent.parent / "samples" / "CrashDriver-cmf" / "CrashDriverSchemaSet"
+        samples_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "samples" / "CrashDriver-cmf" / "CrashDriverSchemaSet"
+        )
 
         if not samples_path.exists():
             pytest.skip(f"Sample files not found at {samples_path}")
@@ -58,7 +61,10 @@ class TestNdrValidationIntegration:
     def test_validate_reference_schema(self, validator):
         """Test validation of ReferenceSchemaDocument using official NIEM model"""
         # Use the official NIEM 6.0 reference schema
-        niem_model_path = Path(__file__).parent.parent.parent.parent / "third_party" / "niem-model" / "xsd" / "niem-core.xsd"
+        niem_model_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "third_party" / "niem-model" / "xsd" / "niem-core.xsd"
+        )
 
         if not niem_model_path.exists():
             pytest.skip(f"Official NIEM reference schema not found: {niem_model_path}")
@@ -174,7 +180,10 @@ class TestNdrValidationIntegration:
     def test_reference_vs_subset_comparison(self, validator, samples_path):
         """Test that reference and subset schemas are validated with different rule sets"""
         # Official NIEM reference schema (14,503 lines)
-        reference_path = Path(__file__).parent.parent.parent.parent / "third_party" / "niem-model" / "xsd" / "niem-core.xsd"
+        reference_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "third_party" / "niem-model" / "xsd" / "niem-core.xsd"
+        )
 
         # CrashDriver subset schema (467 lines - trimmed from reference)
         subset_path = samples_path / "niem" / "niem-core.xsd"

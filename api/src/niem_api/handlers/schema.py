@@ -252,7 +252,10 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
         return {
             "can_convert": can_convert,
             "summary": validation_result['summary'],
-            "total_imports": len(validation_result.get('missing_imports', [])) + len(validation_result.get('missing_namespaces', [])),
+            "total_imports": (
+                len(validation_result.get('missing_imports', []))
+                + len(validation_result.get('missing_namespaces', []))
+            ),
             "satisfied_imports": [],
             "missing_imports": missing_deps,
             "blocking_issues": blocking_issues,
@@ -275,7 +278,9 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
         }
 
 
-async def _validate_and_read_files(files: list[UploadFile], file_paths: list[str] = None) -> tuple[dict[str, bytes], dict[str, str], UploadFile, str]:
+async def _validate_and_read_files(
+    files: list[UploadFile], file_paths: list[str] = None
+) -> tuple[dict[str, bytes], dict[str, str], UploadFile, str]:
     """Validate and read uploaded files.
 
     Args:
@@ -518,7 +523,11 @@ async def _convert_to_cmf(
                 logger.error(f"Cannot convert to CMF: {dependency_report['blocking_issues']}")
                 # Return early with dependency report but don't raise exception
                 # Let caller combine with NDR validation and decide how to fail
-                return {"status": "dependency_failed", "dependency_report": dependency_report, "import_validation_report": dependency_report.get("import_validation_report")}, None
+                return {
+                    "status": "dependency_failed",
+                    "dependency_report": dependency_report,
+                    "import_validation_report": dependency_report.get("import_validation_report")
+                }, None
 
             logger.info("All dependencies satisfied, proceeding with CMF conversion")
 
@@ -527,7 +536,10 @@ async def _convert_to_cmf(
                 resolved_temp_path, primary_file_path
             )
 
-            logger.info(f"CMF conversion result: {cmf_conversion_result.get('status') if cmf_conversion_result else 'None'}")
+            logger.info(
+                f"CMF conversion result: "
+                f"{cmf_conversion_result.get('status') if cmf_conversion_result else 'None'}"
+            )
 
             if cmf_conversion_result.get("status") != "success":
                 error_msg = cmf_conversion_result.get('error', 'Unknown CMF conversion error')
@@ -554,7 +566,10 @@ async def _convert_to_cmf(
                 cmf_content = cmf_conversion_result["cmf_content"]
                 json_schema_conversion_result = convert_cmf_to_jsonschema(cmf_content)
                 if json_schema_conversion_result.get("status") != "success":
-                    logger.warning(f"CMF to JSON Schema conversion failed: {json_schema_conversion_result.get('error', 'Unknown error')}")
+                    logger.warning(
+                        f"CMF to JSON Schema conversion failed: "
+                        f"{json_schema_conversion_result.get('error', 'Unknown error')}"
+                    )
                     json_schema_conversion_result = None
             except Exception as e:
                 logger.warning(f"CMF to JSON Schema conversion failed: {e}")
@@ -633,7 +648,14 @@ async def _generate_and_store_mapping(
         schema_id: Generated schema ID
         cmf_conversion_result: CMF conversion result
     """
-    logger.error(f"*** DEBUG: About to check mapping generation. CMF result exists: {cmf_conversion_result is not None}, has CMF content: {cmf_conversion_result.get('cmf_content') is not None if cmf_conversion_result else False} ***")
+    has_cmf_content = (
+        cmf_conversion_result.get('cmf_content') is not None
+        if cmf_conversion_result else False
+    )
+    logger.error(
+        f"*** DEBUG: About to check mapping generation. CMF result exists: "
+        f"{cmf_conversion_result is not None}, has CMF content: {has_cmf_content} ***"
+    )
 
     if not (cmf_conversion_result and cmf_conversion_result.get("cmf_content")):
         return
@@ -668,7 +690,12 @@ async def _generate_and_store_mapping(
         # Log results
         summary = coverage_result.get("summary", {})
         logger.info(f"Successfully generated and stored mapping YAML for schema {schema_id}")
-        logger.info(f"Mapping stats: {len(mapping_dict.get('namespaces', {}))} namespaces, {len(mapping_dict.get('objects', []))} objects, {len(mapping_dict.get('associations', []))} associations, {len(mapping_dict.get('references', []))} references")
+        logger.info(
+            f"Mapping stats: {len(mapping_dict.get('namespaces', {}))} namespaces, "
+            f"{len(mapping_dict.get('objects', []))} objects, "
+            f"{len(mapping_dict.get('associations', []))} associations, "
+            f"{len(mapping_dict.get('references', []))} references"
+        )
         logger.info(f"Coverage validation: {summary.get('overall_coverage_percentage', 0):.1f}% overall coverage")
 
         if summary.get("has_critical_issues", False):
@@ -759,11 +786,17 @@ async def handle_schema_upload(
 
         # Step 3.5: Check both validations and fail with combined reports if either failed
         ndr_has_errors = niem_ndr_report and niem_ndr_report.status in ("fail", "error")
-        import_has_errors = cmf_conversion_result and cmf_conversion_result.get("status") in ("dependency_failed", "fail", "error")
+        import_has_errors = (
+            cmf_conversion_result
+            and cmf_conversion_result.get("status") in ("dependency_failed", "fail", "error")
+        )
 
         if ndr_has_errors or import_has_errors:
             # Extract import validation report
-            import_validation_report = cmf_conversion_result.get("import_validation_report") if cmf_conversion_result else None
+            import_validation_report = (
+                cmf_conversion_result.get("import_validation_report")
+                if cmf_conversion_result else None
+            )
 
             # Build combined error message
             error_parts = []
@@ -786,13 +819,19 @@ async def handle_schema_upload(
                 detail={
                     "message": combined_message,
                     "niem_ndr_report": niem_ndr_report.model_dump() if niem_ndr_report else None,
-                    "import_validation_report": import_validation_report.model_dump() if import_validation_report else None,
+                    "import_validation_report": (
+                        import_validation_report.model_dump()
+                        if import_validation_report else None
+                    ),
                     "cmf_error": cmf_conversion_result.get("error") if import_has_errors else None
                 }
             )
 
         # Step 4: Store all schema files
-        await _store_schema_files(s3, schema_id, primary_file.filename, file_contents, file_path_map, cmf_conversion_result, json_schema_conversion_result)
+        await _store_schema_files(
+            s3, schema_id, primary_file.filename, file_contents, file_path_map,
+            cmf_conversion_result, json_schema_conversion_result
+        )
 
         # Step 5: Generate and store mapping YAML
         await _generate_and_store_mapping(s3, schema_id, cmf_conversion_result)

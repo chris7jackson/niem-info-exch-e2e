@@ -77,7 +77,10 @@ class TestAdminHandlers:
 
         with patch('niem_api.handlers.admin.count_schemas', return_value=5), \
              patch('niem_api.handlers.admin.count_data_files', return_value={"total_files": 10}), \
-             patch('niem_api.handlers.admin.count_neo4j_objects', return_value={"status": "success", "stats": {"nodes": 100, "relationships": 50, "indexes": 2, "constraints": 1}}):
+             patch('niem_api.handlers.admin.count_neo4j_objects', return_value={
+                 "status": "success",
+                 "stats": {"nodes": 100, "relationships": 50, "indexes": 2, "constraints": 1}
+             }):
 
             result = handle_reset(reset_request, mock_s3_client)
 

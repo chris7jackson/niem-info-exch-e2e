@@ -89,7 +89,10 @@ class GraphSchemaManager:
                         logger.warning(f"Failed to create index on {label}.{prop}: {e}")
                         results["indexes_failed"].append(f"{label}.{prop}: {str(e)}")
 
-            logger.info(f"Schema configuration completed: {len(results['indexes_created'])} indexes, {len(results['constraints_created'])} constraints")
+            logger.info(
+                f"Schema configuration completed: {len(results['indexes_created'])} indexes, "
+                f"{len(results['constraints_created'])} constraints"
+            )
             return results
 
         except Exception as e:
@@ -222,7 +225,10 @@ class GraphSchemaManager:
                     except ClientError as e:
                         logger.warning(f"Could not drop index {index_name}: {e}")
 
-            logger.info(f"Schema reset completed: dropped {len(dropped_constraints)} constraints, {len(dropped_indexes)} indexes")
+            logger.info(
+                f"Schema reset completed: dropped {len(dropped_constraints)} constraints, "
+                f"{len(dropped_indexes)} indexes"
+            )
 
             return {
                 "dropped_constraints": dropped_constraints,

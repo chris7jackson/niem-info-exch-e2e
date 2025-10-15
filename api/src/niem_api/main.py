@@ -55,7 +55,8 @@ async def startup_tasks():
 
         logger.info("Startup tasks completed successfully")
 
-        # TODO potentially, fetch all third party references. i.e. niem open reference xsd schemas. niem cmftool, niem naming design rules. Or document how to update.
+        # TODO potentially, fetch all third party references. i.e. niem open reference xsd schemas.
+        # niem cmftool, niem naming design rules. Or document how to update.
 
     except Exception as e:
         logger.error(f"Startup tasks failed: {e}")

@@ -200,7 +200,8 @@ class SchemaValidator:
                     # Also check if any uploaded schema path ends with this import path
                     for uploaded_name in uploaded_schemas.keys():
                         normalized_uploaded = uploaded_name.replace('\\', '/')
-                        if normalized_uploaded.endswith(normalized_location) or normalized_uploaded.endswith(import_filename):
+                        if (normalized_uploaded.endswith(normalized_location)
+                                or normalized_uploaded.endswith(import_filename)):
                             found = True
                             break
 
@@ -255,7 +256,10 @@ class SchemaValidator:
                     })
 
                     if status == 'missing':
-                        logger.warning(f"{filename} uses prefix {prefix}:{namespace_uri} but no uploaded schema provides this namespace")
+                        logger.warning(
+                            f"{filename} uses prefix {prefix}:{namespace_uri} but no uploaded "
+                            f"schema provides this namespace"
+                        )
 
             file_details.append({
                 'filename': filename,

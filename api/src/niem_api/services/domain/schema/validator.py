@@ -163,7 +163,10 @@ class NiemNdrValidator:
                 'ext': 'extension',
                 'sub': 'subset'
             }
-            composite_content += f"\n\n  <!-- Rules applicable only to {type_name_map[schema_type]} schema documents -->\n"
+            composite_content += (
+                f"\n\n  <!-- Rules applicable only to {type_name_map[schema_type]} "
+                f"schema documents -->\n"
+            )
             composite_content += type_content.strip()
 
             # Close the schema element

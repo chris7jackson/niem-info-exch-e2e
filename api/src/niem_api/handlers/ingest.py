@@ -262,7 +262,10 @@ def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> dict[str, Any]:
     except Exception as e:
         raise HTTPException(
             status_code=404,
-            detail=f"JSON Schema not found for schema {schema_id}. Schema may not have been converted to JSON format: {str(e)}"
+            detail=(
+                f"JSON Schema not found for schema {schema_id}. "
+                f"Schema may not have been converted to JSON format: {str(e)}"
+            )
         ) from e
 
 
@@ -301,7 +304,10 @@ def _validate_json_content(json_content: str, json_schema: dict[str, Any], filen
                 niem_prefixes = ["nc", "j", "structures"]
                 found_niem = any(prefix in context for prefix in niem_prefixes)
                 if not found_niem:
-                    logger.info(f"JSON file {filename} has @context but no common NIEM namespace prefixes (nc, j, structures)")
+                    logger.info(
+                        f"JSON file {filename} has @context but no common NIEM "
+                        f"namespace prefixes (nc, j, structures)"
+                    )
 
         # Validate against JSON Schema - collect ALL errors instead of stopping at first
         validator = Draft7Validator(json_schema)
@@ -425,7 +431,9 @@ def _execute_cypher_statements(cypher_statements: str, neo4j_client) -> int:
     return statements_executed
 
 
-async def _store_processed_files(s3: Minio, content: bytes, filename: str, cypher_statements: str, file_type: str = "xml") -> None:
+async def _store_processed_files(
+    s3: Minio, content: bytes, filename: str, cypher_statements: str, file_type: str = "xml"
+) -> None:
     """Store data files and Cypher files after successful processing.
 
     Args:
@@ -453,7 +461,10 @@ async def _store_processed_files(s3: Minio, content: bytes, filename: str, cyphe
         await upload_file(s3, "niem-data", base_filename, content, content_type)
         logger.info(f"Stored {file_type.upper()} file in niem-data after successful ingestion: {base_filename}")
     except Exception as e:
-        logger.warning(f"Graph ingestion succeeded but failed to store {file_type.upper()} file {filename} in niem-data: {e}")
+        logger.warning(
+            f"Graph ingestion succeeded but failed to store {file_type.upper()} "
+            f"file {filename} in niem-data: {e}"
+        )
 
     # Store generated Cypher statements alongside the data file in the same folder
     try:
@@ -709,7 +720,10 @@ async def _process_single_json_file(
 
             # If no validation_result but message indicates validation failure, provide helpful default
             if not validation_result and 'validation' in error_msg.lower():
-                error_msg = f"{error_msg}. NIEM JSON validation failed - check that the JSON conforms to the active schema."
+                error_msg = (
+                    f"{error_msg}. NIEM JSON validation failed - check that the JSON "
+                    f"conforms to the active schema."
+                )
         else:
             error_msg = e.detail if hasattr(e, 'detail') else str(e)
             validation_result = None
@@ -816,7 +830,11 @@ def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filenam
             "edges_count": len(edges)
         }
 
-        logger.info(f"Generated Cypher for {filename}: {stats['nodes_created']} nodes, {stats['containment_edges']} containment relationships, {stats['reference_edges']} reference/association edges")
+        logger.info(
+            f"Generated Cypher for {filename}: {stats['nodes_created']} nodes, "
+            f"{stats['containment_edges']} containment relationships, "
+            f"{stats['reference_edges']} reference/association edges"
+        )
 
         return cypher_statements, stats
 
@@ -856,7 +874,11 @@ def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filen
             "edges_count": len(edges)
         }
 
-        logger.info(f"Generated Cypher for {filename}: {stats['nodes_created']} nodes, {stats['containment_edges']} containment relationships, {stats['reference_edges']} reference/association edges")
+        logger.info(
+            f"Generated Cypher for {filename}: {stats['nodes_created']} nodes, "
+            f"{stats['containment_edges']} containment relationships, "
+            f"{stats['reference_edges']} reference/association edges"
+        )
 
         return cypher_statements, stats
 

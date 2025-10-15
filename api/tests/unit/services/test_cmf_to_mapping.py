@@ -147,7 +147,10 @@ class TestCMFToMapping:
         associations = mapping["associations"]
         assert len(associations) == 1
         person_assoc = associations[0]
-        assert "test:PersonAssociation" in person_assoc["qname"] or "test:PersonAssociationType" in person_assoc["qname"]
+        assert (
+            "test:PersonAssociation" in person_assoc["qname"]
+            or "test:PersonAssociationType" in person_assoc["qname"]
+        )
 
         # Check polymorphism settings
         assert mapping["polymorphism"]["strategy"] == "extraLabel"
