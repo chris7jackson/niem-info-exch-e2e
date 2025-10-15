@@ -13,6 +13,7 @@ const navigation = [
   { name: 'Schemas', href: '/schemas' },
   { name: 'Upload Data', href: '/upload' },
   { name: 'Graph Explorer', href: '/graph' },
+  { name: 'Helper Tools', href: '/tools' },
   { name: 'Admin', href: '/admin' },
 ];
 
