@@ -26,11 +26,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY src/ ./src/
+COPY api/src/ ./src/
 
 # Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser

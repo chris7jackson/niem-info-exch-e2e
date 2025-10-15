@@ -20,13 +20,13 @@ LABEL org.opencontainers.image.version="${VERSION}" \
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY ui/package*.json ./
 
 # Install dependencies
 RUN npm install
 
 # Copy application code
-COPY . .
+COPY ui/ .
 
 # Build the application
 RUN npm run build
