@@ -487,7 +487,7 @@ export default function GraphPage() {
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">Query Options</h3>
           <p className="mt-1 text-sm text-gray-600">
-            By default, shows all nodes and relationships. Use "Limited (100)" for large graphs.
+            By default, shows all nodes and relationships. Use &quot;Limited (100)&quot; for large graphs.
           </p>
         </div>
         <div className="p-6">

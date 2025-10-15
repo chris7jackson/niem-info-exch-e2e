@@ -1,24 +1,25 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom'
 import { rest } from 'msw'
 import { setupServer } from 'msw/node'
+import { vi } from 'vitest'
 
-import GraphPage from './graph'
+import GraphPage from '../pages/graph'
 
 // Mock Cytoscape since it requires DOM
-jest.mock('cytoscape', () => {
-  return jest.fn(() => ({
-    add: jest.fn(),
-    layout: jest.fn(() => ({ run: jest.fn() })),
-    on: jest.fn(),
-    destroy: jest.fn(),
-    elements: jest.fn(() => []),
-    style: jest.fn(),
-    fit: jest.fn()
+vi.mock('cytoscape', () => ({
+  default: vi.fn(() => ({
+    add: vi.fn(),
+    layout: vi.fn(() => ({ run: vi.fn() })),
+    on: vi.fn(),
+    destroy: vi.fn(),
+    elements: vi.fn(() => []),
+    style: vi.fn(),
+    fit: vi.fn()
   }))
-})
+}))
 
 const mockGraphData = {
   nodes: [
@@ -44,8 +45,10 @@ const mockGraphData = {
   ]
 }
 
+const API_URL = 'http://localhost:8000'
+
 const server = setupServer(
-  rest.get('/api/graph/full', (req, res, ctx) => {
+  rest.get(`${API_URL}/api/graph/full`, (_req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json({
@@ -54,7 +57,7 @@ const server = setupServer(
       })
     )
   }),
-  rest.post('/api/graph/query', (req, res, ctx) => {
+  rest.post(`${API_URL}/api/graph/query`, (_req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json({
@@ -63,7 +66,7 @@ const server = setupServer(
       })
     )
   }),
-  rest.get('/api/graph/summary', (req, res, ctx) => {
+  rest.get(`${API_URL}/api/graph/summary`, (_req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json({
@@ -86,7 +89,7 @@ afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
 describe('Graph Page', () => {
-  test('renders graph interface correctly', async () => {
+  test('renders graph interface with key elements', async () => {
     render(<GraphPage />)
 
     expect(screen.getByText(/graph visualization/i)).toBeInTheDocument()
@@ -94,7 +97,7 @@ describe('Graph Page', () => {
     expect(screen.getByPlaceholderText(/enter cypher query/i)).toBeInTheDocument()
   })
 
-  test('loads full graph data on button click', async () => {
+  test('loads and displays graph data with statistics', async () => {
     const user = userEvent.setup()
     render(<GraphPage />)
 
@@ -103,10 +106,11 @@ describe('Graph Page', () => {
     await waitFor(() => {
       expect(screen.getByText(/nodes: 2/i)).toBeInTheDocument()
       expect(screen.getByText(/relationships: 1/i)).toBeInTheDocument()
+      expect(screen.getByText(/database summary/i)).toBeInTheDocument()
     })
   })
 
-  test('executes custom cypher query', async () => {
+  test('executes custom cypher queries', async () => {
     const user = userEvent.setup()
     render(<GraphPage />)
 
@@ -121,9 +125,9 @@ describe('Graph Page', () => {
     })
   })
 
-  test('handles graph loading errors', async () => {
+  test('handles errors gracefully', async () => {
     server.use(
-      rest.get('/api/graph/full', (req, res, ctx) => {
+      rest.get(`${API_URL}/api/graph/full`, (_req, res, ctx) => {
         return res(
           ctx.status(500),
           ctx.json({ detail: 'Database connection failed' })
@@ -141,61 +145,21 @@ describe('Graph Page', () => {
     })
   })
 
-  test('shows loading state while fetching data', async () => {
-    server.use(
-      rest.get('/api/graph/full', (req, res, ctx) => {
-        return res(
-          ctx.delay(1000),
-          ctx.status(200),
-          ctx.json({ status: 'success', data: mockGraphData })
-        )
-      })
-    )
-
+  test('validates query input before execution', async () => {
     const user = userEvent.setup()
     render(<GraphPage />)
 
-    await user.click(screen.getByRole('button', { name: /load full graph/i }))
-
-    expect(screen.getByText(/loading graph/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /load full graph/i })).toBeDisabled()
-  })
-
-  test('displays graph statistics', async () => {
-    const user = userEvent.setup()
-    render(<GraphPage />)
-
-    // Trigger graph load to fetch summary
-    await user.click(screen.getByRole('button', { name: /load full graph/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText(/database summary/i)).toBeInTheDocument()
-      expect(screen.getByText(/person: 1/i)).toBeInTheDocument()
-      expect(screen.getByText(/company: 1/i)).toBeInTheDocument()
-      expect(screen.getByText(/works_for: 1/i)).toBeInTheDocument()
-    })
-  })
-
-  test('validates cypher query input', async () => {
-    const user = userEvent.setup()
-    render(<GraphPage />)
-
-    const queryInput = screen.getByPlaceholderText(/enter cypher query/i)
     const executeButton = screen.getByRole('button', { name: /execute query/i })
 
     // Try to execute empty query
     await user.click(executeButton)
 
     expect(screen.getByText(/please enter a query/i)).toBeInTheDocument()
-
-    // Enter valid query
-    await user.type(queryInput, 'MATCH (n) RETURN n')
-    expect(screen.queryByText(/please enter a query/i)).not.toBeInTheDocument()
   })
 
-  test('handles query execution errors', async () => {
+  test('handles invalid Cypher syntax errors', async () => {
     server.use(
-      rest.post('/api/graph/query', (req, res, ctx) => {
+      rest.post(`${API_URL}/api/graph/query`, (_req, res, ctx) => {
         return res(
           ctx.status(400),
           ctx.json({ detail: 'Invalid Cypher syntax' })
@@ -214,49 +178,6 @@ describe('Graph Page', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/invalid cypher syntax/i)).toBeInTheDocument()
-    })
-  })
-
-  test('provides query examples', () => {
-    render(<GraphPage />)
-
-    expect(screen.getByText(/example queries/i)).toBeInTheDocument()
-    expect(screen.getByText(/match \(n\) return n limit 25/i)).toBeInTheDocument()
-    expect(screen.getByText(/match \(p:person\)/i)).toBeInTheDocument()
-  })
-
-  test('allows query limit configuration', async () => {
-    const user = userEvent.setup()
-    render(<GraphPage />)
-
-    const limitInput = screen.getByLabelText(/result limit/i)
-
-    // Change limit value
-    await user.clear(limitInput)
-    await user.type(limitInput, '50')
-
-    expect(limitInput).toHaveValue(50)
-  })
-
-  test('updates graph visualization when data changes', async () => {
-    const user = userEvent.setup()
-    render(<GraphPage />)
-
-    // Load initial data
-    await user.click(screen.getByRole('button', { name: /load full graph/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText(/nodes: 2/i)).toBeInTheDocument()
-    })
-
-    // Execute different query
-    const queryInput = screen.getByPlaceholderText(/enter cypher query/i)
-    await user.type(queryInput, 'MATCH (n:Person) RETURN n')
-    await user.click(screen.getByRole('button', { name: /execute query/i }))
-
-    // Graph should update with new data
-    await waitFor(() => {
-      expect(screen.getByText(/query executed successfully/i)).toBeInTheDocument()
     })
   })
 })

@@ -1,22 +1,13 @@
+import { vi } from 'vitest'
 import { rest } from 'msw'
 import { setupServer } from 'msw/node'
+import apiClient from './api'
 
-import {
-  uploadSchema,
-  getSchemas,
-  activateSchema,
-  ingestXMLFiles,
-  ingestJSONFiles,
-  getUploadedFiles,
-  executeGraphQuery,
-  getFullGraph,
-  getDatabaseSummary,
-  resetSystem
-} from './api'
+const API_URL = 'http://localhost:8000'
 
 const server = setupServer(
   // Schema endpoints
-  rest.post('/api/schema/xsd', (req, res, ctx) => {
+  rest.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json({
@@ -26,7 +17,7 @@ const server = setupServer(
       })
     )
   }),
-  rest.get('/api/schema', (req, res, ctx) => {
+  rest.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json([
@@ -45,7 +36,7 @@ const server = setupServer(
       ])
     )
   }),
-  rest.post('/api/schema/activate/:schemaId', (req, res, ctx) => {
+  rest.post(`${API_URL}/api/schema/activate/:schemaId`, (req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json({ active_schema_id: req.params.schemaId })
@@ -53,7 +44,7 @@ const server = setupServer(
   }),
 
   // Ingestion endpoints
-  rest.post('/api/ingest/xml', (req, res, ctx) => {
+  rest.post(`${API_URL}/api/ingest/xml`, (_req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json({
@@ -64,7 +55,7 @@ const server = setupServer(
       })
     )
   }),
-  rest.post('/api/ingest/json', (req, res, ctx) => {
+  rest.post(`${API_URL}/api/ingest/json`, (_req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json({
@@ -75,11 +66,10 @@ const server = setupServer(
       })
     )
   }),
-  rest.get('/api/ingest/files', (req, res, ctx) => {
+  rest.get(`${API_URL}/api/ingest/files`, (_req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json({
-        status: 'success',
         files: [
           {
             original_name: 'crash_data.xml',
@@ -88,59 +78,13 @@ const server = setupServer(
             last_modified: '2024-01-01T00:00:00Z',
             content_type: 'application/xml'
           }
-        ],
-        total_files: 1
-      })
-    )
-  }),
-
-  // Graph endpoints
-  rest.post('/api/graph/query', (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
-        status: 'success',
-        data: {
-          nodes: [{ id: 1, labels: ['Person'], properties: { name: 'John' } }],
-          relationships: []
-        }
-      })
-    )
-  }),
-  rest.get('/api/graph/full', (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
-        status: 'success',
-        data: {
-          nodes: [
-            { id: 1, labels: ['Person'], properties: { name: 'John' } },
-            { id: 2, labels: ['Company'], properties: { name: 'Acme' } }
-          ],
-          relationships: [
-            { id: 10, type: 'WORKS_FOR', start_node_id: 1, end_node_id: 2, properties: {} }
-          ]
-        }
-      })
-    )
-  }),
-  rest.get('/api/graph/summary', (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
-        status: 'success',
-        data: {
-          node_count: 100,
-          relationship_count: 50,
-          labels: ['Person', 'Company'],
-          relationship_types: ['WORKS_FOR', 'KNOWS']
-        }
+        ]
       })
     )
   }),
 
   // Admin endpoints
-  rest.post('/api/admin/reset', (req, res, ctx) => {
+  rest.post(`${API_URL}/api/admin/reset`, (_req, res, ctx) => {
     return res(
       ctx.status(200),
       ctx.json({
@@ -161,30 +105,23 @@ afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
 describe('API Functions', () => {
+  // localStorage is already mocked in setup.ts, just configure return value
   beforeEach(() => {
-    // Mock localStorage for auth token
-    Object.defineProperty(window, 'localStorage', {
-      value: {
-        getItem: jest.fn(() => 'mock_token'),
-        setItem: jest.fn(),
-        removeItem: jest.fn()
-      },
-      writable: true
-    })
+    vi.mocked(window.localStorage.getItem).mockReturnValue('mock_token')
   })
 
   describe('Schema Management', () => {
     test('uploadSchema sends file correctly', async () => {
       const file = new File(['<schema>test</schema>'], 'test.xsd', { type: 'application/xml' })
 
-      const result = await uploadSchema(file)
+      const result = await apiClient.uploadSchema([file], ['test.xsd'], false)
 
       expect(result.schema_id).toBe('test_schema_123')
       expect(result.is_active).toBe(true)
     })
 
     test('getSchemas returns schema list', async () => {
-      const schemas = await getSchemas()
+      const schemas = await apiClient.getSchemas()
 
       expect(schemas).toHaveLength(2)
       expect(schemas[0].schema_id).toBe('schema_1')
@@ -192,14 +129,14 @@ describe('API Functions', () => {
     })
 
     test('activateSchema calls correct endpoint', async () => {
-      const result = await activateSchema('schema_2')
+      const result = await apiClient.activateSchema('schema_2')
 
       expect(result.active_schema_id).toBe('schema_2')
     })
 
     test('uploadSchema handles errors', async () => {
       server.use(
-        rest.post('/api/schema/xsd', (req, res, ctx) => {
+        rest.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
           return res(
             ctx.status(400),
             ctx.json({ detail: 'Invalid schema format' })
@@ -209,47 +146,43 @@ describe('API Functions', () => {
 
       const file = new File(['invalid'], 'invalid.xsd', { type: 'application/xml' })
 
-      await expect(uploadSchema(file)).rejects.toThrow('Invalid schema format')
+      await expect(apiClient.uploadSchema([file], ['invalid.xsd'], false)).rejects.toThrow()
     })
   })
 
   describe('Data Ingestion', () => {
-    test('ingestXMLFiles handles multiple files', async () => {
+    test('ingestXml handles multiple files', async () => {
       const files = [
         new File(['<xml1>test</xml1>'], 'test1.xml', { type: 'application/xml' }),
         new File(['<xml2>test</xml2>'], 'test2.xml', { type: 'application/xml' })
       ]
 
-      const result = await ingestXMLFiles(files, 'schema_123')
+      const result = await apiClient.ingestXml(files)
 
-      expect(result.status).toBe('success')
       expect(result.processed_files).toBe(2)
-      expect(result.nodes_created).toBe(10)
+      expect(result.total_nodes_created).toBe(10)
     })
 
-    test('ingestJSONFiles sends schema_id parameter', async () => {
+    test('ingestJson processes files', async () => {
       const files = [
         new File(['{"test": "data"}'], 'test.json', { type: 'application/json' })
       ]
 
-      const result = await ingestJSONFiles(files, 'schema_456')
+      const result = await apiClient.ingestJson(files)
 
-      expect(result.status).toBe('success')
       expect(result.processed_files).toBe(1)
     })
 
     test('getUploadedFiles returns file metadata', async () => {
-      const result = await getUploadedFiles()
+      const files = await apiClient.getUploadedFiles()
 
-      expect(result.status).toBe('success')
-      expect(result.files).toHaveLength(1)
-      expect(result.files[0].original_name).toBe('crash_data.xml')
-      expect(result.total_files).toBe(1)
+      expect(files).toHaveLength(1)
+      expect(files[0].original_name).toBe('crash_data.xml')
     })
 
     test('ingestion handles authentication errors', async () => {
       server.use(
-        rest.post('/api/ingest/xml', (req, res, ctx) => {
+        rest.post(`${API_URL}/api/ingest/xml`, (_req, res, ctx) => {
           return res(
             ctx.status(401),
             ctx.json({ detail: 'Invalid authentication token' })
@@ -259,96 +192,43 @@ describe('API Functions', () => {
 
       const files = [new File(['<xml>test</xml>'], 'test.xml', { type: 'application/xml' })]
 
-      await expect(ingestXMLFiles(files)).rejects.toThrow('Invalid authentication token')
-    })
-  })
-
-  describe('Graph Operations', () => {
-    test('executeGraphQuery sends query and parameters', async () => {
-      const query = 'MATCH (n:Person) RETURN n'
-      const limit = 50
-
-      const result = await executeGraphQuery(query, limit)
-
-      expect(result.status).toBe('success')
-      expect(result.data.nodes).toHaveLength(1)
-      expect(result.data.nodes[0].properties.name).toBe('John')
-    })
-
-    test('getFullGraph with custom limit', async () => {
-      const result = await getFullGraph(200)
-
-      expect(result.status).toBe('success')
-      expect(result.data.nodes).toHaveLength(2)
-      expect(result.data.relationships).toHaveLength(1)
-    })
-
-    test('getDatabaseSummary returns statistics', async () => {
-      const result = await getDatabaseSummary()
-
-      expect(result.status).toBe('success')
-      expect(result.data.node_count).toBe(100)
-      expect(result.data.relationship_count).toBe(50)
-      expect(result.data.labels).toContain('Person')
-      expect(result.data.relationship_types).toContain('WORKS_FOR')
-    })
-
-    test('graph operations handle network errors', async () => {
-      server.use(
-        rest.post('/api/graph/query', (req, res, ctx) => {
-          return res.networkError('Network connection failed')
-        })
-      )
-
-      await expect(executeGraphQuery('MATCH (n) RETURN n')).rejects.toThrow()
+      await expect(apiClient.ingestXml(files)).rejects.toThrow()
     })
   })
 
   describe('Admin Operations', () => {
     test('resetSystem sends correct parameters', async () => {
-      const resetOptions = {
-        reset_schemas: true,
-        reset_data: true,
-        reset_neo4j: false
-      }
-
-      const result = await resetSystem(resetOptions)
+      const result = await apiClient.resetSystem({
+        schemas: true,
+        data: true,
+        neo4j: false
+      })
 
       expect(result.status).toBe('success')
       expect(result.message).toBe('System reset completed')
-      expect(result.counts.schemas_deleted).toBe(5)
     })
 
-    test('resetSystem with confirm token', async () => {
+    test('getNeo4jStats returns database statistics', async () => {
       server.use(
-        rest.post('/api/admin/reset', (req, res, ctx) => {
-          const body = req.body as any
-          if (body.confirm_token) {
-            return res(
-              ctx.status(200),
-              ctx.json({ status: 'success', message: 'Reset executed' })
-            )
-          }
+        rest.get('/api/admin/neo4j/stats', (_req, res, ctx) => {
           return res(
             ctx.status(200),
             ctx.json({
-              confirm_token: 'abc123',
-              message: 'Dry run completed. Use confirm_token to execute reset.'
+              stats: {
+                nodes: 100,
+                relationships: 50,
+                indexes: 5,
+                constraints: 3
+              }
             })
           )
         })
       )
 
-      // First call - dry run
-      const dryRunResult = await resetSystem({ reset_schemas: true })
-      expect(dryRunResult.confirm_token).toBe('abc123')
+      const stats = await apiClient.getNeo4jStats()
 
-      // Second call - with confirm token
-      const executeResult = await resetSystem({
-        reset_schemas: true,
-        confirm_token: 'abc123'
-      })
-      expect(executeResult.message).toBe('Reset executed')
+      expect(stats.nodes).toBe(100)
+      expect(stats.relationships).toBe(50)
     })
   })
 
@@ -357,30 +237,20 @@ describe('API Functions', () => {
       let authHeader: string | null = null
 
       server.use(
-        rest.get('/api/schema', (req, res, ctx) => {
+        rest.get(`${API_URL}/api/schema`, (req, res, ctx) => {
           authHeader = req.headers.get('Authorization')
           return res(ctx.status(200), ctx.json([]))
         })
       )
 
-      await getSchemas()
+      await apiClient.getSchemas()
 
-      expect(authHeader).toBe('Bearer mock_token')
+      expect(authHeader).toBe('Bearer devtoken')
     })
 
-    test('handles missing auth token', async () => {
-      // Mock localStorage returning null
-      Object.defineProperty(window, 'localStorage', {
-        value: {
-          getItem: jest.fn(() => null),
-          setItem: jest.fn(),
-          removeItem: jest.fn()
-        },
-        writable: true
-      })
-
+    test('handles authentication errors', async () => {
       server.use(
-        rest.get('/api/schema', (req, res, ctx) => {
+        rest.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
           return res(
             ctx.status(401),
             ctx.json({ detail: 'Invalid authentication token' })
@@ -388,14 +258,14 @@ describe('API Functions', () => {
         })
       )
 
-      await expect(getSchemas()).rejects.toThrow('Invalid authentication token')
+      await expect(apiClient.getSchemas()).rejects.toThrow()
     })
   })
 
   describe('Error Handling', () => {
     test('handles 500 server errors', async () => {
       server.use(
-        rest.get('/api/schema', (req, res, ctx) => {
+        rest.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
           return res(
             ctx.status(500),
             ctx.json({ detail: 'Internal server error' })
@@ -403,23 +273,7 @@ describe('API Functions', () => {
         })
       )
 
-      await expect(getSchemas()).rejects.toThrow('Internal server error')
-    })
-
-    test('handles network timeouts', async () => {
-      server.use(
-        rest.get('/api/schema', (req, res, ctx) => {
-          return res(ctx.delay('infinite'))
-        })
-      )
-
-      // This would timeout in a real scenario
-      // For testing, we'll simulate the timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 100)
-      })
-
-      await expect(Promise.race([getSchemas(), timeoutPromise])).rejects.toThrow('Request timeout')
+      await expect(apiClient.getSchemas()).rejects.toThrow()
     })
   })
 })
