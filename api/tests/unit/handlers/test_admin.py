@@ -1,17 +1,11 @@
 #!/usr/bin/env python3
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
-from fastapi import HTTPException
 from minio import Minio
 
-from niem_api.handlers.admin import (
-    handle_reset,
-    count_schemas,
-    count_data_files,
-    reset_neo4j,
-    count_neo4j_objects
-)
+from niem_api.handlers.admin import count_data_files, count_neo4j_objects, count_schemas, handle_reset, reset_neo4j
 from niem_api.models.models import ResetRequest
 
 

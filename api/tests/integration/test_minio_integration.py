@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-import pytest
 import os
 from io import BytesIO
+
+import pytest
 from minio import Minio
-from minio.error import S3Error
 
 
 @pytest.mark.integration

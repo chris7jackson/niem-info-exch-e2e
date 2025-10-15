@@ -2,6 +2,7 @@
 
 import logging
 import logging.config
+
 from pythonjsonlogger import jsonlogger
 
 

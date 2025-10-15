@@ -2,12 +2,11 @@
 
 import json
 import logging
-import yaml
-from typing import List, Dict, Any
+from typing import Any
 
 from fastapi import HTTPException, UploadFile
 from minio import Minio
-from ..services.cmf_tool import is_cmf_available
+
 from ..clients.neo4j_client import Neo4jClient
 
 logger = logging.getLogger(__name__)
@@ -32,7 +31,7 @@ def _get_schema_id(s3: Minio, schema_id: str | None) -> str:
     return active_schema_id
 
 
-def _load_mapping_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
+def _load_mapping_from_s3(s3: Minio, schema_id: str) -> dict[str, Any]:
     """Load mapping YAML from S3.
 
     Args:
@@ -61,6 +60,7 @@ async def _download_schema_files(s3: Minio, schema_id: str) -> str:
     """
     import tempfile
     from pathlib import Path
+
     from ..clients.s3_client import download_file
 
     temp_dir = tempfile.mkdtemp(prefix="schema_validation_")
@@ -110,7 +110,8 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
         HTTPException: If validation fails (with structured error details in response)
     """
     from pathlib import Path
-    from ..clients.cmf_client import run_cmf_command, parse_cmf_validation_output, CMFError
+
+    from ..clients.cmf_client import CMFError, parse_cmf_validation_output, run_cmf_command
     from ..models.models import ValidationError, ValidationResult
 
     logger.info(f"Validating XML file {filename} against XSD schemas")
@@ -221,7 +222,7 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
             logger.debug(f"Cleaned up XML file: {filename}")
 
 
-def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
+def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> dict[str, Any]:
     """Download JSON Schema from S3.
 
     Args:
@@ -265,7 +266,7 @@ def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> Dict[str, Any]:
         )
 
 
-def _validate_json_content(json_content: str, json_schema: Dict[str, Any], filename: str) -> None:
+def _validate_json_content(json_content: str, json_schema: dict[str, Any], filename: str) -> None:
     """Validate NIEM JSON content against JSON Schema.
 
     NIEM JSON uses JSON-LD features (@context, @id, @type) with NIEM conventions.
@@ -280,6 +281,7 @@ def _validate_json_content(json_content: str, json_schema: Dict[str, Any], filen
         HTTPException: If validation fails (with structured error details in response)
     """
     from jsonschema import Draft7Validator
+
     from ..models.models import ValidationError, ValidationResult
 
     logger.info(f"Validating NIEM JSON file {filename} against JSON Schema")
@@ -433,9 +435,10 @@ async def _store_processed_files(s3: Minio, content: bytes, filename: str, cyphe
         cypher_statements: Generated Cypher statements
         file_type: Type of file ("xml" or "json")
     """
-    from ..clients.s3_client import upload_file
     import hashlib
     import time
+
+    from ..clients.s3_client import upload_file
 
     # Generate unique filename with timestamp
     timestamp = int(time.time())
@@ -466,7 +469,7 @@ async def _store_processed_files(s3: Minio, content: bytes, filename: str, cyphe
         logger.error(f"Traceback: {traceback.format_exc()}")
 
 
-def _create_success_result(filename: str, statements_executed: int, stats: Dict[str, Any]) -> Dict[str, Any]:
+def _create_success_result(filename: str, statements_executed: int, stats: dict[str, Any]) -> dict[str, Any]:
     """Create success result dictionary.
 
     Args:
@@ -486,7 +489,7 @@ def _create_success_result(filename: str, statements_executed: int, stats: Dict[
     }
 
 
-def _create_error_result(filename: str, error_msg: str, validation_result: Dict[str, Any] = None) -> Dict[str, Any]:
+def _create_error_result(filename: str, error_msg: str, validation_result: dict[str, Any] = None) -> dict[str, Any]:
     """Create error result dictionary.
 
     Args:
@@ -509,11 +512,11 @@ def _create_error_result(filename: str, error_msg: str, validation_result: Dict[
 
 async def _process_single_file(
     file: UploadFile,
-    mapping: Dict[str, Any],
+    mapping: dict[str, Any],
     neo4j_client,
     s3: Minio,
     schema_dir: str
-) -> tuple[Dict[str, Any], int]:
+) -> tuple[dict[str, Any], int]:
     """Process a single XML file.
 
     Args:
@@ -582,10 +585,10 @@ async def _process_single_file(
 
 
 async def handle_xml_ingest(
-    files: List[UploadFile],
+    files: list[UploadFile],
     s3: Minio,
     schema_id: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Handle XML file ingestion to Neo4j using import_xml_to_cypher service"""
     logger.info(f"Starting XML ingestion for {len(files)} files using import_xml_to_cypher service")
 
@@ -651,11 +654,11 @@ async def handle_xml_ingest(
 
 async def _process_single_json_file(
     file: UploadFile,
-    mapping: Dict[str, Any],
-    json_schema: Dict[str, Any],
+    mapping: dict[str, Any],
+    json_schema: dict[str, Any],
     neo4j_client,
     s3: Minio
-) -> tuple[Dict[str, Any], int]:
+) -> tuple[dict[str, Any], int]:
     """Process a single NIEM JSON file.
 
     Args:
@@ -724,10 +727,10 @@ async def _process_single_json_file(
 
 
 async def handle_json_ingest(
-    files: List[UploadFile],
+    files: list[UploadFile],
     s3: Minio,
     schema_id: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Handle NIEM JSON file ingestion to Neo4j using json_to_graph service.
 
     NIEM JSON uses JSON-LD features (@context, @id, @type) with NIEM-specific conventions
@@ -785,7 +788,7 @@ async def handle_json_ingest(
             raise
         raise HTTPException(status_code=500, detail=f"NIEM JSON ingestion failed: {str(e)}")
 
-def _generate_cypher_from_xml(xml_content: str, mapping: Dict[str, Any], filename: str) -> tuple[str, Dict[str, Any]]:
+def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filename: str) -> tuple[str, dict[str, Any]]:
     """
     Generate Cypher statements from XML content using the import_xml_to_cypher service.
 
@@ -822,7 +825,7 @@ def _generate_cypher_from_xml(xml_content: str, mapping: Dict[str, Any], filenam
         raise
 
 
-def _generate_cypher_from_json(json_content: str, mapping: Dict[str, Any], filename: str) -> tuple[str, Dict[str, Any]]:
+def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filename: str) -> tuple[str, dict[str, Any]]:
     """
     Generate Cypher statements from NIEM JSON content using the json_to_graph service.
 
@@ -862,7 +865,7 @@ def _generate_cypher_from_json(json_content: str, mapping: Dict[str, Any], filen
         raise
 
 
-async def handle_get_uploaded_files(s3: Minio) -> Dict[str, Any]:
+async def handle_get_uploaded_files(s3: Minio) -> dict[str, Any]:
     """Get list of uploaded data files
 
     Args:

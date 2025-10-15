@@ -4,25 +4,24 @@ import hashlib
 import json
 import logging
 import os
-import yaml
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any
 
-import httpx
+import yaml
 from fastapi import HTTPException, UploadFile
 from minio import Minio
 from minio.error import S3Error
 
-from ..models.models import SchemaResponse, NiemNdrReport, NiemNdrViolation
 from ..clients.s3_client import upload_file
+from ..models.models import NiemNdrReport, NiemNdrViolation, SchemaResponse
+from ..services.cmf_tool import convert_cmf_to_jsonschema, convert_xsd_to_cmf, is_cmf_available
 from ..services.domain.schema import NiemNdrValidator
-from ..services.cmf_tool import convert_xsd_to_cmf, convert_cmf_to_jsonschema, is_cmf_available
 
 logger = logging.getLogger(__name__)
 
 
-def _extract_schema_imports(xsd_content: str) -> List[Dict[str, Any]]:
+def _extract_schema_imports(xsd_content: str) -> list[dict[str, Any]]:
     """Extract import declarations from XSD content.
 
     Args:
@@ -51,7 +50,7 @@ def _extract_schema_imports(xsd_content: str) -> List[Dict[str, Any]]:
     return imports
 
 
-def _read_local_schemas(source_dir: Path) -> Dict[str, str]:
+def _read_local_schemas(source_dir: Path) -> dict[str, str]:
     """Read all local XSD schemas from source directory.
 
     Args:
@@ -64,7 +63,7 @@ def _read_local_schemas(source_dir: Path) -> Dict[str, str]:
     if source_dir and source_dir.exists():
         for xsd_file in source_dir.glob("*.xsd"):
             try:
-                with open(xsd_file, 'r', encoding='utf-8') as f:
+                with open(xsd_file, encoding='utf-8') as f:
                     local_schemas[xsd_file.name] = f.read()
             except Exception as e:
                 logger.warning(f"Failed to read local schema {xsd_file}: {e}")
@@ -82,8 +81,8 @@ def _setup_resolved_directory(source_dir: Path, schema_filename: str, xsd_conten
     Returns:
         Path to resolved directory
     """
-    import tempfile
     import shutil
+    import tempfile
 
     resolved_dir = Path(tempfile.mkdtemp(prefix="schema_with_niem_"))
 
@@ -115,7 +114,7 @@ def _setup_resolved_directory(source_dir: Path, schema_filename: str, xsd_conten
 
 
 
-def _create_error_response(error_type: str, error_msg: str, imports: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _create_error_response(error_type: str, error_msg: str, imports: list[dict[str, Any]]) -> dict[str, Any]:
     """Create standardized error response.
 
     Args:
@@ -137,7 +136,7 @@ def _create_error_response(error_type: str, error_msg: str, imports: List[Dict[s
     }
 
 
-def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_content: str) -> Dict[str, Any]:
+def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_content: str) -> dict[str, Any]:
     """Validate schema dependencies within uploaded files only.
 
     Args:
@@ -161,7 +160,7 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
                 try:
                     # Use relative path as key to match import schemaLocation references
                     rel_path = str(xsd_file.relative_to(source_dir))
-                    with open(xsd_file, 'r', encoding='utf-8') as f:
+                    with open(xsd_file, encoding='utf-8') as f:
                         uploaded_schemas[rel_path] = f.read()
                     logger.info(f"Read schema with key: {rel_path}")
                 except Exception as e:
@@ -174,7 +173,7 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
         validation_result = validate_schema_dependencies(uploaded_schemas)
 
         # Step 4: Build ImportValidationReport from file_details
-        from ..models.models import ImportValidationReport, FileImportInfo, ImportInfo, NamespaceUsage
+        from ..models.models import FileImportInfo, ImportInfo, ImportValidationReport, NamespaceUsage
 
         file_import_infos = []
         total_imports_count = 0
@@ -276,7 +275,7 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
         }
 
 
-async def _validate_and_read_files(files: List[UploadFile], file_paths: List[str] = None) -> tuple[Dict[str, bytes], Dict[str, str], UploadFile, str]:
+async def _validate_and_read_files(files: list[UploadFile], file_paths: list[str] = None) -> tuple[dict[str, bytes], dict[str, str], UploadFile, str]:
     """Validate and read uploaded files.
 
     Args:
@@ -305,7 +304,7 @@ async def _validate_and_read_files(files: List[UploadFile], file_paths: List[str
     xsd_paths = []
     non_xsd_count = 0
 
-    for file, path in zip(files, file_paths):
+    for file, path in zip(files, file_paths, strict=False):
         if not file.filename.endswith('.xsd'):
             logger.warning(f"Ignoring non-XSD file: {file.filename}")
             non_xsd_count += 1
@@ -321,7 +320,7 @@ async def _validate_and_read_files(files: List[UploadFile], file_paths: List[str
         raise HTTPException(status_code=400, detail="No XSD files found in upload")
 
     # Process only XSD files
-    for file, path in zip(xsd_files, xsd_paths):
+    for file, path in zip(xsd_files, xsd_paths, strict=False):
         content = await file.read()
         # Store by filename for backward compatibility, but track the path
         file_contents[file.filename] = content
@@ -338,14 +337,14 @@ async def _validate_and_read_files(files: List[UploadFile], file_paths: List[str
         raise HTTPException(status_code=400, detail=f"Total file size exceeds {max_file_size_mb}MB limit")
 
     # Generate schema ID with timestamp for uniqueness based on all files
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(UTC).isoformat()
     all_content = b''.join(file_contents.values()) + b''.join(f.filename.encode() for f in files)
     schema_id = hashlib.sha256(all_content + timestamp.encode()).hexdigest()
 
     return file_contents, file_path_map, primary_file, schema_id
 
 
-async def _validate_all_niem_ndr(file_contents: Dict[str, bytes]) -> NiemNdrReport:
+async def _validate_all_niem_ndr(file_contents: dict[str, bytes]) -> NiemNdrReport:
     """Validate NIEM NDR conformance for all uploaded files.
 
     Args:
@@ -457,11 +456,11 @@ async def _validate_all_niem_ndr(file_contents: Dict[str, bytes]) -> NiemNdrRepo
 
 
 async def _convert_to_cmf(
-    file_contents: Dict[str, bytes],
-    file_path_map: Dict[str, str],
+    file_contents: dict[str, bytes],
+    file_path_map: dict[str, str],
     primary_file: UploadFile,
     primary_content: bytes
-) -> tuple[Dict[str, Any] | None, Dict[str, Any] | None]:
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Convert XSD to CMF and optionally to JSON Schema.
 
     Args:
@@ -578,10 +577,10 @@ async def _store_schema_files(
     s3: Minio,
     schema_id: str,
     primary_filename: str,
-    file_contents: Dict[str, bytes],
-    file_path_map: Dict[str, str],
-    cmf_conversion_result: Dict[str, Any] | None,
-    json_schema_conversion_result: Dict[str, Any] | None
+    file_contents: dict[str, bytes],
+    file_path_map: dict[str, str],
+    cmf_conversion_result: dict[str, Any] | None,
+    json_schema_conversion_result: dict[str, Any] | None
 ) -> None:
     """Store all schema-related files in MinIO.
 
@@ -625,7 +624,7 @@ async def _store_schema_files(
 async def _generate_and_store_mapping(
     s3: Minio,
     schema_id: str,
-    cmf_conversion_result: Dict[str, Any] | None
+    cmf_conversion_result: dict[str, Any] | None
 ) -> None:
     """Generate mapping YAML from CMF and store it.
 
@@ -641,8 +640,7 @@ async def _generate_and_store_mapping(
 
     try:
         logger.error("*** DEBUG: Starting mapping generation process ***")
-        from ..services.domain.schema import generate_mapping_from_cmf_content
-        from ..services.domain.schema import validate_mapping_coverage_from_data
+        from ..services.domain.schema import generate_mapping_from_cmf_content, validate_mapping_coverage_from_data
 
         cmf_content = cmf_conversion_result["cmf_content"]
         logger.error(f"*** DEBUG: CMF content length: {len(cmf_content)} ***")
@@ -689,7 +687,7 @@ async def _store_schema_metadata(
     s3: Minio,
     schema_id: str,
     primary_file: UploadFile,
-    file_contents: Dict[str, bytes],
+    file_contents: dict[str, bytes],
     timestamp: str
 ) -> None:
     """Store schema metadata and mark as active.
@@ -728,10 +726,10 @@ async def _store_schema_metadata(
 
 
 async def handle_schema_upload(
-    files: List[UploadFile],
+    files: list[UploadFile],
     s3: Minio,
     skip_niem_ndr: bool = False,
-    file_paths: List[str] = None
+    file_paths: list[str] = None
 ) -> SchemaResponse:
     """Handle XSD schema upload and validation - supports multiple related XSD files
 
@@ -745,7 +743,7 @@ async def handle_schema_upload(
         # Step 1: Validate and read files
         file_contents, file_path_map, primary_file, schema_id = await _validate_and_read_files(files, file_paths)
         primary_content = file_contents[primary_file.filename]
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         # Step 2: Validate NIEM NDR conformance for ALL files (unless skipped)
         niem_ndr_report = None
@@ -829,7 +827,7 @@ async def handle_schema_activation(schema_id: str, s3: Minio):
             raise HTTPException(status_code=404, detail="Schema not found")
 
         # Update active schema marker
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
         active_schema_marker = {"active_schema_id": schema_id, "updated_at": timestamp}
         active_content = json.dumps(active_schema_marker, indent=2).encode()
         await upload_file(s3, "niem-schemas", "active_schema.json", active_content, "application/json")
@@ -888,7 +886,7 @@ def get_all_schemas(s3: Minio):
         raise HTTPException(status_code=500, detail=f"Failed to get schemas: {str(e)}")
 
 
-def get_active_schema_id(s3: Minio) -> Optional[str]:
+def get_active_schema_id(s3: Minio) -> str | None:
     """Get the currently active schema ID"""
     from ..clients.s3_client import get_json_content
     try:
@@ -898,7 +896,7 @@ def get_active_schema_id(s3: Minio) -> Optional[str]:
         return None
 
 
-def get_schema_metadata(s3: Minio, schema_id: str) -> Optional[Dict]:
+def get_schema_metadata(s3: Minio, schema_id: str) -> dict | None:
     """Get metadata for a specific schema"""
     from ..clients.s3_client import get_json_content
     try:

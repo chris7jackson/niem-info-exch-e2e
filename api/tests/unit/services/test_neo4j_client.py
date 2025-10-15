@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, MagicMock, patch
-from neo4j.exceptions import ServiceUnavailable, ClientError
+from neo4j.exceptions import ClientError
 from neo4j.graph import Node, Relationship
 
 from niem_api.clients.neo4j_client import Neo4jClient

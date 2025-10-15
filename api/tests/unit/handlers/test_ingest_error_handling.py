@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Tests for error handling in ingest handler."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from fastapi import HTTPException, UploadFile
 
 from niem_api.handlers.ingest import _create_error_result
 

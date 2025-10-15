@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
-import pytest
 from xml.etree import ElementTree as ET
 
+import pytest
+
 from niem_api.services.domain.schema.mapping import (
-    generate_mapping_from_cmf_content,
-    to_qname,
-    to_label,
-    to_rel_type,
+    build_element_to_class,
     build_prefix_map,
+    generate_mapping_from_cmf_content,
     parse_classes,
-    build_element_to_class
+    to_label,
+    to_qname,
+    to_rel_type,
 )
 
 

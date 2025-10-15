@@ -12,8 +12,8 @@ Key Features:
 """
 import re
 import sys
-from typing import Any, Dict, List, Set, Tuple
 import xml.etree.ElementTree as ET
+from typing import Any
 
 import yaml
 
@@ -93,7 +93,7 @@ def ref_of(element: ET.Element, tag: str) -> str | None:
     return None
 
 
-def build_prefix_map(root: ET.Element) -> Dict[str, str]:
+def build_prefix_map(root: ET.Element) -> dict[str, str]:
     """Collect prefix→URI bindings from CMF Namespace entries.
 
     Args:
@@ -111,7 +111,7 @@ def build_prefix_map(root: ET.Element) -> Dict[str, str]:
     return prefixes
 
 
-def _parse_property_associations(class_element: ET.Element) -> List[Dict[str, str]]:
+def _parse_property_associations(class_element: ET.Element) -> list[dict[str, str]]:
     """Parse child property associations for a single class element.
 
     Args:
@@ -135,7 +135,7 @@ def _parse_property_associations(class_element: ET.Element) -> List[Dict[str, st
     return props
 
 
-def _extract_class_info(class_element: ET.Element) -> Dict[str, Any]:
+def _extract_class_info(class_element: ET.Element) -> dict[str, Any]:
     """Extract basic information from a single class element.
 
     Args:
@@ -159,7 +159,7 @@ def _extract_class_info(class_element: ET.Element) -> Dict[str, Any]:
     }
 
 
-def _is_meaningful_class(class_info: Dict[str, Any]) -> bool:
+def _is_meaningful_class(class_info: dict[str, Any]) -> bool:
     """Check if a class has meaningful content.
 
     Args:
@@ -177,7 +177,7 @@ def _is_meaningful_class(class_info: Dict[str, Any]) -> bool:
     ])
 
 
-def parse_classes(root: ET.Element) -> List[Dict[str, Any]]:
+def parse_classes(root: ET.Element) -> list[dict[str, Any]]:
     """Extract Classes with their namespace, base class, and child property associations.
 
     Args:
@@ -194,7 +194,7 @@ def parse_classes(root: ET.Element) -> List[Dict[str, Any]]:
     return classes_info
 
 
-def build_element_to_class(root: ET.Element) -> Dict[str, str]:
+def build_element_to_class(root: ET.Element) -> dict[str, str]:
     """Map ObjectProperty id (element QName) → Class id.
 
     This lets us resolve association role participants to their object classes.
@@ -216,7 +216,7 @@ def build_element_to_class(root: ET.Element) -> Dict[str, str]:
     return mapping
 
 
-def build_dataproperty_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
+def build_dataproperty_index(root: ET.Element) -> dict[str, dict[str, Any]]:
     """Build index of DataProperty elements from CMF.
 
     Args:
@@ -244,7 +244,7 @@ def build_dataproperty_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
     return index
 
 
-def build_datatype_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
+def build_datatype_index(root: ET.Element) -> dict[str, dict[str, Any]]:
     """Build index of Datatype and Restriction elements from CMF to classify types.
 
     Args:
@@ -301,11 +301,11 @@ def build_datatype_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
 
 
 def _extract_scalar_properties(
-    class_props: List[Dict[str, Any]],
-    dataprop_index: Dict[str, Dict[str, Any]],
-    datatype_index: Dict[str, Dict[str, Any]],
+    class_props: list[dict[str, Any]],
+    dataprop_index: dict[str, dict[str, Any]],
+    datatype_index: dict[str, dict[str, Any]],
     max_depth: int = 3
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """Extract flattened scalar properties from class properties.
 
     Args:
@@ -351,13 +351,13 @@ def _extract_scalar_properties(
 
 def _flatten_property(
     prop_ref: str,
-    data_prop: Dict[str, Any],
-    dataprop_index: Dict[str, Dict[str, Any]],
-    datatype_index: Dict[str, Dict[str, Any]],
+    data_prop: dict[str, Any],
+    dataprop_index: dict[str, dict[str, Any]],
+    datatype_index: dict[str, dict[str, Any]],
     max_depth: int,
     current_depth: int,
     path_prefix: str = ""
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """Recursively flatten a property based on its datatype classification.
 
     Args:
@@ -465,9 +465,9 @@ def _flatten_property(
 
 
 def _partition_classes(
-    class_index: Dict[str, Dict[str, Any]],
-    class_to_element: Dict[str, str]
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Set[str]]:
+    class_index: dict[str, dict[str, Any]],
+    class_to_element: dict[str, str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], set[str]]:
     """Partition classes into AssociationType and ObjectType.
 
     Args:
@@ -496,7 +496,7 @@ def _partition_classes(
     return objects, associations, association_ids
 
 
-def _collect_used_prefixes(classes: List[Dict[str, Any]]) -> Set[str]:
+def _collect_used_prefixes(classes: list[dict[str, Any]]) -> set[str]:
     """Collect all namespace prefixes used by classes and their properties.
 
     Args:
@@ -520,7 +520,7 @@ def _collect_used_prefixes(classes: List[Dict[str, Any]]) -> Set[str]:
 
 
 def _create_label_for_class_function(
-    class_to_element: Dict[str, str]
+    class_to_element: dict[str, str]
 ) -> callable:
     """Create a label_for_class function with closure over class_to_element.
 
@@ -541,10 +541,10 @@ def _create_label_for_class_function(
 
 def _build_complete_objects_list(
     root: ET.Element,
-    class_index: Dict[str, Dict[str, Any]],
-    element_to_class: Dict[str, str],
-    association_ids: Set[str]
-) -> List[Dict[str, Any]]:
+    class_index: dict[str, dict[str, Any]],
+    element_to_class: dict[str, str],
+    association_ids: set[str]
+) -> list[dict[str, Any]]:
     """Build complete list of objects from ALL ObjectProperties.
 
     This includes both:
@@ -596,10 +596,10 @@ def _build_complete_objects_list(
 
 
 def _build_objects_mapping(
-    objects: List[Dict[str, Any]],
-    dataprop_index: Dict[str, Dict[str, Any]],
-    datatype_index: Dict[str, Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    objects: list[dict[str, Any]],
+    dataprop_index: dict[str, dict[str, Any]],
+    datatype_index: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Build objects section of the mapping with extracted scalar properties.
 
     Args:
@@ -612,7 +612,7 @@ def _build_objects_mapping(
     """
     objects_mapping = []
     for obj in objects:
-        qn = to_qname((obj["element_qname"] or obj["class_id"]))
+        qn = to_qname(obj["element_qname"] or obj["class_id"])
 
         # Extract scalar properties from this class
         class_info = obj.get("info", {})
@@ -629,11 +629,11 @@ def _build_objects_mapping(
 
 
 def _build_association_endpoint(
-    prop: Dict[str, str],
-    element_to_class: Dict[str, str],
+    prop: dict[str, str],
+    element_to_class: dict[str, str],
     label_for_class: callable,
     endpoint_index: int
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Build a single association endpoint.
 
     Args:
@@ -659,10 +659,10 @@ def _build_association_endpoint(
 
 
 def _build_associations_mapping(
-    associations: List[Dict[str, Any]],
-    element_to_class: Dict[str, str],
+    associations: list[dict[str, Any]],
+    element_to_class: dict[str, str],
     label_for_class: callable
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Build associations section of the mapping.
 
     Args:
@@ -698,11 +698,11 @@ def _build_associations_mapping(
 
 
 def _build_references_mapping(
-    objects: List[Dict[str, Any]],
-    element_to_class: Dict[str, str],
-    association_ids: Set[str],
+    objects: list[dict[str, Any]],
+    element_to_class: dict[str, str],
+    association_ids: set[str],
     label_for_class: callable
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Build references section of the mapping.
 
     Args:
@@ -738,7 +738,7 @@ def _build_references_mapping(
     return references_mapping
 
 
-def generate_mapping_from_cmf_content(cmf_content: str) -> Dict[str, Any]:
+def generate_mapping_from_cmf_content(cmf_content: str) -> dict[str, Any]:
     """Generate mapping dictionary from CMF XML content string.
 
     Args:
@@ -751,7 +751,7 @@ def generate_mapping_from_cmf_content(cmf_content: str) -> Dict[str, Any]:
     return _generate_mapping_from_root(root)
 
 
-def generate_mapping_from_cmf_file(cmf_path: str) -> Dict[str, Any]:
+def generate_mapping_from_cmf_file(cmf_path: str) -> dict[str, Any]:
     """Generate mapping dictionary from CMF XML file.
 
     Args:
@@ -764,7 +764,7 @@ def generate_mapping_from_cmf_file(cmf_path: str) -> Dict[str, Any]:
     return _generate_mapping_from_root(root)
 
 
-def _generate_mapping_from_root(root: ET.Element) -> Dict[str, Any]:
+def _generate_mapping_from_root(root: ET.Element) -> dict[str, Any]:
     """Internal function to generate mapping from parsed XML root.
 
     Args:
@@ -903,7 +903,9 @@ Usage
 
 """
 
-import sys, argparse, re, json, yaml
+import argparse
+import json
+import sys
 import xml.etree.ElementTree as ET
 
 CMF_NS = "https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
@@ -986,7 +988,7 @@ def collect_mapping_prefixes(mapping):
 
 def validate(cmf_xml, mapping_yaml):
     root = ET.parse(cmf_xml).getroot()
-    with open(mapping_yaml, "r", encoding="utf-8") as f:
+    with open(mapping_yaml, encoding="utf-8") as f:
         mapping = yaml.safe_load(f)
 
     cmf_ns = cmf_namespaces(root)

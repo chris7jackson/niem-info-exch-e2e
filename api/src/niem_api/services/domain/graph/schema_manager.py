@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-import json
 import logging
-from typing import Dict, List, Any
+from typing import Any
 
 from neo4j.exceptions import ClientError
+
 from ....core.dependencies import get_neo4j_client
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class GraphSchemaManager:
         """Close method for compatibility - actual cleanup handled by dependencies"""
         pass
 
-    def configure_schema_from_mapping(self, mapping: Dict[str, Any]) -> Dict[str, Any]:
+    def configure_schema_from_mapping(self, mapping: dict[str, Any]) -> dict[str, Any]:
         """Configure Neo4j schema (indexes, constraints) from mapping specification"""
         logger.info("Configuring Neo4j schema from mapping specification")
 
@@ -162,7 +162,7 @@ class GraphSchemaManager:
                 return False
             raise
 
-    def get_current_schema_info(self) -> Dict[str, Any]:
+    def get_current_schema_info(self) -> dict[str, Any]:
         """Get current Neo4j schema information"""
         try:
             # Get indexes
@@ -189,7 +189,7 @@ class GraphSchemaManager:
             logger.error(f"Failed to get schema info: {e}")
             return {"error": str(e)}
 
-    def reset_schema(self, confirm_reset: bool = False) -> Dict[str, Any]:
+    def reset_schema(self, confirm_reset: bool = False) -> dict[str, Any]:
         """Reset the Neo4j schema (DROP ALL CONSTRAINTS AND INDEXES)"""
         if not confirm_reset:
             return {"error": "Reset requires explicit confirmation"}

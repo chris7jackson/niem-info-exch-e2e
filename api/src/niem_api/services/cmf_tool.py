@@ -12,21 +12,19 @@ Low-level CMF tool wrapper functions are in clients/cmf_client.py
 import json
 import logging
 import os
-import shutil
-import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 # Import from client layer
 from ..clients.cmf_client import (
+    CMF_TOOL_PATH,
     CMFError,
-    is_cmf_available,
-    run_cmf_command,
     download_and_setup_cmf,
     get_cmf_version,
-    CMF_TOOL_PATH
+    is_cmf_available,
+    run_cmf_command,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,7 +43,7 @@ __all__ = [
 
 # CMF tool is used for XML validation against schemas and XSD-to-JSON conversion
 
-def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.xsd") -> Dict[str, Any]:
+def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.xsd") -> dict[str, Any]:
     """
     Convert XSD to CMF using CMF tool with NIEM dependency resolution.
     Returns the CMF content as a string.
@@ -127,7 +125,7 @@ def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.
 
         # Read the generated CMF content
         if cmf_file.exists():
-            with open(cmf_file, 'r', encoding='utf-8') as f:
+            with open(cmf_file, encoding='utf-8') as f:
                 cmf_content = f.read()
 
             logger.info(f"Successfully converted XSD to CMF, generated {len(cmf_content)} characters of CMF content")
@@ -159,7 +157,7 @@ def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.
         # Note: Resolved schema directory cleanup is handled by the schema handler
         pass
 
-def convert_cmf_to_jsonschema(cmf_content: str) -> Dict[str, Any]:
+def convert_cmf_to_jsonschema(cmf_content: str) -> dict[str, Any]:
     """
     Convert CMF content to JSON Schema using CMF tool (m2jmsg command).
     """
@@ -199,7 +197,7 @@ def convert_cmf_to_jsonschema(cmf_content: str) -> Dict[str, Any]:
 
                 # Read the generated JSON Schema
                 if os.path.exists(json_schema_file):
-                    with open(json_schema_file, 'r', encoding='utf-8') as f:
+                    with open(json_schema_file, encoding='utf-8') as f:
                         json_schema = json.loads(f.read())
                 else:
                     return {

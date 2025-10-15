@@ -26,13 +26,13 @@ import hashlib
 import json
 import logging
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def load_mapping_from_dict(mapping_dict: Dict[str, Any]) -> Tuple[
-    Dict[str, Any], Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, str]
+def load_mapping_from_dict(mapping_dict: dict[str, Any]) -> tuple[
+    dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]
 ]:
     """Load mapping from dictionary.
 
@@ -49,7 +49,7 @@ def load_mapping_from_dict(mapping_dict: Dict[str, Any]) -> Tuple[
     return mapping_dict, obj_qnames, associations, references, namespaces
 
 
-def resolve_qname(prefixed_name: str, context: Dict[str, Any]) -> str:
+def resolve_qname(prefixed_name: str, context: dict[str, Any]) -> str:
     """Resolve prefixed name to full URI using @context.
 
     Args:
@@ -96,7 +96,7 @@ def local_from_qname(qn: str) -> str:
     return qn
 
 
-def build_refs_index(references: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+def build_refs_index(references: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     """Build index of references by owner QName.
 
     Args:
@@ -113,7 +113,7 @@ def build_refs_index(references: List[Dict[str, Any]]) -> Dict[str, List[Dict[st
     return refs_by_owner
 
 
-def build_assoc_index(associations: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def build_assoc_index(associations: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Build index of associations by QName.
 
     Args:
@@ -126,10 +126,10 @@ def build_assoc_index(associations: List[Dict[str, Any]]) -> Dict[str, Dict[str,
 
 
 def extract_properties(
-    obj: Dict[str, Any],
-    obj_rule: Dict[str, Any],
-    context: Dict[str, Any]
-) -> List[Tuple[str, str]]:
+    obj: dict[str, Any],
+    obj_rule: dict[str, Any],
+    context: dict[str, Any]
+) -> list[tuple[str, str]]:
     """Extract properties from JSON-LD object based on mapping rules.
 
     Args:
@@ -182,10 +182,10 @@ def extract_properties(
 
 def generate_for_json_content(
     json_content: str,
-    mapping_dict: Dict[str, Any],
+    mapping_dict: dict[str, Any],
     filename: str = "memory",
     cmf_element_index: set = None
-) -> Tuple[str, Dict[str, Any], List[Tuple], List[Tuple]]:
+) -> tuple[str, dict[str, Any], list[tuple], list[tuple]]:
     """Generate Cypher statements from NIEM JSON content and mapping dictionary.
 
     NIEM JSON uses JSON-LD features (@context, @id, @type) with NIEM conventions.
@@ -233,7 +233,7 @@ def generate_for_json_content(
     # Process each object
     object_counter = 0
 
-    def process_jsonld_object(obj: Dict[str, Any], parent_id: str = None, parent_label: str = None, property_name: str = None):
+    def process_jsonld_object(obj: dict[str, Any], parent_id: str = None, parent_label: str = None, property_name: str = None):
         """Process a JSON-LD object and generate nodes/relationships."""
         nonlocal object_counter
 
@@ -353,9 +353,9 @@ def generate_for_json_content(
 
 
 def generate_cypher_from_structures(
-    nodes: Dict[str, Tuple],
-    edges: List[Tuple],
-    contains: List[Tuple]
+    nodes: dict[str, tuple],
+    edges: list[tuple],
+    contains: list[tuple]
 ) -> str:
     """Generate Cypher statements from node and edge structures.
 

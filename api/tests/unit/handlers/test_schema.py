@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
 from fastapi import HTTPException, UploadFile
 from minio import Minio
 
 from niem_api.handlers.schema import (
-    handle_schema_upload,
-    handle_schema_activation,
-    get_all_schemas,
     get_active_schema_id,
-    get_schema_metadata
+    get_all_schemas,
+    handle_schema_activation,
+    handle_schema_upload,
 )
 
 
