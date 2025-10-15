@@ -409,7 +409,7 @@ def generate_for_xml_content(
         metadata_refs = []
 
         # Check for nc:metadataRef
-        for prefix, uri in xml_ns_map.items():
+        for _, uri in xml_ns_map.items():
             if 'niem-core' in uri:
                 nc_metadata_ref = elem.attrib.get(f"{{{uri}}}metadataRef")
                 if nc_metadata_ref:
@@ -698,7 +698,7 @@ def generate_for_xml_content(
         lines.append(f"MATCH (p:`{plabel}` {{id:'{pid}'}}), (c:`{clabel}` {{id:'{cid}'}}) MERGE (p)-[:`{rel}`]->(c);")
 
     # MERGE reference/association edges
-    for fid, flabel, tid, tlabel, rel, rprops in edges:
+    for fid, flabel, tid, tlabel, rel, _ in edges:
         lines.append(f"MATCH (a:`{flabel}` {{id:'{fid}'}}), (b:`{tlabel}` {{id:'{tid}'}}) MERGE (a)-[:`{rel}`]->(b);")
 
     return "\n".join(lines), nodes, contains, edges

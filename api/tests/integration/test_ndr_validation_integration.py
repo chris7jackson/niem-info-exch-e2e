@@ -87,7 +87,7 @@ class TestNdrValidationIntegration:
 
         results = []
 
-        for filename, expected_type, expected_rules in schemas_to_test:
+        for filename, _, _ in schemas_to_test:
             xsd_file = samples_path / filename
 
             if not xsd_file.exists():

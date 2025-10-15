@@ -30,7 +30,7 @@ class NiemNdrValidator:
         }
 
         # Verify all pre-compiled XSLT files exist
-        for schema_type, xslt_path in self.validation_xslt_paths.items():
+        for xslt_path in self.validation_xslt_paths.values():
             if not xslt_path.exists():
                 raise FileNotFoundError(f"Pre-compiled XSLT not found: {xslt_path}")
 

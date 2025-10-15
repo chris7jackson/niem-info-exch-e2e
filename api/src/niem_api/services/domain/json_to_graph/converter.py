@@ -383,7 +383,7 @@ def generate_cypher_from_structures(
         )
 
     # Generate MERGE statements for reference/association edges
-    for from_id, from_label, to_id, to_label, rel_type, rel_props in edges:
+    for from_id, from_label, to_id, to_label, rel_type, _ in edges:
         # Clean relationship type
         clean_rel_type = rel_type.replace(":", "_").upper()
 
