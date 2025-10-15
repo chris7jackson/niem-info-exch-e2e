@@ -17,8 +17,11 @@ class TestNeo4jClient:
         """Mock Neo4j driver"""
         mock_driver = MagicMock()
         mock_session = MagicMock()
-        mock_driver.session.return_value.__enter__.return_value = mock_session
-        mock_driver.session.return_value.__exit__.return_value = None
+        # Configure session() as a context manager
+        mock_session_context = MagicMock()
+        mock_session_context.__enter__ = Mock(return_value=mock_session)
+        mock_session_context.__exit__ = Mock(return_value=None)
+        mock_driver.session = Mock(return_value=mock_session_context)
         return mock_driver, mock_session
 
     @pytest.fixture
