@@ -30,33 +30,36 @@ interface ImportValidationReport {
   missing_count: number;
 }
 
-interface NiemNdrViolation {
-  type: string;
-  rule: string;
+interface SchevalIssue {
+  file: string;
+  line: number;
+  column: number;
   message: string;
-  location: string;
-  file?: string;
+  severity: string;
+  rule?: string;
 }
 
-interface NiemNdrReport {
+interface SchevalReport {
   status: string;
   message: string;
   conformance_target: string;
-  violations: NiemNdrViolation[];
+  errors: SchevalIssue[];
+  warnings: SchevalIssue[];
   summary: { [key: string]: number };
+  metadata?: { [key: string]: any };
 }
 
 interface ValidationResultsProps {
-  readonly ndrReport?: NiemNdrReport;
   readonly importReport?: ImportValidationReport;
+  readonly schevalReport?: SchevalReport;
 }
 
-export default function ValidationResults({ ndrReport, importReport }: ValidationResultsProps) {
-  const [expandedNdr, setExpandedNdr] = useState(false);
+export default function ValidationResults({ importReport, schevalReport }: ValidationResultsProps) {
   const [expandedImports, setExpandedImports] = useState(false);
+  const [expandedScheval, setExpandedScheval] = useState(true); // Default expanded for scheval
   const [expandedFiles, setExpandedFiles] = useState<{ [key: string]: boolean }>({});
 
-  if (!ndrReport && !importReport) {
+  if (!importReport && !schevalReport) {
     return null;
   }
 
@@ -64,27 +67,25 @@ export default function ValidationResults({ ndrReport, importReport }: Validatio
     setExpandedFiles(prev => ({ ...prev, [filename]: !prev[filename] }));
   };
 
-  // Group NDR violations by file
-  const violationsByFile: { [key: string]: NiemNdrViolation[] } = {};
-  if (ndrReport) {
-    ndrReport.violations.forEach(v => {
-      const file = v.file || 'unknown';
-      if (!violationsByFile[file]) {
-        violationsByFile[file] = [];
+  // Group scheval issues by file
+  const schevalIssuesByFile: { [key: string]: SchevalIssue[] } = {};
+  if (schevalReport) {
+    [...schevalReport.errors, ...schevalReport.warnings].forEach(issue => {
+      const file = issue.file;
+      if (!schevalIssuesByFile[file]) {
+        schevalIssuesByFile[file] = [];
       }
-      violationsByFile[file].push(v);
+      schevalIssuesByFile[file].push(issue);
     });
   }
 
-  const ndrStatus = ndrReport?.status || 'unknown';
   const importStatus = importReport?.status || 'unknown';
-  const overallSuccess = ndrStatus === 'pass' && importStatus === 'pass';
+  const schevalStatus = schevalReport?.status || 'unknown';
+  const overallSuccess = importStatus === 'pass' && schevalStatus === 'pass';
 
   // Debug logging
-  console.log('ValidationResults - ndrReport:', ndrReport);
   console.log('ValidationResults - importReport:', importReport);
-  console.log('ValidationResults - importStatus:', importStatus);
-  console.log('ValidationResults - importReport?.status:', importReport?.status);
+  console.log('ValidationResults - schevalReport:', schevalReport);
 
   return (
     <div className="bg-white shadow rounded-lg p-6 space-y-4">
@@ -101,7 +102,10 @@ export default function ValidationResults({ ndrReport, importReport }: Validatio
           <div className="text-sm font-medium text-gray-500">NIEM NDR Validation</div>
           <div className="mt-2 flex items-center">
             {(() => {
-              if (ndrStatus === 'pass') {
+              if (!schevalReport) {
+                return <span className="text-sm text-gray-500">Not checked</span>;
+              }
+              if (schevalStatus === 'pass') {
                 return (
                   <>
                     <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
@@ -109,20 +113,20 @@ export default function ValidationResults({ ndrReport, importReport }: Validatio
                   </>
                 );
               }
-              if (ndrStatus === 'fail') {
+              if (schevalStatus === 'fail' || schevalStatus === 'error') {
                 return (
                   <>
                     <XCircleIcon className="h-5 w-5 text-red-500 mr-2" />
-                    <span className="text-sm text-red-700">{ndrReport?.summary.error_count || 0} errors</span>
+                    <span className="text-sm text-red-700">{schevalReport?.summary.error_count || 0} errors</span>
                   </>
                 );
               }
               return <span className="text-sm text-gray-500">Unknown</span>;
             })()}
           </div>
-          {ndrReport && ndrReport.summary.warning_count > 0 && (
+          {schevalReport && schevalReport.summary.warning_count > 0 && (
             <div className="mt-1 text-xs text-yellow-600">
-              {ndrReport.summary.warning_count} warnings
+              {schevalReport.summary.warning_count} warnings
             </div>
           )}
         </div>
@@ -161,59 +165,66 @@ export default function ValidationResults({ ndrReport, importReport }: Validatio
         </div>
       </div>
 
-      {/* NDR Details */}
-      {ndrReport && ndrReport.violations.length > 0 && (
+      {/* NIEM NDR Violations */}
+      {schevalReport && (schevalReport.errors.length > 0 || schevalReport.warnings.length > 0) && (
         <div className="border border-gray-200 rounded-lg">
           <button
-            onClick={() => setExpandedNdr(!expandedNdr)}
+            onClick={() => setExpandedScheval(!expandedScheval)}
             className="w-full flex items-center justify-between p-4 hover:bg-gray-50"
           >
             <div className="flex items-center">
-              {expandedNdr ? (
+              {expandedScheval ? (
                 <ChevronDownIcon className="h-5 w-5 text-gray-400 mr-2" />
               ) : (
                 <ChevronRightIcon className="h-5 w-5 text-gray-400 mr-2" />
               )}
               <span className="text-sm font-medium text-gray-900">
-                NIEM NDR Violations by File ({ndrReport.violations.length})
+                NIEM NDR Violations by File ({schevalReport.errors.length + schevalReport.warnings.length})
               </span>
             </div>
           </button>
-          {expandedNdr && (
+          {expandedScheval && (
             <div className="px-4 pb-4 space-y-2">
-              {Object.entries(violationsByFile).map(([filename, violations]) => (
+              {Object.entries(schevalIssuesByFile).map(([filename, issues]) => (
                 <div key={filename} className="border border-gray-200 rounded">
                   <button
-                    onClick={() => toggleFile(`ndr-${filename}`)}
+                    onClick={() => toggleFile(`scheval-${filename}`)}
                     className="w-full flex items-center justify-between p-3 hover:bg-gray-50"
                   >
                     <div className="flex items-center">
-                      {expandedFiles[`ndr-${filename}`] ? (
+                      {expandedFiles[`scheval-${filename}`] ? (
                         <ChevronDownIcon className="h-4 w-4 text-gray-400 mr-2" />
                       ) : (
                         <ChevronRightIcon className="h-4 w-4 text-gray-400 mr-2" />
                       )}
                       <span className="text-sm font-medium text-gray-700">{filename}</span>
                       <span className="ml-2 text-xs text-gray-500">
-                        ({violations.filter(v => v.type === 'error').length} errors,{' '}
-                        {violations.filter(v => v.type === 'warning').length} warnings)
+                        ({issues.filter(i => i.severity === 'error').length} errors,{' '}
+                        {issues.filter(i => i.severity === 'warn' || i.severity === 'warning').length} warnings)
                       </span>
                     </div>
                   </button>
-                  {expandedFiles[`ndr-${filename}`] && (
+                  {expandedFiles[`scheval-${filename}`] && (
                     <div className="px-3 pb-3 space-y-2">
-                      {violations.map((v, idx) => (
-                        <div key={`${v.rule}-${v.location}-${idx}`} className="text-xs">
+                      {issues.map((issue, idx) => (
+                        <div key={`${issue.file}-${issue.line}-${issue.column}-${idx}`} className="text-xs border-l-2 pl-3 py-2"
+                             style={{ borderLeftColor: issue.severity === 'error' ? '#ef4444' : '#f59e0b' }}>
                           <div className="flex items-start">
-                            {v.type === 'error' ? (
+                            {issue.severity === 'error' ? (
                               <XCircleIcon className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
                             ) : (
                               <ExclamationTriangleIcon className="h-4 w-4 text-yellow-500 mr-2 mt-0.5 flex-shrink-0" />
                             )}
                             <div className="flex-1">
-                              <div className="font-medium text-gray-900">{v.rule}</div>
-                              <div className="text-gray-600 mt-1">{v.message}</div>
-                              <div className="text-gray-400 mt-1">{v.location}</div>
+                              <div className="flex items-center space-x-2">
+                                <code className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">
+                                  {issue.file}:{issue.line}:{issue.column}
+                                </code>
+                                {issue.rule && (
+                                  <span className="font-medium text-blue-700">{issue.rule}</span>
+                                )}
+                              </div>
+                              <div className="text-gray-700 mt-1.5 leading-relaxed">{issue.message}</div>
                             </div>
                           </div>
                         </div>

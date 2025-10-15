@@ -72,10 +72,10 @@ export default function SchemaManager() {
   };
 
   const buildNdrErrorMessage = (result: any): string => {
-    const violations = result.niem_ndr_report.violations || [];
-    const totalErrors = violations.filter((v: any) => v.type === 'error').length;
-    const fileCount = violations.reduce((acc: any, v: any) => {
-      if (v.type === 'error') acc.add(v.file || 'Unknown');
+    const errors = result.scheval_report.errors || [];
+    const totalErrors = errors.length;
+    const fileCount = errors.reduce((acc: any, e: any) => {
+      acc.add(e.file || 'Unknown');
       return acc;
     }, new Set()).size;
     return `Found ${totalErrors} NIEM NDR violations across ${fileCount} file(s)`;
@@ -87,7 +87,7 @@ export default function SchemaManager() {
   };
 
   const handleValidationErrors = (result: any) => {
-    const ndrHasErrors = result.niem_ndr_report && result.niem_ndr_report.status === 'fail';
+    const ndrHasErrors = result.scheval_report && (result.scheval_report.status === 'fail' || result.scheval_report.status === 'error');
     const importHasErrors = result.import_validation_report && result.import_validation_report.status === 'fail';
 
     if (ndrHasErrors || importHasErrors) {
@@ -109,10 +109,10 @@ export default function SchemaManager() {
       const detail = err.response?.data?.detail;
       console.log('Detail object:', detail);
 
-      if (detail && typeof detail === 'object' && (detail.niem_ndr_report || detail.import_validation_report)) {
+      if (detail && typeof detail === 'object' && (detail.import_validation_report || detail.scheval_report)) {
         setLastValidationResult({
-          niem_ndr_report: detail.niem_ndr_report || null,
-          import_validation_report: detail.import_validation_report || null
+          import_validation_report: detail.import_validation_report || null,
+          scheval_report: detail.scheval_report || null
         });
         setError(detail.message || 'Schema validation failed');
       } else if (typeof detail === 'string') {
@@ -286,8 +286,8 @@ export default function SchemaManager() {
       {/* Validation Results */}
       {lastValidationResult && typeof lastValidationResult === 'object' && lastValidationResult !== null && (
         <ValidationResults
-          ndrReport={(lastValidationResult as any).niem_ndr_report}
           importReport={(lastValidationResult as any).import_validation_report}
+          schevalReport={(lastValidationResult as any).scheval_report}
         />
       )}
 

@@ -56,6 +56,14 @@ async def startup_tasks():
         else:
             logger.warning("CMF tool setup failed - some features may not be available")
 
+        # Setup scheval tool
+        from .clients.scheval_client import download_and_setup_scheval
+        scheval_setup = await download_and_setup_scheval()
+        if scheval_setup:
+            logger.info("Scheval tool setup completed successfully")
+        else:
+            logger.warning("Scheval tool setup failed - schematron validation may not be available")
+
         logger.info("Startup tasks completed successfully")
 
         # TODO potentially, fetch all third party references. i.e. niem open reference xsd schemas. niem cmftool, niem naming design rules. Or document how to update. 

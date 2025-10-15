@@ -21,6 +21,29 @@ class NiemNdrReport(BaseModel):
     conformance_target: str
     violations: List[NiemNdrViolation] = []
     summary: Dict[str, int] = {}
+    detected_schema_type: Optional[str] = None  # 'ref', 'ext', 'sub', or None
+    rules_applied: Optional[int] = None  # Number of rules applied
+
+
+class SchevalIssue(BaseModel):
+    """Schematron validation issue with precise line/column information."""
+    file: str  # File being validated
+    line: int  # Line number where issue occurs
+    column: int  # Column number where issue occurs
+    message: str  # Error message
+    severity: str  # 'error', 'warning', 'info'
+    rule: Optional[str] = None  # Validation rule identifier (e.g., "Rule 7-10")
+
+
+class SchevalReport(BaseModel):
+    """Schematron validation report from scheval tool."""
+    status: str  # 'pass', 'fail', 'error'
+    message: str
+    conformance_target: str
+    errors: List[SchevalIssue] = []
+    warnings: List[SchevalIssue] = []
+    summary: Dict[str, int] = {}  # Contains 'total_issues', 'error_count', 'warning_count'
+    metadata: Dict[str, Any] = {}  # Additional metadata about the validation
 
 
 class ImportInfo(BaseModel):
@@ -54,7 +77,7 @@ class ImportValidationReport(BaseModel):
 
 class SchemaResponse(BaseModel):
     schema_id: str
-    niem_ndr_report: Optional[NiemNdrReport] = None
+    scheval_report: Optional[SchevalReport] = None
     import_validation_report: Optional[ImportValidationReport] = None
     is_active: bool
 
