@@ -208,17 +208,13 @@ def generate_for_json_content(
     context = data.get("@context", {})
 
     # Load mapping
-    mapping, obj_rules, associations, references, ns_map = load_mapping_from_dict(mapping_dict)
+    _, obj_rules, _, _, _ = load_mapping_from_dict(mapping_dict)
 
     # Extract CMF element index from mapping metadata if not provided
     if cmf_element_index is None:
         metadata = mapping_dict.get("metadata", {})
         cmf_elements_list = metadata.get("cmf_element_index", [])
         cmf_element_index = set(cmf_elements_list) if cmf_elements_list else set()
-
-    # Prepare reference and association indices
-    refs_by_owner = build_refs_index(references)
-    assoc_by_qn = build_assoc_index(associations)
 
     # Generate file-specific prefix for node IDs
     file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode()).hexdigest()[:8]
@@ -290,9 +286,8 @@ def generate_for_json_content(
                     edges.append((obj_id, label, target_id, None, key, {}))
 
                 elif isinstance(value, dict):
-                    # Nested object
-                    child_id = process_jsonld_object(value, obj_id, label, key)
-                    # Edge already created by containment
+                    # Nested object (containment edge created automatically)
+                    process_jsonld_object(value, obj_id, label, key)
 
                 elif isinstance(value, list):
                     # Array of objects or references
@@ -302,7 +297,7 @@ def generate_for_json_content(
                                 target_id = item["@id"]
                                 edges.append((obj_id, label, target_id, None, key, {}))
                             else:
-                                child_id = process_jsonld_object(item, obj_id, label, key)
+                                process_jsonld_object(item, obj_id, label, key)
 
             return obj_id
         else:

@@ -593,7 +593,6 @@ def generate_for_xml_content(
             # BUT we don't need them if the metadata is a direct structural child (already has containment edge)
             # For now, skip metadata reference edges entirely - containment edges are sufficient
             # The HAS_METADATA, HAS_PRIVACYMETADATA containment edges already capture the relationships
-            metadata_refs = get_metadata_refs(elem, xml_ns_map)
             # Note: We're intentionally not creating metadata reference edges here
             # The structural containment edges (HAS_METADATA, HAS_PRIVACYMETADATA, etc.)
             # already capture the relationships between elements and their metadata

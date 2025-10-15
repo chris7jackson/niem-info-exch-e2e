@@ -123,7 +123,7 @@ class Neo4jClient:
             relationships = {}
 
             for record in result:
-                for key, value in record.items():
+                for value in record.values():
                     self._extract_graph_elements(value, nodes, relationships)
 
             # Convert to lists and add metadata
@@ -141,8 +141,8 @@ class Neo4jClient:
                 "nodes": nodes_list,
                 "relationships": relationships_list,
                 "metadata": {
-                    "nodeLabels": sorted(list(all_labels)),
-                    "relationshipTypes": sorted(list(all_rel_types)),
+                    "nodeLabels": sorted(all_labels),
+                    "relationshipTypes": sorted(all_rel_types),
                     "nodeCount": len(nodes_list),
                     "relationshipCount": len(relationships_list)
                 }

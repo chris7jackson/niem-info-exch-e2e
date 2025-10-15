@@ -825,7 +825,7 @@ def _generate_mapping_from_root(root: ET.Element) -> dict[str, Any]:
             "store_actual_type_property": "xsiType"
         },
         "metadata": {
-            "cmf_element_index": sorted(list(cmf_elements))
+            "cmf_element_index": sorted(cmf_elements)
         }
     }
 
