@@ -93,19 +93,24 @@ def convert_xsd_to_cmf(source_dir: Path = None, primary_filename: str = "schema.
                 "error": f"Primary schema file '{primary_filename}' not found in source directory"
             }
 
-        # Create output CMF file in the source directory
-        cmf_file = source_dir / "model.cmf"
+        # For deeply nested primary files, change working directory to the file's parent
+        # This avoids issues with cmftool resolving nested paths with spaces
+        primary_file_parent = main_schema_file.parent
+        primary_file_name = main_schema_file.name
 
-        # Convert XSD to CMF using source directory as working directory
-        # This ensures all reference schemas are accessible via relative paths
-        # IMPORTANT: Use relative path for primary file so CMF tool can resolve imports
-        logger.info(f"Converting XSD to CMF with working directory: {source_dir}")
-        logger.info(f"Primary schema file (relative): {primary_filename}")
+        # Create output CMF file in the primary file's directory (cmftool writes to cwd)
+        cmf_file = primary_file_parent / "model.cmf"
+
+        # Convert XSD to CMF using primary file's parent directory as working directory
+        # This ensures cmftool can resolve imports relative to the primary file's location
+        # IMPORTANT: Use just the filename (not nested path) to avoid cmftool path issues
+        logger.info(f"Converting XSD to CMF with working directory: {primary_file_parent}")
+        logger.info(f"Primary schema file (name only): {primary_file_name}")
         logger.info(f"Primary schema file (absolute): {main_schema_file}")
 
         result = run_cmf_command(
-            ["x2m", "-o", "model.cmf", primary_filename],
-            working_dir=str(source_dir)
+            ["x2m", "-o", "model.cmf", primary_file_name],
+            working_dir=str(primary_file_parent)
         )
 
         if result["returncode"] != 0:
