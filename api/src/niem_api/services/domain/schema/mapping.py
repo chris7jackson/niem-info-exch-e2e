@@ -842,16 +842,16 @@ def main(cmf_path: str, out_yaml: str):
     with open(out_yaml, "w", encoding="utf-8") as f:
         yaml.safe_dump(mapping, f, sort_keys=False, allow_unicode=True)
 
-    print(f"OK: wrote {out_yaml}")
-    print(f"  namespaces: {len(mapping['namespaces'])}")
-    print(f"  objects: {len(mapping['objects'])}")
-    print(f"  associations: {len(mapping['associations'])}")
-    print(f"  references: {len(mapping['references'])}")
+    print(f"OK: wrote {out_yaml}")  # noqa: T201
+    print(f"  namespaces: {len(mapping['namespaces'])}")  # noqa: T201
+    print(f"  objects: {len(mapping['objects'])}")  # noqa: T201
+    print(f"  associations: {len(mapping['associations'])}")  # noqa: T201
+    print(f"  references: {len(mapping['references'])}")  # noqa: T201
 
 
 if __name__ == "__main__":
     if len(sys.argv) not in (2, 3):
-        print("Usage: python cmf_to_mapping.py <input.cmf.xml> <output.yaml>")
+        print("Usage: python cmf_to_mapping.py <input.cmf.xml> <output.yaml>")  # noqa: T201
         sys.exit(2)
     cmf_path = sys.argv[1]
     out_yaml = sys.argv[2] if len(sys.argv) == 3 else "mapping.yaml"
@@ -1258,7 +1258,7 @@ def main():
     report, code = validate(args.cmf_xml, args.mapping_yaml)
 
     pretty = json.dumps(report, indent=2)
-    print(pretty)
+    print(pretty)  # noqa: T201
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:
             f.write(pretty)

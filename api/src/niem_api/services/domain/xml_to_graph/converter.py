@@ -725,7 +725,7 @@ def main():
         all_lines.append(cypher)
 
     Path(args.out).write_text("\n\n".join(all_lines), encoding="utf-8")
-    print(f"OK: wrote Cypher to {args.out}")
+    print(f"OK: wrote Cypher to {args.out}")  # noqa: T201
 
 
 if __name__ == "__main__":
