@@ -37,6 +37,7 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install ruff black mypy
+        pip install -e .
 
     - name: Run ruff
       working-directory: ./api
@@ -67,6 +68,7 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install pytest pytest-cov pytest-asyncio
+        pip install -e .
 
     - name: Run unit tests
       working-directory: ./api
@@ -131,6 +133,7 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install pytest pytest-asyncio
+        pip install -e .
 
     - name: Run integration tests
       working-directory: ./api
@@ -161,6 +164,7 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install bandit pip-audit
+        pip install -e .
 
     - name: Run bandit security scan
       working-directory: ./api
