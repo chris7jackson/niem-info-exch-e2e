@@ -39,8 +39,8 @@ services:
 
   api:
     build:
-      context: ./api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./api/Dockerfile
     environment:
       DEV_TOKEN: ${DEV_TOKEN:-devtoken}
       MINIO_ENDPOINT: http://minio:9000

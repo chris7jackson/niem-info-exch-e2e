@@ -19,16 +19,14 @@ from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# CMF tool configuration - check both local and mounted paths
-# Go up 5 levels from clients/cmf_client.py to get to project root
-_LOCAL_CMF_PATH = Path(__file__).parent.parent.parent.parent.parent / "third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool"
-_MOUNTED_CMF_PATH = "/app/third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool"
+# CMF tool configuration
+# Go up 4 levels from clients/cmf_client.py to get to /app
+# File is at: /app/src/niem_api/clients/cmf_client.py -> need 4 .parent to reach /app
+_CMF_PATH = Path(__file__).parent.parent.parent.parent / "third_party/niem-cmf/cmftool-1.0/bin/cmftool"
 
-# Use local path if it exists, otherwise try mounted path
-if _LOCAL_CMF_PATH.exists():
-    CMF_TOOL_PATH = str(_LOCAL_CMF_PATH)
-elif Path(_MOUNTED_CMF_PATH).exists():
-    CMF_TOOL_PATH = _MOUNTED_CMF_PATH
+# Set CMF_TOOL_PATH if the tool exists
+if _CMF_PATH.exists():
+    CMF_TOOL_PATH = str(_CMF_PATH)
 else:
     CMF_TOOL_PATH = None
 
