@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import { rest } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import apiClient from './api'
 
@@ -7,96 +7,75 @@ const API_URL = 'http://localhost:8000'
 
 const server = setupServer(
   // Schema endpoints
-  rest.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
-        schema_id: 'test_schema_123',
-        niem_ndr_report: { status: 'pass' },
-        is_active: true
-      })
-    )
+  http.post(`${API_URL}/api/schema/xsd`, () => {
+    return HttpResponse.json({
+      schema_id: 'test_schema_123',
+      niem_ndr_report: { status: 'pass' },
+      is_active: true
+    })
   }),
-  rest.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json([
-        {
-          schema_id: 'schema_1',
-          filename: 'test1.xsd',
-          active: true,
-          uploaded_at: '2024-01-01T00:00:00Z'
-        },
-        {
-          schema_id: 'schema_2',
-          filename: 'test2.xsd',
-          active: false,
-          uploaded_at: '2024-01-02T00:00:00Z'
-        }
-      ])
-    )
+  http.get(`${API_URL}/api/schema`, () => {
+    return HttpResponse.json([
+      {
+        schema_id: 'schema_1',
+        filename: 'test1.xsd',
+        active: true,
+        uploaded_at: '2024-01-01T00:00:00Z'
+      },
+      {
+        schema_id: 'schema_2',
+        filename: 'test2.xsd',
+        active: false,
+        uploaded_at: '2024-01-02T00:00:00Z'
+      }
+    ])
   }),
-  rest.post(`${API_URL}/api/schema/activate/:schemaId`, (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({ active_schema_id: req.params.schemaId })
-    )
+  http.post(`${API_URL}/api/schema/activate/:schemaId`, ({ params }) => {
+    return HttpResponse.json({ active_schema_id: params.schemaId })
   }),
 
   // Ingestion endpoints
-  rest.post(`${API_URL}/api/ingest/xml`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
-        status: 'success',
-        processed_files: 2,
-        nodes_created: 10,
-        relationships_created: 5
-      })
-    )
+  http.post(`${API_URL}/api/ingest/xml`, () => {
+    return HttpResponse.json({
+      status: 'success',
+      processed_files: 2,
+      nodes_created: 10,
+      relationships_created: 5
+    })
   }),
-  rest.post(`${API_URL}/api/ingest/json`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
-        status: 'success',
-        processed_files: 1,
-        nodes_created: 5,
-        relationships_created: 3
-      })
-    )
+  http.post(`${API_URL}/api/ingest/json`, () => {
+    return HttpResponse.json({
+      status: 'success',
+      processed_files: 1,
+      nodes_created: 5,
+      relationships_created: 3
+    })
   }),
-  rest.get(`${API_URL}/api/ingest/files`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
-        files: [
-          {
-            original_name: 'crash_data.xml',
-            stored_name: '20240101_hash_crash_data.xml',
-            size: 1024,
-            last_modified: '2024-01-01T00:00:00Z',
-            content_type: 'application/xml'
-          }
-        ]
-      })
-    )
+  http.get(`${API_URL}/api/ingest/files`, () => {
+    return HttpResponse.json({
+      files: [
+        {
+          original_name: 'crash_data.xml',
+          stored_name: '20240101_hash_crash_data.xml',
+          size: 1024,
+          last_modified: '2024-01-01T00:00:00Z',
+          content_type: 'application/xml'
+        }
+      ]
+    })
   }),
 
   // Admin endpoints
-  rest.post(`${API_URL}/api/admin/reset`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
-        status: 'success',
-        message: 'System reset completed',
-        counts: {
-          schemas_deleted: 5,
-          data_files_deleted: 10,
-          neo4j_nodes_deleted: 100
-        }
-      })
-    )
+  http.post(`${API_URL}/api/admin/reset`, () => {
+    return HttpResponse.json({
+      status: 'success',
+      message: 'System reset completed',
+      counts: {
+        schemas_deleted: 5,
+        data_files_deleted: 10,
+        neo4j_nodes_deleted: 100
+      }
+    })
   })
 )
 
@@ -136,11 +115,8 @@ describe('API Functions', () => {
 
     test('uploadSchema handles errors', async () => {
       server.use(
-        rest.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
-          return res(
-            ctx.status(400),
-            ctx.json({ detail: 'Invalid schema format' })
-          )
+        http.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
+          return HttpResponse.json({ detail: 'Invalid schema format' }, { status: 400 })
         })
       )
 
@@ -182,11 +158,8 @@ describe('API Functions', () => {
 
     test('ingestion handles authentication errors', async () => {
       server.use(
-        rest.post(`${API_URL}/api/ingest/xml`, (_req, res, ctx) => {
-          return res(
-            ctx.status(401),
-            ctx.json({ detail: 'Invalid authentication token' })
-          )
+        http.post(`${API_URL}/api/ingest/xml`, (_req, res, ctx) => {
+          return HttpResponse.json({ detail: 'Invalid authentication token' }, { status: 401 })
         })
       )
 
@@ -210,10 +183,8 @@ describe('API Functions', () => {
 
     test('getNeo4jStats returns database statistics', async () => {
       server.use(
-        rest.get('/api/admin/neo4j/stats', (_req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json({
+        http.get('/api/admin/neo4j/stats', (_req, res, ctx) => {
+          return HttpResponse.json({
               stats: {
                 nodes: 100,
                 relationships: 50,
@@ -221,7 +192,6 @@ describe('API Functions', () => {
                 constraints: 3
               }
             })
-          )
         })
       )
 
@@ -237,9 +207,9 @@ describe('API Functions', () => {
       let authHeader: string | null = null
 
       server.use(
-        rest.get(`${API_URL}/api/schema`, (req, res, ctx) => {
-          authHeader = req.headers.get('Authorization')
-          return res(ctx.status(200), ctx.json([]))
+        http.get(`${API_URL}/api/schema`, ({ request }) => {
+          authHeader = request.headers.get('Authorization')
+          return HttpResponse.json([])
         })
       )
 
@@ -250,11 +220,8 @@ describe('API Functions', () => {
 
     test('handles authentication errors', async () => {
       server.use(
-        rest.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
-          return res(
-            ctx.status(401),
-            ctx.json({ detail: 'Invalid authentication token' })
-          )
+        http.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
+          return HttpResponse.json({ detail: 'Invalid authentication token' }, { status: 401 })
         })
       )
 
@@ -265,11 +232,8 @@ describe('API Functions', () => {
   describe('Error Handling', () => {
     test('handles 500 server errors', async () => {
       server.use(
-        rest.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
-          return res(
-            ctx.status(500),
-            ctx.json({ detail: 'Internal server error' })
-          )
+        http.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
+          return HttpResponse.json({ detail: 'Internal server error' }, { status: 500 })
         })
       )
 

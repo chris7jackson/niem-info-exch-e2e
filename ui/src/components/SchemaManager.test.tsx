@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom'
-import { rest } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { vi } from 'vitest'
 
@@ -30,25 +30,19 @@ const mockSchemas = [
 const API_URL = 'http://localhost:8000'
 
 const server = setupServer(
-  rest.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
-    return res(ctx.status(200), ctx.json(mockSchemas))
+  http.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
+    return HttpResponse.json(mockSchemas)
   }),
-  rest.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
+  http.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
+    return HttpResponse.json({
         schema_id: 'new_schema',
         niem_ndr_report: { status: 'pass', violations: [] },
         import_validation_report: { status: 'pass' },
         is_active: true
       })
-    )
   }),
-  rest.post(`${API_URL}/api/schema/activate/:schemaId`, (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({ active_schema_id: req.params.schemaId })
-    )
+  http.post(`${API_URL}/api/schema/activate/:schemaId`, ({ params }) => {
+    return HttpResponse.json({ active_schema_id: params.schemaId })
   })
 )
 
@@ -138,10 +132,8 @@ describe('SchemaManager Component', () => {
 
   test('handles upload errors with validation failures', async () => {
     server.use(
-      rest.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
-        return res(
-          ctx.status(400),
-          ctx.json({
+      http.post(`${API_URL}/api/schema/xsd`, (_req, res, ctx) => {
+        return HttpResponse.json({
             detail: {
               message: 'Schema validation failed',
               niem_ndr_report: {
@@ -155,8 +147,7 @@ describe('SchemaManager Component', () => {
                 ]
               }
             }
-          })
-        )
+          }, { status: 400 })
       })
     )
 
@@ -200,14 +191,11 @@ describe('SchemaManager Component', () => {
 
     // Mock successful activation
     server.use(
-      rest.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
-        return res(
-          ctx.status(200),
-          ctx.json([
+      http.get(`${API_URL}/api/schema`, (_req, res, ctx) => {
+        return HttpResponse.json([
             { ...mockSchemas[0], active: false },
             { ...mockSchemas[1], active: true }
           ])
-        )
       })
     )
 
@@ -295,3 +283,4 @@ describe('SchemaManager Component', () => {
     }
   })
 })
+

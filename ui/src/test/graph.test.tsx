@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom'
-import { rest } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { vi } from 'vitest'
 
@@ -48,28 +48,20 @@ const mockGraphData = {
 const API_URL = 'http://localhost:8000'
 
 const server = setupServer(
-  rest.get(`${API_URL}/api/graph/full`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
+  http.get(`${API_URL}/api/graph/full`, (_req, res, ctx) => {
+    return HttpResponse.json({
         status: 'success',
         data: mockGraphData
       })
-    )
   }),
-  rest.post(`${API_URL}/api/graph/query`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
+  http.post(`${API_URL}/api/graph/query`, (_req, res, ctx) => {
+    return HttpResponse.json({
         status: 'success',
         data: mockGraphData
       })
-    )
   }),
-  rest.get(`${API_URL}/api/graph/summary`, (_req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({
+  http.get(`${API_URL}/api/graph/summary`, (_req, res, ctx) => {
+    return HttpResponse.json({
         status: 'success',
         data: {
           node_count: 2,
@@ -80,7 +72,6 @@ const server = setupServer(
           relationship_counts_by_type: { WORKS_FOR: 1 }
         }
       })
-    )
   })
 )
 
@@ -127,11 +118,8 @@ describe('Graph Page', () => {
 
   test('handles errors gracefully', async () => {
     server.use(
-      rest.get(`${API_URL}/api/graph/full`, (_req, res, ctx) => {
-        return res(
-          ctx.status(500),
-          ctx.json({ detail: 'Database connection failed' })
-        )
+      http.get(`${API_URL}/api/graph/full`, (_req, res, ctx) => {
+        return HttpResponse.json({ detail: 'Database connection failed' }, { status: 500 })
       })
     )
 
@@ -159,11 +147,8 @@ describe('Graph Page', () => {
 
   test('handles invalid Cypher syntax errors', async () => {
     server.use(
-      rest.post(`${API_URL}/api/graph/query`, (_req, res, ctx) => {
-        return res(
-          ctx.status(400),
-          ctx.json({ detail: 'Invalid Cypher syntax' })
-        )
+      http.post(`${API_URL}/api/graph/query`, (_req, res, ctx) => {
+        return HttpResponse.json({ detail: 'Invalid Cypher syntax' }, { status: 400 })
       })
     )
 
