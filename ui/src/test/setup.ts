@@ -102,10 +102,7 @@ global.fetch = vi.fn()
 // Global test setup
 beforeAll(() => {
   // Set up any global test configuration
-  Object.defineProperty(process.env, 'NODE_ENV', {
-    value: 'test',
-    writable: true
-  })
+  process.env.NODE_ENV = 'test'
   process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000'
 })
 

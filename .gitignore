@@ -101,3 +101,8 @@ temp/
 claude.md
 
 third_party/niem-model
+# Test coverage and reports
+ui/coverage/
+ui/test-results/
+ui/playwright-report/
+ui/screenshots/

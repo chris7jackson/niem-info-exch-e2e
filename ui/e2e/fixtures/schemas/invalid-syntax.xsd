@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/invalid/1.0"
+           elementFormDefault="qualified">
+
+  <!-- Invalid XML: Unclosed element tag -->
+  <xs:element name="InvalidElement" type="xs:string"
+
+  <!-- Missing closing tag will cause XML parse error -->
+
+</xs:schema>
