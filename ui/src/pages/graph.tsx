@@ -28,7 +28,8 @@ interface GraphData {
 }
 
 
-// Data-agnostic color generation using HSL for consistent, distinguishable colors
+// Universal color generation using HSL for consistent, distinguishable colors
+// Works for any number of labels/types without hardcoding
 const generateDistinguishableColors = (count: number): string[] => {
   const colors: string[] = [];
   const saturation = 70; // Good saturation for visibility
@@ -42,45 +43,13 @@ const generateDistinguishableColors = (count: number): string[] => {
   return colors;
 };
 
-// Enhanced relationship styling for NIEM data
-const getRelationshipStyle = (relationshipType: string, allTypes: string[]) => {
-  // Special styling for NIEM relationship patterns
-  if (relationshipType === 'REPRESENTS_PERSON') {
-    return {
-      color: '#E74C3C', // Red for person role relationships
-      width: 3,
-      style: 'solid',
-      opacity: 0.9
-    };
-  }
-
-  if (relationshipType.startsWith('J_') || relationshipType.startsWith('NC_') || relationshipType.startsWith('PRIV_')) {
-    return {
-      color: '#3498DB', // Blue for NIEM reference relationships
-      width: 2,
-      style: 'dashed',
-      opacity: 0.8
-    };
-  }
-
-  if (relationshipType.startsWith('HAS_')) {
-    return {
-      color: '#2ECC71', // Green for containment relationships
-      width: 1,
-      style: 'solid',
-      opacity: 0.7
-    };
-  }
-
-  // Fallback to data-agnostic styling
-  const typeIndex = allTypes.indexOf(relationshipType);
-  const baseColors = ['#2E3440', '#3B4252', '#434C5E', '#4C566A', '#5E81AC', '#81A1C1', '#88C0D0', '#8FBCBB'];
-
+// Universal relationship styling - data-driven, no hardcoded patterns
+const getRelationshipStyle = (relationshipType: string, allTypes: string[], colorMap: Record<string, string>) => {
   return {
-    color: baseColors[typeIndex % baseColors.length],
-    width: relationshipType.includes('CONTAINS') || relationshipType.includes('HAS') ? 1 : 2,
-    style: relationshipType.includes('CONTAINS') || relationshipType.includes('PART_OF') ? 'dashed' : 'solid',
-    opacity: relationshipType.includes('CONTAINS') ? 0.6 : 0.8
+    color: colorMap[relationshipType] || '#888888',
+    width: 2,  // Consistent width for all relationships
+    style: 'solid',  // Consistent style for all relationships
+    opacity: 0.8  // Consistent opacity for all relationships
   };
 };
 
@@ -94,29 +63,85 @@ const getNodeSize = (node: GraphNode, relationships: GraphRelationship[]): numbe
   return Math.max(30, Math.min(80, 30 + (connections * 3)));
 };
 
-// Data-agnostic label display prioritizing meaningful content
+// Universal label display - prioritizes semantic information
 const getDisplayLabel = (node: GraphNode): string => {
   const props = node.properties;
 
-  // Priority order for meaningful labels (qname first for NIEM data)
+  // Priority 1: qname (NIEM qualified name) - most semantic
+  if (props.qname && typeof props.qname === 'string' && props.qname.length > 0) {
+    const qname = props.qname.toString();
+    return qname.length > 25 ? qname.substring(0, 25) + '...' : qname;
+  }
+
+  // Priority 2: semantic ID from NIEM data
+  if (props.id && typeof props.id === 'string' && props.id.length > 0) {
+    const id = props.id.toString();
+    return id.length > 25 ? id.substring(0, 25) + '...' : id;
+  }
+
+  // Priority 3: Common meaningful properties
   const labelPriority = [
-    'qname', 'name', 'title', 'label', 'identifier',
-    'content', 'text', 'value', 'description',
-    'xml_tag', 'tag', 'type', 'id'
+    'name', 'title', 'label', 'identifier',
+    'content', 'text', 'value', 'description'
   ];
 
-  // Find the best property to display
   for (const key of labelPriority) {
     if (props[key] && typeof props[key] === 'string') {
       const value = props[key].toString();
       if (value.length > 0) {
-        return value.length > 20 ? value.substring(0, 20) + '...' : value;
+        return value.length > 25 ? value.substring(0, 25) + '...' : value;
       }
     }
   }
 
-  // Fallback to node label
+  // Fallback to node type label
   return node.label || node.labels[0] || `Node ${node.id}`;
+};
+
+// Build comprehensive tooltip showing all node information
+const buildNodeTooltip = (node: GraphNode): string => {
+  const lines: string[] = [];
+
+  // Show all labels
+  lines.push(`Type: ${node.labels.join(', ')}`);
+
+  // Show semantic ID
+  if (node.properties.id) {
+    lines.push(`ID: ${node.properties.id}`);
+  }
+
+  // Show qname
+  if (node.properties.qname) {
+    lines.push(`QName: ${node.properties.qname}`);
+  }
+
+  // Count properties
+  const propCount = Object.keys(node.properties).length;
+  lines.push(`Properties: ${propCount}`);
+
+  // Show augmentation properties if any
+  const augProps = Object.keys(node.properties).filter(k => k.startsWith('aug_'));
+  if (augProps.length > 0) {
+    lines.push(`Augmentations: ${augProps.length}`);
+  }
+
+  return lines.join('\n');
+};
+
+// Build comprehensive relationship tooltip
+const buildEdgeTooltip = (rel: GraphRelationship): string => {
+  const lines: string[] = [];
+
+  lines.push(`Type: ${rel.type}`);
+  lines.push(`From: ${rel.startNode}`);
+  lines.push(`To: ${rel.endNode}`);
+
+  const propCount = Object.keys(rel.properties).length;
+  if (propCount > 0) {
+    lines.push(`Properties: ${propCount}`);
+  }
+
+  return lines.join('\n');
 };
 
 export default function GraphPage() {
@@ -178,42 +203,50 @@ export default function GraphPage() {
   const renderGraph = (data: GraphData) => {
     if (!cyRef.current) return;
 
-    // Generate data-agnostic colors
+    // Generate universal colors for ALL node labels
     const nodeColors = generateDistinguishableColors(data.metadata.nodeLabels.length);
     const labelColorMap: Record<string, string> = {};
     data.metadata.nodeLabels.forEach((label, index) => {
       labelColorMap[label] = nodeColors[index];
     });
 
-    // Convert nodes to Cytoscape format with data-agnostic styling
+    // Generate universal colors for ALL relationship types
+    const edgeColors = generateDistinguishableColors(data.metadata.relationshipTypes.length);
+    const relTypeColorMap: Record<string, string> = {};
+    data.metadata.relationshipTypes.forEach((type, index) => {
+      relTypeColorMap[type] = edgeColors[index];
+    });
+
+    // Convert nodes to Cytoscape format with universal styling
     const cyNodes = data.nodes.map(node => {
       const displayLabel = getDisplayLabel(node);
       const nodeSize = getNodeSize(node, data.relationships);
+      const tooltip = buildNodeTooltip(node);
 
       return {
         data: {
-          id: node.id,
+          id: node.id,  // Use semantic ID for node identity
           label: showNodeLabels ? displayLabel : '',
           nodeType: node.label,
           nodeLabels: node.labels,
           properties: node.properties,
           color: labelColorMap[node.label] || '#95A5A6',
           size: nodeSize,
-          // Tooltip with all available info
-          tooltip: `${node.labels.join(', ')}\nID: ${node.id}\nProperties: ${Object.keys(node.properties).length} items`
+          tooltip: tooltip
         }
       };
     });
 
-    // Convert relationships to Cytoscape format with data-agnostic styling
+    // Convert relationships to Cytoscape format with universal styling
     const cyEdges = data.relationships.map(rel => {
-      const relStyle = getRelationshipStyle(rel.type, data.metadata.relationshipTypes);
+      const relStyle = getRelationshipStyle(rel.type, data.metadata.relationshipTypes, relTypeColorMap);
+      const tooltip = buildEdgeTooltip(rel);
 
       return {
         data: {
           id: rel.id,
-          source: rel.startNode,
-          target: rel.endNode,
+          source: rel.startNode,  // Semantic ID
+          target: rel.endNode,    // Semantic ID
           label: showRelationshipLabels ? rel.type : '',
           type: rel.type,
           properties: rel.properties,
@@ -221,7 +254,7 @@ export default function GraphPage() {
           width: relStyle.width,
           lineStyle: relStyle.style,
           opacity: relStyle.opacity,
-          tooltip: `${rel.type}\nID: ${rel.id}\nProperties: ${Object.keys(rel.properties).length} items`
+          tooltip: tooltip
         }
       };
     });
@@ -339,15 +372,24 @@ export default function GraphPage() {
       } as any
     });
 
-    // Data-agnostic event handlers
+    // Universal event handlers - show complete information
     cyInstance.current.on('tap', 'node', function(evt) {
       const node = evt.target;
       const data = node.data();
       console.log('=== Node Details ===');
-      console.log('Type:', data.nodeType);
-      console.log('Labels:', data.nodeLabels);
-      console.log('ID:', data.id);
-      console.log('Properties:', data.properties);
+      console.log('Labels:', data.nodeLabels.join(', '));
+      console.log('Primary Label:', data.nodeType);
+      console.log('Semantic ID:', data.id);
+
+      if (data.properties.qname) {
+        console.log('QName:', data.properties.qname);
+      }
+
+      console.log('\n--- All Properties ---');
+      Object.entries(data.properties).forEach(([key, value]) => {
+        const prefix = key.startsWith('aug_') ? '[AUG] ' : '';
+        console.log(`${prefix}${key}:`, value);
+      });
       console.log('==================');
     });
 
@@ -356,9 +398,16 @@ export default function GraphPage() {
       const data = edge.data();
       console.log('=== Relationship Details ===');
       console.log('Type:', data.type);
-      console.log('ID:', data.id);
-      console.log('From:', data.source, '→', data.target);
-      console.log('Properties:', data.properties);
+      console.log('Internal ID:', data.id);
+      console.log('From:', data.source);
+      console.log('To:', data.target);
+
+      if (Object.keys(data.properties).length > 0) {
+        console.log('\n--- Properties ---');
+        Object.entries(data.properties).forEach(([key, value]) => {
+          console.log(`${key}:`, value);
+        });
+      }
       console.log('===========================');
     });
 
@@ -476,18 +525,20 @@ export default function GraphPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Graph Schema</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Graph Visualization</h1>
         <p className="mt-1 text-sm text-gray-600">
-          View all nodes and relationships in the graph. By default, shows the complete graph structure.
+          Interactive visualization of all nodes and relationships in the Neo4j database.
+          Shows complete graph structure with semantic IDs, QNames, and properties.
         </p>
       </div>
 
       {/* Query Input Section */}
       <div className="bg-white shadow rounded-lg">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Query Options</h3>
+          <h3 className="text-lg font-medium text-gray-900">Cypher Query</h3>
           <p className="mt-1 text-sm text-gray-600">
-            By default, shows all nodes and relationships. Use &quot;Limited (100)&quot; for large graphs.
+            Execute Cypher queries to explore your graph. Default query shows complete graph structure
+            with all nodes, relationships, and properties.
           </p>
         </div>
         <div className="p-6">
@@ -625,7 +676,7 @@ export default function GraphPage() {
               </div>
             </div>
 
-            {/* Dynamic Legend Panel */}
+            {/* Universal Legend Panel */}
             <div className="w-64 bg-gray-50 rounded-lg p-4">
               {graphData && (
                 <>
@@ -639,10 +690,10 @@ export default function GraphPage() {
                       return (
                         <div key={label} className="flex items-center gap-2">
                           <div
-                            className="w-3 h-3 rounded-full border border-gray-300"
+                            className="w-3 h-3 rounded-full border border-gray-300 flex-shrink-0"
                             style={{ backgroundColor: color }}
                           ></div>
-                          <span className="truncate">{label}</span>
+                          <span className="truncate" title={label}>{label}</span>
                         </div>
                       );
                     })}
@@ -651,34 +702,17 @@ export default function GraphPage() {
                   <h4 className="text-sm font-semibold text-gray-900 mt-4 mb-3">
                     Relationships ({graphData.metadata.relationshipTypes.length})
                   </h4>
-                  <div className="space-y-1 text-xs mb-3">
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <div className="w-3 h-0.5 bg-red-500"></div>
-                      <span>Person Roles</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <div className="w-3 h-0.5 border-dashed border-t border-blue-500"></div>
-                      <span>NIEM References</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <div className="w-3 h-0.5 bg-green-500"></div>
-                      <span>Containment</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2 text-xs max-h-32 overflow-y-auto">
-                    {graphData.metadata.relationshipTypes.map((type) => {
-                      const style = getRelationshipStyle(type, graphData.metadata.relationshipTypes);
+                  <div className="space-y-2 text-xs max-h-40 overflow-y-auto">
+                    {graphData.metadata.relationshipTypes.map((type, index) => {
+                      const colors = generateDistinguishableColors(graphData.metadata.relationshipTypes.length);
+                      const color = colors[index];
                       return (
                         <div key={type} className="flex items-center gap-2">
                           <div
-                            className={`w-4 h-0.5 ${style.style === 'dashed' ? 'border-dashed border-t border-gray-600' : ''}`}
-                            style={{
-                              backgroundColor: style.style === 'solid' ? style.color : 'transparent',
-                              borderColor: style.style === 'dashed' ? style.color : 'transparent',
-                              borderWidth: style.style === 'dashed' ? `${style.width}px` : '0'
-                            }}
+                            className="w-4 h-0.5 flex-shrink-0"
+                            style={{ backgroundColor: color }}
                           ></div>
-                          <span className="truncate">{type}</span>
+                          <span className="truncate" title={type}>{type}</span>
                         </div>
                       );
                     })}
@@ -701,8 +735,9 @@ export default function GraphPage() {
 
           <div className="mt-4 text-xs text-gray-500">
             <p>
-              <strong>Graph Visualization</strong> - Interactive view of all nodes and relationships.
-              Click nodes/edges for details, drag to pan, scroll to zoom.
+              <strong>Universal Graph Visualization</strong> - Shows ALL nodes and relationships from Neo4j,
+              matching Neo4j Browser capabilities. Click nodes/edges for full details including semantic IDs,
+              QNames, and augmentation properties. Drag to pan, scroll to zoom.
             </p>
           </div>
         </div>

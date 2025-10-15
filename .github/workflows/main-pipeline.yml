@@ -103,12 +103,40 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Read version files
+        id: version
+        run: |
+          API_VERSION=$(cat api/VERSION)
+          UI_VERSION=$(cat ui/VERSION)
+          echo "api_version=$API_VERSION" >> $GITHUB_OUTPUT
+          echo "ui_version=$UI_VERSION" >> $GITHUB_OUTPUT
+          echo "API version: $API_VERSION"
+          echo "UI version: $UI_VERSION"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build and start services
+        env:
+          API_VERSION: ${{ steps.version.outputs.api_version }}
+          UI_VERSION: ${{ steps.version.outputs.ui_version }}
+          GIT_COMMIT: ${{ github.sha }}
+          BUILD_DATE: ${{ github.event.head_commit.timestamp }}
         run: |
-          docker compose up -d --build
+          # Build API with version metadata
+          docker compose build --build-arg VERSION=${API_VERSION} \
+            --build-arg GIT_COMMIT=${GIT_COMMIT} \
+            --build-arg BUILD_DATE=${BUILD_DATE} \
+            api
+
+          # Build UI with version metadata
+          docker compose build --build-arg VERSION=${UI_VERSION} \
+            --build-arg GIT_COMMIT=${GIT_COMMIT} \
+            --build-arg BUILD_DATE=${BUILD_DATE} \
+            ui
+
+          # Start all services
+          docker compose up -d
 
       - name: Wait for services to be ready
         run: |
@@ -120,7 +148,16 @@ jobs:
         run: |
           # Test API health endpoints
           echo "Testing API healthz..."
-          curl -f http://localhost:8000/healthz
+          API_RESPONSE=$(curl -f http://localhost:8000/healthz)
+          echo "$API_RESPONSE"
+
+          # Verify API version is injected
+          API_VERSION=$(echo "$API_RESPONSE" | jq -r '.api_version')
+          echo "API version from /healthz: $API_VERSION"
+          if [ "$API_VERSION" == "unknown" ] || [ "$API_VERSION" == "null" ]; then
+            echo "❌ API version not properly injected!"
+            exit 1
+          fi
 
           echo "Testing API readyz..."
           curl -f http://localhost:8000/readyz
