@@ -5,7 +5,7 @@ import '@testing-library/jest-dom'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 
-import SchemaManager from './SchemaManager'
+import SchemaManager from '../../../src/components/SchemaManager'
 
 const mockSchemas = [
   {

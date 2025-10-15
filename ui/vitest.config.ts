@@ -10,7 +10,8 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
     include: [
-      'src/**/*.{test,spec}.{js,ts,jsx,tsx}'
+      'src/**/*.{test,spec}.{js,ts,jsx,tsx}',
+      'tests/**/*.{test,spec}.{js,ts,jsx,tsx}'
     ],
     exclude: [
       'node_modules/',
@@ -43,9 +44,7 @@ export default defineConfig({
         functions: 30,
         branches: 50,
         statements: 30
-      },
-      // Enforce coverage on critical modules
-      perFile: false
+      }
     }
   },
   resolve: {

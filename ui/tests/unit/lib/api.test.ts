@@ -1,7 +1,7 @@
 import { vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import apiClient from './api'
+import apiClient from '../../../src/lib/api'
 
 const API_URL = 'http://localhost:8000'
 

@@ -1,10 +1,8 @@
 import '@testing-library/jest-dom'
-import { beforeAll, afterEach, afterAll } from 'vitest'
+import { beforeAll, afterEach, afterAll, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
-import { setupServer } from 'msw/node'
 
 // Mock next/router
-import { vi } from 'vitest'
 
 vi.mock('next/router', () => ({
   useRouter: () => ({
@@ -102,7 +100,7 @@ global.fetch = vi.fn()
 // Global test setup
 beforeAll(() => {
   // Set up any global test configuration
-  process.env.NODE_ENV = 'test'
+  // Note: NODE_ENV is automatically set to 'test' by Vitest
   process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000'
 })
 
