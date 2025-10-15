@@ -3,8 +3,8 @@
 ## Attribution
 - **Source Repository:** https://github.com/niemopen/cmftool
 - **License:** Apache License 2.0 (see LICENSE file in this directory)
-- **Current Version:** v1.0-alpha.8
-- **Date Added:** September 23, 2025
+- **Current Version:** v1.0
+- **Date Added:** October 15, 2025
 - **Production Deployment:** Embedded in Docker image (no external volume mounts required)
 - **Modifications:** None - vendored as-is from official release
 
@@ -25,7 +25,7 @@ To update to a newer version:
 6. Test validation pipeline with sample data in `samples/CrashDriver-cmf/`
 
 ## Usage
-This tool is integrated into the NIEM validation pipeline via `api/src/niem_api/clients/cmf_client.py`. Direct usage via command line is also supported through the binaries in `cmftool-1.0-alpha.8/bin/`.
+This tool is integrated into the NIEM validation pipeline via `api/src/niem_api/clients/cmf_client.py`. Direct usage via command line is also supported through the binaries in `cmftool-1.0/bin/`.
 
 ## Future Improvements
 Consider migrating to git submodule for easier version tracking and updates (see backlog).
