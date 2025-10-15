@@ -85,7 +85,9 @@ jobs:
       run: |
         # Clean install to avoid optional dependency issues
         # https://github.com/npm/cli/issues/4828
-        npm ci --prefer-offline --no-audit
+        rm -rf node_modules
+        npm cache clean --force
+        npm install --legacy-peer-deps
 
     - name: Run unit tests with coverage
       working-directory: ./ui
