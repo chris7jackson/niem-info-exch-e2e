@@ -77,17 +77,16 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: ui/package-lock.json
 
     - name: Install dependencies
       working-directory: ./ui
       run: |
         # Clean install to avoid optional dependency issues
         # https://github.com/npm/cli/issues/4828
-        rm -rf node_modules
-        npm cache clean --force
-        npm install --legacy-peer-deps
+        rm -rf node_modules package-lock.json
+        npm install
+        # Explicitly install rollup's platform-specific binary
+        npm install @rollup/rollup-linux-x64-gnu --save-optional
 
     - name: Run unit tests with coverage
       working-directory: ./ui
