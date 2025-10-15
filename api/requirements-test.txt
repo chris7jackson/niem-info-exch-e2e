@@ -23,7 +23,7 @@ responses==0.24.1  # Mock HTTP responses
 
 # Code quality and linting (development)
 ruff==0.1.6  # Fast Python linter
-black==23.11.0  # Code formatter
+black==24.3.0  # Code formatter
 mypy==1.7.1  # Type checking
 isort==5.12.0  # Import sorting
 
