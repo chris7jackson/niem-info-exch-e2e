@@ -1,5 +1,22 @@
 FROM python:3.12-slim
 
+# Build arguments for version metadata
+ARG VERSION=unknown
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+
+# Set environment variables for runtime access
+ENV APP_VERSION=${VERSION} \
+    GIT_COMMIT=${GIT_COMMIT} \
+    BUILD_DATE=${BUILD_DATE}
+
+# OCI image labels
+LABEL org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.title="NIEM API" \
+      org.opencontainers.image.description="NIEM Information Exchange API"
+
 WORKDIR /app
 
 # Install system dependencies including Java for CMF tool
@@ -18,7 +35,7 @@ COPY api/src/ ./src/
 # Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
-# Copy third-party tools and set ownership
+# Copy third-party tools (embedded in api directory) and set ownership
 COPY --chown=appuser:appgroup third_party/niem-ndr /app/third_party/niem-ndr
 COPY --chown=appuser:appgroup third_party/niem-cmf /app/third_party/niem-cmf
 

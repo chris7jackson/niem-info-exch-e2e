@@ -484,7 +484,8 @@ def generate_for_xml_content(
         is_nil = elem.attrib.get(f"{{{XSI_NS}}}nil") == "true"
 
         # Check if element is just a reference (ref or uri with nil)
-        # These create the entity node (from element QName) and containment relationships
+        # These elements are pure references - they don't create containment relationships
+        # The actual semantic relationships are handled by association processing
         if (ref or uri_ref) and is_nil:
             # Extract the target ID
             target_id = None
@@ -493,18 +494,18 @@ def generate_for_xml_content(
             elif uri_ref:
                 target_id = f"{file_prefix}_{uri_ref[1:]}" if uri_ref.startswith("#") else f"{file_prefix}_{uri_ref}"
 
-            # Create or register entity node if not already exists
+            # Create or register entity node if not already exists (for forward references)
             # Use element QName to determine entity type (e.g., <nc:Person> creates nc:Person entity)
             if target_id and target_id not in nodes:
                 entity_label = elem_qn.replace(":", "_")
                 nodes[target_id] = [entity_label, elem_qn, {}, {}]
 
-            # Create containment relationship from parent to referenced node
-            if parent_info and target_id:
-                parent_id, parent_label = parent_info
-                rel = "HAS_" + re.sub(r'[^A-Za-z0-9]', '_', local_from_qname(elem_qn)).upper()
-                entity_label = nodes[target_id][0] if target_id in nodes else elem_qn.replace(":", "_")
-                contains.append((parent_id, parent_label, target_id, entity_label, rel))
+            # NOTE: Do NOT create containment relationships for reference elements
+            # Reference elements (xsi:nil="true" with structures:ref/uri) are pure references
+            # used in associations. Creating containment edges here would duplicate the
+            # semantic relationships already created by association processing.
+            # The association rules (lines 434-458) already handle creating the proper
+            # relationship edges between association nodes and their endpoints.
 
             # Traverse children (though ref/nil elements typically have none)
             for ch in list(elem):

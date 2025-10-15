@@ -20,8 +20,8 @@ from typing import Dict, Any, Optional
 logger = logging.getLogger(__name__)
 
 # CMF tool configuration
-# Go up 4 levels from clients/cmf_client.py to get to /app
-# File is at: /app/src/niem_api/clients/cmf_client.py -> need 4 .parent to reach /app
+# Go up 4 levels from clients/cmf_client.py to get to api/ directory
+# File is at: api/src/niem_api/clients/cmf_client.py -> need 4 .parent to reach api/
 _CMF_PATH = Path(__file__).parent.parent.parent.parent / "third_party/niem-cmf/cmftool-1.0/bin/cmftool"
 
 # Set CMF_TOOL_PATH if the tool exists

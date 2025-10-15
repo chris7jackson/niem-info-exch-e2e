@@ -16,7 +16,8 @@
       "Bash(docker stop:*)",
       "Bash(docker rm:*)",
       "Bash(find:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
