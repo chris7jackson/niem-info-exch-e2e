@@ -20,8 +20,8 @@ from typing import Dict, Any, Optional
 logger = logging.getLogger(__name__)
 
 # CMF tool configuration - check both local and mounted paths
-# Go up 5 levels from clients/cmf_client.py to get to project root
-_LOCAL_CMF_PATH = Path(__file__).parent.parent.parent.parent.parent / "third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool"
+# Go up 4 levels from clients/cmf_client.py to get to api/ directory
+_LOCAL_CMF_PATH = Path(__file__).parent.parent.parent.parent / "third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool"
 _MOUNTED_CMF_PATH = "/app/third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool"
 
 # Use local path if it exists, otherwise try mounted path

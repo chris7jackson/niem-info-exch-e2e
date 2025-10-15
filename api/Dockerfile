@@ -18,7 +18,7 @@ COPY src/ ./src/
 # Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
-# Copy third-party tools and set ownership
+# Copy third-party tools (embedded in api directory) and set ownership
 COPY --chown=appuser:appgroup third_party/niem-ndr /app/third_party/niem-ndr
 COPY --chown=appuser:appgroup third_party/niem-cmf /app/third_party/niem-cmf
 

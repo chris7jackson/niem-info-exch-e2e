@@ -14,8 +14,8 @@ class TestNdrValidationIntegration:
     @pytest.fixture
     def validator(self):
         """Create validator instance with actual NDR tools"""
-        # Use the actual NDR tools path
-        ndr_tools_path = Path(__file__).parent.parent.parent.parent / "third_party" / "niem-ndr"
+        # Use the actual NDR tools path (now in api/third_party/)
+        ndr_tools_path = Path(__file__).parent.parent.parent / "third_party" / "niem-ndr"
 
         if not ndr_tools_path.exists():
             pytest.skip(f"NDR tools not found at {ndr_tools_path}")
