@@ -66,6 +66,17 @@ export interface UploadedFile {
   content_type: string;
 }
 
+export interface ConversionResult {
+  success: boolean;
+  json_content?: any;
+  json_string?: string;
+  message?: string;
+  schema_id?: string;
+  schema_filename?: string;
+  source_filename?: string;
+  error?: string;
+}
+
 class ApiClient {
   private client: AxiosInstance;
 
@@ -135,6 +146,31 @@ class ApiClient {
     });
 
     const response = await this.client.post('/api/ingest/json', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  // Format Conversion
+  async convertXmlToJson(
+    file: File,
+    schemaId?: string,
+    includeContext: boolean = false,
+    contextUri?: string
+  ): Promise<ConversionResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (schemaId) {
+      formData.append('schema_id', schemaId);
+    }
+    formData.append('include_context', includeContext.toString());
+    if (contextUri) {
+      formData.append('context_uri', contextUri);
+    }
+
+    const response = await this.client.post('/api/convert/xml-to-json', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

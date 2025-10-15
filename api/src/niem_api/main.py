@@ -64,6 +64,14 @@ async def startup_tasks():
         else:
             logger.warning("Scheval tool setup failed - schematron validation may not be available")
 
+        # Download and setup NIEMTran tool
+        from .clients.niemtran_client import download_and_setup_niemtran
+        niemtran_setup = await download_and_setup_niemtran()
+        if niemtran_setup:
+            logger.info("NIEMTran tool setup completed successfully")
+        else:
+            logger.warning("NIEMTran tool setup failed - XML to JSON conversion will not be available")
+
         logger.info("Startup tasks completed successfully")
 
         # TODO potentially, fetch all third party references. i.e. niem open reference xsd schemas. niem cmftool, niem naming design rules. Or document how to update. 
@@ -261,6 +269,40 @@ async def get_uploaded_files(
     """Get list of uploaded data files"""
     from .handlers.ingest import handle_get_uploaded_files
     return await handle_get_uploaded_files(s3)
+
+
+# Conversion Routes
+
+@app.post("/api/convert/xml-to-json")
+async def convert_xml_to_json(
+    file: UploadFile = File(...),
+    schema_id: str = Form(None),
+    include_context: bool = Form(False),
+    context_uri: str = Form(None),
+    token: str = Depends(verify_token),
+    s3=Depends(get_s3_client)
+):
+    """Convert NIEM XML message to JSON format.
+
+    Uses the active schema's CMF model to perform the conversion.
+    The resulting JSON follows NIEM JSON-LD conventions.
+
+    This is a utility tool for demo purposes - converted JSON is returned
+    but not stored or ingested.
+
+    Args:
+        file: XML file to convert
+        schema_id: Optional schema ID (uses active schema if not provided)
+        include_context: Include complete @context in the result
+        context_uri: Optional URI to include as "@context:" URI pair
+        token: Authentication token
+        s3: MinIO client dependency
+
+    Returns:
+        JSON response with converted content
+    """
+    from .handlers.convert import handle_xml_to_json_conversion
+    return await handle_xml_to_json_conversion(file, s3, schema_id, include_context, context_uri)
 
 
 # Admin Routes

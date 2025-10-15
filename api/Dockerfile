@@ -39,6 +39,7 @@ RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 COPY --chown=appuser:appgroup api/third_party/niem-ndr /app/third_party/niem-ndr
 COPY --chown=appuser:appgroup api/third_party/niem-cmf /app/third_party/niem-cmf
 COPY --chown=appuser:appgroup api/third_party/niem-scheval /app/third_party/niem-scheval
+COPY --chown=appuser:appgroup api/third_party/niem-tran /app/third_party/niem-tran
 
 # Create data directory and fix permissions
 RUN mkdir -p /data && chown appuser:appgroup /data
