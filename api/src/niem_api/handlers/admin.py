@@ -66,7 +66,7 @@ def handle_reset(
         logger.error(f"Reset failed: {e}")
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}") from e
 
 
 def count_minio_objects(s3: Minio) -> dict[str, int]:
@@ -252,7 +252,7 @@ def count_neo4j_objects() -> dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Failed to count Neo4j objects: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get Neo4j stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get Neo4j stats: {str(e)}") from e
 
 
 

@@ -45,7 +45,7 @@ def _load_mapping_from_s3(s3: Minio, schema_id: str) -> dict[str, Any]:
     try:
         return get_yaml_content(s3, "niem-schemas", f"{schema_id}/mapping.yaml")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load mapping.yaml: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to load mapping.yaml: {str(e)}") from e
 
 
 async def _download_schema_files(s3: Minio, schema_id: str) -> str:
@@ -96,7 +96,7 @@ async def _download_schema_files(s3: Minio, schema_id: str) -> str:
         # Clean up on error
         import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
-        raise HTTPException(status_code=500, detail=f"Failed to download schema files: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to download schema files: {str(e)}") from e
 
 def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> None:
     """Validate XML content against XSD schemas using CMF tool.
@@ -205,7 +205,7 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
                 "message": f"CMF tool error: {str(e)}",
                 "validation_result": None
             }
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Unexpected error during XML validation: {e}")
         raise HTTPException(
@@ -214,7 +214,7 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
                 "message": f"Validation error: {str(e)}",
                 "validation_result": None
             }
-        )
+        ) from e
     finally:
         # Clean up XML file from schema directory
         if xml_file.exists():
@@ -263,7 +263,7 @@ def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> dict[str, Any]:
         raise HTTPException(
             status_code=404,
             detail=f"JSON Schema not found for schema {schema_id}. Schema may not have been converted to JSON format: {str(e)}"
-        )
+        ) from e
 
 
 def _validate_json_content(json_content: str, json_schema: dict[str, Any], filename: str) -> None:
@@ -369,7 +369,7 @@ def _validate_json_content(json_content: str, json_schema: dict[str, Any], filen
                 "message": f"Invalid JSON syntax: {filename}",
                 "validation_result": validation_result.model_dump()
             }
-        )
+        ) from e
 
     except HTTPException:
         # Re-raise HTTPException from validation (already has proper detail)
@@ -382,7 +382,7 @@ def _validate_json_content(json_content: str, json_schema: dict[str, Any], filen
                 "message": f"Validation error: {str(e)}",
                 "validation_result": None
             }
-        )
+        ) from e
 
 
 def _clean_cypher_statement(statement: str) -> str:
@@ -640,7 +640,7 @@ async def handle_xml_ingest(
         logger.error(f"Traceback: {traceback.format_exc()}")
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=f"XML ingestion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"XML ingestion failed: {str(e)}") from e
     finally:
         # Clean up schema directory
         if schema_dir:
@@ -786,7 +786,7 @@ async def handle_json_ingest(
         logger.error(f"Traceback: {traceback.format_exc()}")
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=f"NIEM JSON ingestion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"NIEM JSON ingestion failed: {str(e)}") from e
 
 def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filename: str) -> tuple[str, dict[str, Any]]:
     """
@@ -920,4 +920,4 @@ async def handle_get_uploaded_files(s3: Minio) -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to get uploaded files: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get uploaded files: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get uploaded files: {str(e)}") from e

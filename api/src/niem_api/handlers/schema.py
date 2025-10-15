@@ -680,7 +680,7 @@ async def _generate_and_store_mapping(
         raise HTTPException(
             status_code=500,
             detail=f"Schema upload failed: Could not generate required mapping YAML - {str(e)}"
-        )
+        ) from e
 
 
 async def _store_schema_metadata(
@@ -814,7 +814,7 @@ async def handle_schema_upload(
         logger.error(f"Schema upload failed: {e}")
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=f"Schema upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Schema upload failed: {str(e)}") from e
 
 
 async def handle_schema_activation(schema_id: str, s3: Minio):
@@ -823,8 +823,8 @@ async def handle_schema_activation(schema_id: str, s3: Minio):
         # Check if schema exists by looking for its metadata
         try:
             s3.get_object("niem-schemas", f"{schema_id}/metadata.json")
-        except S3Error:
-            raise HTTPException(status_code=404, detail="Schema not found")
+        except S3Error as e:
+            raise HTTPException(status_code=404, detail="Schema not found") from e
 
         # Update active schema marker
         timestamp = datetime.now(UTC).isoformat()
@@ -838,7 +838,7 @@ async def handle_schema_activation(schema_id: str, s3: Minio):
         logger.error(f"Schema activation failed: {e}")
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=f"Schema activation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Schema activation failed: {str(e)}") from e
 
 
 def get_all_schemas(s3: Minio):
@@ -883,7 +883,7 @@ def get_all_schemas(s3: Minio):
 
     except Exception as e:
         logger.error(f"Failed to get schemas: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get schemas: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get schemas: {str(e)}") from e
 
 
 def get_active_schema_id(s3: Minio) -> str | None:
@@ -954,4 +954,4 @@ async def handle_schema_file_download(schema_id: str, file_type: str, s3: Minio)
         raise HTTPException(
             status_code=404,
             detail=f"{file_type.upper()} file not found in storage"
-        )
+        ) from e

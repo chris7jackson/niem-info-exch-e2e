@@ -134,7 +134,7 @@ def get_cmf_version() -> str:
             raise CMFError(f"Version check failed: {result['stderr']}")
     except Exception as e:
         logger.error(f"Failed to get CMF version: {e}")
-        raise CMFError(f"Failed to get CMF version: {str(e)}")
+        raise CMFError(f"Failed to get CMF version: {str(e)}") from e
 
 
 async def download_and_setup_cmf() -> bool:
@@ -407,9 +407,9 @@ def run_cmf_command(
             "stdout": result.stdout,
             "stderr": result.stderr
         }
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
         logger.error(f"CMF command timed out after {timeout} seconds")
-        raise CMFError(f"Operation timed out after {timeout} seconds")
+        raise CMFError(f"Operation timed out after {timeout} seconds") from e
     except Exception as e:
         logger.error(f"CMF command execution failed: {e}")
-        raise CMFError(f"Command execution failed: {e}")
+        raise CMFError(f"Command execution failed: {e}") from e

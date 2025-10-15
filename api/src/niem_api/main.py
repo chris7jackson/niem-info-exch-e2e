@@ -113,7 +113,7 @@ async def readiness_check():
 
     except Exception as e:
         logger.warning(f"Readiness check failed: {e}")
-        raise HTTPException(status_code=503, detail={"status": "not_ready"})
+        raise HTTPException(status_code=503, detail={"status": "not_ready"}) from e
 
 
 
