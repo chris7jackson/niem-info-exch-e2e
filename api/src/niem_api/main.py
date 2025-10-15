@@ -68,7 +68,7 @@ async def startup_tasks():
 app = FastAPI(
     title="NIEM Information Exchange API",
     description="API for managing NIEM schemas and data ingestion",
-    version="1.0.0",
+    version=os.getenv("APP_VERSION", "unknown"),
     lifespan=lifespan
 )
 
@@ -82,6 +82,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add version header middleware
+@app.middleware("http")
+async def add_version_header(request, call_next):
+    """Add version information to response headers"""
+    response = await call_next(request)
+    response.headers["X-API-Version"] = os.getenv("APP_VERSION", "unknown")
+    return response
+
 @app.get("/healthz")
 async def health_check():
     """Liveness probe - checks if application is alive and can serve requests"""
@@ -90,7 +98,11 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": current_time,
-        "uptime": current_time - _app_start_time
+        "uptime": current_time - _app_start_time,
+        "api_version": os.getenv("APP_VERSION", "unknown"),
+        "git_commit": os.getenv("GIT_COMMIT", "unknown"),
+        "build_date": os.getenv("BUILD_DATE", "unknown"),
+        "niem_version": "6.0"
     }
 
 
