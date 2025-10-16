@@ -14,20 +14,25 @@ We use a **balanced test pyramid**:
 
 ### Directory Structure
 
-We follow **co-located unit tests** with **separate E2E tests**:
+We follow **separated unit tests** with **separate E2E tests**:
 
 ```
 ui/
+├── tests/
+│   └── unit/
+│       ├── components/
+│       │   └── SchemaManager.test.tsx  # Unit tests by type
+│       ├── lib/
+│       │   └── api.test.ts             # Unit tests by type
+│       └── pages/
+│           └── graph.test.tsx          # Unit tests by type
 ├── src/
 │   ├── components/
-│   │   ├── SchemaManager.tsx
-│   │   └── SchemaManager.test.tsx      # Unit test co-located
+│   │   └── SchemaManager.tsx
 │   ├── lib/
-│   │   ├── api.ts
-│   │   └── api.test.ts                 # Unit test co-located
+│   │   └── api.ts
 │   ├── pages/
-│   │   ├── graph.tsx
-│   │   └── graph.test.tsx              # Unit test co-located
+│   │   └── graph.tsx
 │   └── test/
 │       └── setup.ts                    # Global test configuration
 └── e2e/                                # E2E tests separate
@@ -37,11 +42,11 @@ ui/
 ```
 
 **Why this structure?**
-- ✅ **Unit tests co-located**: Easy to find and maintain alongside source code
+- ✅ **Unit tests separated**: Prevents Next.js from treating test files as pages
 - ✅ **E2E tests separate**: Different purpose, tooling (Playwright), and fixtures
 - ✅ **Global config isolated**: Shared test setup in `src/test/setup.ts`
-- ✅ **Clear separation**: Unit tests for logic, E2E tests for workflows
-- ✅ **Standard practice**: Follows Next.js and Vitest conventions
+- ✅ **Clear organization**: Tests organized by type (components, lib, pages)
+- ✅ **Build compatibility**: No test files in Next.js page discovery paths
 
 ### Naming Conventions
 
@@ -55,9 +60,9 @@ ui/
 
 ### Unit Tests (Vitest + React Testing Library + MSW)
 
-**Location**: Co-located with source files (`src/**/*.test.{ts,tsx}`)
+**Location**: Separate test directory (`tests/unit/**/*.test.{ts,tsx}`)
 
-#### API Client Tests (`src/lib/api.test.ts`) - 8 tests
+#### API Client Tests (`tests/unit/lib/api.test.ts`) - 8 tests
 - ✅ Schema management (getSchemas, activateSchema)
 - ✅ Data ingestion metadata (getUploadedFiles)
 - ✅ Admin operations (resetSystem, getNeo4jStats)
@@ -68,7 +73,7 @@ ui/
 
 **Execution time**: <1 second
 
-#### Schema Manager Tests (`src/components/SchemaManager.test.tsx`) - 3 tests
+#### Schema Manager Tests (`tests/unit/components/SchemaManager.test.tsx`) - 3 tests
 - ✅ Component renders without crashing
 - ✅ Displays API data correctly
 - ✅ Schema activation workflow
@@ -77,7 +82,7 @@ ui/
 
 **Execution time**: <1 second
 
-#### Graph Page Tests (`src/pages/graph.test.tsx`) - 4 tests
+#### Graph Page Tests (`tests/unit/pages/graph.test.tsx`) - 4 tests
 - ✅ Component renders with controls
 - ✅ Loads and displays graph statistics
 - ✅ Handles server errors gracefully
@@ -247,15 +252,39 @@ npm run test:all
 
 ### CI/CD Pipeline
 
+We use **different test suites for PRs vs main branch** for optimal feedback speed:
+
+#### PR Pipeline (Fast Feedback - ~2 minutes)
 ```bash
-# Runs automatically on PR and push to main
-1. Lint check
-2. Type check
-3. Unit tests (fail fast)
-4. Build
-5. E2E tests (only if unit tests pass)
+1. Lint & Type Check (parallel)
+2. Build (parallel)
+3. Unit Tests with Coverage (~2s)
+4. Security Audit (non-blocking)
+```
+
+**Why**: PRs get fast feedback without waiting for slow E2E tests.
+
+#### Main Branch Pipeline (Full Validation - ~10 minutes)
+```bash
+1. Lint & Type Check (parallel)
+2. Build (parallel)
+3. Unit Tests with Coverage (~2s)
+4. E2E Tests with Full Backend (~5-10 min)
+   ├─ Start Neo4j service
+   ├─ Start MinIO service
+   ├─ Start API server
+   └─ Run Playwright tests
+5. Security Audit (non-blocking)
 6. Upload artifacts (screenshots, videos, reports)
 ```
+
+**Why**: Main branch gets full validation before production deployment.
+
+**Benefits**:
+- ✅ Fast PR feedback (developers don't wait 10 minutes)
+- ✅ Comprehensive validation before production
+- ✅ Reduced CI costs (E2E only on merges)
+- ✅ Earlier detection of unit test failures
 
 ---
 
