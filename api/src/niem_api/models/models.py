@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from typing import Any
+
 from pydantic import BaseModel
 
 # Pydantic Models
@@ -19,6 +21,31 @@ class NiemNdrReport(BaseModel):
     conformance_target: str
     violations: list[NiemNdrViolation] = []
     summary: dict[str, int] = {}
+    detected_schema_type: str | None = None  # 'ref', 'ext', 'sub', or None
+    rules_applied: int | None = None  # Number of rules applied
+
+
+class SchevalIssue(BaseModel):
+    """Schematron validation issue with precise line/column information."""
+
+    file: str  # File being validated
+    line: int  # Line number where issue occurs
+    column: int  # Column number where issue occurs
+    message: str  # Error message
+    severity: str  # 'error', 'warning', 'info'
+    rule: str | None = None  # Validation rule identifier (e.g., "Rule 7-10")
+
+
+class SchevalReport(BaseModel):
+    """Schematron validation report from scheval tool."""
+
+    status: str  # 'pass', 'fail', 'error'
+    message: str
+    conformance_target: str
+    errors: list[SchevalIssue] = []
+    warnings: list[SchevalIssue] = []
+    summary: dict[str, int] = {}  # 'total_issues', 'error_count', 'warning_count'
+    metadata: dict[str, Any] = {}  # Additional metadata about the validation
 
 
 class ImportInfo(BaseModel):
@@ -52,7 +79,7 @@ class ImportValidationReport(BaseModel):
 
 class SchemaResponse(BaseModel):
     schema_id: str
-    niem_ndr_report: NiemNdrReport | None = None
+    scheval_report: SchevalReport | None = None
     import_validation_report: ImportValidationReport | None = None
     is_active: bool
 

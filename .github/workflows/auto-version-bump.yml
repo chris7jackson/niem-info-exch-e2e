@@ -1,0 +1,191 @@
+name: Auto Version Bump
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/VERSION'
+      - '**.md'
+      - '.github/workflows/auto-version-bump.yml'
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  auto-version-bump:
+    name: Auto Version Bump
+    runs-on: ubuntu-latest
+
+    # Skip if commit message contains [skip ci] or is a version bump commit
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !startsWith(github.event.head_commit.message, 'chore: bump')"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Detect changed files
+        id: changes
+        run: |
+          # Get list of changed files in the last commit
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Check if API files changed
+          if echo "$CHANGED_FILES" | grep -q "^api/"; then
+            echo "api_changed=true" >> $GITHUB_OUTPUT
+            echo "API files changed"
+          else
+            echo "api_changed=false" >> $GITHUB_OUTPUT
+            echo "No API files changed"
+          fi
+
+          # Check if UI files changed
+          if echo "$CHANGED_FILES" | grep -q "^ui/"; then
+            echo "ui_changed=true" >> $GITHUB_OUTPUT
+            echo "UI files changed"
+          else
+            echo "ui_changed=false" >> $GITHUB_OUTPUT
+            echo "No UI files changed"
+          fi
+
+      - name: Determine bump type
+        id: bump_type
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+
+          # Check for breaking changes
+          if echo "$COMMIT_MSG" | grep -qiE "^[a-z]+(\(.+\))?!:|BREAKING CHANGE:"; then
+            echo "type=major" >> $GITHUB_OUTPUT
+            echo "Detected BREAKING CHANGE - major bump"
+          # Check for features
+          elif echo "$COMMIT_MSG" | grep -qE "^feat(\(.+\))?:"; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+            echo "Detected feat - minor bump"
+          # Check for fixes
+          elif echo "$COMMIT_MSG" | grep -qE "^fix(\(.+\))?:"; then
+            echo "type=patch" >> $GITHUB_OUTPUT
+            echo "Detected fix - patch bump"
+          # Default to patch for other commits
+          else
+            echo "type=patch" >> $GITHUB_OUTPUT
+            echo "No conventional commit prefix - defaulting to patch bump"
+          fi
+
+      - name: Bump API version
+        if: steps.changes.outputs.api_changed == 'true'
+        id: bump_api
+        run: |
+          CURRENT_VERSION=$(cat api/VERSION)
+          echo "Current API version: $CURRENT_VERSION"
+
+          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR="${VERSION_PARTS[0]}"
+          MINOR="${VERSION_PARTS[1]}"
+          PATCH="${VERSION_PARTS[2]}"
+
+          BUMP_TYPE="${{ steps.bump_type.outputs.type }}"
+
+          if [ "$BUMP_TYPE" == "major" ]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [ "$BUMP_TYPE" == "minor" ]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "$NEW_VERSION" > api/VERSION
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Bumped API version: $CURRENT_VERSION → $NEW_VERSION"
+
+      - name: Bump UI version
+        if: steps.changes.outputs.ui_changed == 'true'
+        id: bump_ui
+        run: |
+          CURRENT_VERSION=$(cat ui/VERSION)
+          echo "Current UI version: $CURRENT_VERSION"
+
+          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR="${VERSION_PARTS[0]}"
+          MINOR="${VERSION_PARTS[1]}"
+          PATCH="${VERSION_PARTS[2]}"
+
+          BUMP_TYPE="${{ steps.bump_type.outputs.type }}"
+
+          if [ "$BUMP_TYPE" == "major" ]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [ "$BUMP_TYPE" == "minor" ]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "$NEW_VERSION" > ui/VERSION
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Bumped UI version: $CURRENT_VERSION → $NEW_VERSION"
+
+      - name: Commit version changes
+        if: steps.changes.outputs.api_changed == 'true' || steps.changes.outputs.ui_changed == 'true'
+        run: |
+          # Build commit message
+          COMMIT_PARTS=()
+
+          if [ "${{ steps.changes.outputs.api_changed }}" == "true" ]; then
+            COMMIT_PARTS+=("API to ${{ steps.bump_api.outputs.new_version }}")
+          fi
+
+          if [ "${{ steps.changes.outputs.ui_changed }}" == "true" ]; then
+            COMMIT_PARTS+=("UI to ${{ steps.bump_ui.outputs.new_version }}")
+          fi
+
+          # Join array elements with " and "
+          COMMIT_MSG="chore: bump "
+          if [ ${#COMMIT_PARTS[@]} -eq 2 ]; then
+            COMMIT_MSG+="${COMMIT_PARTS[0]} and ${COMMIT_PARTS[1]}"
+          else
+            COMMIT_MSG+="${COMMIT_PARTS[0]}"
+          fi
+          COMMIT_MSG+=" [skip ci]"
+
+          git add api/VERSION ui/VERSION 2>/dev/null || true
+          git commit -m "$COMMIT_MSG"
+          git push
+
+          echo "✅ Version bump committed and pushed"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Version Bump Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.changes.outputs.api_changed }}" == "true" ]; then
+            echo "- **API**: Bumped to \`${{ steps.bump_api.outputs.new_version }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **API**: No changes" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.changes.outputs.ui_changed }}" == "true" ]; then
+            echo "- **UI**: Bumped to \`${{ steps.bump_ui.outputs.new_version }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **UI**: No changes" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Bump type**: \`${{ steps.bump_type.outputs.type }}\`" >> $GITHUB_STEP_SUMMARY

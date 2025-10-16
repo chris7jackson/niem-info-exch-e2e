@@ -13,6 +13,7 @@ const navigation = [
   { name: 'Schemas', href: '/schemas' },
   { name: 'Upload Data', href: '/upload' },
   { name: 'Graph Explorer', href: '/graph' },
+  { name: 'Helper Tools', href: '/tools' },
   { name: 'Admin', href: '/admin' },
 ];
 
@@ -61,6 +62,24 @@ export default function Layout({ children }: LayoutProps) {
           {children}
         </div>
       </main>
+
+      <footer className="bg-white border-t border-gray-200 mt-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center text-sm text-gray-500">
+            <div>
+              <span className="font-medium">NIEM Information Exchange</span>
+              {' '}&copy; {new Date().getFullYear()}
+            </div>
+            <div className="flex gap-4">
+              <span>UI: v{process.env.NEXT_PUBLIC_APP_VERSION || 'unknown'}</span>
+              <span className="text-gray-300">|</span>
+              <span className="text-xs text-gray-400">
+                {process.env.NEXT_PUBLIC_GIT_COMMIT?.substring(0, 7) || 'dev'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
     </>
   );

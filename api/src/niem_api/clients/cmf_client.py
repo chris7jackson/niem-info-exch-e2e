@@ -18,21 +18,30 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# CMF tool configuration - check both local and mounted paths
-# Go up 5 levels from clients/cmf_client.py to get to project root
-_LOCAL_CMF_PATH = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool"
-)
-_MOUNTED_CMF_PATH = "/app/third_party/niem-cmf/cmftool-1.0-alpha.8/bin/cmftool"
+# CMF tool configuration
+# Check for environment variable first, then fall back to default path
+_CMF_PATH_ENV = os.getenv("CMF_TOOL_PATH")
 
-# Use local path if it exists, otherwise try mounted path
-if _LOCAL_CMF_PATH.exists():
-    CMF_TOOL_PATH = str(_LOCAL_CMF_PATH)
-elif Path(_MOUNTED_CMF_PATH).exists():
-    CMF_TOOL_PATH = _MOUNTED_CMF_PATH
+if _CMF_PATH_ENV:
+    # Use environment variable if set
+    CMF_TOOL_PATH = _CMF_PATH_ENV
+    logger.debug(f"Using CMF_TOOL_PATH from environment: {CMF_TOOL_PATH}")
 else:
-    CMF_TOOL_PATH = None
+    # Default: Go up 4 levels from clients/cmf_client.py to get to api/ directory
+    # File is at: api/src/niem_api/clients/cmf_client.py -> need 4 .parent to reach api/
+    _CMF_DEFAULT_PATH = (
+        Path(__file__).parent.parent.parent.parent
+        / "third_party/niem-cmf/cmftool-1.0/bin/cmftool"
+    )
+
+    if _CMF_DEFAULT_PATH.exists():
+        CMF_TOOL_PATH = str(_CMF_DEFAULT_PATH)
+        logger.debug(f"Using default CMF tool path: {CMF_TOOL_PATH}")
+    else:
+        CMF_TOOL_PATH = None
+        logger.warning(
+            "CMF tool not found at default path and CMF_TOOL_PATH not set"
+        )
 
 CMF_TIMEOUT = 30  # Default command timeout in seconds
 

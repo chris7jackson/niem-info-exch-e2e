@@ -39,8 +39,8 @@ services:
 
   api:
     build:
-      context: ./api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./api/Dockerfile
     environment:
       DEV_TOKEN: ${DEV_TOKEN:-devtoken}
       MINIO_ENDPOINT: http://minio:9000
@@ -51,6 +51,8 @@ services:
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
       SQLITE_PATH: /data/meta.sqlite
+      CMF_TOOL_PATH: ${CMF_TOOL_PATH:-/app/third_party/niem-cmf/cmftool-1.0/bin/cmftool}
+      NIEMTRAN_TOOL_PATH: ${NIEMTRAN_TOOL_PATH:-/app/third_party/niem-tran/niemtran-1.0/bin/niemtran}
     volumes:
       - api-data:/data
     ports: ["8000:8000"]
@@ -69,8 +71,8 @@ services:
 
   ui:
     build:
-      context: ./ui
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./ui/Dockerfile
     environment:
       NEXT_PUBLIC_API_URL: http://api:8000
     ports: ["3000:3000"]

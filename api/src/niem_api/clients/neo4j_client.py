@@ -161,30 +161,44 @@ class Neo4jClient:
             relationships: Dict to populate with relationships (keyed by relationship ID)
         """
         if isinstance(value, Node):
-            node_id = str(value.id)
-            if node_id not in nodes:
-                nodes[node_id] = {
-                    "id": node_id,
+            # Use internal Neo4j ID as the key, but preserve semantic ID in properties
+            internal_id = str(value.id)
+            properties = dict(value.items())
+
+            # Extract semantic ID (NIEM structures:id) if available
+            # This is the ID used for relationships in the graph data model
+            semantic_id = properties.get('id', internal_id)
+
+            if internal_id not in nodes:
+                nodes[internal_id] = {
+                    "id": semantic_id,  # Use semantic ID for display and matching
+                    "internal_id": internal_id,  # Keep internal ID for reference
                     "label": list(value.labels)[0] if value.labels else "Unknown",
                     "labels": list(value.labels),
-                    "properties": dict(value.items())
+                    "properties": properties
                 }
 
         elif isinstance(value, Relationship):
             rel_id = str(value.id)
             if rel_id not in relationships:
-                start_id = str(value.start_node.id)
-                end_id = str(value.end_node.id)
+                # Extract start and end nodes first to get their semantic IDs
+                start_internal_id = str(value.start_node.id)
+                end_internal_id = str(value.end_node.id)
 
                 # Ensure start and end nodes are captured
                 self._extract_graph_elements(value.start_node, nodes, relationships)
                 self._extract_graph_elements(value.end_node, nodes, relationships)
 
+                # Use semantic IDs for relationship endpoints
+                # This matches the data model where edges reference semantic IDs
+                start_semantic_id = nodes[start_internal_id]["id"]
+                end_semantic_id = nodes[end_internal_id]["id"]
+
                 relationships[rel_id] = {
                     "id": rel_id,
                     "type": value.type,
-                    "startNode": start_id,
-                    "endNode": end_id,
+                    "startNode": start_semantic_id,  # Use semantic ID
+                    "endNode": end_semantic_id,      # Use semantic ID
                     "properties": dict(value.items())
                 }
 

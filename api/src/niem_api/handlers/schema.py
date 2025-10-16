@@ -13,12 +13,83 @@ from fastapi import HTTPException, UploadFile
 from minio import Minio
 from minio.error import S3Error
 
+import xml.etree.ElementTree as ET
+
 from ..clients.s3_client import upload_file
-from ..models.models import NiemNdrReport, NiemNdrViolation, SchemaResponse
-from ..services.cmf_tool import convert_cmf_to_jsonschema, convert_xsd_to_cmf, is_cmf_available
-from ..services.domain.schema import NiemNdrValidator
+from ..clients.scheval_client import is_scheval_available
+from ..models.models import SchevalIssue, SchevalReport, SchemaResponse
+from ..services.cmf_tool import (
+    convert_cmf_to_jsonschema,
+    convert_xsd_to_cmf,
+    is_cmf_available,
+)
+from ..services.domain.schema.scheval_validator import SchevalValidator
 
 logger = logging.getLogger(__name__)
+
+
+def _detect_niem_schema_type(xsd_content: str) -> str:
+    """
+    Detect NIEM schema type from ct:conformanceTargets attribute.
+
+    Args:
+        xsd_content: The XSD file content as string
+
+    Returns:
+        Schema type: 'ref', 'ext', 'sub', or 'sub' (default if unknown)
+    """
+    try:
+        # Parse the XSD to find conformanceTargets attribute
+        root = ET.fromstring(xsd_content.encode('utf-8'))
+
+        # Define namespace for conformance targets
+        ct_ns = (
+            "https://docs.oasis-open.org/niemopen/ns/specification/"
+            "conformanceTargets/6.0/"
+        )
+
+        # Get conformanceTargets attribute
+        conformance_attr = root.get(f"{{{ct_ns}}}conformanceTargets")
+
+        if not conformance_attr:
+            logger.warning(
+                "No ct:conformanceTargets attribute found in schema, "
+                "defaulting to subset"
+            )
+            return "sub"
+
+        # Parse space-separated conformance target URIs
+        targets = conformance_attr.split()
+
+        # Check for schema type fragment identifiers (priority: ref > ext > sub)
+        for target in targets:
+            if "#ReferenceSchemaDocument" in target:
+                logger.info("Detected ReferenceSchemaDocument conformance target")
+                return "ref"
+
+        for target in targets:
+            if "#ExtensionSchemaDocument" in target:
+                logger.info("Detected ExtensionSchemaDocument conformance target")
+                return "ext"
+
+        for target in targets:
+            if "#SubsetSchemaDocument" in target:
+                logger.info("Detected SubsetSchemaDocument conformance target")
+                return "sub"
+
+        # Found conformanceTargets but no recognized schema type
+        logger.warning(
+            f"Unknown conformance targets: {conformance_attr}, "
+            f"defaulting to subset"
+        )
+        return "sub"
+
+    except ET.ParseError as e:
+        logger.error(f"Failed to parse XSD for schema type detection: {e}")
+        return "sub"
+    except Exception as e:
+        logger.error(f"Unexpected error during schema type detection: {e}")
+        return "sub"
 
 
 def _extract_schema_imports(xsd_content: str) -> list[dict[str, Any]]:
@@ -349,115 +420,169 @@ async def _validate_and_read_files(
     return file_contents, file_path_map, primary_file, schema_id
 
 
-async def _validate_all_niem_ndr(file_contents: dict[str, bytes]) -> NiemNdrReport:
-    """Validate NIEM NDR conformance for all uploaded files.
+async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalReport:
+    """Validate all files using schematron rules via scheval tool.
+
+    This is the primary NIEM NDR validation method, providing actionable validation
+    errors with precise line/column numbers.
 
     Args:
         file_contents: Dictionary mapping filename to file content
 
     Returns:
-        Aggregated NIEM NDR validation report
+        Aggregated scheval validation report with line/column information
     """
-    logger.info(f"Running NDR validation on {len(file_contents)} files")
-    ndr_validator = NiemNdrValidator()
+    logger.info(
+        f"Running NIEM NDR validation (scheval) on {len(file_contents)} files"
+    )
+
+    if not is_scheval_available():
+        logger.warning("Scheval tool not available, skipping NIEM NDR validation")
+        return SchevalReport(
+            status="error",
+            message="Scheval tool not available",
+            conformance_target="unknown",
+            errors=[],
+            warnings=[],
+            summary={"total_issues": 0, "error_count": 0, "warning_count": 0},
+            metadata={"tool_available": False}
+        )
+
+    # Detect schema type from the first file's conformance targets
+    schema_type = None
+    for filename, content in file_contents.items():
+        try:
+            detected_type = _detect_niem_schema_type(content.decode())
+            if detected_type and detected_type in ['ref', 'ext', 'sub']:
+                schema_type = detected_type
+                logger.info(f"Detected schema type '{schema_type}' from {filename}")
+                break
+        except Exception as e:
+            logger.warning(f"Could not detect schema type from {filename}: {e}")
+
+    # Default to 'sub' (subset - most lenient) if type could not be detected
+    if not schema_type:
+        schema_type = 'sub'
+        logger.warning("Could not detect schema type, defaulting to 'sub' (subset)")
+
+    if schema_type not in ['ref', 'ext', 'sub']:
+        schema_type = 'sub'
+
+    # Get path to pre-compiled XSLT file
+    xslt_filename = f"{schema_type}Target-6.0.xsl"
+    xslt_path = Path("/app/third_party/niem-ndr/sch") / xslt_filename
+
+    if not xslt_path.exists():
+        logger.error(f"Pre-compiled XSLT not found: {xslt_path}")
+        return SchevalReport(
+            status="error",
+            message=f"Pre-compiled schematron XSLT not found: {xslt_filename}",
+            conformance_target=f"{schema_type}Target",
+            errors=[],
+            warnings=[],
+            summary={"total_issues": 0, "error_count": 0, "warning_count": 0},
+            metadata={"xslt_path": str(xslt_path), "xslt_found": False}
+        )
+
+    scheval_validator = SchevalValidator()
 
     # Aggregate results across all files
-    all_violations = []
+    all_errors = []
+    all_warnings = []
     total_error_count = 0
     total_warning_count = 0
-    total_info_count = 0
     has_failures = False
-    has_errors = False
-    detected_schema_type = None
-    rules_applied = None
-    conformance_target = "all"
 
     # Validate each file
     for filename, content in file_contents.items():
-        logger.info(f"Validating {filename} against NIEM NDR rules")
+        logger.info(f"Validating {filename} with scheval using {xslt_filename}")
         try:
-            ndr_result = await ndr_validator.validate_xsd_conformance(content.decode())
+            scheval_result = await scheval_validator.validate_xsd_with_schematron(
+                content.decode(),
+                str(xslt_path),
+                use_compiled_xslt=True
+            )
 
             # Track overall status
-            if ndr_result["status"] == "fail":
+            if scheval_result["status"] == "fail":
                 has_failures = True
-            if ndr_result["status"] == "error":
-                has_errors = True
 
-            # Capture schema type info from first successful validation
-            # (all files in a schema set should have the same type)
-            if detected_schema_type is None and ndr_result.get("detected_schema_type"):
-                detected_schema_type = ndr_result["detected_schema_type"]
-                rules_applied = ndr_result.get("rules_applied")
-                conformance_target = ndr_result.get("conformance_target", "all")
+            # Add file context to errors and warnings
+            for error in scheval_result.get("errors", []):
+                error_with_context = error.copy()
+                # Update file field if it's just the temp filename
+                if error_with_context["file"] in ["schema.xsd", "instance.xml"]:
+                    error_with_context["file"] = filename
+                all_errors.append(error_with_context)
+                total_error_count += 1
 
-            # Add file context to violations
-            for violation in ndr_result.get("violations", []):
-                violation_with_file = violation.copy()
-                violation_with_file["file"] = filename
-                all_violations.append(violation_with_file)
-
-            # Aggregate counts
-            summary = ndr_result.get("summary", {})
-            total_error_count += summary.get("error_count", 0)
-            total_warning_count += summary.get("warning_count", 0)
-            total_info_count += summary.get("info_count", 0)
+            for warning in scheval_result.get("warnings", []):
+                warning_with_context = warning.copy()
+                # Update file field if it's just the temp filename
+                if warning_with_context["file"] in ["schema.xsd", "instance.xml"]:
+                    warning_with_context["file"] = filename
+                all_warnings.append(warning_with_context)
+                total_warning_count += 1
 
         except Exception as e:
-            logger.error(f"Failed to validate {filename}: {e}")
-            has_errors = True
-            all_violations.append({
-                "type": "error",
-                "rule": "validation_error",
-                "message": f"Failed to validate {filename}: {str(e)}",
-                "location": filename,
-                "file": filename
+            logger.error(f"Failed to validate {filename} with scheval: {e}")
+            has_failures = True
+            # Add error for failed validation
+            all_errors.append({
+                "file": filename,
+                "line": 1,
+                "column": 1,
+                "message": f"Scheval validation failed: {str(e)}",
+                "severity": "error",
+                "rule": None
             })
             total_error_count += 1
 
     # Determine overall status
-    if has_errors:
-        status = "error"
-    elif has_failures or total_error_count > 0:
+    if has_failures or total_error_count > 0:
         status = "fail"
     else:
         status = "pass"
 
-    # Build aggregated summary
-    aggregated_summary = {
-        "total_violations": len(all_violations),
-        "error_count": total_error_count,
-        "warning_count": total_warning_count,
-        "info_count": total_info_count,
-        "files_validated": len(file_contents)
-    }
-
-    # Convert violations to model
-    ndr_violations = [
-        NiemNdrViolation(**violation) for violation in all_violations
-    ]
-
-    message = f"Validated {len(file_contents)} files"
+    # Build message
+    message = f"Validated {len(file_contents)} files with scheval"
     if total_error_count > 0:
         message += f", found {total_error_count} errors"
     if total_warning_count > 0:
         message += f", {total_warning_count} warnings"
 
-    niem_ndr_report = NiemNdrReport(
+    # Map schema type to conformance target URI
+    conformance_target_map = {
+        'ref': 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#ReferenceSchemaDocument',
+        'ext': 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#ExtensionSchemaDocument',
+        'sub': 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#SubsetSchemaDocument',
+    }
+    conformance_target = conformance_target_map.get(schema_type, conformance_target_map['sub'])
+
+    # Convert to SchevalIssue objects
+    scheval_errors = [SchevalIssue(**error) for error in all_errors]
+    scheval_warnings = [SchevalIssue(**warning) for warning in all_warnings]
+
+    scheval_report = SchevalReport(
         status=status,
         message=message,
         conformance_target=conformance_target,
-        detected_schema_type=detected_schema_type,
-        rules_applied=rules_applied,
-        violations=ndr_violations,
-        summary=aggregated_summary
+        errors=scheval_errors,
+        warnings=scheval_warnings,
+        summary={
+            "total_issues": total_error_count + total_warning_count,
+            "error_count": total_error_count,
+            "warning_count": total_warning_count,
+            "files_validated": len(file_contents)
+        },
+        metadata={
+            "schema_type": schema_type,
+            "xslt_file": xslt_filename,
+            "validation_tool": "scheval"
+        }
     )
 
-    # Return report without raising exception - let caller decide how to handle failures
-    # This allows combining NDR and import validation results before failing
-    return niem_ndr_report
-
-
+    return scheval_report
 
 
 async def _convert_to_cmf(
@@ -772,10 +897,10 @@ async def handle_schema_upload(
         primary_content = file_contents[primary_file.filename]
         timestamp = datetime.now(UTC).isoformat()
 
-        # Step 2: Validate NIEM NDR conformance for ALL files (unless skipped)
-        niem_ndr_report = None
+        # Step 2: Validate NIEM NDR conformance using scheval (unless skipped)
+        scheval_report = None
         if not skip_niem_ndr:
-            niem_ndr_report = await _validate_all_niem_ndr(file_contents)
+            scheval_report = await _validate_all_scheval(file_contents)
         else:
             logger.info("Skipping NIEM NDR validation as requested")
 
@@ -784,14 +909,16 @@ async def handle_schema_upload(
             file_contents, file_path_map, primary_file, primary_content
         )
 
-        # Step 3.5: Check both validations and fail with combined reports if either failed
-        ndr_has_errors = niem_ndr_report and niem_ndr_report.status in ("fail", "error")
-        import_has_errors = (
-            cmf_conversion_result
-            and cmf_conversion_result.get("status") in ("dependency_failed", "fail", "error")
+        # Step 3.5: Check all validations and fail with combined reports if any failed
+        scheval_has_errors = scheval_report and scheval_report.status in (
+            "fail",
+            "error",
         )
+        import_has_errors = cmf_conversion_result and cmf_conversion_result.get(
+            "status"
+        ) in ("dependency_failed", "fail", "error")
 
-        if ndr_has_errors or import_has_errors:
+        if scheval_has_errors or import_has_errors:
             # Extract import validation report
             import_validation_report = (
                 cmf_conversion_result.get("import_validation_report")
@@ -800,31 +927,49 @@ async def handle_schema_upload(
 
             # Build combined error message
             error_parts = []
-            if ndr_has_errors:
-                ndr_error_count = niem_ndr_report.summary.get("error_count", 0)
-                error_parts.append(f"NIEM NDR validation found {ndr_error_count} error(s)")
+            if scheval_has_errors:
+                scheval_error_count = scheval_report.summary.get("error_count", 0)
+                error_parts.append(
+                    f"NIEM NDR validation found {scheval_error_count} error(s)"
+                )
             if import_has_errors:
                 cmf_status = cmf_conversion_result.get("status")
                 if cmf_status == "dependency_failed":
-                    blocking_issues = cmf_conversion_result.get("dependency_report", {}).get("blocking_issues", [])
-                    error_parts.append(f"Missing {len(blocking_issues)} required schema dependencies")
+                    blocking_issues = (
+                        cmf_conversion_result.get("dependency_report", {}).get(
+                            "blocking_issues", []
+                        )
+                    )
+                    error_parts.append(
+                        f"Missing {len(blocking_issues)} required schema dependencies"
+                    )
                 else:
-                    error_parts.append(f"CMF conversion failed: {cmf_conversion_result.get('error', 'Unknown error')}")
+                    error_parts.append(
+                        f"CMF conversion failed: "
+                        f"{cmf_conversion_result.get('error', 'Unknown error')}"
+                    )
 
             combined_message = "Schema upload rejected: " + " and ".join(error_parts)
 
-            # Raise exception with both validation reports
+            # Raise exception with all validation reports
             raise HTTPException(
                 status_code=400,
                 detail={
                     "message": combined_message,
-                    "niem_ndr_report": niem_ndr_report.model_dump() if niem_ndr_report else None,
+                    "scheval_report": (
+                        scheval_report.model_dump() if scheval_report else None
+                    ),
                     "import_validation_report": (
                         import_validation_report.model_dump()
-                        if import_validation_report else None
+                        if import_validation_report
+                        else None
                     ),
-                    "cmf_error": cmf_conversion_result.get("error") if import_has_errors else None
-                }
+                    "cmf_error": (
+                        cmf_conversion_result.get("error")
+                        if import_has_errors
+                        else None
+                    ),
+                },
             )
 
         # Step 4: Store all schema files
@@ -844,7 +989,7 @@ async def handle_schema_upload(
 
         return SchemaResponse(
             schema_id=schema_id,
-            niem_ndr_report=niem_ndr_report,
+            scheval_report=scheval_report,
             import_validation_report=import_validation_report,
             is_active=True  # Latest uploaded schema is automatically active
         )
