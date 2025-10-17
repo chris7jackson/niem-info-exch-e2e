@@ -350,8 +350,8 @@ def collect_scalar_setters(
                 value = cur.text.strip()
 
         if value is not None:
-            # Escape single quotes for Cypher
-            escaped_value = value.replace("'", "\\'")
+            # Escape backslashes first, then single quotes for Cypher
+            escaped_value = value.replace("\\", "\\\\").replace("'", "\\'")
             setters.append((key, escaped_value))
     return setters
 
@@ -818,7 +818,9 @@ def generate_for_xml_content(
         for key, value in sorted(props.items()):
             # Escape property names with dots using backticks
             prop_key = f"`{key}`" if '.' in key else key
-            setbits.append(f"n.{prop_key}='{value}'")
+            # Escape backslashes first, then single quotes
+            escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
+            setbits.append(f"n.{prop_key}='{escaped_value}'")
 
         # Add augmentation properties
         for key, value in sorted(aug_props.items()):
@@ -826,10 +828,12 @@ def generate_for_xml_content(
             prop_key = f"`{key}`" if '.' in key else key
             if isinstance(value, list):
                 # Store as JSON array for multiple values
+                # json.dumps already escapes backslashes and quotes properly
                 json_value = json.dumps(value).replace("'", "\\'")
                 setbits.append(f"n.{prop_key}='{json_value}'")
             else:
-                escaped_value = str(value).replace("'", "\\'")
+                # Escape backslashes first, then single quotes
+                escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
                 setbits.append(f"n.{prop_key}='{escaped_value}'")
 
         lines.append("  ON CREATE SET " + ", ".join(setbits) + ";")
@@ -847,10 +851,12 @@ def generate_for_xml_content(
             for key, value in sorted(rprops.items()):
                 prop_key = f"`{key}`" if '.' in key else key
                 if isinstance(value, list):
+                    # json.dumps already escapes backslashes and quotes properly
                     json_value = json.dumps(value).replace("'", "\\'")
                     prop_setters.append(f"r.{prop_key}='{json_value}'")
                 else:
-                    escaped_value = str(value).replace("'", "\\'")
+                    # Escape backslashes first, then single quotes
+                    escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
                     prop_setters.append(f"r.{prop_key}='{escaped_value}'")
 
             # MERGE with properties on relationship (rich edge pattern)
