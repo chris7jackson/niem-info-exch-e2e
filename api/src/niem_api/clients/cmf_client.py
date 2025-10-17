@@ -12,11 +12,15 @@ use the services/cmf_tool.py module.
 
 import logging
 import os
+import platform
 import subprocess
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Detect platform for cross-platform compatibility
+IS_WINDOWS = platform.system() == "Windows"
 
 # CMF tool configuration
 # Check for environment variable first, then fall back to default path
@@ -29,19 +33,16 @@ if _CMF_PATH_ENV:
 else:
     # Default: Go up 4 levels from clients/cmf_client.py to get to api/ directory
     # File is at: api/src/niem_api/clients/cmf_client.py -> need 4 .parent to reach api/
-    _CMF_DEFAULT_PATH = (
-        Path(__file__).parent.parent.parent.parent
-        / "third_party/niem-cmf/cmftool-1.0/bin/cmftool"
-    )
+    # On Windows, use cmftool.bat; on Unix/Mac, use cmftool
+    _CMF_SCRIPT_NAME = "cmftool.bat" if IS_WINDOWS else "cmftool"
+    _CMF_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / f"third_party/niem-cmf/cmftool-1.0/bin/{_CMF_SCRIPT_NAME}"
 
     if _CMF_DEFAULT_PATH.exists():
         CMF_TOOL_PATH = str(_CMF_DEFAULT_PATH)
         logger.debug(f"Using default CMF tool path: {CMF_TOOL_PATH}")
     else:
         CMF_TOOL_PATH = None
-        logger.warning(
-            "CMF tool not found at default path and CMF_TOOL_PATH not set"
-        )
+        logger.warning(f"CMF tool not found at default path ({_CMF_DEFAULT_PATH}) and CMF_TOOL_PATH not set")
 
 CMF_TIMEOUT = 30  # Default command timeout in seconds
 
@@ -367,8 +368,10 @@ def run_cmf_command(
         # Security: Validate command against allowlist to prevent command injection
         _validate_cmf_command(cmd)
 
-        # Use 'sh' to invoke cmftool for cross-platform compatibility (Windows mounts)
-        full_cmd = ["sh", CMF_TOOL_PATH] + cmd
+        # Build command: Run platform-specific script directly
+        # Windows uses cmftool.bat, Unix/Mac uses cmftool shell script
+        # Both are executable and don't require 'sh' wrapper
+        full_cmd = [CMF_TOOL_PATH] + cmd
         logger.info(f"Running CMF command: {' '.join(full_cmd)}")
 
         # Set working directory with security validation
