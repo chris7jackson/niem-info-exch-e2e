@@ -12,12 +12,16 @@ For schematron validation business operations, use the services/domain/schema/sc
 import json
 import logging
 import os
+import platform
 import re
 import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
+
+# Detect platform for cross-platform compatibility
+IS_WINDOWS = platform.system() == "Windows"
 
 # Scheval tool configuration
 # Check for environment variable first, then fall back to default path
@@ -30,14 +34,16 @@ if _SCHEVAL_PATH_ENV:
 else:
     # Default: Go up 4 levels from clients/scheval_client.py to get to api/ directory
     # File is at: api/src/niem_api/clients/scheval_client.py -> need 4 .parent to reach api/
-    _SCHEVAL_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / "third_party/niem-scheval/scheval-1.0/bin/scheval"
+    # On Windows, use scheval.bat; on Unix/Mac, use scheval
+    _SCHEVAL_SCRIPT_NAME = "scheval.bat" if IS_WINDOWS else "scheval"
+    _SCHEVAL_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / f"third_party/niem-scheval/scheval-1.0/bin/{_SCHEVAL_SCRIPT_NAME}"
 
     if _SCHEVAL_DEFAULT_PATH.exists():
         SCHEVAL_TOOL_PATH = str(_SCHEVAL_DEFAULT_PATH)
         logger.debug(f"Using default scheval tool path: {SCHEVAL_TOOL_PATH}")
     else:
         SCHEVAL_TOOL_PATH = None
-        logger.warning("Scheval tool not found at default path and SCHEVAL_TOOL_PATH not set")
+        logger.warning(f"Scheval tool not found at default path ({_SCHEVAL_DEFAULT_PATH}) and SCHEVAL_TOOL_PATH not set")
 
 SCHEVAL_TIMEOUT = 60  # Default command timeout in seconds (schematron can be slow)
 
@@ -389,8 +395,10 @@ def run_scheval_command(
         # Security: Validate command against allowlist to prevent command injection
         _validate_scheval_command(args)
 
-        # Use 'sh' to invoke scheval for cross-platform compatibility (Windows mounts)
-        full_cmd = ["sh", SCHEVAL_TOOL_PATH] + args
+        # Build command: Run platform-specific script directly
+        # Windows uses scheval.bat, Unix/Mac uses scheval shell script
+        # Both are executable and don't require 'sh' wrapper
+        full_cmd = [SCHEVAL_TOOL_PATH] + args
         logger.info(f"Running scheval command: {' '.join(full_cmd)}")
 
         # Set working directory with security validation
