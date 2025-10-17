@@ -390,11 +390,55 @@ def generate_for_xml_content(
     # Use timestamp + filename hash for uniqueness
     import time
     import json
+    from datetime import datetime, timezone
+
     file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode()).hexdigest()[:8]
+    ingest_timestamp = datetime.now(timezone.utc).isoformat()
 
     nodes = {}  # id -> (label, qname, props_dict, aug_props_dict)
     edges = []  # (from_id, from_label, to_id, to_label, rel_type, rel_props)
     contains = []  # (parent_id, parent_label, child_id, child_label, HAS_REL)
+
+    # ID registry for two-pass traversal
+    # Collect all IDs in first pass to enable forward reference resolution
+    id_registry = {}  # id -> element info for deferred processing
+    pending_refs = []  # List of (source_id, target_id, context) for validation
+    id_collisions = []  # List of ID collisions detected during Pass 1
+
+    def collect_ids_pass1(elem: ET.Element):
+        """Pass 1: Collect all elements with structures:id for forward reference resolution.
+
+        Args:
+            elem: XML element to process
+        """
+        sid = elem.attrib.get(f"{{{STRUCT_NS}}}id")
+        if sid:
+            prefixed_id = f"{file_prefix}_{sid}"
+            elem_qn = qname_from_tag(elem.tag, xml_ns_map)
+
+            # Check for ID collisions
+            if prefixed_id in id_registry:
+                # ID collision detected - same structures:id used multiple times
+                existing_qn = id_registry[prefixed_id]['qname']
+                id_collisions.append({
+                    'id': sid,
+                    'first_qname': existing_qn,
+                    'second_qname': elem_qn,
+                    'prefixed_id': prefixed_id
+                })
+                # Keep the first occurrence in the registry
+                # Later we can decide whether to error or warn
+            else:
+                # Register new ID
+                id_registry[prefixed_id] = {
+                    'element': elem,
+                    'qname': elem_qn,
+                    'raw_id': sid
+                }
+
+        # Recurse to all children
+        for child in elem:
+            collect_ids_pass1(child)
 
     def get_metadata_refs(elem: ET.Element, xml_ns_map: Dict[str, str]) -> List[str]:
         """Extract metadata reference IDs from nc:metadataRef or priv:privacyMetadataRef attributes.
@@ -454,7 +498,32 @@ def generate_for_xml_content(
                 # Prefix referenced IDs with file_prefix
                 id_a_prefixed = f"{file_prefix}_{id_a}"
                 id_b_prefixed = f"{file_prefix}_{id_b}"
-                edges.append((id_a_prefixed, label_a, id_b_prefixed, label_b, rel, {}))
+
+                # Validate references exist in ID registry
+                if id_a_prefixed not in id_registry:
+                    pending_refs.append((elem_qn, id_a_prefixed, f"Association {elem_qn} endpoint A"))
+                if id_b_prefixed not in id_registry:
+                    pending_refs.append((elem_qn, id_b_prefixed, f"Association {elem_qn} endpoint B"))
+
+                # RICH EDGE STRATEGY: Extract simple properties from association element
+                # and add them to the relationship properties (for simple associations)
+                # This follows NIEM best practice of using rich edges when possible
+                edge_props = {}
+                for child in list(elem):
+                    child_qn = qname_from_tag(child.tag, xml_ns_map)
+                    # Skip role elements (already processed)
+                    is_role = any(child_qn == ep["role_qname"] for ep in endpoints)
+                    if not is_role and child.text and child.text.strip() and len(list(child)) == 0:
+                        # Simple text property - add to edge
+                        prop_name = child_qn.replace(":", "_").replace(".", "_")
+                        edge_props[prop_name] = child.text.strip()
+
+                # Extract augmentation properties for the edge
+                if cmf_element_index:
+                    aug_edge_props = extract_unmapped_properties(elem, xml_ns_map, cmf_element_index)
+                    edge_props.update(aug_edge_props)
+
+                edges.append((id_a_prefixed, label_a, id_b_prefixed, label_b, rel, edge_props))
 
             # Check if association should also be created as a node
             # (if it has metadata refs, structures:id, or explicit mapping that creates nodes)
@@ -493,6 +562,10 @@ def generate_for_xml_content(
                 target_id = f"{file_prefix}_{ref}"
             elif uri_ref:
                 target_id = f"{file_prefix}_{uri_ref[1:]}" if uri_ref.startswith("#") else f"{file_prefix}_{uri_ref}"
+
+            # Validate reference exists in ID registry
+            if target_id and target_id not in id_registry:
+                pending_refs.append((elem_qn, target_id, f"structures:ref/uri in {elem_qn}"))
 
             # Create or register entity node if not already exists (for forward references)
             # Use element QName to determine entity type (e.g., <nc:Person> creates nc:Person entity)
@@ -534,6 +607,10 @@ def generate_for_xml_content(
                     entity_id = f"{file_prefix}_{uri_ref[1:]}"  # Remove the "#" prefix and add file_prefix
                 else:
                     entity_id = f"{file_prefix}_{uri_ref}"
+
+                # Validate reference exists in ID registry
+                if entity_id not in id_registry:
+                    pending_refs.append((elem_qn, entity_id, f"structures:uri role reference in {elem_qn}"))
 
                 # Create the role node with synthetic ID
                 parent_id = parent_info[0] if parent_info else "root"
@@ -618,6 +695,11 @@ def generate_for_xml_content(
                         if to_id and node_id:
                             # Prefix referenced ID with file_prefix
                             to_id_prefixed = f"{file_prefix}_{to_id}"
+
+                            # Validate reference exists in ID registry
+                            if to_id_prefixed not in id_registry:
+                                pending_refs.append((elem_qn, to_id_prefixed, f"Reference from {elem_qn} via {rule['field_qname']}"))
+
                             # Use the node_id that was assigned to this element
                             edges.append((
                                 node_id, rule["owner_object"].replace(":", "_"),
@@ -631,18 +713,75 @@ def generate_for_xml_content(
             traverse(ch, parent_ctx, path_stack)
         path_stack.pop()
 
-    # Start traversal - skip root if it's not explicitly mapped and has no structures:id
-    # This avoids creating redundant wrapper nodes
+    # ALWAYS process root element for document provenance
+    # Root element provides critical context: what document, when ingested, etc.
+    # Even if unmapped, it serves as anchor preventing orphaned nodes
     root_qn = qname_from_tag(root.tag, xml_ns_map)
-    root_has_id = root.attrib.get(f"{{{STRUCT_NS}}}id") is not None
+    root_has_id = root.attrib.get(f"{{{STRUCT_NS}}}id")
 
-    if root_qn not in obj_rules and not root_has_id:
-        # Skip root element and process its children directly
-        for child in list(root):
-            traverse(child, None, [])
-    else:
-        # Root element is mapped or has structures:id, process normally
-        traverse(root, None, [])
+    # Ensure root gets an ID (explicit or synthetic)
+    if not root_has_id:
+        # Generate synthetic ID for root
+        root_synthetic_id = f"{file_prefix}_root"
+        root.attrib[f"{{{STRUCT_NS}}}id"] = root_synthetic_id
+
+        # Add provenance metadata to root if it becomes a node
+        # This will be picked up during traversal if root creates a node
+
+    # TWO-PASS TRAVERSAL for forward reference resolution
+    # Pass 1: Collect all IDs to enable forward/backward reference resolution
+    collect_ids_pass1(root)
+
+    # Report ID collisions if any were detected
+    if id_collisions:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Found {len(id_collisions)} ID collisions in {filename}")
+        for collision in id_collisions:
+            logger.warning(
+                f"  - Duplicate ID '{collision['id']}': "
+                f"first in {collision['first_qname']}, "
+                f"again in {collision['second_qname']}"
+            )
+
+    # Pass 2: Process root element and create graph structure (always)
+    traverse(root, None, [])
+
+    # HANDLE UNRESOLVED REFERENCES
+    # After traversal, check for any references that weren't found in the ID registry
+    # These indicate potential data quality issues or forward/external references
+    unresolved_refs = []
+    for source_qn, target_id, context in pending_refs:
+        if target_id not in nodes:
+            # Target ID doesn't exist - could be forward ref or missing element
+            # Create placeholder UnresolvedReference node to prevent orphaned edges
+            unresolved_refs.append({
+                'target_id': target_id,
+                'context': context,
+                'source': source_qn
+            })
+
+            # Create placeholder node so edges don't fail
+            # This allows the graph to be created while flagging data quality issues
+            nodes[target_id] = [
+                "UnresolvedReference",
+                "unresolved:Reference",
+                {
+                    'error': f'Referenced ID not found in document',
+                    'context': context,
+                    'raw_id': target_id
+                },
+                {}
+            ]
+
+    # Log unresolved references for reporting (can be added to return value later)
+    # For now, add as comment in Cypher output
+    if unresolved_refs:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Found {len(unresolved_refs)} unresolved references in {filename}")
+        for ref in unresolved_refs:
+            logger.warning(f"  - {ref['context']}: {ref['target_id']}")
 
     # Resolve placeholder labels in edges (for metadata references)
     resolved_edges = []
@@ -673,7 +812,7 @@ def generate_for_xml_content(
         aug_props = node_data[3] if len(node_data) > 3 else {}
 
         lines.append(f"MERGE (n:`{label}` {{id:'{nid}'}})")
-        setbits = [f"n.qname='{qn}'", f"n.sourceDoc='{filename}'"]
+        setbits = [f"n.qname='{qn}'", f"n.sourceDoc='{filename}'", f"n.ingestDate='{ingest_timestamp}'"]
 
         # Add core mapped properties
         for key, value in sorted(props.items()):
@@ -701,7 +840,28 @@ def generate_for_xml_content(
 
     # MERGE reference/association edges
     for fid, flabel, tid, tlabel, rel, rprops in edges:
-        lines.append(f"MATCH (a:`{flabel}` {{id:'{fid}'}}), (b:`{tlabel}` {{id:'{tid}'}}) MERGE (a)-[:`{rel}`]->(b);")
+        # Build relationship properties if any
+        if rprops:
+            # Build property setters for rich edges
+            prop_setters = []
+            for key, value in sorted(rprops.items()):
+                prop_key = f"`{key}`" if '.' in key else key
+                if isinstance(value, list):
+                    json_value = json.dumps(value).replace("'", "\\'")
+                    prop_setters.append(f"r.{prop_key}='{json_value}'")
+                else:
+                    escaped_value = str(value).replace("'", "\\'")
+                    prop_setters.append(f"r.{prop_key}='{escaped_value}'")
+
+            # MERGE with properties on relationship (rich edge pattern)
+            props_clause = ", ".join(prop_setters)
+            lines.append(
+                f"MATCH (a:`{flabel}` {{id:'{fid}'}}), (b:`{tlabel}` {{id:'{tid}'}}) "
+                f"MERGE (a)-[r:`{rel}`]->(b) ON CREATE SET {props_clause};"
+            )
+        else:
+            # Simple edge without properties
+            lines.append(f"MATCH (a:`{flabel}` {{id:'{fid}'}}), (b:`{tlabel}` {{id:'{tid}'}}) MERGE (a)-[:`{rel}`]->(b);")
 
     return "\n".join(lines), nodes, contains, edges
 
