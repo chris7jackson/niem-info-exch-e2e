@@ -11,7 +11,6 @@ Handles NIEM schema operations:
 from .mapping import (
     generate_mapping_from_cmf_content,
     generate_mapping_from_cmf_file,
-    validate_mapping_coverage_from_data,
 )
 from .resolver import validate_schema_dependencies
 from .validator import NiemNdrValidator, validate_niem_conformance
@@ -25,5 +24,4 @@ __all__ = [
     # Mapping
     'generate_mapping_from_cmf_content',
     'generate_mapping_from_cmf_file',
-    'validate_mapping_coverage_from_data',
 ]

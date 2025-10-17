@@ -787,7 +787,7 @@ async def _generate_and_store_mapping(
 
     try:
         logger.error("*** DEBUG: Starting mapping generation process ***")
-        from ..services.domain.schema import generate_mapping_from_cmf_content, validate_mapping_coverage_from_data
+        from ..services.domain.schema import generate_mapping_from_cmf_content
 
         cmf_content = cmf_conversion_result["cmf_content"]
         logger.error(f"*** DEBUG: CMF content length: {len(cmf_content)} ***")
@@ -797,15 +797,12 @@ async def _generate_and_store_mapping(
         mapping_dict = generate_mapping_from_cmf_content(cmf_content)
         logger.error(f"*** DEBUG: Generated mapping dict with {len(mapping_dict)} keys ***")
 
-        # Validate mapping coverage using in-memory data
-        logger.error("*** DEBUG: About to validate mapping coverage ***")
-        coverage_result = validate_mapping_coverage_from_data(cmf_content, mapping_dict)
-        logger.error("*** DEBUG: Coverage validation completed ***")
+        # TODO: Re-enable coverage validation after restoring validate_mapping_coverage_from_data
+        # See: https://github.com/chris7jackson/niem-info-exch-e2e/issues/XX
+        # coverage_result = validate_mapping_coverage_from_data(cmf_content, mapping_dict)
+        # mapping_dict["coverage_validation"] = coverage_result
 
-        # Add coverage information to mapping
-        mapping_dict["coverage_validation"] = coverage_result
-
-        # Convert to YAML and store (with coverage info)
+        # Convert to YAML and store
         logger.error("*** DEBUG: About to convert to YAML and upload ***")
         mapping_yaml = yaml.dump(mapping_dict, default_flow_style=False, indent=2)
         mapping_content = mapping_yaml.encode('utf-8')
@@ -813,7 +810,6 @@ async def _generate_and_store_mapping(
         logger.error("*** DEBUG: Mapping YAML upload completed ***")
 
         # Log results
-        summary = coverage_result.get("summary", {})
         logger.info(f"Successfully generated and stored mapping YAML for schema {schema_id}")
         logger.info(
             f"Mapping stats: {len(mapping_dict.get('namespaces', {}))} namespaces, "
@@ -821,10 +817,6 @@ async def _generate_and_store_mapping(
             f"{len(mapping_dict.get('associations', []))} associations, "
             f"{len(mapping_dict.get('references', []))} references"
         )
-        logger.info(f"Coverage validation: {summary.get('overall_coverage_percentage', 0):.1f}% overall coverage")
-
-        if summary.get("has_critical_issues", False):
-            logger.warning("Mapping has critical validation issues - check coverage_validation section in mapping.yaml")
 
     except Exception as e:
         logger.error(f"Failed to generate mapping YAML: {e}")
