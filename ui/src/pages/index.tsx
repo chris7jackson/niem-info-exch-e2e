@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { DocumentIcon, CogIcon, CircleStackIcon } from '@heroicons/react/24/outline';
 import apiClient from '../lib/api';
 
@@ -93,7 +94,7 @@ export default function Dashboard() {
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <a
+          <Link
             href="/schemas"
             className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg border border-gray-200 hover:border-gray-300"
           >
@@ -110,9 +111,9 @@ export default function Dashboard() {
                 Upload and activate NIEM XSD schemas for data validation.
               </p>
             </div>
-          </a>
+          </Link>
 
-          <a
+          <Link
             href="/upload"
             className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg border border-gray-200 hover:border-gray-300"
           >
@@ -129,9 +130,9 @@ export default function Dashboard() {
                 Upload XML or JSON files for validation and ingestion.
               </p>
             </div>
-          </a>
+          </Link>
 
-          <a
+          <Link
             href="/graph"
             className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg border border-gray-200 hover:border-gray-300"
           >
@@ -148,7 +149,7 @@ export default function Dashboard() {
                 Visualize and explore the ingested data graph.
               </p>
             </div>
-          </a>
+          </Link>
         </div>
       </div>
 
