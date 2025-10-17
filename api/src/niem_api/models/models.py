@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from typing import Any
 
+from pydantic import BaseModel
 
 # Pydantic Models
 
@@ -12,45 +12,47 @@ class NiemNdrViolation(BaseModel):
     rule: str
     message: str
     location: str
-    file: Optional[str] = None  # Source file where violation was found
+    file: str | None = None  # Source file where violation was found
 
 
 class NiemNdrReport(BaseModel):
     status: str  # 'pass', 'fail', 'error'
     message: str
     conformance_target: str
-    violations: List[NiemNdrViolation] = []
-    summary: Dict[str, int] = {}
-    detected_schema_type: Optional[str] = None  # 'ref', 'ext', 'sub', or None
-    rules_applied: Optional[int] = None  # Number of rules applied
+    violations: list[NiemNdrViolation] = []
+    summary: dict[str, int] = {}
+    detected_schema_type: str | None = None  # 'ref', 'ext', 'sub', or None
+    rules_applied: int | None = None  # Number of rules applied
 
 
 class SchevalIssue(BaseModel):
     """Schematron validation issue with precise line/column information."""
+
     file: str  # File being validated
     line: int  # Line number where issue occurs
     column: int  # Column number where issue occurs
     message: str  # Error message
     severity: str  # 'error', 'warning', 'info'
-    rule: Optional[str] = None  # Validation rule identifier (e.g., "Rule 7-10")
+    rule: str | None = None  # Validation rule identifier (e.g., "Rule 7-10")
 
 
 class SchevalReport(BaseModel):
     """Schematron validation report from scheval tool."""
+
     status: str  # 'pass', 'fail', 'error'
     message: str
     conformance_target: str
-    errors: List[SchevalIssue] = []
-    warnings: List[SchevalIssue] = []
-    summary: Dict[str, int] = {}  # Contains 'total_issues', 'error_count', 'warning_count'
-    metadata: Dict[str, Any] = {}  # Additional metadata about the validation
+    errors: list[SchevalIssue] = []
+    warnings: list[SchevalIssue] = []
+    summary: dict[str, int] = {}  # 'total_issues', 'error_count', 'warning_count'
+    metadata: dict[str, Any] = {}  # Additional metadata about the validation
 
 
 class ImportInfo(BaseModel):
     schema_location: str
     namespace: str
     status: str  # 'satisfied' or 'missing'
-    expected_filename: Optional[str] = None
+    expected_filename: str | None = None
 
 
 class NamespaceUsage(BaseModel):
@@ -61,13 +63,13 @@ class NamespaceUsage(BaseModel):
 
 class FileImportInfo(BaseModel):
     filename: str
-    imports: List[ImportInfo] = []
-    namespaces_used: List[NamespaceUsage] = []
+    imports: list[ImportInfo] = []
+    namespaces_used: list[NamespaceUsage] = []
 
 
 class ImportValidationReport(BaseModel):
     status: str  # 'pass' or 'fail'
-    files: List[FileImportInfo] = []
+    files: list[FileImportInfo] = []
     summary: str
     total_files: int = 0
     total_imports: int = 0
@@ -77,8 +79,8 @@ class ImportValidationReport(BaseModel):
 
 class SchemaResponse(BaseModel):
     schema_id: str
-    scheval_report: Optional[SchevalReport] = None
-    import_validation_report: Optional[ImportValidationReport] = None
+    scheval_report: SchevalReport | None = None
+    import_validation_report: ImportValidationReport | None = None
     is_active: bool
 
 
@@ -87,29 +89,29 @@ class ResetRequest(BaseModel):
     data: bool = False
     neo4j: bool = False
     dry_run: bool = True
-    confirm_token: Optional[str] = None
+    confirm_token: str | None = None
 
 
 class ResetResponse(BaseModel):
-    counts: Dict[str, int]
-    confirm_token: Optional[str] = None
+    counts: dict[str, int]
+    confirm_token: str | None = None
     message: str
 
 
 class ValidationError(BaseModel):
     """Structured validation error from CMF tool or other validators."""
     file: str  # File being validated
-    line: Optional[int] = None  # Line number if available
-    column: Optional[int] = None  # Column number if available
+    line: int | None = None  # Line number if available
+    column: int | None = None  # Column number if available
     message: str  # Error message
     severity: str = "error"  # 'error', 'warning', 'info'
-    rule: Optional[str] = None  # Validation rule identifier
-    context: Optional[str] = None  # Additional context (e.g., element path)
+    rule: str | None = None  # Validation rule identifier
+    context: str | None = None  # Additional context (e.g., element path)
 
 
 class ValidationResult(BaseModel):
     """Result of a validation operation."""
     valid: bool
-    errors: List[ValidationError] = []
-    warnings: List[ValidationError] = []
+    errors: list[ValidationError] = []
+    warnings: list[ValidationError] = []
     summary: str  # Human-readable summary

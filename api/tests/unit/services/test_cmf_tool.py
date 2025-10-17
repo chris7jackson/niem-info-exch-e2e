@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 
+import asyncio
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
-from pathlib import Path
 
 from niem_api.services.cmf_tool import (
+    convert_cmf_to_jsonschema,
+    convert_xsd_to_cmf,
     download_and_setup_cmf,
     is_cmf_available,
-    convert_xsd_to_cmf,
-    convert_cmf_to_jsonschema,
-    run_cmf_command
+    run_cmf_command,
 )
 
 
@@ -143,7 +144,7 @@ class TestCMFTool:
             }
 
             mock_json_schema = {"type": "object", "properties": {}}
-            with patch('builtins.open', create=True) as mock_open, \
+            with patch('builtins.open', create=True), \
                  patch('json.load', return_value=mock_json_schema):
 
                 result = await convert_cmf_to_jsonschema(sample_cmf_content)
@@ -161,7 +162,7 @@ class TestCMFTool:
                 "stderr": ""
             }
 
-            with patch('builtins.open', create=True) as mock_open, \
+            with patch('builtins.open', create=True), \
                  patch('json.load', side_effect=ValueError("Invalid JSON")):
 
                 result = await convert_cmf_to_jsonschema(sample_cmf_content)
@@ -189,7 +190,7 @@ class TestCMFTool:
         """Test CMF command execution with timeout"""
         with patch('asyncio.create_subprocess_exec') as mock_subprocess:
             mock_process = Mock()
-            mock_process.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+            mock_process.communicate = AsyncMock(side_effect=TimeoutError())
             mock_subprocess.return_value = mock_process
 
             result = await run_cmf_command(["--slow-operation"], timeout=1)

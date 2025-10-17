@@ -8,13 +8,12 @@ Handles NIEM schema operations:
 - Mapping validation (coverage analysis)
 """
 
-from .resolver import validate_schema_dependencies
-from .validator import NiemNdrValidator, validate_niem_conformance
 from .mapping import (
     generate_mapping_from_cmf_content,
     generate_mapping_from_cmf_file,
-    validate_mapping_coverage_from_data
 )
+from .resolver import validate_schema_dependencies
+from .validator import NiemNdrValidator, validate_niem_conformance
 
 __all__ = [
     # Schema validation
@@ -25,5 +24,4 @@ __all__ = [
     # Mapping
     'generate_mapping_from_cmf_content',
     'generate_mapping_from_cmf_file',
-    'validate_mapping_coverage_from_data',
 ]

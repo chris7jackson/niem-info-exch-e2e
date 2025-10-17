@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 import logging
-from typing import Dict, List, Any
+from typing import Any
+
 from ..core.dependencies import get_neo4j_client
 
 logger = logging.getLogger(__name__)
 
 
-def execute_cypher_query(cypher_query: str = None, limit: int = None) -> Dict[str, Any]:
+def execute_cypher_query(cypher_query: str = None, limit: int = None) -> dict[str, Any]:
     """
     Execute a Cypher query and return structured graph data.
 
@@ -43,7 +44,7 @@ def execute_cypher_query(cypher_query: str = None, limit: int = None) -> Dict[st
         raise
 
 
-def get_full_graph(limit: int = 1000) -> Dict[str, Any]:
+def get_full_graph(limit: int = 1000) -> dict[str, Any]:
     """
     Get the complete graph structure with all nodes and relationships.
 
@@ -63,7 +64,7 @@ def get_full_graph(limit: int = 1000) -> Dict[str, Any]:
     return execute_cypher_query(cypher_query)
 
 
-def get_node_labels() -> List[str]:
+def get_node_labels() -> list[str]:
     """Get all node labels in the database"""
     client = get_neo4j_client()
     try:
@@ -74,7 +75,7 @@ def get_node_labels() -> List[str]:
         raise
 
 
-def get_relationship_types() -> List[str]:
+def get_relationship_types() -> list[str]:
     """Get all relationship types in the database"""
     client = get_neo4j_client()
     try:

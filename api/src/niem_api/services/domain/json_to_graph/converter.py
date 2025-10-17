@@ -26,13 +26,13 @@ import hashlib
 import json
 import logging
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def load_mapping_from_dict(mapping_dict: Dict[str, Any]) -> Tuple[
-    Dict[str, Any], Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, str]
+def load_mapping_from_dict(mapping_dict: dict[str, Any]) -> tuple[
+    dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]
 ]:
     """Load mapping from dictionary.
 
@@ -49,7 +49,7 @@ def load_mapping_from_dict(mapping_dict: Dict[str, Any]) -> Tuple[
     return mapping_dict, obj_qnames, associations, references, namespaces
 
 
-def resolve_qname(prefixed_name: str, context: Dict[str, Any]) -> str:
+def resolve_qname(prefixed_name: str, context: dict[str, Any]) -> str:
     """Resolve prefixed name to full URI using @context.
 
     Args:
@@ -96,7 +96,7 @@ def local_from_qname(qn: str) -> str:
     return qn
 
 
-def build_refs_index(references: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+def build_refs_index(references: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     """Build index of references by owner QName.
 
     Args:
@@ -113,7 +113,7 @@ def build_refs_index(references: List[Dict[str, Any]]) -> Dict[str, List[Dict[st
     return refs_by_owner
 
 
-def build_assoc_index(associations: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def build_assoc_index(associations: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Build index of associations by QName.
 
     Args:
@@ -126,10 +126,10 @@ def build_assoc_index(associations: List[Dict[str, Any]]) -> Dict[str, Dict[str,
 
 
 def extract_properties(
-    obj: Dict[str, Any],
-    obj_rule: Dict[str, Any],
-    context: Dict[str, Any]
-) -> List[Tuple[str, str]]:
+    obj: dict[str, Any],
+    obj_rule: dict[str, Any],
+    context: dict[str, Any]
+) -> list[tuple[str, str]]:
     """Extract properties from JSON-LD object based on mapping rules.
 
     Args:
@@ -182,10 +182,10 @@ def extract_properties(
 
 def generate_for_json_content(
     json_content: str,
-    mapping_dict: Dict[str, Any],
+    mapping_dict: dict[str, Any],
     filename: str = "memory",
     cmf_element_index: set = None
-) -> Tuple[str, Dict[str, Any], List[Tuple], List[Tuple]]:
+) -> tuple[str, dict[str, Any], list[tuple], list[tuple]]:
     """Generate Cypher statements from NIEM JSON content and mapping dictionary.
 
     NIEM JSON uses JSON-LD features (@context, @id, @type) with NIEM conventions.
@@ -208,17 +208,13 @@ def generate_for_json_content(
     context = data.get("@context", {})
 
     # Load mapping
-    mapping, obj_rules, associations, references, ns_map = load_mapping_from_dict(mapping_dict)
+    _, obj_rules, _, _, _ = load_mapping_from_dict(mapping_dict)
 
     # Extract CMF element index from mapping metadata if not provided
     if cmf_element_index is None:
         metadata = mapping_dict.get("metadata", {})
         cmf_elements_list = metadata.get("cmf_element_index", [])
         cmf_element_index = set(cmf_elements_list) if cmf_elements_list else set()
-
-    # Prepare reference and association indices
-    refs_by_owner = build_refs_index(references)
-    assoc_by_qn = build_assoc_index(associations)
 
     # Generate file-specific prefix for node IDs
     file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode()).hexdigest()[:8]
@@ -228,12 +224,15 @@ def generate_for_json_content(
     contains = []  # (parent_id, parent_label, child_id, child_label, HAS_REL)
 
     # Get objects from @graph or treat data as single object
-    objects = data.get("@graph", [data] if "@type" in data or any(k for k in data.keys() if not k.startswith("@")) else [])
+    has_content = "@type" in data or any(k for k in data.keys() if not k.startswith("@"))
+    objects = data.get("@graph", [data] if has_content else [])
 
     # Process each object
     object_counter = 0
 
-    def process_jsonld_object(obj: Dict[str, Any], parent_id: str = None, parent_label: str = None, property_name: str = None):
+    def process_jsonld_object(
+        obj: dict[str, Any], parent_id: str = None, parent_label: str = None, property_name: str = None
+    ):
         """Process a JSON-LD object and generate nodes/relationships."""
         nonlocal object_counter
 
@@ -277,7 +276,11 @@ def generate_for_json_content(
 
             # Create containment edge if nested
             if parent_id:
-                contains.append((parent_id, parent_label, obj_id, label, f"HAS_{local_from_qname(property_name) if property_name else 'CHILD'}"))
+                rel_type = (
+                    f"HAS_{local_from_qname(property_name)}"
+                    if property_name else 'HAS_CHILD'
+                )
+                contains.append((parent_id, parent_label, obj_id, label, rel_type))
 
             # Process nested properties
             for key, value in obj.items():
@@ -290,9 +293,8 @@ def generate_for_json_content(
                     edges.append((obj_id, label, target_id, None, key, {}))
 
                 elif isinstance(value, dict):
-                    # Nested object
-                    child_id = process_jsonld_object(value, obj_id, label, key)
-                    # Edge already created by containment
+                    # Nested object (containment edge created automatically)
+                    process_jsonld_object(value, obj_id, label, key)
 
                 elif isinstance(value, list):
                     # Array of objects or references
@@ -302,7 +304,7 @@ def generate_for_json_content(
                                 target_id = item["@id"]
                                 edges.append((obj_id, label, target_id, None, key, {}))
                             else:
-                                child_id = process_jsonld_object(item, obj_id, label, key)
+                                process_jsonld_object(item, obj_id, label, key)
 
             return obj_id
         else:
@@ -321,7 +323,11 @@ def generate_for_json_content(
             nodes[obj_id] = (label, qname or "Object", props_dict, {})
 
             if parent_id:
-                contains.append((parent_id, parent_label, obj_id, label, f"HAS_{local_from_qname(property_name) if property_name else 'CHILD'}"))
+                rel_type = (
+                    f"HAS_{local_from_qname(property_name)}"
+                    if property_name else 'HAS_CHILD'
+                )
+                contains.append((parent_id, parent_label, obj_id, label, rel_type))
 
             # Process nested
             for key, value in obj.items():
@@ -353,9 +359,9 @@ def generate_for_json_content(
 
 
 def generate_cypher_from_structures(
-    nodes: Dict[str, Tuple],
-    edges: List[Tuple],
-    contains: List[Tuple]
+    nodes: dict[str, tuple],
+    edges: list[tuple],
+    contains: list[tuple]
 ) -> str:
     """Generate Cypher statements from node and edge structures.
 
@@ -388,7 +394,7 @@ def generate_cypher_from_structures(
         )
 
     # Generate MERGE statements for reference/association edges
-    for from_id, from_label, to_id, to_label, rel_type, rel_props in edges:
+    for from_id, from_label, to_id, to_label, rel_type, _ in edges:
         # Clean relationship type
         clean_rel_type = rel_type.replace(":", "_").upper()
 

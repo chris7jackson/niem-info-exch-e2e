@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-import json
 import logging
-from typing import Dict, List, Any
+from typing import Any
 
 from neo4j.exceptions import ClientError
+
 from ....core.dependencies import get_neo4j_client
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class GraphSchemaManager:
         """Close method for compatibility - actual cleanup handled by dependencies"""
         pass
 
-    def configure_schema_from_mapping(self, mapping: Dict[str, Any]) -> Dict[str, Any]:
+    def configure_schema_from_mapping(self, mapping: dict[str, Any]) -> dict[str, Any]:
         """Configure Neo4j schema (indexes, constraints) from mapping specification"""
         logger.info("Configuring Neo4j schema from mapping specification")
 
@@ -89,7 +89,10 @@ class GraphSchemaManager:
                         logger.warning(f"Failed to create index on {label}.{prop}: {e}")
                         results["indexes_failed"].append(f"{label}.{prop}: {str(e)}")
 
-            logger.info(f"Schema configuration completed: {len(results['indexes_created'])} indexes, {len(results['constraints_created'])} constraints")
+            logger.info(
+                f"Schema configuration completed: {len(results['indexes_created'])} indexes, "
+                f"{len(results['constraints_created'])} constraints"
+            )
             return results
 
         except Exception as e:
@@ -162,7 +165,7 @@ class GraphSchemaManager:
                 return False
             raise
 
-    def get_current_schema_info(self) -> Dict[str, Any]:
+    def get_current_schema_info(self) -> dict[str, Any]:
         """Get current Neo4j schema information"""
         try:
             # Get indexes
@@ -189,7 +192,7 @@ class GraphSchemaManager:
             logger.error(f"Failed to get schema info: {e}")
             return {"error": str(e)}
 
-    def reset_schema(self, confirm_reset: bool = False) -> Dict[str, Any]:
+    def reset_schema(self, confirm_reset: bool = False) -> dict[str, Any]:
         """Reset the Neo4j schema (DROP ALL CONSTRAINTS AND INDEXES)"""
         if not confirm_reset:
             return {"error": "Reset requires explicit confirmation"}
@@ -222,7 +225,10 @@ class GraphSchemaManager:
                     except ClientError as e:
                         logger.warning(f"Could not drop index {index_name}: {e}")
 
-            logger.info(f"Schema reset completed: dropped {len(dropped_constraints)} constraints, {len(dropped_indexes)} indexes")
+            logger.info(
+                f"Schema reset completed: dropped {len(dropped_constraints)} constraints, "
+                f"{len(dropped_indexes)} indexes"
+            )
 
             return {
                 "dropped_constraints": dropped_constraints,

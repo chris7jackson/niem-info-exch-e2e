@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
 
-import factory
-import json
-from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Any
 
-from niem_api.models.models import (
-    SchemaResponse,
-    NiemNdrReport,
-    NiemNdrViolation,
-    ResetRequest
-)
+import factory
+
+from niem_api.models.models import NiemNdrReport, NiemNdrViolation, ResetRequest, SchemaResponse
 
 
 class NiemNdrViolationFactory(factory.Factory):
@@ -149,7 +143,7 @@ class TestDataFactories:
         </cmf:Model>'''
 
     @staticmethod
-    def sample_mapping_yaml() -> Dict[str, Any]:
+    def sample_mapping_yaml() -> dict[str, Any]:
         """Generate sample mapping YAML structure"""
         return {
             "namespaces": {
@@ -174,7 +168,7 @@ class TestDataFactories:
         }
 
     @staticmethod
-    def sample_json_schema() -> Dict[str, Any]:
+    def sample_json_schema() -> dict[str, Any]:
         """Generate sample JSON Schema"""
         return {
             "$schema": "http://json-schema.org/draft-07/schema#",
@@ -219,7 +213,7 @@ class TestDataFactories:
         </TestDocument>'''
 
     @staticmethod
-    def sample_json_data() -> Dict[str, Any]:
+    def sample_json_data() -> dict[str, Any]:
         """Generate sample JSON data for ingestion"""
         return {
             "id": "DOC-002",
@@ -242,7 +236,7 @@ class TestDataFactories:
         }
 
     @staticmethod
-    def sample_graph_data() -> Dict[str, Any]:
+    def sample_graph_data() -> dict[str, Any]:
         """Generate sample graph data"""
         return {
             "nodes": [
@@ -297,7 +291,7 @@ class TestDataFactories:
         }
 
     @staticmethod
-    def sample_database_stats() -> Dict[str, Any]:
+    def sample_database_stats() -> dict[str, Any]:
         """Generate sample database statistics"""
         return {
             "node_count": 150,

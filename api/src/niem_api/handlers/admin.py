@@ -2,7 +2,7 @@
 
 import logging
 import secrets
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import HTTPException
 from minio import Minio
@@ -66,10 +66,10 @@ def handle_reset(
         logger.error(f"Reset failed: {e}")
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}") from e
 
 
-def count_minio_objects(s3: Minio) -> Dict[str, int]:
+def count_minio_objects(s3: Minio) -> dict[str, int]:
     """Count objects and buckets in MinIO"""
     try:
         total_objects = 0
@@ -137,7 +137,7 @@ def count_schemas(s3: Minio) -> int:
         return 0
 
 
-def count_data_files(s3: Minio) -> Dict[str, int]:
+def count_data_files(s3: Minio) -> dict[str, int]:
     """Count XML and JSON data files in niem-data bucket"""
     try:
         if not s3.bucket_exists("niem-data"):
@@ -212,7 +212,7 @@ def reset_neo4j():
         raise
 
 
-def count_neo4j_objects() -> Dict[str, Any]:
+def count_neo4j_objects() -> dict[str, Any]:
     """
     Count Neo4j nodes, relationships, indexes, and constraints.
 
@@ -252,7 +252,7 @@ def count_neo4j_objects() -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Failed to count Neo4j objects: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get Neo4j stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get Neo4j stats: {str(e)}") from e
 
 
 

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from pathlib import Path
 
 from niem_api.services.domain.schema.validator import NiemNdrValidator
 

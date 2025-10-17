@@ -11,9 +11,10 @@ Use services layer for business logic that uses this client.
 
 import logging
 import os
-from typing import Dict, List, Any, Optional
+from typing import Any
+
 from neo4j import GraphDatabase
-from neo4j.graph import Node, Relationship, Path
+from neo4j.graph import Node, Path, Relationship
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class Neo4jClient:
         self.password = password or os.getenv("NEO4J_PASSWORD", "password")
         self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
 
-    def query(self, cypher_query: str, parameters: Optional[Dict] = None) -> List[Dict]:
+    def query(self, cypher_query: str, parameters: dict | None = None) -> list[dict]:
         """
         Execute a Cypher query and return raw record data.
 
@@ -87,7 +88,7 @@ class Neo4jClient:
             result = session.run(cypher_query, parameters or {})
             return [record.data() for record in result]
 
-    def query_graph(self, cypher_query: str, parameters: Optional[Dict] = None) -> Dict[str, Any]:
+    def query_graph(self, cypher_query: str, parameters: dict | None = None) -> dict[str, Any]:
         """
         Execute a Cypher query and return structured graph data.
 
@@ -122,7 +123,7 @@ class Neo4jClient:
             relationships = {}
 
             for record in result:
-                for key, value in record.items():
+                for value in record.values():
                     self._extract_graph_elements(value, nodes, relationships)
 
             # Convert to lists and add metadata
@@ -140,14 +141,14 @@ class Neo4jClient:
                 "nodes": nodes_list,
                 "relationships": relationships_list,
                 "metadata": {
-                    "nodeLabels": sorted(list(all_labels)),
-                    "relationshipTypes": sorted(list(all_rel_types)),
+                    "nodeLabels": sorted(all_labels),
+                    "relationshipTypes": sorted(all_rel_types),
                     "nodeCount": len(nodes_list),
                     "relationshipCount": len(relationships_list)
                 }
             }
 
-    def _extract_graph_elements(self, value: Any, nodes: Dict, relationships: Dict):
+    def _extract_graph_elements(self, value: Any, nodes: dict, relationships: dict):
         """
         Recursively extract graph elements from Neo4j result values.
 
@@ -215,7 +216,7 @@ class Neo4jClient:
             for nested_value in value.values():
                 self._extract_graph_elements(nested_value, nodes, relationships)
 
-    def get_schema(self) -> Dict[str, List[str]]:
+    def get_schema(self) -> dict[str, list[str]]:
         """
         Get database schema information (labels and relationship types).
 
@@ -248,7 +249,7 @@ class Neo4jClient:
                 "relationshipTypes": sorted(rel_types)
             }
 
-    def get_stats(self) -> Dict[str, int]:
+    def get_stats(self) -> dict[str, int]:
         """
         Get database statistics (node and relationship counts).
 

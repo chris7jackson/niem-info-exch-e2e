@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
-import pytest
 from xml.etree import ElementTree as ET
 
+import pytest
+
 from niem_api.services.domain.schema.mapping import (
-    generate_mapping_from_cmf_content,
-    to_qname,
-    to_label,
-    to_rel_type,
+    build_element_to_class,
     build_prefix_map,
+    generate_mapping_from_cmf_content,
     parse_classes,
-    build_element_to_class
+    to_label,
+    to_qname,
+    to_rel_type,
 )
 
 
@@ -146,7 +147,10 @@ class TestCMFToMapping:
         associations = mapping["associations"]
         assert len(associations) == 1
         person_assoc = associations[0]
-        assert "test:PersonAssociation" in person_assoc["qname"] or "test:PersonAssociationType" in person_assoc["qname"]
+        assert (
+            "test:PersonAssociation" in person_assoc["qname"]
+            or "test:PersonAssociationType" in person_assoc["qname"]
+        )
 
         # Check polymorphism settings
         assert mapping["polymorphism"]["strategy"] == "extraLabel"
