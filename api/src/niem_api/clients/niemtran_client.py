@@ -12,11 +12,15 @@ use the services/niemtran_service.py module.
 
 import logging
 import os
+import platform
 import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# Detect platform for cross-platform compatibility
+IS_WINDOWS = platform.system() == "Windows"
 
 # NIEMTran tool configuration
 # Check for environment variable first, then fall back to default path
@@ -29,14 +33,16 @@ if _NIEMTRAN_PATH_ENV:
 else:
     # Default: Go up 4 levels from clients/niemtran_client.py to get to api/ directory
     # File is at: api/src/niem_api/clients/niemtran_client.py -> need 4 .parent to reach api/
-    _NIEMTRAN_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / "third_party/niem-tran/niemtran-1.0/bin/niemtran"
+    # On Windows, use niemtran.bat; on Unix/Mac, use niemtran
+    _NIEMTRAN_SCRIPT_NAME = "niemtran.bat" if IS_WINDOWS else "niemtran"
+    _NIEMTRAN_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / f"third_party/niem-tran/niemtran-1.0/bin/{_NIEMTRAN_SCRIPT_NAME}"
 
     if _NIEMTRAN_DEFAULT_PATH.exists():
         NIEMTRAN_TOOL_PATH = str(_NIEMTRAN_DEFAULT_PATH)
         logger.debug(f"Using default NIEMTran tool path: {NIEMTRAN_TOOL_PATH}")
     else:
         NIEMTRAN_TOOL_PATH = None
-        logger.warning("NIEMTran tool not found at default path and NIEMTRAN_TOOL_PATH not set")
+        logger.warning(f"NIEMTran tool not found at default path ({_NIEMTRAN_DEFAULT_PATH}) and NIEMTRAN_TOOL_PATH not set")
 
 NIEMTRAN_TIMEOUT = 60  # Default command timeout in seconds
 
@@ -275,8 +281,10 @@ def run_niemtran_command(
         # Security: Validate command against allowlist to prevent command injection
         _validate_niemtran_command(cmd)
 
-        # Use 'sh' to invoke niemtran for cross-platform compatibility (Windows mounts)
-        full_cmd = ["sh", NIEMTRAN_TOOL_PATH] + cmd
+        # Build command: Run platform-specific script directly
+        # Windows uses niemtran.bat, Unix/Mac uses niemtran shell script
+        # Both are executable and don't require 'sh' wrapper
+        full_cmd = [NIEMTRAN_TOOL_PATH] + cmd
         logger.info(f"Running NIEMTran command: {' '.join(full_cmd)}")
 
         # Set working directory with security validation
