@@ -41,15 +41,16 @@ COPY --chown=appuser:appgroup api/third_party/niem-cmf /app/third_party/niem-cmf
 COPY --chown=appuser:appgroup api/third_party/niem-scheval /app/third_party/niem-scheval
 COPY --chown=appuser:appgroup api/third_party/niem-tran /app/third_party/niem-tran
 
-# Ensure shell scripts are executable (container is always Linux)
-RUN chmod +x /app/third_party/niem-cmf/cmftool-1.0/bin/cmftool && \
-    chmod +x /app/third_party/niem-scheval/scheval-1.0/bin/scheval && \
-    chmod +x /app/third_party/niem-tran/niemtran-1.0/bin/niemtran && \
-    find /app/third_party/niem-ndr -name "*.sh" -exec chmod +x {} \;
-
-# Create data directory and fix permissions
-RUN mkdir -p /data && chown appuser:appgroup /data
-RUN chown -R appuser:appgroup /app/src
+# Fix line endings and permissions for all shell scripts
+RUN apt-get update && apt-get install -y dos2unix \
+    && dos2unix /app/third_party/niem-cmf/cmftool-1.0/bin/cmftool \
+    && dos2unix /app/third_party/niem-scheval/scheval-1.0/bin/scheval \
+    && dos2unix /app/third_party/niem-tran/niemtran-1.0/bin/niemtran \
+    && chmod +x /app/third_party/niem-cmf/cmftool-1.0/bin/cmftool \
+    && chmod +x /app/third_party/niem-scheval/scheval-1.0/bin/scheval \
+    && chmod +x /app/third_party/niem-tran/niemtran-1.0/bin/niemtran \
+    && find /app/third_party/niem-ndr -name "*.sh" -exec chmod +x {} \; \
+    && chown -R appuser:appgroup /app/src
 
 USER appuser
 
