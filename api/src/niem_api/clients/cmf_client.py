@@ -12,15 +12,11 @@ use the services/cmf_tool.py module.
 
 import logging
 import os
-import platform
 import subprocess
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
-
-# Detect platform for cross-platform compatibility
-IS_WINDOWS = platform.system() == "Windows"
 
 # CMF tool configuration
 # Check for environment variable first, then fall back to default path
@@ -33,8 +29,8 @@ if _CMF_PATH_ENV:
 else:
     # Default: Go up 4 levels from clients/cmf_client.py to get to api/ directory
     # File is at: api/src/niem_api/clients/cmf_client.py -> need 4 .parent to reach api/
-    # On Windows, use cmftool.bat; on Unix/Mac, use cmftool
-    _CMF_SCRIPT_NAME = "cmftool.bat" if IS_WINDOWS else "cmftool"
+    # In Docker, the container is always Linux, so always use the shell script (not .bat)
+    _CMF_SCRIPT_NAME = "cmftool"
     _CMF_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / f"third_party/niem-cmf/cmftool-1.0/bin/{_CMF_SCRIPT_NAME}"
 
     if _CMF_DEFAULT_PATH.exists():
