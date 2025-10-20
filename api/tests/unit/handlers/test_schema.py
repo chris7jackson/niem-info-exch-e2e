@@ -112,7 +112,7 @@ class TestSchemaHandlers:
             await handle_schema_upload([large_file], mock_s3_client)
 
         assert exc_info.value.status_code == 400
-        assert "File size exceeds" in exc_info.value.detail
+        assert "Total file size exceeds" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_handle_schema_activation_success(self, mock_s3_client):
@@ -155,25 +155,23 @@ class TestSchemaHandlers:
 
         assert result == []
 
-    @pytest.mark.asyncio
-    async def test_get_active_schema_id_exists(self, mock_s3_client):
+    def test_get_active_schema_id_exists(self, mock_s3_client):
         """Test getting active schema ID when one exists"""
         mock_response = Mock()
         mock_response.read.return_value.decode.return_value = '{"active_schema_id": "schema_123"}'
         mock_s3_client.get_object.return_value = mock_response
 
-        result = await get_active_schema_id(mock_s3_client)
+        result = get_active_schema_id(mock_s3_client)
 
         assert result == "schema_123"
 
-    @pytest.mark.asyncio
-    async def test_get_active_schema_id_not_found(self, mock_s3_client):
+    def test_get_active_schema_id_not_found(self, mock_s3_client):
         """Test getting active schema ID when none exists"""
         from minio.error import S3Error
 
         mock_response = Mock()
         mock_s3_client.get_object.side_effect = S3Error(mock_response, "NoSuchKey", "", "", "", "")
 
-        result = await get_active_schema_id(mock_s3_client)
+        result = get_active_schema_id(mock_s3_client)
 
         assert result is None
