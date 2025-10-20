@@ -134,7 +134,8 @@ class TestSchemaHandlers:
         from minio.error import S3Error
 
         schema_id = "nonexistent_schema"
-        mock_s3_client.get_object.side_effect = S3Error("NoSuchKey", "", "", "", "")
+        mock_response = Mock()
+        mock_s3_client.get_object.side_effect = S3Error(mock_response, "NoSuchKey", "", "", "", "")
 
         with pytest.raises(HTTPException) as exc_info:
             await handle_schema_activation(schema_id, mock_s3_client)
@@ -147,7 +148,8 @@ class TestSchemaHandlers:
         """Test getting all schemas when none exist"""
         from minio.error import S3Error
 
-        mock_s3_client.list_objects.side_effect = S3Error("NoSuchBucket", "", "", "", "")
+        mock_response = Mock()
+        mock_s3_client.list_objects.side_effect = S3Error(mock_response, "NoSuchBucket", "", "", "", "")
 
         result = await get_all_schemas(mock_s3_client)
 
@@ -169,7 +171,8 @@ class TestSchemaHandlers:
         """Test getting active schema ID when none exists"""
         from minio.error import S3Error
 
-        mock_s3_client.get_object.side_effect = S3Error("NoSuchKey", "", "", "", "")
+        mock_response = Mock()
+        mock_s3_client.get_object.side_effect = S3Error(mock_response, "NoSuchKey", "", "", "", "")
 
         result = await get_active_schema_id(mock_s3_client)
 
