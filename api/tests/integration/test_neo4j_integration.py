@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import pytest
 import os
+
+import pytest
 from neo4j import GraphDatabase
 
 

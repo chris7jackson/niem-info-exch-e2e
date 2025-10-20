@@ -2,7 +2,6 @@
 
 import os
 
-import httpx
 from minio import Minio
 
 

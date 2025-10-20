@@ -12,8 +12,8 @@ Key Features:
 """
 import re
 import sys
-from typing import Any, Dict, List, Set, Tuple
 import xml.etree.ElementTree as ET
+from typing import Any
 
 import yaml
 
@@ -93,7 +93,7 @@ def ref_of(element: ET.Element, tag: str) -> str | None:
     return None
 
 
-def build_prefix_map(root: ET.Element) -> Dict[str, str]:
+def build_prefix_map(root: ET.Element) -> dict[str, str]:
     """Collect prefix→URI bindings from CMF Namespace entries.
 
     Args:
@@ -111,7 +111,7 @@ def build_prefix_map(root: ET.Element) -> Dict[str, str]:
     return prefixes
 
 
-def _parse_property_associations(class_element: ET.Element) -> List[Dict[str, str]]:
+def _parse_property_associations(class_element: ET.Element) -> list[dict[str, str]]:
     """Parse child property associations for a single class element.
 
     Args:
@@ -135,7 +135,7 @@ def _parse_property_associations(class_element: ET.Element) -> List[Dict[str, st
     return props
 
 
-def _extract_class_info(class_element: ET.Element) -> Dict[str, Any]:
+def _extract_class_info(class_element: ET.Element) -> dict[str, Any]:
     """Extract basic information from a single class element.
 
     Args:
@@ -159,7 +159,7 @@ def _extract_class_info(class_element: ET.Element) -> Dict[str, Any]:
     }
 
 
-def _is_meaningful_class(class_info: Dict[str, Any]) -> bool:
+def _is_meaningful_class(class_info: dict[str, Any]) -> bool:
     """Check if a class has meaningful content.
 
     Args:
@@ -177,7 +177,7 @@ def _is_meaningful_class(class_info: Dict[str, Any]) -> bool:
     ])
 
 
-def parse_classes(root: ET.Element) -> List[Dict[str, Any]]:
+def parse_classes(root: ET.Element) -> list[dict[str, Any]]:
     """Extract Classes with their namespace, base class, and child property associations.
 
     Args:
@@ -194,7 +194,7 @@ def parse_classes(root: ET.Element) -> List[Dict[str, Any]]:
     return classes_info
 
 
-def build_element_to_class(root: ET.Element) -> Dict[str, str]:
+def build_element_to_class(root: ET.Element) -> dict[str, str]:
     """Map ObjectProperty id (element QName) → Class id.
 
     This lets us resolve association role participants to their object classes.
@@ -216,7 +216,7 @@ def build_element_to_class(root: ET.Element) -> Dict[str, str]:
     return mapping
 
 
-def build_dataproperty_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
+def build_dataproperty_index(root: ET.Element) -> dict[str, dict[str, Any]]:
     """Build index of DataProperty elements from CMF.
 
     Args:
@@ -244,7 +244,7 @@ def build_dataproperty_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
     return index
 
 
-def build_datatype_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
+def build_datatype_index(root: ET.Element) -> dict[str, dict[str, Any]]:
     """Build index of Datatype and Restriction elements from CMF to classify types.
 
     Args:
@@ -265,7 +265,10 @@ def build_datatype_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
             # Check for restriction base (indicates simple type)
             restriction_base = element.find(".//cmf:RestrictionBase", NS)
             restriction_of = element.find(".//cmf:RestrictionOf", NS)
-            is_restriction = restriction_base is not None or restriction_of is not None or element_type == ".//cmf:Restriction"
+            is_restriction = (
+                restriction_base is not None or restriction_of is not None
+                or element_type == ".//cmf:Restriction"
+            )
 
             # Check for child properties (indicates complex type)
             child_props = element.findall(".//cmf:ChildPropertyAssociation", NS)
@@ -301,11 +304,11 @@ def build_datatype_index(root: ET.Element) -> Dict[str, Dict[str, Any]]:
 
 
 def _extract_scalar_properties(
-    class_props: List[Dict[str, Any]],
-    dataprop_index: Dict[str, Dict[str, Any]],
-    datatype_index: Dict[str, Dict[str, Any]],
+    class_props: list[dict[str, Any]],
+    dataprop_index: dict[str, dict[str, Any]],
+    datatype_index: dict[str, dict[str, Any]],
     max_depth: int = 3
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """Extract flattened scalar properties from class properties.
 
     Args:
@@ -351,13 +354,13 @@ def _extract_scalar_properties(
 
 def _flatten_property(
     prop_ref: str,
-    data_prop: Dict[str, Any],
-    dataprop_index: Dict[str, Dict[str, Any]],
-    datatype_index: Dict[str, Dict[str, Any]],
+    data_prop: dict[str, Any],
+    dataprop_index: dict[str, dict[str, Any]],
+    datatype_index: dict[str, dict[str, Any]],
     max_depth: int,
     current_depth: int,
     path_prefix: str = ""
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """Recursively flatten a property based on its datatype classification.
 
     Args:
@@ -465,9 +468,9 @@ def _flatten_property(
 
 
 def _partition_classes(
-    class_index: Dict[str, Dict[str, Any]],
-    class_to_element: Dict[str, str]
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Set[str]]:
+    class_index: dict[str, dict[str, Any]],
+    class_to_element: dict[str, str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], set[str]]:
     """Partition classes into AssociationType and ObjectType.
 
     Args:
@@ -496,7 +499,7 @@ def _partition_classes(
     return objects, associations, association_ids
 
 
-def _collect_used_prefixes(classes: List[Dict[str, Any]]) -> Set[str]:
+def _collect_used_prefixes(classes: list[dict[str, Any]]) -> set[str]:
     """Collect all namespace prefixes used by classes and their properties.
 
     Args:
@@ -520,7 +523,7 @@ def _collect_used_prefixes(classes: List[Dict[str, Any]]) -> Set[str]:
 
 
 def _create_label_for_class_function(
-    class_to_element: Dict[str, str]
+    class_to_element: dict[str, str]
 ) -> callable:
     """Create a label_for_class function with closure over class_to_element.
 
@@ -541,10 +544,10 @@ def _create_label_for_class_function(
 
 def _build_complete_objects_list(
     root: ET.Element,
-    class_index: Dict[str, Dict[str, Any]],
-    element_to_class: Dict[str, str],
-    association_ids: Set[str]
-) -> List[Dict[str, Any]]:
+    class_index: dict[str, dict[str, Any]],
+    element_to_class: dict[str, str],
+    association_ids: set[str]
+) -> list[dict[str, Any]]:
     """Build complete list of objects from ALL ObjectProperties.
 
     This includes both:
@@ -596,10 +599,10 @@ def _build_complete_objects_list(
 
 
 def _build_objects_mapping(
-    objects: List[Dict[str, Any]],
-    dataprop_index: Dict[str, Dict[str, Any]],
-    datatype_index: Dict[str, Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    objects: list[dict[str, Any]],
+    dataprop_index: dict[str, dict[str, Any]],
+    datatype_index: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Build objects section of the mapping with extracted scalar properties.
 
     Args:
@@ -612,7 +615,7 @@ def _build_objects_mapping(
     """
     objects_mapping = []
     for obj in objects:
-        qn = to_qname((obj["element_qname"] or obj["class_id"]))
+        qn = to_qname(obj["element_qname"] or obj["class_id"])
 
         # Extract scalar properties from this class
         class_info = obj.get("info", {})
@@ -629,11 +632,11 @@ def _build_objects_mapping(
 
 
 def _build_association_endpoint(
-    prop: Dict[str, str],
-    element_to_class: Dict[str, str],
+    prop: dict[str, str],
+    element_to_class: dict[str, str],
     label_for_class: callable,
     endpoint_index: int
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Build a single association endpoint.
 
     Args:
@@ -659,10 +662,10 @@ def _build_association_endpoint(
 
 
 def _build_associations_mapping(
-    associations: List[Dict[str, Any]],
-    element_to_class: Dict[str, str],
+    associations: list[dict[str, Any]],
+    element_to_class: dict[str, str],
     label_for_class: callable
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Build associations section of the mapping.
 
     Args:
@@ -698,11 +701,11 @@ def _build_associations_mapping(
 
 
 def _build_references_mapping(
-    objects: List[Dict[str, Any]],
-    element_to_class: Dict[str, str],
-    association_ids: Set[str],
+    objects: list[dict[str, Any]],
+    element_to_class: dict[str, str],
+    association_ids: set[str],
     label_for_class: callable
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Build references section of the mapping.
 
     Args:
@@ -738,7 +741,7 @@ def _build_references_mapping(
     return references_mapping
 
 
-def generate_mapping_from_cmf_content(cmf_content: str) -> Dict[str, Any]:
+def generate_mapping_from_cmf_content(cmf_content: str) -> dict[str, Any]:
     """Generate mapping dictionary from CMF XML content string.
 
     Args:
@@ -751,7 +754,7 @@ def generate_mapping_from_cmf_content(cmf_content: str) -> Dict[str, Any]:
     return _generate_mapping_from_root(root)
 
 
-def generate_mapping_from_cmf_file(cmf_path: str) -> Dict[str, Any]:
+def generate_mapping_from_cmf_file(cmf_path: str) -> dict[str, Any]:
     """Generate mapping dictionary from CMF XML file.
 
     Args:
@@ -764,7 +767,7 @@ def generate_mapping_from_cmf_file(cmf_path: str) -> Dict[str, Any]:
     return _generate_mapping_from_root(root)
 
 
-def _generate_mapping_from_root(root: ET.Element) -> Dict[str, Any]:
+def _generate_mapping_from_root(root: ET.Element) -> dict[str, Any]:
     """Internal function to generate mapping from parsed XML root.
 
     Args:
@@ -825,7 +828,7 @@ def _generate_mapping_from_root(root: ET.Element) -> Dict[str, Any]:
             "store_actual_type_property": "xsiType"
         },
         "metadata": {
-            "cmf_element_index": sorted(list(cmf_elements))
+            "cmf_element_index": sorted(cmf_elements)
         }
     }
 
@@ -842,425 +845,17 @@ def main(cmf_path: str, out_yaml: str):
     with open(out_yaml, "w", encoding="utf-8") as f:
         yaml.safe_dump(mapping, f, sort_keys=False, allow_unicode=True)
 
-    print(f"OK: wrote {out_yaml}")
-    print(f"  namespaces: {len(mapping['namespaces'])}")
-    print(f"  objects: {len(mapping['objects'])}")
-    print(f"  associations: {len(mapping['associations'])}")
-    print(f"  references: {len(mapping['references'])}")
+    print(f"OK: wrote {out_yaml}")  # noqa: T201
+    print(f"  namespaces: {len(mapping['namespaces'])}")  # noqa: T201
+    print(f"  objects: {len(mapping['objects'])}")  # noqa: T201
+    print(f"  associations: {len(mapping['associations'])}")  # noqa: T201
+    print(f"  references: {len(mapping['references'])}")  # noqa: T201
 
 
 if __name__ == "__main__":
     if len(sys.argv) not in (2, 3):
-        print("Usage: python cmf_to_mapping.py <input.cmf.xml> <output.yaml>")
+        print("Usage: python cmf_to_mapping.py <input.cmf.xml> <output.yaml>")  # noqa: T201
         sys.exit(2)
     cmf_path = sys.argv[1]
     out_yaml = sys.argv[2] if len(sys.argv) == 3 else "mapping.yaml"
     main(cmf_path, out_yaml)
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Validator — CMF ↔ mapping.yaml Coverage & Consistency (NIEM→Neo4j)
-==================================================================
-
-Purpose
--------
-Given:
-  1) a NIEM **CMF 1.0** XML, and
-  2) a **mapping.yaml** produced by `cmf_to_mapping.documented.py` (or equivalent),
-
-this validator checks that the mapping is *comprehensive* and *internally consistent*:
-
-Checks performed
-----------------
-1) **Namespace sanity**
-   - Every QName prefix in mapping.yaml exists in CMF namespaces.
-   - Mapping `namespaces` section includes all prefixes needed by mapping QNames.
-
-2) **Association coverage**
-   - Every CMF Class with `SubClassOf == nc.AssociationType` has a corresponding entry in `associations[]`.
-   - Each association has ≥2 `endpoints[]`.
-   - Each endpoint’s `maps_to_label` exists in `objects[]` labels.
-
-3) **Object-valued reference coverage**
-   - For every object Class, each child `ChildPropertyAssociation/ObjectProperty` whose *target Class* is **not**
-     an AssociationType must have a `references[]` rule `(owner_object, field_qname)`.
-   - Target label in the rule must resolve to the element/class label of the target Class.
-
-4) **Objects coverage (advisory)**
-   - Reports CMF object Classes missing from `objects[]` (warning: some Classes are abstract/no element).
-
-5) **Cardinality presence (advisory)**
-   - Each `references[]` and association endpoint includes a cardinality string (e.g., `0..*`).
-
-Exit code
----------
-- **0** if no critical issues (association or reference coverage failures, bad endpoints).
-- **1** if any critical issue is detected.
-
-Usage
------
-    python validate_mapping_coverage.documented.py <input.cmf.xml> <mapping.yaml> [--json report.json]
-
-"""
-
-import sys, argparse, re, json, yaml
-import xml.etree.ElementTree as ET
-
-CMF_NS = "https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
-STRUCT_NS = "https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/"
-NS = {"cmf": CMF_NS, "structures": STRUCT_NS}
-
-# --------------------- CMF parsing helpers ---------------------
-
-def ref_of(el, tag):
-    t = el.find(f"./cmf:{tag}", NS)
-    if t is not None:
-        return t.attrib.get(f"{{{STRUCT_NS}}}ref")
-    return None
-
-def text_of(el, tag):
-    t = el.find(f"./cmf:{tag}", NS)
-    return (t.text.strip() if t is not None and t.text else None)
-
-def cmf_namespaces(root):
-    out = {}
-    for nsel in root.findall(".//cmf:Namespace", NS):
-        p = nsel.find("./cmf:NamespacePrefixText", NS)
-        u = nsel.find("./cmf:NamespaceURI", NS)
-        if p is not None and u is not None and p.text and u.text:
-            out[p.text.strip()] = u.text.strip()
-    return out
-
-def parse_classes(root):
-    classes = []
-    for cl in root.findall(".//cmf:Class", NS):
-        cid = cl.attrib.get(f"{{{STRUCT_NS}}}id") or cl.attrib.get("id")
-        subclass = ref_of(cl, "SubClassOf")
-        props = []
-        for cpa in cl.findall("./cmf:ChildPropertyAssociation", NS):
-            op_ref = ref_of(cpa, "ObjectProperty")
-            dp_ref = ref_of(cpa, "DataProperty")
-            mino = text_of(cpa, "MinOccursQuantity")
-            maxo = text_of(cpa, "MaxOccursQuantity")
-            props.append({"objectProperty": op_ref, "dataProperty": dp_ref, "min": mino, "max": maxo})
-        classes.append({"id": cid, "subclass_of": subclass, "props": props})
-    return classes
-
-def build_objectproperty_to_class(root):
-    mapping = {}
-    for el in root.findall(".//cmf:ObjectProperty", NS):
-        classRef = el.find("./cmf:Class", NS)
-        if classRef is not None:
-            cref = classRef.attrib.get(f"{{{STRUCT_NS}}}ref")
-            el_id = el.attrib.get(f"{{{STRUCT_NS}}}id")
-            if cref and el_id:
-                mapping[el_id] = cref
-    return mapping
-
-# --------------------- QName utils ---------------------
-
-def prefixes_in_qname(qn: str):
-    # Return prefix used in a QName (prefix:LocalName)
-    if qn and ":" in qn:
-        return {qn.split(":",1)[0]}
-    return set()
-
-def collect_mapping_prefixes(mapping):
-    used = set()
-    for o in mapping.get("objects", []):
-        used |= prefixes_in_qname(o.get("qname"))
-        for sp in o.get("scalar_props", []) or []:
-            p = sp.get("path")
-            if p and ":" in p.replace("@",""):
-                used.add(p.replace("@","").split(":",1)[0])
-    for a in mapping.get("associations", []):
-        used |= prefixes_in_qname(a.get("qname"))
-        for ep in a.get("endpoints", []) or []:
-            used |= prefixes_in_qname(ep.get("role_qname"))
-    for r in mapping.get("references", []):
-        used |= prefixes_in_qname(r.get("owner_object"))
-        used |= prefixes_in_qname(r.get("field_qname"))
-    return used
-
-# --------------------- Validation logic ---------------------
-
-def validate(cmf_xml, mapping_yaml):
-    root = ET.parse(cmf_xml).getroot()
-    with open(mapping_yaml, "r", encoding="utf-8") as f:
-        mapping = yaml.safe_load(f)
-
-    cmf_ns = cmf_namespaces(root)
-    classes = parse_classes(root)
-    element_to_class = build_objectproperty_to_class(root)
-    class_to_element = {v:k for k,v in element_to_class.items()}
-
-    # Partition
-    assoc_ids = {c["id"] for c in classes if c["subclass_of"] == ASSOCIATION_TYPE}
-    obj_ids   = {c["id"] for c in classes if c["subclass_of"] != ASSOCIATION_TYPE}
-
-    # Build mapping indexes
-    objects_labels = {o["label"]: o for o in mapping.get("objects", [])}
-    objects_qnames = {o["qname"]: o for o in mapping.get("objects", [])}
-    labels_set = set(objects_labels.keys())
-    assoc_qnames = {a["qname"]: a for a in mapping.get("associations", [])}
-    refs_index = {(r["owner_object"], r["field_qname"]): r for r in mapping.get("references", [])}
-
-    report = {
-        "namespaces": {
-            "cmf_prefixes": sorted(cmf_ns.keys()),
-            "mapping_prefixes_used": list(collect_mapping_prefixes(mapping)),
-            "missing_prefixes_in_cmf": [],
-            "missing_prefixes_in_mapping_namespaces": [],
-        },
-        "coverage": {
-            "associationtypes_total": 0,
-            "associationtypes_mapped": 0,
-            "unmapped_associations": [],
-            "objecttypes_total": 0,
-            "objecttypes_mapped": len(objects_qnames),
-            "unmapped_objects_advisory": [],
-            "object_refs_total": 0,
-            "object_refs_mapped": 0,
-            "unmapped_object_refs": [],
-        },
-        "consistency": {
-            "bad_endpoints": [],
-            "missing_cardinalities": {
-                "associations": [],
-                "references": []
-            }
-        }
-    }
-
-    # Namespace checks
-    used_prefixes = collect_mapping_prefixes(mapping)
-    for p in sorted(used_prefixes):
-        if p not in cmf_ns:
-            report["namespaces"]["missing_prefixes_in_cmf"].append(p)
-    for p in sorted(used_prefixes):
-        if p not in mapping.get("namespaces", {}):
-            report["namespaces"]["missing_prefixes_in_mapping_namespaces"].append(p)
-
-    # Association coverage & endpoint validation
-    assoc_total = 0
-    assoc_mapped = 0
-    for c in classes:
-        if c["subclass_of"] != ASSOCIATION_TYPE:
-            continue
-        assoc_total += 1
-        assoc_qn = (class_to_element.get(c["id"]) or c["id"]).replace(".", ":")
-        a = assoc_qnames.get(assoc_qn)
-        if not a:
-            report["coverage"]["unmapped_associations"].append(assoc_qn)
-            continue
-        assoc_mapped += 1
-        # endpoints present?
-        eps = a.get("endpoints", []) or []
-        if len(eps) < 2:
-            report["consistency"]["bad_endpoints"].append({"association": assoc_qn, "reason": "fewer than 2 endpoints"})
-        else:
-            for ep in eps:
-                mlabel = ep.get("maps_to_label")
-                if not mlabel or mlabel not in labels_set:
-                    report["consistency"]["bad_endpoints"].append({"association": assoc_qn, "endpoint": ep, "reason": "maps_to_label not found in objects labels"})
-
-        # endpoint cardinalities present (advisory)
-        if any(not ep.get("cardinality") for ep in eps):
-            report["consistency"]["missing_cardinalities"]["associations"].append(assoc_qn)
-
-    report["coverage"]["associationtypes_total"] = assoc_total
-    report["coverage"]["associationtypes_mapped"] = assoc_mapped
-
-    # Object-valued references coverage
-    refs_total = 0
-    refs_mapped = 0
-    for c in classes:
-        if c["subclass_of"] == ASSOCIATION_TYPE:
-            continue
-        owner_qn = (class_to_element.get(c["id"]) or c["id"]).replace(".", ":")
-        for p in c.get("props", []):
-            op = p["objectProperty"]
-            if not op:
-                continue
-            target_class_id = element_to_class.get(op)
-            if target_class_id and target_class_id not in assoc_ids:
-                refs_total += 1
-                key = (owner_qn, op.replace(".", ":"))
-                if key in refs_index:
-                    refs_mapped += 1
-                else:
-                    report["coverage"]["unmapped_object_refs"].append({"owner": owner_qn, "field": op.replace(".", ":")})
-
-    report["coverage"]["object_refs_total"] = refs_total
-    report["coverage"]["object_refs_mapped"] = refs_mapped
-
-    # Objects coverage (advisory)
-    obj_total = len(obj_ids)
-    report["coverage"]["objecttypes_total"] = obj_total
-    # Warn if a CMF object class with an associated element is missing from mapping.objects
-    for cid in obj_ids:
-        el = class_to_element.get(cid)
-        cand_qn = (el or cid).replace(".", ":")
-        if cand_qn not in objects_qnames:
-            report["coverage"]["unmapped_objects_advisory"].append(cand_qn)
-
-    # References cardinality presence (advisory)
-    for r in mapping.get("references", []):
-        if not r.get("cardinality"):
-            report["consistency"]["missing_cardinalities"]["references"].append((r.get("owner_object"), r.get("field_qname")))
-
-    # Decide exit code
-    critical = (
-        len(report["coverage"]["unmapped_associations"]) > 0 or
-        len(report["coverage"]["unmapped_object_refs"]) > 0 or
-        len(report["consistency"]["bad_endpoints"]) > 0 or
-        len(report["namespaces"]["missing_prefixes_in_cmf"]) > 0 or
-        len(report["namespaces"]["missing_prefixes_in_mapping_namespaces"]) > 0
-    )
-
-    return report, (1 if critical else 0)
-
-def validate_mapping_coverage_from_data(cmf_content: str, mapping_dict: dict) -> dict:
-    """
-    Validate mapping coverage from in-memory data.
-
-    Args:
-        cmf_content: CMF XML content as string
-        mapping_dict: Mapping dictionary
-
-    Returns:
-        Dictionary containing validation report
-    """
-    import xml.etree.ElementTree as ET
-
-    # Parse CMF from string instead of file
-    try:
-        root = ET.fromstring(cmf_content)
-    except ET.ParseError as e:
-        return {
-            "summary": {
-                "has_critical_issues": True,
-                "overall_coverage_percentage": 0,
-                "association_coverage_percentage": 0,
-                "reference_coverage_percentage": 0,
-                "total_mapped_elements": 0,
-                "total_elements": 0
-            },
-            "error": f"Invalid CMF XML: {str(e)}"
-        }
-
-    # Use the existing validation logic but with in-memory data
-    cmf_ns = cmf_namespaces(root)
-    classes = parse_classes(root)
-    element_to_class = build_objectproperty_to_class(root)
-
-    # Partition
-    assoc_ids = {c["id"] for c in classes if c["subclass_of"] == ASSOCIATION_TYPE}
-    obj_ids   = {c["id"] for c in classes if c["subclass_of"] != ASSOCIATION_TYPE}
-
-    # Build mapping indexes using provided dictionary instead of loading from file
-    objects_labels = {o["label"]: o for o in mapping_dict.get("objects", [])}
-    objects_qnames = {o["qname"]: o for o in mapping_dict.get("objects", [])}
-    labels_set = set(objects_labels.keys())
-    assoc_qnames = {a["qname"]: a for a in mapping_dict.get("associations", [])}
-    refs_index = {(r["owner_object"], r["field_qname"]): r for r in mapping_dict.get("references", [])}
-
-    # Rest of the validation logic from the main validate function
-    report = {
-        "namespaces": {
-            "cmf_prefixes": sorted(cmf_ns.keys()),
-            "mapping_prefixes_used": sorted(list(collect_mapping_prefixes(mapping_dict))),
-            "missing_prefixes_in_cmf": [],
-            "missing_prefixes_in_mapping_namespaces": [],
-        },
-        "coverage": {
-            "associationtypes_total": 0,
-            "associationtypes_mapped": 0,
-            "unmapped_associations": [],
-            "objecttypes_total": 0,
-            "objecttypes_mapped": len(objects_qnames),
-            "unmapped_objects_advisory": [],
-            "object_refs_total": 0,
-            "object_refs_mapped": 0,
-            "unmapped_object_refs": [],
-        },
-        "consistency": {
-            "bad_endpoints": [],
-            "missing_cardinalities": {
-                "associations": [],
-                "references": []
-            }
-        }
-    }
-
-    # Run the validation checks (simplified version)
-    report["coverage"]["associationtypes_total"] = len(assoc_ids)
-    report["coverage"]["associationtypes_mapped"] = len([a for a in assoc_qnames if any(c["id"] for c in classes if element_to_class.get(a) == c["id"] and c["id"] in assoc_ids)])
-
-    report["coverage"]["objecttypes_total"] = len(obj_ids)
-
-    # Calculate object references
-    total_refs = 0
-    mapped_refs = 0
-    for c in classes:
-        c_id = c.get("id")
-        if not c_id or c_id not in obj_ids:
-            continue
-
-        for p in c.get("props", []):
-            obj_prop = p.get("objectProperty")
-            if obj_prop:
-                total_refs += 1
-                target_class = element_to_class.get(obj_prop)
-                if target_class and target_class in assoc_ids:
-                    # This is an association reference - check if mapped
-                    if any(a.get("qname") for a in mapping_dict.get("associations", []) if element_to_class.get(a.get("qname")) == target_class):
-                        mapped_refs += 1
-                elif (c.get("qname", ""), obj_prop) in refs_index:
-                    # This is a regular reference - check if mapped
-                    mapped_refs += 1
-
-    report["coverage"]["object_refs_total"] = total_refs
-    report["coverage"]["object_refs_mapped"] = mapped_refs
-
-    # Add summary statistics
-    total_assocs = report["coverage"]["associationtypes_total"]
-    mapped_assocs = report["coverage"]["associationtypes_mapped"]
-    total_refs = report["coverage"]["object_refs_total"]
-    mapped_refs = report["coverage"]["object_refs_mapped"]
-
-    # Calculate coverage percentages
-    assoc_coverage = (mapped_assocs / total_assocs * 100) if total_assocs > 0 else 100
-    ref_coverage = (mapped_refs / total_refs * 100) if total_refs > 0 else 100
-    overall_coverage = ((mapped_assocs + mapped_refs) / (total_assocs + total_refs) * 100) if (total_assocs + total_refs) > 0 else 100
-
-    report["summary"] = {
-        "overall_coverage_percentage": round(overall_coverage, 1),
-        "association_coverage_percentage": round(assoc_coverage, 1),
-        "reference_coverage_percentage": round(ref_coverage, 1),
-        "has_critical_issues": False,  # Simplified for now
-        "total_mapped_elements": mapped_assocs + mapped_refs,
-        "total_elements": total_assocs + total_refs
-    }
-
-    return report
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("cmf_xml")
-    ap.add_argument("mapping_yaml")
-    ap.add_argument("--json", help="Write detailed report JSON to this path")
-    args = ap.parse_args()
-
-    report, code = validate(args.cmf_xml, args.mapping_yaml)
-
-    pretty = json.dumps(report, indent=2)
-    print(pretty)
-    if args.json:
-        with open(args.json, "w", encoding="utf-8") as f:
-            f.write(pretty)
-    sys.exit(code)
-
-if __name__ == "__main__":
-    main()

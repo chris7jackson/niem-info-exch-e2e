@@ -3,11 +3,9 @@
 import asyncio
 import logging
 import os
-import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +13,7 @@ logger = logging.getLogger(__name__)
 class NiemNdrValidator:
     """Python wrapper for NIEM NDR validation tools"""
 
-    def __init__(self, ndr_tools_path: Optional[str] = None):
+    def __init__(self, ndr_tools_path: str | None = None):
         """Initialize the validator with path to NDR tools and pre-compiled XSLTs"""
         if ndr_tools_path is None:
             # Default to the mounted third_party directory
@@ -32,7 +30,7 @@ class NiemNdrValidator:
         }
 
         # Verify all pre-compiled XSLT files exist
-        for schema_type, xslt_path in self.validation_xslt_paths.items():
+        for xslt_path in self.validation_xslt_paths.values():
             if not xslt_path.exists():
                 raise FileNotFoundError(f"Pre-compiled XSLT not found: {xslt_path}")
 
@@ -139,15 +137,15 @@ class NiemNdrValidator:
             logger.info(f"Generating composite schematron for schema type '{schema_type}'...")
 
             # Read header (contains namespaces and xsl:include)
-            with open(hdr_file, 'r', encoding='utf-8') as f:
+            with open(hdr_file, encoding='utf-8') as f:
                 hdr_content = f.read()
 
             # Read common rules (all schemas)
-            with open(all_file, 'r', encoding='utf-8') as f:
+            with open(all_file, encoding='utf-8') as f:
                 all_content = f.read()
 
             # Read type-specific rules
-            with open(type_file, 'r', encoding='utf-8') as f:
+            with open(type_file, encoding='utf-8') as f:
                 type_content = f.read()
 
             # Build composite schematron
@@ -165,7 +163,10 @@ class NiemNdrValidator:
                 'ext': 'extension',
                 'sub': 'subset'
             }
-            composite_content += f"\n\n  <!-- Rules applicable only to {type_name_map[schema_type]} schema documents -->\n"
+            composite_content += (
+                f"\n\n  <!-- Rules applicable only to {type_name_map[schema_type]} "
+                f"schema documents -->\n"
+            )
             composite_content += type_content.strip()
 
             # Close the schema element
@@ -182,7 +183,7 @@ class NiemNdrValidator:
             logger.error(f"Failed to generate composite schematron for type '{schema_type}': {e}")
             raise
 
-    async def validate_xsd_conformance(self, xsd_content: str) -> Dict:
+    async def validate_xsd_conformance(self, xsd_content: str) -> dict:
         """
         Validate XSD content against type-specific NIEM NDR rules.
 
@@ -230,7 +231,7 @@ class NiemNdrValidator:
             }
 
 
-    async def validate_xml_conformance(self, xml_content: str, schema_id: str = None) -> Dict:
+    async def validate_xml_conformance(self, xml_content: str, schema_id: str = None) -> dict:
         """
         Validate XML content against NIEM NDR rules using general schematron validation only.
 
@@ -274,7 +275,7 @@ class NiemNdrValidator:
             }
 
 
-    async def _run_ndr_validation(self, file_path: str, schema_type: str) -> Dict:
+    async def _run_ndr_validation(self, file_path: str, schema_type: str) -> dict:
         """
         Run the actual NDR validation using pre-compiled type-specific XSLT.
 
@@ -303,7 +304,7 @@ class NiemNdrValidator:
 
             # Read source file content for snippet extraction
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     source_content = f.read()
             except Exception as e:
                 logger.warning(f"Could not read source file for snippet extraction: {e}")
@@ -365,7 +366,7 @@ class NiemNdrValidator:
         # Default to subset rules if unknown type
         return rule_count_map.get(schema_type, 144)
 
-    def _parse_svrl_output(self, svrl_content: str, stderr_content: str, source_content: Optional[str] = None) -> Dict:
+    def _parse_svrl_output(self, svrl_content: str, stderr_content: str, source_content: str | None = None) -> dict:
         """Parse SVRL (Schematron Validation Report Language) output"""
         try:
             violations = []
@@ -447,7 +448,7 @@ class NiemNdrValidator:
                 "summary": {"total_violations": 0, "error_count": 1, "warning_count": 0, "info_count": 0}
             }
 
-    def _extract_source_snippet_from_xpath(self, source_content: str, xpath_location: str) -> Optional[Dict]:
+    def _extract_source_snippet_from_xpath(self, source_content: str, xpath_location: str) -> dict | None:
         """
         Extract source code snippet based on XPath location from SVRL output.
 
@@ -516,7 +517,7 @@ class NiemNdrValidator:
             logger.debug(f"Failed to extract source snippet: {e}")
             return None
 
-    def _extract_violation_from_element(self, element, violation_type: str, source_content: Optional[str] = None) -> Dict:
+    def _extract_violation_from_element(self, element, violation_type: str, source_content: str | None = None) -> dict:
         """Extract violation details from SVRL element"""
         ns = {'svrl': 'http://purl.oclc.org/dsdl/svrl'}
 
@@ -553,7 +554,7 @@ class NiemNdrValidator:
 
 
 # Convenience functions for easy import
-async def validate_niem_conformance(xsd_content: str) -> Dict:
+async def validate_niem_conformance(xsd_content: str) -> dict:
     """
     Convenience function to validate XSD content against comprehensive NIEM NDR rules
 

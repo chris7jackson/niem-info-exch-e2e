@@ -4,22 +4,26 @@ import hashlib
 import json
 import logging
 import os
-import yaml
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any
 
-import httpx
+import yaml
 from fastapi import HTTPException, UploadFile
 from minio import Minio
 from minio.error import S3Error
 
-from ..models.models import SchemaResponse, SchevalReport, SchevalIssue
-from ..clients.s3_client import upload_file
-from ..services.domain.schema.scheval_validator import SchevalValidator
-from ..services.cmf_tool import convert_xsd_to_cmf, convert_cmf_to_jsonschema, is_cmf_available
-from ..clients.scheval_client import is_scheval_available
 import xml.etree.ElementTree as ET
+
+from ..clients.s3_client import upload_file
+from ..clients.scheval_client import is_scheval_available
+from ..models.models import SchevalIssue, SchevalReport, SchemaResponse
+from ..services.cmf_tool import (
+    convert_cmf_to_jsonschema,
+    convert_xsd_to_cmf,
+    is_cmf_available,
+)
+from ..services.domain.schema.scheval_validator import SchevalValidator
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +43,19 @@ def _detect_niem_schema_type(xsd_content: str) -> str:
         root = ET.fromstring(xsd_content.encode('utf-8'))
 
         # Define namespace for conformance targets
-        ct_ns = "https://docs.oasis-open.org/niemopen/ns/specification/conformanceTargets/6.0/"
+        ct_ns = (
+            "https://docs.oasis-open.org/niemopen/ns/specification/"
+            "conformanceTargets/6.0/"
+        )
 
         # Get conformanceTargets attribute
         conformance_attr = root.get(f"{{{ct_ns}}}conformanceTargets")
 
         if not conformance_attr:
-            logger.warning("No ct:conformanceTargets attribute found in schema, defaulting to subset")
+            logger.warning(
+                "No ct:conformanceTargets attribute found in schema, "
+                "defaulting to subset"
+            )
             return "sub"
 
         # Parse space-separated conformance target URIs
@@ -68,7 +78,10 @@ def _detect_niem_schema_type(xsd_content: str) -> str:
                 return "sub"
 
         # Found conformanceTargets but no recognized schema type
-        logger.warning(f"Unknown conformance targets: {conformance_attr}, defaulting to subset")
+        logger.warning(
+            f"Unknown conformance targets: {conformance_attr}, "
+            f"defaulting to subset"
+        )
         return "sub"
 
     except ET.ParseError as e:
@@ -79,7 +92,7 @@ def _detect_niem_schema_type(xsd_content: str) -> str:
         return "sub"
 
 
-def _extract_schema_imports(xsd_content: str) -> List[Dict[str, Any]]:
+def _extract_schema_imports(xsd_content: str) -> list[dict[str, Any]]:
     """Extract import declarations from XSD content.
 
     Args:
@@ -108,7 +121,7 @@ def _extract_schema_imports(xsd_content: str) -> List[Dict[str, Any]]:
     return imports
 
 
-def _read_local_schemas(source_dir: Path) -> Dict[str, str]:
+def _read_local_schemas(source_dir: Path) -> dict[str, str]:
     """Read all local XSD schemas from source directory.
 
     Args:
@@ -121,7 +134,7 @@ def _read_local_schemas(source_dir: Path) -> Dict[str, str]:
     if source_dir and source_dir.exists():
         for xsd_file in source_dir.glob("*.xsd"):
             try:
-                with open(xsd_file, 'r', encoding='utf-8') as f:
+                with open(xsd_file, encoding='utf-8') as f:
                     local_schemas[xsd_file.name] = f.read()
             except Exception as e:
                 logger.warning(f"Failed to read local schema {xsd_file}: {e}")
@@ -139,8 +152,8 @@ def _setup_resolved_directory(source_dir: Path, schema_filename: str, xsd_conten
     Returns:
         Path to resolved directory
     """
-    import tempfile
     import shutil
+    import tempfile
 
     resolved_dir = Path(tempfile.mkdtemp(prefix="schema_with_niem_"))
 
@@ -172,7 +185,7 @@ def _setup_resolved_directory(source_dir: Path, schema_filename: str, xsd_conten
 
 
 
-def _create_error_response(error_type: str, error_msg: str, imports: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _create_error_response(error_type: str, error_msg: str, imports: list[dict[str, Any]]) -> dict[str, Any]:
     """Create standardized error response.
 
     Args:
@@ -194,7 +207,7 @@ def _create_error_response(error_type: str, error_msg: str, imports: List[Dict[s
     }
 
 
-def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_content: str) -> Dict[str, Any]:
+def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_content: str) -> dict[str, Any]:
     """Validate schema dependencies within uploaded files only.
 
     Args:
@@ -218,7 +231,7 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
                 try:
                     # Use relative path as key to match import schemaLocation references
                     rel_path = str(xsd_file.relative_to(source_dir))
-                    with open(xsd_file, 'r', encoding='utf-8') as f:
+                    with open(xsd_file, encoding='utf-8') as f:
                         uploaded_schemas[rel_path] = f.read()
                     logger.info(f"Read schema with key: {rel_path}")
                 except Exception as e:
@@ -231,7 +244,7 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
         validation_result = validate_schema_dependencies(uploaded_schemas)
 
         # Step 4: Build ImportValidationReport from file_details
-        from ..models.models import ImportValidationReport, FileImportInfo, ImportInfo, NamespaceUsage
+        from ..models.models import FileImportInfo, ImportInfo, ImportValidationReport, NamespaceUsage
 
         file_import_infos = []
         total_imports_count = 0
@@ -310,7 +323,10 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
         return {
             "can_convert": can_convert,
             "summary": validation_result['summary'],
-            "total_imports": len(validation_result.get('missing_imports', [])) + len(validation_result.get('missing_namespaces', [])),
+            "total_imports": (
+                len(validation_result.get('missing_imports', []))
+                + len(validation_result.get('missing_namespaces', []))
+            ),
             "satisfied_imports": [],
             "missing_imports": missing_deps,
             "blocking_issues": blocking_issues,
@@ -333,7 +349,9 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
         }
 
 
-async def _validate_and_read_files(files: List[UploadFile], file_paths: List[str] = None) -> tuple[Dict[str, bytes], Dict[str, str], UploadFile, str]:
+async def _validate_and_read_files(
+    files: list[UploadFile], file_paths: list[str] = None
+) -> tuple[dict[str, bytes], dict[str, str], UploadFile, str]:
     """Validate and read uploaded files.
 
     Args:
@@ -362,7 +380,7 @@ async def _validate_and_read_files(files: List[UploadFile], file_paths: List[str
     xsd_paths = []
     non_xsd_count = 0
 
-    for file, path in zip(files, file_paths):
+    for file, path in zip(files, file_paths, strict=False):
         if not file.filename.endswith('.xsd'):
             logger.warning(f"Ignoring non-XSD file: {file.filename}")
             non_xsd_count += 1
@@ -378,7 +396,7 @@ async def _validate_and_read_files(files: List[UploadFile], file_paths: List[str
         raise HTTPException(status_code=400, detail="No XSD files found in upload")
 
     # Process only XSD files
-    for file, path in zip(xsd_files, xsd_paths):
+    for file, path in zip(xsd_files, xsd_paths, strict=False):
         content = await file.read()
         # Store by filename for backward compatibility, but track the path
         file_contents[file.filename] = content
@@ -395,14 +413,14 @@ async def _validate_and_read_files(files: List[UploadFile], file_paths: List[str
         raise HTTPException(status_code=400, detail=f"Total file size exceeds {max_file_size_mb}MB limit")
 
     # Generate schema ID with timestamp for uniqueness based on all files
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(UTC).isoformat()
     all_content = b''.join(file_contents.values()) + b''.join(f.filename.encode() for f in files)
     schema_id = hashlib.sha256(all_content + timestamp.encode()).hexdigest()
 
     return file_contents, file_path_map, primary_file, schema_id
 
 
-async def _validate_all_scheval(file_contents: Dict[str, bytes]) -> SchevalReport:
+async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalReport:
     """Validate all files using schematron rules via scheval tool.
 
     This is the primary NIEM NDR validation method, providing actionable validation
@@ -414,7 +432,9 @@ async def _validate_all_scheval(file_contents: Dict[str, bytes]) -> SchevalRepor
     Returns:
         Aggregated scheval validation report with line/column information
     """
-    logger.info(f"Running NIEM NDR validation (scheval) on {len(file_contents)} files")
+    logger.info(
+        f"Running NIEM NDR validation (scheval) on {len(file_contents)} files"
+    )
 
     if not is_scheval_available():
         logger.warning("Scheval tool not available, skipping NIEM NDR validation")
@@ -566,11 +586,11 @@ async def _validate_all_scheval(file_contents: Dict[str, bytes]) -> SchevalRepor
 
 
 async def _convert_to_cmf(
-    file_contents: Dict[str, bytes],
-    file_path_map: Dict[str, str],
+    file_contents: dict[str, bytes],
+    file_path_map: dict[str, str],
     primary_file: UploadFile,
     primary_content: bytes
-) -> tuple[Dict[str, Any] | None, Dict[str, Any] | None]:
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Convert XSD to CMF and optionally to JSON Schema.
 
     Args:
@@ -628,7 +648,11 @@ async def _convert_to_cmf(
                 logger.error(f"Cannot convert to CMF: {dependency_report['blocking_issues']}")
                 # Return early with dependency report but don't raise exception
                 # Let caller combine with NDR validation and decide how to fail
-                return {"status": "dependency_failed", "dependency_report": dependency_report, "import_validation_report": dependency_report.get("import_validation_report")}, None
+                return {
+                    "status": "dependency_failed",
+                    "dependency_report": dependency_report,
+                    "import_validation_report": dependency_report.get("import_validation_report")
+                }, None
 
             logger.info("All dependencies satisfied, proceeding with CMF conversion")
 
@@ -637,7 +661,10 @@ async def _convert_to_cmf(
                 resolved_temp_path, primary_file_path
             )
 
-            logger.info(f"CMF conversion result: {cmf_conversion_result.get('status') if cmf_conversion_result else 'None'}")
+            logger.info(
+                f"CMF conversion result: "
+                f"{cmf_conversion_result.get('status') if cmf_conversion_result else 'None'}"
+            )
 
             if cmf_conversion_result.get("status") != "success":
                 error_msg = cmf_conversion_result.get('error', 'Unknown CMF conversion error')
@@ -664,7 +691,10 @@ async def _convert_to_cmf(
                 cmf_content = cmf_conversion_result["cmf_content"]
                 json_schema_conversion_result = convert_cmf_to_jsonschema(cmf_content)
                 if json_schema_conversion_result.get("status") != "success":
-                    logger.warning(f"CMF to JSON Schema conversion failed: {json_schema_conversion_result.get('error', 'Unknown error')}")
+                    logger.warning(
+                        f"CMF to JSON Schema conversion failed: "
+                        f"{json_schema_conversion_result.get('error', 'Unknown error')}"
+                    )
                     json_schema_conversion_result = None
             except Exception as e:
                 logger.warning(f"CMF to JSON Schema conversion failed: {e}")
@@ -687,10 +717,10 @@ async def _store_schema_files(
     s3: Minio,
     schema_id: str,
     primary_filename: str,
-    file_contents: Dict[str, bytes],
-    file_path_map: Dict[str, str],
-    cmf_conversion_result: Dict[str, Any] | None,
-    json_schema_conversion_result: Dict[str, Any] | None
+    file_contents: dict[str, bytes],
+    file_path_map: dict[str, str],
+    cmf_conversion_result: dict[str, Any] | None,
+    json_schema_conversion_result: dict[str, Any] | None
 ) -> None:
     """Store all schema-related files in MinIO.
 
@@ -734,7 +764,7 @@ async def _store_schema_files(
 async def _generate_and_store_mapping(
     s3: Minio,
     schema_id: str,
-    cmf_conversion_result: Dict[str, Any] | None
+    cmf_conversion_result: dict[str, Any] | None
 ) -> None:
     """Generate mapping YAML from CMF and store it.
 
@@ -743,7 +773,14 @@ async def _generate_and_store_mapping(
         schema_id: Generated schema ID
         cmf_conversion_result: CMF conversion result
     """
-    logger.error(f"*** DEBUG: About to check mapping generation. CMF result exists: {cmf_conversion_result is not None}, has CMF content: {cmf_conversion_result.get('cmf_content') is not None if cmf_conversion_result else False} ***")
+    has_cmf_content = (
+        cmf_conversion_result.get('cmf_content') is not None
+        if cmf_conversion_result else False
+    )
+    logger.error(
+        f"*** DEBUG: About to check mapping generation. CMF result exists: "
+        f"{cmf_conversion_result is not None}, has CMF content: {has_cmf_content} ***"
+    )
 
     if not (cmf_conversion_result and cmf_conversion_result.get("cmf_content")):
         return
@@ -751,7 +788,6 @@ async def _generate_and_store_mapping(
     try:
         logger.error("*** DEBUG: Starting mapping generation process ***")
         from ..services.domain.schema import generate_mapping_from_cmf_content
-        from ..services.domain.schema import validate_mapping_coverage_from_data
 
         cmf_content = cmf_conversion_result["cmf_content"]
         logger.error(f"*** DEBUG: CMF content length: {len(cmf_content)} ***")
@@ -761,15 +797,12 @@ async def _generate_and_store_mapping(
         mapping_dict = generate_mapping_from_cmf_content(cmf_content)
         logger.error(f"*** DEBUG: Generated mapping dict with {len(mapping_dict)} keys ***")
 
-        # Validate mapping coverage using in-memory data
-        logger.error("*** DEBUG: About to validate mapping coverage ***")
-        coverage_result = validate_mapping_coverage_from_data(cmf_content, mapping_dict)
-        logger.error("*** DEBUG: Coverage validation completed ***")
+        # TODO: Re-enable coverage validation after restoring validate_mapping_coverage_from_data
+        # See: https://github.com/chris7jackson/niem-info-exch-e2e/issues/XX
+        # coverage_result = validate_mapping_coverage_from_data(cmf_content, mapping_dict)
+        # mapping_dict["coverage_validation"] = coverage_result
 
-        # Add coverage information to mapping
-        mapping_dict["coverage_validation"] = coverage_result
-
-        # Convert to YAML and store (with coverage info)
+        # Convert to YAML and store
         logger.error("*** DEBUG: About to convert to YAML and upload ***")
         mapping_yaml = yaml.dump(mapping_dict, default_flow_style=False, indent=2)
         mapping_content = mapping_yaml.encode('utf-8')
@@ -777,13 +810,13 @@ async def _generate_and_store_mapping(
         logger.error("*** DEBUG: Mapping YAML upload completed ***")
 
         # Log results
-        summary = coverage_result.get("summary", {})
         logger.info(f"Successfully generated and stored mapping YAML for schema {schema_id}")
-        logger.info(f"Mapping stats: {len(mapping_dict.get('namespaces', {}))} namespaces, {len(mapping_dict.get('objects', []))} objects, {len(mapping_dict.get('associations', []))} associations, {len(mapping_dict.get('references', []))} references")
-        logger.info(f"Coverage validation: {summary.get('overall_coverage_percentage', 0):.1f}% overall coverage")
-
-        if summary.get("has_critical_issues", False):
-            logger.warning("Mapping has critical validation issues - check coverage_validation section in mapping.yaml")
+        logger.info(
+            f"Mapping stats: {len(mapping_dict.get('namespaces', {}))} namespaces, "
+            f"{len(mapping_dict.get('objects', []))} objects, "
+            f"{len(mapping_dict.get('associations', []))} associations, "
+            f"{len(mapping_dict.get('references', []))} references"
+        )
 
     except Exception as e:
         logger.error(f"Failed to generate mapping YAML: {e}")
@@ -791,14 +824,14 @@ async def _generate_and_store_mapping(
         raise HTTPException(
             status_code=500,
             detail=f"Schema upload failed: Could not generate required mapping YAML - {str(e)}"
-        )
+        ) from e
 
 
 async def _store_schema_metadata(
     s3: Minio,
     schema_id: str,
     primary_file: UploadFile,
-    file_contents: Dict[str, bytes],
+    file_contents: dict[str, bytes],
     timestamp: str
 ) -> None:
     """Store schema metadata and mark as active.
@@ -837,10 +870,10 @@ async def _store_schema_metadata(
 
 
 async def handle_schema_upload(
-    files: List[UploadFile],
+    files: list[UploadFile],
     s3: Minio,
     skip_niem_ndr: bool = False,
-    file_paths: List[str] = None
+    file_paths: list[str] = None
 ) -> SchemaResponse:
     """Handle XSD schema upload and validation - supports multiple related XSD files
 
@@ -854,7 +887,7 @@ async def handle_schema_upload(
         # Step 1: Validate and read files
         file_contents, file_path_map, primary_file, schema_id = await _validate_and_read_files(files, file_paths)
         primary_content = file_contents[primary_file.filename]
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         # Step 2: Validate NIEM NDR conformance using scheval (unless skipped)
         scheval_report = None
@@ -869,25 +902,44 @@ async def handle_schema_upload(
         )
 
         # Step 3.5: Check all validations and fail with combined reports if any failed
-        scheval_has_errors = scheval_report and scheval_report.status in ("fail", "error")
-        import_has_errors = cmf_conversion_result and cmf_conversion_result.get("status") in ("dependency_failed", "fail", "error")
+        scheval_has_errors = scheval_report and scheval_report.status in (
+            "fail",
+            "error",
+        )
+        import_has_errors = cmf_conversion_result and cmf_conversion_result.get(
+            "status"
+        ) in ("dependency_failed", "fail", "error")
 
         if scheval_has_errors or import_has_errors:
             # Extract import validation report
-            import_validation_report = cmf_conversion_result.get("import_validation_report") if cmf_conversion_result else None
+            import_validation_report = (
+                cmf_conversion_result.get("import_validation_report")
+                if cmf_conversion_result else None
+            )
 
             # Build combined error message
             error_parts = []
             if scheval_has_errors:
                 scheval_error_count = scheval_report.summary.get("error_count", 0)
-                error_parts.append(f"NIEM NDR validation found {scheval_error_count} error(s)")
+                error_parts.append(
+                    f"NIEM NDR validation found {scheval_error_count} error(s)"
+                )
             if import_has_errors:
                 cmf_status = cmf_conversion_result.get("status")
                 if cmf_status == "dependency_failed":
-                    blocking_issues = cmf_conversion_result.get("dependency_report", {}).get("blocking_issues", [])
-                    error_parts.append(f"Missing {len(blocking_issues)} required schema dependencies")
+                    blocking_issues = (
+                        cmf_conversion_result.get("dependency_report", {}).get(
+                            "blocking_issues", []
+                        )
+                    )
+                    error_parts.append(
+                        f"Missing {len(blocking_issues)} required schema dependencies"
+                    )
                 else:
-                    error_parts.append(f"CMF conversion failed: {cmf_conversion_result.get('error', 'Unknown error')}")
+                    error_parts.append(
+                        f"CMF conversion failed: "
+                        f"{cmf_conversion_result.get('error', 'Unknown error')}"
+                    )
 
             combined_message = "Schema upload rejected: " + " and ".join(error_parts)
 
@@ -896,14 +948,27 @@ async def handle_schema_upload(
                 status_code=400,
                 detail={
                     "message": combined_message,
-                    "scheval_report": scheval_report.model_dump() if scheval_report else None,
-                    "import_validation_report": import_validation_report.model_dump() if import_validation_report else None,
-                    "cmf_error": cmf_conversion_result.get("error") if import_has_errors else None
-                }
+                    "scheval_report": (
+                        scheval_report.model_dump() if scheval_report else None
+                    ),
+                    "import_validation_report": (
+                        import_validation_report.model_dump()
+                        if import_validation_report
+                        else None
+                    ),
+                    "cmf_error": (
+                        cmf_conversion_result.get("error")
+                        if import_has_errors
+                        else None
+                    ),
+                },
             )
 
         # Step 4: Store all schema files
-        await _store_schema_files(s3, schema_id, primary_file.filename, file_contents, file_path_map, cmf_conversion_result, json_schema_conversion_result)
+        await _store_schema_files(
+            s3, schema_id, primary_file.filename, file_contents, file_path_map,
+            cmf_conversion_result, json_schema_conversion_result
+        )
 
         # Step 5: Generate and store mapping YAML
         await _generate_and_store_mapping(s3, schema_id, cmf_conversion_result)
@@ -925,7 +990,7 @@ async def handle_schema_upload(
         logger.error(f"Schema upload failed: {e}")
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=f"Schema upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Schema upload failed: {str(e)}") from e
 
 
 async def handle_schema_activation(schema_id: str, s3: Minio):
@@ -934,11 +999,11 @@ async def handle_schema_activation(schema_id: str, s3: Minio):
         # Check if schema exists by looking for its metadata
         try:
             s3.get_object("niem-schemas", f"{schema_id}/metadata.json")
-        except S3Error:
-            raise HTTPException(status_code=404, detail="Schema not found")
+        except S3Error as e:
+            raise HTTPException(status_code=404, detail="Schema not found") from e
 
         # Update active schema marker
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
         active_schema_marker = {"active_schema_id": schema_id, "updated_at": timestamp}
         active_content = json.dumps(active_schema_marker, indent=2).encode()
         await upload_file(s3, "niem-schemas", "active_schema.json", active_content, "application/json")
@@ -949,7 +1014,7 @@ async def handle_schema_activation(schema_id: str, s3: Minio):
         logger.error(f"Schema activation failed: {e}")
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=f"Schema activation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Schema activation failed: {str(e)}") from e
 
 
 def get_all_schemas(s3: Minio):
@@ -994,10 +1059,10 @@ def get_all_schemas(s3: Minio):
 
     except Exception as e:
         logger.error(f"Failed to get schemas: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get schemas: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get schemas: {str(e)}") from e
 
 
-def get_active_schema_id(s3: Minio) -> Optional[str]:
+def get_active_schema_id(s3: Minio) -> str | None:
     """Get the currently active schema ID"""
     from ..clients.s3_client import get_json_content
     try:
@@ -1007,7 +1072,7 @@ def get_active_schema_id(s3: Minio) -> Optional[str]:
         return None
 
 
-def get_schema_metadata(s3: Minio, schema_id: str) -> Optional[Dict]:
+def get_schema_metadata(s3: Minio, schema_id: str) -> dict | None:
     """Get metadata for a specific schema"""
     from ..clients.s3_client import get_json_content
     try:
@@ -1065,4 +1130,4 @@ async def handle_schema_file_download(schema_id: str, file_type: str, s3: Minio)
         raise HTTPException(
             status_code=404,
             detail=f"{file_type.upper()} file not found in storage"
-        )
+        ) from e

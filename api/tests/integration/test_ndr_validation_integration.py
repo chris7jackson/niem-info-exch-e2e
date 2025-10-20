@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import pytest
 import asyncio
 from pathlib import Path
+
+import pytest
 
 from niem_api.services.domain.schema.validator import NiemNdrValidator
 
@@ -25,7 +26,10 @@ class TestNdrValidationIntegration:
     @pytest.fixture
     def samples_path(self):
         """Path to sample XSD files"""
-        samples_path = Path(__file__).parent.parent.parent.parent / "samples" / "CrashDriver-cmf" / "CrashDriverSchemaSet"
+        samples_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "samples" / "CrashDriver-cmf" / "CrashDriverSchemaSet"
+        )
 
         if not samples_path.exists():
             pytest.skip(f"Sample files not found at {samples_path}")
@@ -40,7 +44,7 @@ class TestNdrValidationIntegration:
         if not xsd_file.exists():
             pytest.skip(f"Sample file not found: {xsd_file}")
 
-        with open(xsd_file, 'r', encoding='utf-8') as f:
+        with open(xsd_file, encoding='utf-8') as f:
             xsd_content = f.read()
 
         # Run validation
@@ -57,12 +61,15 @@ class TestNdrValidationIntegration:
     def test_validate_reference_schema(self, validator):
         """Test validation of ReferenceSchemaDocument using official NIEM model"""
         # Use the official NIEM 6.0 reference schema
-        niem_model_path = Path(__file__).parent.parent.parent.parent / "third_party" / "niem-model" / "xsd" / "niem-core.xsd"
+        niem_model_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "third_party" / "niem-model" / "xsd" / "niem-core.xsd"
+        )
 
         if not niem_model_path.exists():
             pytest.skip(f"Official NIEM reference schema not found: {niem_model_path}")
 
-        with open(niem_model_path, 'r', encoding='utf-8') as f:
+        with open(niem_model_path, encoding='utf-8') as f:
             xsd_content = f.read()
 
         # Run validation
@@ -86,13 +93,13 @@ class TestNdrValidationIntegration:
 
         results = []
 
-        for filename, expected_type, expected_rules in schemas_to_test:
+        for filename, _, _ in schemas_to_test:
             xsd_file = samples_path / filename
 
             if not xsd_file.exists():
                 continue
 
-            with open(xsd_file, 'r', encoding='utf-8') as f:
+            with open(xsd_file, encoding='utf-8') as f:
                 xsd_content = f.read()
 
             result = asyncio.run(validator.validate_xsd_conformance(xsd_content))
@@ -135,7 +142,7 @@ class TestNdrValidationIntegration:
         if not xsd_file.exists():
             pytest.skip(f"Invalid schema file not found: {xsd_file}")
 
-        with open(xsd_file, 'r', encoding='utf-8') as f:
+        with open(xsd_file, encoding='utf-8') as f:
             xsd_content = f.read()
 
         # Run validation
@@ -158,7 +165,7 @@ class TestNdrValidationIntegration:
         if not xsd_file.exists():
             pytest.skip(f"Large schema file not found: {xsd_file}")
 
-        with open(xsd_file, 'r', encoding='utf-8') as f:
+        with open(xsd_file, encoding='utf-8') as f:
             xsd_content = f.read()
 
         # Measure validation time
@@ -173,7 +180,10 @@ class TestNdrValidationIntegration:
     def test_reference_vs_subset_comparison(self, validator, samples_path):
         """Test that reference and subset schemas are validated with different rule sets"""
         # Official NIEM reference schema (14,503 lines)
-        reference_path = Path(__file__).parent.parent.parent.parent / "third_party" / "niem-model" / "xsd" / "niem-core.xsd"
+        reference_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "third_party" / "niem-model" / "xsd" / "niem-core.xsd"
+        )
 
         # CrashDriver subset schema (467 lines - trimmed from reference)
         subset_path = samples_path / "niem" / "niem-core.xsd"
@@ -182,11 +192,11 @@ class TestNdrValidationIntegration:
             pytest.skip("Reference or subset schema not found for comparison")
 
         # Validate reference schema
-        with open(reference_path, 'r', encoding='utf-8') as f:
+        with open(reference_path, encoding='utf-8') as f:
             ref_result = asyncio.run(validator.validate_xsd_conformance(f.read()))
 
         # Validate subset schema
-        with open(subset_path, 'r', encoding='utf-8') as f:
+        with open(subset_path, encoding='utf-8') as f:
             sub_result = asyncio.run(validator.validate_xsd_conformance(f.read()))
 
         # Both should succeed but use different rule sets
@@ -207,7 +217,7 @@ class TestNdrValidationIntegration:
         if not xsd_file.exists():
             pytest.skip(f"Sample file not found: {xsd_file}")
 
-        with open(xsd_file, 'r', encoding='utf-8') as f:
+        with open(xsd_file, encoding='utf-8') as f:
             xsd_content = f.read()
 
         result = asyncio.run(validator.validate_xsd_conformance(xsd_content))

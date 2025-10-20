@@ -10,13 +10,12 @@ For CMF-related business operations (XSD conversion, JSON schema generation),
 use the services/cmf_tool.py module.
 """
 
-import json
 import logging
 import os
 import platform
 import subprocess
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +147,7 @@ def get_cmf_version() -> str:
             raise CMFError(f"Version check failed: {result['stderr']}")
     except Exception as e:
         logger.error(f"Failed to get CMF version: {e}")
-        raise CMFError(f"Failed to get CMF version: {str(e)}")
+        raise CMFError(f"Failed to get CMF version: {str(e)}") from e
 
 
 async def download_and_setup_cmf() -> bool:
@@ -174,7 +173,7 @@ async def download_and_setup_cmf() -> bool:
         return False
 
 
-def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> Dict[str, Any]:
+def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> dict[str, Any]:
     """
     Parse CMF tool validation output into structured error information.
 
@@ -195,11 +194,10 @@ def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> Dict
     Example output line:
         [error] file.xml:42:15: cvc-complex-type.2.4.a: Invalid content
     """
-    from typing import List
     import re
 
-    errors: List[Dict[str, Any]] = []
-    warnings: List[Dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
 
     # Combine stdout and stderr for parsing
     combined_output = (stdout or "") + "\n" + (stderr or "")
@@ -320,8 +318,8 @@ def _validate_cmf_command(cmd: list) -> None:
 def run_cmf_command(
     cmd: list,
     timeout: int = CMF_TIMEOUT,
-    working_dir: Optional[str] = None
-) -> Dict[str, Any]:
+    working_dir: str | None = None
+) -> dict[str, Any]:
     """
     Execute a CMF tool command with timeout and safety checks.
 
@@ -424,9 +422,9 @@ def run_cmf_command(
             "stdout": result.stdout,
             "stderr": result.stderr
         }
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
         logger.error(f"CMF command timed out after {timeout} seconds")
-        raise CMFError(f"Operation timed out after {timeout} seconds")
+        raise CMFError(f"Operation timed out after {timeout} seconds") from e
     except Exception as e:
         logger.error(f"CMF command execution failed: {e}")
-        raise CMFError(f"Command execution failed: {e}")
+        raise CMFError(f"Command execution failed: {e}") from e
