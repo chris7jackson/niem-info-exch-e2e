@@ -310,15 +310,12 @@ async def convert_xml_to_json(
     """
     from .handlers.convert import handle_xml_to_json_batch
 
-    # Handle backward compatibility: accept either 'file' or 'files'
-    if files and file:
-        raise HTTPException(
-            status_code=400,
-            detail="Please provide either 'file' or 'files', not both"
-        )
-
-    if file:
-        # Single file - convert to list for batch handler
+    # Handle backward compatibility: accept either 'file' or 'files', or both
+    if file and files:
+        # Both provided - combine them
+        files = [file] + files
+    elif file:
+        # Only single file - convert to list for batch handler
         files = [file]
     elif not files:
         raise HTTPException(
