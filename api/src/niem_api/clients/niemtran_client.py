@@ -12,15 +12,11 @@ use the services/niemtran_service.py module.
 
 import logging
 import os
-import platform
 import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
-
-# Detect platform for cross-platform compatibility
-IS_WINDOWS = platform.system() == "Windows"
 
 # NIEMTran tool configuration
 # Check for environment variable first, then fall back to default path
@@ -33,8 +29,8 @@ if _NIEMTRAN_PATH_ENV:
 else:
     # Default: Go up 4 levels from clients/niemtran_client.py to get to api/ directory
     # File is at: api/src/niem_api/clients/niemtran_client.py -> need 4 .parent to reach api/
-    # On Windows, use niemtran.bat; on Unix/Mac, use niemtran
-    _NIEMTRAN_SCRIPT_NAME = "niemtran.bat" if IS_WINDOWS else "niemtran"
+    # In Docker, the container is always Linux, so always use the shell script (not .bat)
+    _NIEMTRAN_SCRIPT_NAME = "niemtran"
     _NIEMTRAN_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / f"third_party/niem-tran/niemtran-1.0/bin/{_NIEMTRAN_SCRIPT_NAME}"
 
     if _NIEMTRAN_DEFAULT_PATH.exists():
