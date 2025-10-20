@@ -99,8 +99,7 @@ class TestCMFTool:
 
             assert result is True
 
-    @pytest.mark.asyncio
-    async def test_convert_xsd_to_cmf_success(self, sample_xsd_content):
+    def test_convert_xsd_to_cmf_success(self, sample_xsd_content):
         """Test successful XSD to CMF conversion"""
         with patch('niem_api.services.cmf_tool.run_cmf_command') as mock_run:
             mock_run.return_value = {
@@ -112,14 +111,13 @@ class TestCMFTool:
             with patch('builtins.open', create=True) as mock_open:
                 mock_open.return_value.__enter__.return_value.read.return_value = "<cmf>converted</cmf>"
 
-                result = await convert_xsd_to_cmf(sample_xsd_content)
+                result = convert_xsd_to_cmf(sample_xsd_content)
 
                 assert result["status"] == "success"
                 assert "cmf_content" in result
                 mock_run.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_convert_xsd_to_cmf_failure(self, sample_xsd_content):
+    def test_convert_xsd_to_cmf_failure(self, sample_xsd_content):
         """Test XSD to CMF conversion failure"""
         with patch('niem_api.services.cmf_tool.run_cmf_command') as mock_run:
             mock_run.return_value = {
@@ -128,13 +126,12 @@ class TestCMFTool:
                 "stderr": "Conversion failed: Invalid XSD"
             }
 
-            result = await convert_xsd_to_cmf(sample_xsd_content)
+            result = convert_xsd_to_cmf(sample_xsd_content)
 
             assert result["status"] == "error"
             assert "Invalid XSD" in result["error"]
 
-    @pytest.mark.asyncio
-    async def test_convert_cmf_to_jsonschema_success(self, sample_cmf_content):
+    def test_convert_cmf_to_jsonschema_success(self, sample_cmf_content):
         """Test successful CMF to JSON Schema conversion"""
         with patch('niem_api.services.cmf_tool.run_cmf_command') as mock_run:
             mock_run.return_value = {
@@ -147,13 +144,12 @@ class TestCMFTool:
             with patch('builtins.open', create=True), \
                  patch('json.load', return_value=mock_json_schema):
 
-                result = await convert_cmf_to_jsonschema(sample_cmf_content)
+                result = convert_cmf_to_jsonschema(sample_cmf_content)
 
                 assert result["status"] == "success"
                 assert result["jsonschema"] == mock_json_schema
 
-    @pytest.mark.asyncio
-    async def test_convert_cmf_to_jsonschema_invalid_json(self, sample_cmf_content):
+    def test_convert_cmf_to_jsonschema_invalid_json(self, sample_cmf_content):
         """Test CMF to JSON Schema conversion with invalid JSON output"""
         with patch('niem_api.services.cmf_tool.run_cmf_command') as mock_run:
             mock_run.return_value = {
@@ -165,35 +161,33 @@ class TestCMFTool:
             with patch('builtins.open', create=True), \
                  patch('json.load', side_effect=ValueError("Invalid JSON")):
 
-                result = await convert_cmf_to_jsonschema(sample_cmf_content)
+                result = convert_cmf_to_jsonschema(sample_cmf_content)
 
                 assert result["status"] == "error"
                 assert "Invalid JSON" in result["error"]
 
-    @pytest.mark.asyncio
-    async def test_run_cmf_command(self):
+    def test_run_cmf_command(self):
         """Test CMF command execution"""
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
-            mock_process = Mock()
-            mock_process.communicate = AsyncMock(return_value=(b"stdout", b"stderr"))
-            mock_process.returncode = 0
-            mock_subprocess.return_value = mock_process
+        with patch('subprocess.run') as mock_subprocess:
+            mock_result = Mock()
+            mock_result.returncode = 0
+            mock_result.stdout = b"stdout"
+            mock_result.stderr = b"stderr"
+            mock_subprocess.return_value = mock_result
 
-            result = await run_cmf_command(["--help"])
+            result = run_cmf_command(["--help"])
 
             assert result["returncode"] == 0
             assert result["stdout"] == "stdout"
             assert result["stderr"] == "stderr"
 
-    @pytest.mark.asyncio
-    async def test_run_cmf_command_timeout(self):
+    def test_run_cmf_command_timeout(self):
         """Test CMF command execution with timeout"""
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
-            mock_process = Mock()
-            mock_process.communicate = AsyncMock(side_effect=TimeoutError())
-            mock_subprocess.return_value = mock_process
+        with patch('subprocess.run') as mock_subprocess:
+            import subprocess
+            mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd=["--slow-operation"], timeout=1)
 
-            result = await run_cmf_command(["--slow-operation"], timeout=1)
+            result = run_cmf_command(["--slow-operation"], timeout=1)
 
             assert result["returncode"] == -1
             assert "timeout" in result["error"].lower()
