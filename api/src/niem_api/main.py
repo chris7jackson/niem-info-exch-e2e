@@ -4,6 +4,7 @@ import logging
 import os
 import time
 from contextlib import asynccontextmanager
+from typing import List
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -275,23 +276,29 @@ async def get_uploaded_files(
 
 @app.post("/api/convert/xml-to-json")
 async def convert_xml_to_json(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(None),
+    file: UploadFile = File(None),
     schema_id: str = Form(None),
     include_context: bool = Form(False),
     context_uri: str = Form(None),
     token: str = Depends(verify_token),
     s3=Depends(get_s3_client)
 ):
-    """Convert NIEM XML message to JSON format.
+    """Convert NIEM XML message(s) to JSON format.
 
+    Supports both single file and batch conversion.
     Uses the active schema's CMF model to perform the conversion.
     The resulting JSON follows NIEM JSON-LD conventions.
 
     This is a utility tool for demo purposes - converted JSON is returned
     but not stored or ingested.
 
+    Batch processing uses controlled concurrency (max 3 files simultaneously)
+    to prevent resource exhaustion. See docs/adr/001-batch-processing-architecture.md
+
     Args:
-        file: XML file to convert
+        files: Multiple XML files to convert (for batch processing)
+        file: Single XML file to convert (for backward compatibility)
         schema_id: Optional schema ID (uses active schema if not provided)
         include_context: Include complete @context in the result
         context_uri: Optional URI to include as "@context:" URI pair
@@ -299,10 +306,27 @@ async def convert_xml_to_json(
         s3: MinIO client dependency
 
     Returns:
-        JSON response with converted content
+        JSON response with converted content (batch format if multiple files)
     """
-    from .handlers.convert import handle_xml_to_json_conversion
-    return await handle_xml_to_json_conversion(file, s3, schema_id, include_context, context_uri)
+    from .handlers.convert import handle_xml_to_json_batch
+
+    # Handle backward compatibility: accept either 'file' or 'files'
+    if files and file:
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide either 'file' or 'files', not both"
+        )
+
+    if file:
+        # Single file - convert to list for batch handler
+        files = [file]
+    elif not files:
+        raise HTTPException(
+            status_code=400,
+            detail="No files provided. Please upload at least one XML file."
+        )
+
+    return await handle_xml_to_json_batch(files, s3, schema_id, include_context, context_uri)
 
 
 # Admin Routes

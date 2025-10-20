@@ -40,6 +40,17 @@ Covers:
 
 **When to read:** Before writing tests or when test coverage is insufficient
 
+### [Architecture Decision Records (ADR)](adr/)
+**Important architectural decisions and their rationale**
+
+Documents:
+- System-wide architectural decisions
+- Context, consequences, and alternatives
+- Patterns that developers should follow
+- Future-proofing considerations
+
+**When to read:** Before making significant architectural changes or adding new features
+
 ## Additional Resources
 
 ### Main README
