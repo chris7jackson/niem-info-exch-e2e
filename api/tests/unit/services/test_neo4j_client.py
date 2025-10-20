@@ -108,8 +108,8 @@ class TestNeo4jClient:
         mock_rel.end_node.items.return_value = [("name", "Jane")]
         mock_rel.items.return_value = [("since", "2020")]
 
-        # Make record.items() return an iterable
-        mock_record.items.return_value = [("n", mock_node), ("r", mock_rel)]
+        # Make record.values() return an iterable (query_graph uses .values(), not .items())
+        mock_record.values.return_value = [mock_node, mock_rel]
         mock_session.run.return_value = [mock_record]
 
         result = client.query_graph("MATCH (n)-[r]->(m) RETURN n, r, m")
@@ -218,7 +218,7 @@ class TestNeo4jClient:
             ("null_prop", None)
         ]
 
-        mock_record.items.return_value = [("node", mock_node)]
+        mock_record.values.return_value = [mock_node]
         mock_session.run.return_value = [mock_record]
 
         result = client.query_graph("MATCH (n) RETURN n as node")
