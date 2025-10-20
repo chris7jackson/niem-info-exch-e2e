@@ -77,6 +77,16 @@ export interface ConversionResult {
   error?: string;
 }
 
+export interface HealthResponse {
+  status: string;
+  timestamp: number;
+  uptime: number;
+  api_version: string;
+  git_commit: string;
+  build_date: string;
+  niem_version: string;
+}
+
 class ApiClient {
   private client: AxiosInstance;
 
@@ -200,6 +210,12 @@ class ApiClient {
   async getUploadedFiles(): Promise<UploadedFile[]> {
     const response = await this.client.get('/api/ingest/files');
     return response.data.files;
+  }
+
+  // Health check and version info
+  async getHealth(): Promise<HealthResponse> {
+    const response = await this.client.get('/healthz');
+    return response.data;
   }
 }
 
