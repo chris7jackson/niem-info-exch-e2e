@@ -60,10 +60,8 @@ export default function XmlToJsonConverter() {
       return;
     }
 
-    if (files.length > 10) {
-      setError('Maximum 10 files allowed per batch. Please remove some files.');
-      return;
-    }
+    // Note: Max batch size is configurable on backend via BATCH_MAX_CONVERSION_FILES env var (default: 20)
+    // If backend rejects with 400, the error message will show the actual limit
 
     if (!selectedSchemaId && !activeSchema) {
       setError('No schema selected. Please upload and activate a schema first.');
@@ -111,7 +109,7 @@ export default function XmlToJsonConverter() {
         <h2 className="text-2xl font-bold text-gray-900">XML to JSON Converter</h2>
         <p className="mt-1 text-sm text-gray-600">
           Convert NIEM XML messages to JSON format using the NIEMTran tool.
-          Supports batch processing (max 10 files). This is a demo utility that converts files without storing or ingesting them.
+          Supports batch processing. This is a demo utility that converts files without storing or ingesting them.
         </p>
       </div>
 
@@ -188,7 +186,7 @@ export default function XmlToJsonConverter() {
               <p className="mt-2 text-sm text-gray-600">
                 Drag and drop XML files here, or click to select
               </p>
-              <p className="text-xs text-gray-500">XML files only (max 10 files)</p>
+              <p className="text-xs text-gray-500">XML files only</p>
             </>
           )}
         </div>

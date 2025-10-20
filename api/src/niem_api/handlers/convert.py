@@ -20,16 +20,13 @@ from ..services import niemtran_service
 from ..clients.niemtran_client import is_niemtran_available, NIEMTranError
 from ..handlers.schema import get_active_schema_id, get_schema_metadata
 from ..clients.s3_client import download_file
+from ..core.config import batch_config
 
 logger = logging.getLogger(__name__)
 
-# Batch processing constants (per ADR-001)
-MAX_CONCURRENT_CONVERSIONS = 3
-MAX_BATCH_SIZE = 10
-CONVERSION_TIMEOUT = 60  # seconds
-
 # Shared semaphore for system-wide concurrency control
-_conversion_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CONVERSIONS)
+# Configurable via BATCH_MAX_CONCURRENT_OPERATIONS environment variable
+_conversion_semaphore = asyncio.Semaphore(batch_config.MAX_CONCURRENT_OPERATIONS)
 
 
 async def _download_schema_files_for_validation(s3: Minio, schema_id: str) -> str:
@@ -292,11 +289,12 @@ async def handle_xml_to_json_batch(
     schema_dir = None
 
     try:
-        # Step 1: Validate batch size (per ADR-001)
-        if len(files) > MAX_BATCH_SIZE:
+        # Step 1: Validate batch size (configurable via BATCH_MAX_CONVERSION_FILES env var)
+        max_files = batch_config.get_batch_limit('conversion')
+        if len(files) > max_files:
             raise HTTPException(
                 status_code=400,
-                detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE} files. Please reduce the number of files."
+                detail=f"Batch size exceeds maximum of {max_files} files. Please reduce the number of files."
             )
 
         # Step 2: Check if NIEMTran tool is available
@@ -355,7 +353,7 @@ async def handle_xml_to_json_batch(
         schema_dir = await _download_schema_files_for_validation(s3, schema_id)
 
         # Step 8: Process all files with timeout and concurrency control
-        logger.info(f"Processing {len(files)} files with max {MAX_CONCURRENT_CONVERSIONS} concurrent conversions")
+        logger.info(f"Processing {len(files)} files with max {batch_config.MAX_CONCURRENT_OPERATIONS} concurrent conversions")
 
         # Create tasks for all files with timeout
         tasks = [
@@ -364,7 +362,7 @@ async def handle_xml_to_json_batch(
                     file, s3, schema_id, schema_metadata, cmf_content,
                     schema_dir, include_context, context_uri
                 ),
-                timeout=CONVERSION_TIMEOUT
+                timeout=batch_config.OPERATION_TIMEOUT
             )
             for file in files
         ]

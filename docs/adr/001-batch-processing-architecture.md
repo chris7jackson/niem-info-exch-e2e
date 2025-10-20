@@ -36,19 +36,21 @@ Implement **synchronous batch processing with controlled concurrency** across al
 ### Core Principles
 
 **1. Concurrency Control**
-- Use `asyncio.Semaphore(3)` to limit parallel operations
-- Maximum 3 files processed simultaneously across the system
+- Use `asyncio.Semaphore` to limit parallel operations
+- Configurable via `BATCH_MAX_CONCURRENT_OPERATIONS` (default: 3)
 - Prevents resource exhaustion on local machines
 - Provides predictable resource usage for cloud deployment
 
-**2. Batch Size Limits**
-- Maximum 10 files per batch request
+**2. Batch Size Limits** (Operation-Specific)
+- **Schema Upload**: Max 50 files (via `BATCH_MAX_SCHEMA_FILES`)
+  - NIEM schemas often have 25+ reference XSD files
+- **XML/JSON Conversion**: Max 20 files (via `BATCH_MAX_CONVERSION_FILES`)
+- **XML/JSON Ingestion**: Max 20 files (via `BATCH_MAX_INGEST_FILES`)
 - Returns HTTP 400 if limit exceeded
-- Encourages reasonable batch sizes
-- Allows for future async job queue implementation
+- Configurable via environment variables for production deployments
 
 **3. Timeout Management**
-- 60-second timeout per file
+- Configurable timeout per file via `BATCH_OPERATION_TIMEOUT` (default: 60s)
 - Prevents hung processes from blocking batch
 - Fails individual files, continues processing others
 
@@ -69,33 +71,31 @@ All batch endpoints follow this handler pattern:
 ```python
 import asyncio
 from typing import List
-
-# Constants
-MAX_CONCURRENT_OPERATIONS = 3
-MAX_BATCH_SIZE = 10
-OPERATION_TIMEOUT = 60  # seconds
+from ..core.config import batch_config
 
 # Shared semaphore for system-wide concurrency control
-_operation_semaphore = asyncio.Semaphore(MAX_CONCURRENT_OPERATIONS)
+# Configurable via BATCH_MAX_CONCURRENT_OPERATIONS environment variable
+_operation_semaphore = asyncio.Semaphore(batch_config.MAX_CONCURRENT_OPERATIONS)
 
-async def handle_batch_operation(files: List[UploadFile], ...):
+async def handle_batch_operation(files: List[UploadFile], operation_type: str, ...):
     """Generic batch processing handler"""
 
-    # 1. Validate batch size
-    if len(files) > MAX_BATCH_SIZE:
+    # 1. Validate batch size (operation-specific limits)
+    max_files = batch_config.get_batch_limit(operation_type)
+    if len(files) > max_files:
         raise HTTPException(
             status_code=400,
-            detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE} files"
+            detail=f"Batch size exceeds maximum of {max_files} files"
         )
 
     # 2. Process files with concurrency control
     async def process_single_file(file: UploadFile):
-        async with _operation_semaphore:  # Only 3 concurrent
+        async with _operation_semaphore:  # Concurrency controlled by config
             try:
                 # Set timeout for this operation
                 return await asyncio.wait_for(
                     _process_file_logic(file),
-                    timeout=OPERATION_TIMEOUT
+                    timeout=batch_config.OPERATION_TIMEOUT
                 )
             except asyncio.TimeoutError:
                 return _create_error_result(file.filename, "Operation timed out")
@@ -116,16 +116,44 @@ async def handle_batch_operation(files: List[UploadFile], ...):
     }
 ```
 
+### Configuration
+
+All batch processing limits are configurable via environment variables for flexibility across different deployment environments.
+
+**Environment Variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BATCH_MAX_CONCURRENT_OPERATIONS` | 3 | Max parallel operations across entire system |
+| `BATCH_OPERATION_TIMEOUT` | 60 | Timeout in seconds per individual file |
+| `BATCH_MAX_SCHEMA_FILES` | 50 | Max files for schema upload (NIEM often has 25+ refs) |
+| `BATCH_MAX_CONVERSION_FILES` | 20 | Max files for XML/JSON conversion |
+| `BATCH_MAX_INGEST_FILES` | 20 | Max files for XML/JSON ingestion |
+
+**Example `docker-compose.yml` override for production:**
+
+```yaml
+services:
+  api:
+    environment:
+      BATCH_MAX_CONCURRENT_OPERATIONS: 5  # More powerful server
+      BATCH_OPERATION_TIMEOUT: 120        # Larger files
+      BATCH_MAX_CONVERSION_FILES: 50      # Higher limits
+      BATCH_MAX_SCHEMA_FILES: 100         # Large NIEM schemas
+```
+
+**Configuration Location:** `api/src/niem_api/core/config.py`
+
 ### Applies To
 
 This pattern **MUST** be applied to all batch operations:
 
-| Endpoint | Current State | Action Required |
-|----------|---------------|-----------------|
-| `POST /api/convert/xml-to-json` | Single file only | ✅ Rewrite for batch with semaphore |
-| `POST /api/ingest/xml` | Batch support | ✅ Add semaphore control |
-| `POST /api/ingest/json` | Batch support | ✅ Add semaphore control |
-| `POST /api/schema/xsd` | Batch support | ✅ Add semaphore control |
+| Endpoint | Batch Support | Configurable Limits |
+|----------|---------------|---------------------|
+| `POST /api/convert/xml-to-json` | ✅ Complete | ✅ Uses `BATCH_MAX_CONVERSION_FILES` |
+| `POST /api/ingest/xml` | Partial | ⏳ Add semaphore + config |
+| `POST /api/ingest/json` | Partial | ⏳ Add semaphore + config |
+| `POST /api/schema/xsd` | Partial | ⏳ Add semaphore + config |
 
 ## Consequences
 
