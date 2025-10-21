@@ -143,6 +143,15 @@ docker compose logs --tail=50 api
 
 This project supports multiple development workflows optimized for different scenarios.
 
+> **📌 Quick Start for Most Users:**
+> If you're just getting started or working on a single feature branch, you only need:
+> - `docker-compose.yml` (base configuration)
+> - `docker-compose.override.yml` (automatic dev mode)
+>
+> Simply run `docker compose up -d` and you're done! The additional files below are **optional** and only needed for advanced multi-worktree workflows:
+> - `docker-compose.infra.yml` - For running multiple branches simultaneously
+> - `dev.sh` / `dev.ps1` - Helper scripts for auto port assignment
+
 ### Single Environment Development
 
 For working on a single branch at a time:
