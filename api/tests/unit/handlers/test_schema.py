@@ -143,15 +143,14 @@ class TestSchemaHandlers:
         assert exc_info.value.status_code == 404
         assert "Schema not found" in exc_info.value.detail
 
-    @pytest.mark.asyncio
-    async def test_get_all_schemas_empty(self, mock_s3_client):
+    def test_get_all_schemas_empty(self, mock_s3_client):
         """Test getting all schemas when none exist"""
         from minio.error import S3Error
 
         mock_response = Mock()
         mock_s3_client.list_objects.side_effect = S3Error(mock_response, "NoSuchBucket", "", "", "", "")
 
-        result = await get_all_schemas(mock_s3_client)
+        result = get_all_schemas(mock_s3_client)
 
         assert result == []
 
