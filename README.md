@@ -139,6 +139,220 @@ docker compose logs --tail=50 api
 | Dependency updates | `docker compose build --no-cache` then `docker compose up -d` | Forces fresh install of all dependencies |
 | Complete reset | `docker compose down -v && docker compose up -d --build` | Removes volumes (deletes all data!) |
 
+## Development Workflows
+
+This project supports multiple development workflows optimized for different scenarios.
+
+### Single Environment Development
+
+For working on a single branch at a time:
+
+```bash
+# Start everything (infrastructure + app containers)
+docker compose up -d
+
+# View logs
+docker compose logs -f api ui
+
+# Stop everything
+docker compose down
+```
+
+**Features**:
+- Hot reloading enabled automatically via `docker-compose.override.yml`
+- Source code mounted as volumes (changes reflect immediately)
+- All services isolated in their own network
+
+### Multi-Worktree Development
+
+For working on multiple git branches simultaneously (e.g., comparing features, parallel development):
+
+#### Initial Setup
+
+1. **Start shared infrastructure once** (from any worktree):
+   ```bash
+   docker compose -f docker-compose.infra.yml up -d
+   ```
+   This starts Neo4j and MinIO that all worktrees will share.
+
+2. **In each worktree**, use the helper script:
+
+   **macOS/Linux**:
+   ```bash
+   ./dev.sh up -d
+   ```
+
+   **Windows (PowerShell)**:
+   ```powershell
+   .\dev.ps1 up -d
+   ```
+
+   The scripts automatically:
+   - Assign unique ports based on directory name
+   - Set unique project names (avoids container conflicts)
+   - Connect to shared infrastructure
+
+#### Manual Setup (Alternative)
+
+If you prefer not to use the scripts:
+
+1. Copy environment template:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` and set unique values:
+   ```bash
+   COMPOSE_PROJECT_NAME=niem-feature-auth  # Unique per worktree
+   API_PORT=8001                            # Unique port
+   UI_PORT=3001                             # Unique port
+   ```
+
+3. Start services:
+   ```bash
+   docker compose up -d
+   ```
+
+#### Example Multi-Worktree Setup
+
+```bash
+# Worktree 1: main branch
+cd ~/code/niem/main
+./dev.sh up -d
+# → API on :8000, UI on :3000
+
+# Worktree 2: feature-auth branch
+cd ~/code/niem/feature-auth
+./dev.sh up -d
+# → API on :8001, UI on :3001
+
+# Worktree 3: feature-graph branch
+cd ~/code/niem/feature-graph
+./dev.sh up -d
+# → API on :8002, UI on :3002
+
+# Now access all three:
+# http://localhost:3000 - main
+# http://localhost:3001 - feature-auth
+# http://localhost:3002 - feature-graph
+# All sharing the same Neo4j and MinIO data
+```
+
+#### Helper Script Commands
+
+The dev scripts pass all arguments to `docker compose`:
+
+```bash
+# Start services
+./dev.sh up -d
+
+# View logs
+./dev.sh logs -f api
+
+# Stop this worktree's services
+./dev.sh down
+
+# Rebuild
+./dev.sh up -d --build
+
+# View running containers
+./dev.sh ps
+```
+
+#### Stopping Shared Infrastructure
+
+When done with all worktrees:
+
+```bash
+docker compose -f docker-compose.infra.yml down
+```
+
+**Warning**: This stops Neo4j and MinIO, affecting all worktrees.
+
+### Production Build
+
+For production deployment without dev features:
+
+```bash
+# Build and run without override file
+docker compose -f docker-compose.yml up -d --build
+
+# Or specify production env file
+docker compose --env-file .env.production up -d --build
+```
+
+**Differences from dev**:
+- No source code volume mounts
+- Optimized multi-stage builds (~70% smaller images)
+- Production commands (no auto-reload)
+- Standalone Next.js output
+
+### Build Optimizations
+
+The Dockerfiles use BuildKit features for faster builds:
+
+**Enable BuildKit** (if not already default):
+```bash
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+```
+
+**Cache Benefits**:
+- `pip install` results cached (API rebuilds in ~10s instead of ~60s)
+- `npm ci` results cached (UI rebuilds in ~15s instead of ~90s)
+- Multi-stage builds reduce final image size by ~70%
+
+### Port Reference
+
+Default ports used by services:
+
+| Service | Port | Access |
+|---------|------|--------|
+| UI | 3000 | http://localhost:3000 |
+| API | 8000 | http://localhost:8000 |
+| Neo4j Browser | 7474 | http://localhost:7474 |
+| Neo4j Bolt | 7687 | bolt://localhost:7687 |
+| MinIO API | 9001 | http://localhost:9001 |
+| MinIO Console | 9002 | http://localhost:9002 |
+
+For worktree mode, API and UI ports auto-increment based on directory name hash.
+
+### Troubleshooting
+
+**Port conflicts**:
+```bash
+# Find what's using a port
+lsof -i :8000  # macOS/Linux
+netstat -ano | findstr :8000  # Windows
+
+# Change port in .env file
+API_PORT=8001
+```
+
+**Shared infrastructure not found**:
+```bash
+# Verify infrastructure is running
+docker network inspect niem-infra
+
+# Start if needed
+docker compose -f docker-compose.infra.yml up -d
+```
+
+**Hot reload not working**:
+```bash
+# Verify override file is being used
+docker compose config | grep volumes
+
+# Check file permissions (especially on Windows)
+# Files must be readable by Docker
+```
+
+**Build cache issues**:
+```bash
+# Clear build cache and rebuild
+docker compose build --no-cache
+docker compose up -d
+```
 
 ## Complete Walkthrough: CrashDriver Sample Data
 

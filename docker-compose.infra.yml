@@ -1,0 +1,63 @@
+# Shared infrastructure for multi-worktree development
+# Start once: docker compose -f docker-compose.infra.yml up -d
+# All worktrees will connect to these shared services
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "100m"
+    max-file: "5"
+
+services:
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: niem-infra-minio
+    command: ["server", "/data", "--address", ":9000", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
+    ports:
+      - "9001:9000"
+      - "9002:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - niem-infra
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    logging: *default-logging
+
+  neo4j:
+    image: neo4j:5.20-community
+    container_name: niem-infra-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-password}
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    networks:
+      - niem-infra
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_PASSWORD:-password} 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    logging: *default-logging
+
+networks:
+  niem-infra:
+    name: niem-infra
+    driver: bridge
+
+volumes:
+  minio-data:
+    name: niem-infra-minio-data
+  neo4j-data:
+    name: niem-infra-neo4j-data

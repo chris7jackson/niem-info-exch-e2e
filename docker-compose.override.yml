@@ -1,0 +1,70 @@
+# Development mode overrides
+# Automatically loaded by `docker compose` command
+#
+# Features:
+# - Hot reloading via volume mounts
+# - Development commands with auto-reload
+# - Connects to shared infrastructure (niem-infra network) if available
+#
+# For worktree mode:
+#   1. Start shared infra: docker compose -f docker-compose.infra.yml up -d
+#   2. Start this worktree: docker compose up -d
+#
+# For standalone dev:
+#   docker compose up -d
+#   (starts its own infrastructure)
+
+services:
+  # Disable local infrastructure services
+  # Remove this section if you want to run local infrastructure
+  minio:
+    profiles:
+      - standalone
+
+  neo4j:
+    profiles:
+      - standalone
+
+  api:
+    # Development command with hot reload
+    command: uvicorn src.niem_api.main:app --host 0.0.0.0 --port 8000 --reload
+
+    # Mount source code for hot reload
+    volumes:
+      - ./api/src:/app/src:ro
+      - api-data:/data
+
+    # Connect to shared infrastructure if available
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://niem-infra-minio:9000}
+      NEO4J_URI: ${NEO4J_URI:-bolt://niem-infra-neo4j:7687}
+
+    networks:
+      - default
+      - niem-infra
+
+    # Depend on shared infrastructure instead of local
+    depends_on: {}
+
+  ui:
+    # Development command
+    command: npm run dev
+
+    # Mount source code for hot reload
+    volumes:
+      - ./ui:/app:ro
+      - /app/node_modules
+      - /app/.next
+
+    networks:
+      - default
+
+    # Remove dependency on api healthcheck for faster startup in dev
+    depends_on:
+      - api
+
+# Connect to shared infrastructure network
+networks:
+  niem-infra:
+    external: true
+    name: niem-infra
