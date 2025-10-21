@@ -630,25 +630,61 @@ def generate_for_xml_content(
                 ordinal_path = "/".join(chain)
                 node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
 
-            # Collect scalar properties if configured
+            # Step 1: Extract explicitly mapped scalar properties (schema-driven flattening)
+            # Tracks which direct children are already handled by scalar_props to avoid duplication
+            mapped_child_qnames = set()
             if obj_rule:
                 setters = collect_scalar_setters(obj_rule, elem, xml_ns_map)
-                if setters:
-                    for key, value in setters:
-                        props[key] = value
+                for key, value in setters:
+                    props[key] = value
 
-            # Extract augmentation properties (unmapped data)
+                # Track which direct children were already processed by scalar_props
+                # This prevents duplicate extraction in the auto-extraction phase
+                for prop_config in obj_rule.get("scalar_props", []) or []:
+                    path = prop_config["path"]
+                    if not path.startswith("@"):
+                        # Extract first path segment (direct child element)
+                        first_segment = path.split("/")[0]
+                        mapped_child_qnames.add(first_segment)
+
+            # Step 2: Auto-extract ALL remaining simple-text children (hybrid approach)
+            # This ensures no data loss for CMF elements not in scalar_props mapping
+            # and captures augmentation data in a single unified pass
             aug_props = {}
-            if cmf_element_index:
-                aug_props = extract_unmapped_properties(elem, xml_ns_map, cmf_element_index)
+            for child in elem:
+                child_qn = qname_from_tag(child.tag, xml_ns_map)
 
-                # Check for complex augmentation children (nested structures)
-                for child in elem:
-                    child_qn = qname_from_tag(child.tag, xml_ns_map)
-                    if is_augmentation(child_qn, cmf_element_index) and len(list(child)) > 0:
-                        # Child is an unmapped element with nested structure
-                        # Create separate Augmentation node
-                        handle_complex_augmentation(child, xml_ns_map, node_id, file_prefix, nodes, contains)
+                # Skip if already extracted via scalar_props (avoid duplication)
+                if child_qn in mapped_child_qnames:
+                    continue
+
+                # Check if child has simple text content (no nested elements)
+                if child.text and child.text.strip() and len(list(child)) == 0:
+                    # Use exact property name (preserve semantic meaning)
+                    prop_name = child_qn.replace(':', '_')
+
+                    # Check if this is an augmentation (extension data not in CMF schema)
+                    is_aug = cmf_element_index and is_augmentation(child_qn, cmf_element_index)
+
+                    if is_aug:
+                        # Store as augmentation property with metadata flag
+                        aug_props[prop_name] = child.text.strip()
+                        aug_props[f"{prop_name}_isAugmentation"] = True
+                    else:
+                        # Store as regular property (CMF element not in mapping)
+                        props[prop_name] = child.text.strip()
+
+                # Step 3: Handle complex augmentation children (nested structures)
+                # Attach properties directly to parent node (no orphan Augmentation nodes)
+                elif cmf_element_index and is_augmentation(child_qn, cmf_element_index) and len(list(child)) > 0:
+                    # Extract nested properties with dot notation
+                    nested_props = _extract_all_properties_recursive(child, xml_ns_map)
+                    for key, value in nested_props.items():
+                        # Flatten with exact property names (NO aug_ prefix for semantic clarity)
+                        prop_name = f"{child_qn.replace(':', '_').replace('.', '_')}.{key}"
+                        aug_props[prop_name] = value
+                        # Add augmentation metadata flag for identification
+                        aug_props[f"{prop_name}_isAugmentation"] = True
 
             # Register node
             if node_id in nodes:
@@ -826,7 +862,10 @@ def generate_for_xml_content(
         for key, value in sorted(aug_props.items()):
             # Escape property names with dots using backticks
             prop_key = f"`{key}`" if '.' in key else key
-            if isinstance(value, list):
+            if isinstance(value, bool):
+                # Write boolean flags directly (for _isAugmentation metadata)
+                setbits.append(f"n.{prop_key}={str(value).lower()}")
+            elif isinstance(value, list):
                 # Store as JSON array for multiple values
                 # json.dumps already escapes backslashes and quotes properly
                 json_value = json.dumps(value).replace("'", "\\'")
