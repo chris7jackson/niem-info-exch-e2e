@@ -40,9 +40,9 @@ export default function UploadPage() {
           ))}
         </Tab.List>
 
-        <Tab.Panels className="mt-6">
+        <Tab.Panels className="mt-6 w-full">
           {tabs.map((tab, index) => (
-            <Tab.Panel key={index}>
+            <Tab.Panel key={index} className="w-full">
               {tab.component}
             </Tab.Panel>
           ))}
