@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { CloudArrowUpIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { CloudArrowUpIcon, DocumentIcon } from '@heroicons/react/24/outline';
 import apiClient, { Schema, BatchConversionResult } from '../lib/api';
 import ConversionResults from './ConversionResults';
 
@@ -203,7 +203,7 @@ export default function XmlToJsonConverter() {
                   onClick={clearAllFiles}
                   className="text-sm text-red-600 hover:text-red-500"
                 >
-                  Clear All
+                  Remove All
                 </button>
               )}
             </div>
@@ -222,10 +222,9 @@ export default function XmlToJsonConverter() {
                   </div>
                   <button
                     onClick={() => removeFile(index)}
-                    className="ml-2 text-gray-400 hover:text-red-500 flex-shrink-0"
-                    aria-label="Remove file"
+                    className="text-sm text-red-600 hover:text-red-500"
                   >
-                    <XMarkIcon className="h-5 w-5" />
+                    Remove
                   </button>
                 </div>
               ))}
