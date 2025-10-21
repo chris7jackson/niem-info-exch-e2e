@@ -30,10 +30,12 @@ export class XmlToJsonConverterPage extends BasePage {
   }
 
   /**
-   * Navigate to XML to JSON Converter page
+   * Navigate to XML to JSON Converter page (on Helper Tools tab)
    */
   async goto() {
-    await this.navigate('/converter')
+    await this.navigate('/tools')
+    await this.page.waitForSelector('h1:has-text("Helper Tools")', { state: 'visible' })
+    // Converter is in the first tab and auto-selected, so no need to click
     await this.page.waitForSelector('h2:has-text("XML to JSON Converter")', { state: 'visible' })
   }
 

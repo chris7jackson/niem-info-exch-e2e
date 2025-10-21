@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test'
 import { XmlToJsonConverterPage } from '../page-objects/XmlToJsonConverterPage'
-import { SchemaManagerPage } from '../page-objects/SchemaManagerPage'
 
 /**
  * XML to JSON Converter E2E Tests
@@ -21,17 +20,11 @@ import { SchemaManagerPage } from '../page-objects/SchemaManagerPage'
  */
 test.describe('XML to JSON Converter', () => {
   let converterPage: XmlToJsonConverterPage
-  let schemaPage: SchemaManagerPage
 
   test.beforeEach(async ({ page }) => {
     converterPage = new XmlToJsonConverterPage(page)
-    schemaPage = new SchemaManagerPage(page)
 
-    // Setup: Upload a schema first
-    await schemaPage.goto()
-    await schemaPage.uploadSchema('valid-simple.xsd')
-    await schemaPage.waitForUploadComplete()
-
+    // Note: Schema is uploaded via API in global-setup.ts before all tests
     // Navigate to converter page
     await converterPage.goto()
   })

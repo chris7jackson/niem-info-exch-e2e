@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:test="http://example.com/test/1.0"
+           targetNamespace="http://example.com/test/1.0"
+           elementFormDefault="qualified">
+
+  <xs:annotation>
+    <xs:documentation>
+      Simple Test Schema for E2E Testing
+      This is a minimal valid XSD schema for testing schema upload functionality.
+    </xs:documentation>
+  </xs:annotation>
+
+  <!-- Simple Person Element -->
+  <xs:element name="Person" type="test:PersonType"/>
+
+  <xs:complexType name="PersonType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="Age" type="xs:int" minOccurs="0"/>
+      <xs:element name="Email" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:complexType>
+
+  <!-- Simple Organization Element -->
+  <xs:element name="Organization" type="test:OrganizationType"/>
+
+  <xs:complexType name="OrganizationType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="Employee" type="test:PersonType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>
