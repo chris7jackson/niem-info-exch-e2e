@@ -185,14 +185,15 @@ jobs:
         run: docker compose down
 
   # =============================================================================
-  # SECURITY SCANNING (NON-BLOCKING)
+  # SECURITY SCANNING
   # =============================================================================
 
   security-scan:
     name: Security Scanning (Trivy)
     runs-on: ubuntu-latest
     needs: [integration-tests]
-    continue-on-error: true  # Non-blocking
+    # Block on critical vulnerabilities in production dependencies
+    continue-on-error: false
 
     permissions:
       contents: read
@@ -209,6 +210,9 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'  # Fail on critical/high vulnerabilities
+          ignore-unfixed: true  # Only fail on issues with available fixes
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
@@ -224,13 +228,15 @@ jobs:
           path: trivy-results.sarif
 
   # =============================================================================
-  # CODE ANALYSIS (NON-BLOCKING)
+  # CODE ANALYSIS
   # =============================================================================
 
   codeql-analysis:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
-    continue-on-error: true  # Non-blocking
+    # Non-blocking: Deep semantic analysis may have false positives
+    # Results are tracked in GitHub Security tab for review
+    continue-on-error: true
 
     permissions:
       security-events: write
@@ -273,23 +279,24 @@ jobs:
         run: |
           integration_result="${{ needs.integration-tests.result }}"
           docker_result="${{ needs.docker-build-test.result }}"
-
-          # Security and CodeQL are non-blocking
           security_result="${{ needs.security-scan.result }}"
           codeql_result="${{ needs.codeql-analysis.result }}"
 
           echo "=== Pipeline Results ==="
           echo "Integration Tests: $integration_result"
           echo "Docker Build & Smoke: $docker_result"
-          echo "Security Scan: $security_result (non-blocking)"
+          echo "Security Scan (Trivy): $security_result"
           echo "CodeQL Analysis: $codeql_result (non-blocking)"
           echo ""
 
-          # Only fail on critical gates
-          if [[ "$integration_result" == "success" && "$docker_result" == "success" ]]; then
+          # Critical gates: integration, docker, security
+          # CodeQL is non-blocking (tracked in Security tab)
+          if [[ "$integration_result" == "success" && \
+                "$docker_result" == "success" && \
+                "$security_result" == "success" ]]; then
             echo "✅ All critical gates passed!"
             exit 0
           else
-            echo "❌ Critical gates failed!"
+            echo "❌ One or more critical gates failed!"
             exit 1
           fi
