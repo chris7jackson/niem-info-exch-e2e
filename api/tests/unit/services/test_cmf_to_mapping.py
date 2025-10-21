@@ -137,11 +137,15 @@ class TestCMFToMapping:
 
         # Check objects (non-association types)
         objects = mapping["objects"]
-        assert len(objects) == 1
-        person_obj = objects[0]
-        assert person_obj["qname"] == "test:Person"
+        assert len(objects) == 2  # test.Person and test.PersonName
+        person_obj = next((obj for obj in objects if obj["qname"] == "test:Person"), None)
+        assert person_obj is not None
         assert person_obj["label"] == "test_Person"
         assert person_obj["carries_structures_id"] is True
+
+        # Verify PersonName object also exists
+        person_name_obj = next((obj for obj in objects if obj["qname"] == "test:PersonName"), None)
+        assert person_name_obj is not None
 
         # Check associations
         associations = mapping["associations"]

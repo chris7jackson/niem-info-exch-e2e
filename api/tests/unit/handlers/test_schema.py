@@ -83,7 +83,8 @@ class TestSchemaHandlers:
         """Test schema upload with NDR validation failure"""
         from niem_api.models.models import SchevalReport, SchevalIssue
 
-        with patch('niem_api.handlers.schema._validate_all_scheval') as mock_scheval:
+        with patch('niem_api.handlers.schema._validate_all_scheval') as mock_scheval, \
+             patch('niem_api.handlers.schema._convert_to_cmf') as mock_cmf_convert:
             # Mock scheval validation failure
             mock_scheval.return_value = SchevalReport(
                 status="fail",
@@ -102,11 +103,19 @@ class TestSchemaHandlers:
                 summary={"error_count": 1, "warning_count": 0}
             )
 
+            # Mock CMF conversion - it should still be attempted
+            mock_cmf_convert.return_value = (
+                {"status": "success", "cmf_content": "<cmf>test</cmf>"},
+                {"status": "success"}
+            )
+
             with pytest.raises(HTTPException) as exc_info:
                 await handle_schema_upload(mock_upload_files, mock_s3_client)
 
             assert exc_info.value.status_code == 400
-            assert "NIEM NDR validation" in exc_info.value.detail
+            # Detail is now a dict with a message field
+            assert isinstance(exc_info.value.detail, dict)
+            assert "NIEM NDR validation" in exc_info.value.detail['message']
 
     @pytest.mark.asyncio
     async def test_handle_schema_upload_file_too_large(self, mock_s3_client):
@@ -154,8 +163,15 @@ class TestSchemaHandlers:
         """Test getting all schemas when none exist"""
         from minio.error import S3Error
 
-        mock_response = Mock()
-        mock_s3_client.list_objects.side_effect = S3Error(mock_response, "NoSuchBucket", "", "", "", "")
+        # Create S3Error instances with proper code values
+        # S3Error signature: S3Error(code, message, resource, request_id, host_id, response)
+        no_such_key_error = S3Error("NoSuchKey", "Key not found", "", "", "", Mock())
+        no_such_bucket_error = S3Error("NoSuchBucket", "Bucket not found", "", "", "", Mock())
+
+        # Mock get_object to raise S3Error for active_schema.json (so get_active_schema_id returns None)
+        mock_s3_client.get_object.side_effect = no_such_key_error
+        # Mock list_objects to raise NoSuchBucket error
+        mock_s3_client.list_objects.side_effect = no_such_bucket_error
 
         result = get_all_schemas(mock_s3_client)
 
