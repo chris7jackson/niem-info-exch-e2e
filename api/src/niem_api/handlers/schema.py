@@ -777,25 +777,16 @@ async def _generate_and_store_mapping(
         cmf_conversion_result.get('cmf_content') is not None
         if cmf_conversion_result else False
     )
-    logger.error(
-        f"*** DEBUG: About to check mapping generation. CMF result exists: "
-        f"{cmf_conversion_result is not None}, has CMF content: {has_cmf_content} ***"
-    )
-
     if not (cmf_conversion_result and cmf_conversion_result.get("cmf_content")):
         return
 
     try:
-        logger.error("*** DEBUG: Starting mapping generation process ***")
         from ..services.domain.schema import generate_mapping_from_cmf_content
 
         cmf_content = cmf_conversion_result["cmf_content"]
-        logger.error(f"*** DEBUG: CMF content length: {len(cmf_content)} ***")
 
         # Generate mapping using in-memory CMF content (no temp files needed)
-        logger.error("*** DEBUG: About to call generate_mapping_from_cmf_content ***")
         mapping_dict = generate_mapping_from_cmf_content(cmf_content)
-        logger.error(f"*** DEBUG: Generated mapping dict with {len(mapping_dict)} keys ***")
 
         # TODO: Re-enable coverage validation after restoring validate_mapping_coverage_from_data
         # See: https://github.com/chris7jackson/niem-info-exch-e2e/issues/XX
@@ -803,11 +794,9 @@ async def _generate_and_store_mapping(
         # mapping_dict["coverage_validation"] = coverage_result
 
         # Convert to YAML and store
-        logger.error("*** DEBUG: About to convert to YAML and upload ***")
         mapping_yaml = yaml.dump(mapping_dict, default_flow_style=False, indent=2)
         mapping_content = mapping_yaml.encode('utf-8')
         await upload_file(s3, "niem-schemas", f"{schema_id}/mapping.yaml", mapping_content, "application/x-yaml")
-        logger.error("*** DEBUG: Mapping YAML upload completed ***")
 
         # Log results
         logger.info(f"Successfully generated and stored mapping YAML for schema {schema_id}")
