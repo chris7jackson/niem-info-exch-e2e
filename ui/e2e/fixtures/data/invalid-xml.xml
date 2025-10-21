@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Person xmlns="http://example.com/test/1.0" id="invalid">
+  <Name>Invalid Person
+  <!-- Missing closing tag for Name -->
+  <Age>25</Age>
+</Person>
+<!-- This XML is malformed and should fail parsing -->

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Organization xmlns="http://example.com/test/1.0">
+  <Name>Acme Corporation</Name>
+  <Employee id="emp1">
+    <Name>Alice Smith</Name>
+    <Age>28</Age>
+    <Email>alice@acme.com</Email>
+  </Employee>
+  <Employee id="emp2">
+    <Name>Bob Johnson</Name>
+    <Age>35</Age>
+  </Employee>
+</Organization>
