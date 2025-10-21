@@ -24,7 +24,7 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
   const loadActiveSchema = async () => {
     try {
       const schemas = await apiClient.getSchemas();
-      const active = schemas.find(s => s.active);
+      const active = schemas.find((s) => s.active);
       setActiveSchema(active || null);
     } catch (err: any) {
       setError(err.message || 'Failed to load active schema');
@@ -32,12 +32,12 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
   };
 
   const handleFileDrop = (acceptedFiles: File[]) => {
-    setFiles(prev => [...prev, ...acceptedFiles]);
+    setFiles((prev) => [...prev, ...acceptedFiles]);
     setError(null);
   };
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const clearAllFiles = () => {
@@ -69,7 +69,7 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
       setIngestResult(result);
       setFiles([]);
       // Trigger refresh of uploaded files list
-      setRefreshTrigger(prev => prev + 1);
+      setRefreshTrigger((prev) => prev + 1);
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || 'Upload failed');
     } finally {
@@ -79,9 +79,10 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: handleFileDrop,
-    accept: contentType === 'xml'
-      ? { 'application/xml': ['.xml'], 'text/xml': ['.xml'] }
-      : { 'application/json': ['.json'] },
+    accept:
+      contentType === 'xml'
+        ? { 'application/xml': ['.xml'], 'text/xml': ['.xml'] }
+        : { 'application/json': ['.json'] },
     multiple: true,
   });
 
@@ -106,13 +107,12 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
             {activeSchema ? (
               <>
                 {contentType === 'xml' ? (
-                  <p className="text-sm text-gray-600">
-                    {activeSchema.primary_filename}
-                  </p>
+                  <p className="text-sm text-gray-600">{activeSchema.primary_filename}</p>
                 ) : (
                   <div className="mt-1">
                     <p className="text-sm text-gray-900 font-medium">
-                      {activeSchema.json_schema_filename || activeSchema.primary_filename.replace(/\.xsd$/i, '.json')}
+                      {activeSchema.json_schema_filename ||
+                        activeSchema.primary_filename.replace(/\.xsd$/i, '.json')}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       Generated via cmftool from {activeSchema.primary_filename}
@@ -148,9 +148,7 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-            isDragActive
-              ? 'border-blue-400 bg-blue-50'
-              : 'border-gray-300 hover:border-gray-400'
+            isDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
           }`}
         >
           <input {...getInputProps()} />
@@ -163,7 +161,9 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
               <p className="mt-2 text-sm text-gray-600">
                 Drag and drop {fileExtension} files here, or click to select
               </p>
-              <p className="text-xs text-gray-500">{fileExtension} files only, multiple files supported</p>
+              <p className="text-xs text-gray-500">
+                {fileExtension} files only, multiple files supported
+              </p>
             </>
           )}
         </div>
@@ -186,7 +186,10 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
             </div>
             <div className="space-y-1">
               {files.map((file, index) => (
-                <div key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                <div
+                  key={`${file.name}-${file.size}-${index}`}
+                  className="flex items-center justify-between bg-gray-50 p-2 rounded"
+                >
                   <div className="flex items-center">
                     <DocumentIcon className="h-4 w-4 text-gray-400 mr-2" />
                     <span className="text-sm text-gray-900">{file.name}</span>
@@ -223,15 +226,10 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
       </div>
 
       {/* Ingest Results */}
-      {ingestResult && (
-        <IngestResults results={ingestResult} />
-      )}
+      {ingestResult && <IngestResults results={ingestResult} />}
 
       {/* Uploaded Files List */}
-      <UploadedFilesList
-        contentType={contentType}
-        refreshTrigger={refreshTrigger}
-      />
+      <UploadedFilesList contentType={contentType} refreshTrigger={refreshTrigger} />
     </div>
   );
 }

@@ -113,15 +113,19 @@ class ApiClient {
     this.client = axios.create({
       baseURL: API_URL,
       headers: {
-        'Authorization': `Bearer ${DEV_TOKEN}`,
+        Authorization: `Bearer ${DEV_TOKEN}`,
       },
     });
   }
 
   // Schema Management
-  async uploadSchema(files: File[], filePaths: string[], skipNiemNdr: boolean = false): Promise<any> {
+  async uploadSchema(
+    files: File[],
+    filePaths: string[],
+    skipNiemNdr: boolean = false
+  ): Promise<any> {
     const formData = new FormData();
-    files.forEach(file => {
+    files.forEach((file) => {
       formData.append('files', file);
     });
     // Send file paths as JSON array
@@ -148,7 +152,7 @@ class ApiClient {
 
   async downloadSchemaFile(schemaId: string, fileType: 'cmf' | 'json'): Promise<Blob> {
     const response = await this.client.get(`/api/schema/${schemaId}/file/${fileType}`, {
-      responseType: 'blob'
+      responseType: 'blob',
     });
     return response.data;
   }
@@ -156,7 +160,7 @@ class ApiClient {
   // Data Ingestion - Direct to Neo4j
   async ingestXml(files: File[]): Promise<IngestResult> {
     const formData = new FormData();
-    files.forEach(file => {
+    files.forEach((file) => {
       formData.append('files', file);
     });
 
@@ -170,7 +174,7 @@ class ApiClient {
 
   async ingestJson(files: File[]): Promise<IngestResult> {
     const formData = new FormData();
-    files.forEach(file => {
+    files.forEach((file) => {
       formData.append('files', file);
     });
 

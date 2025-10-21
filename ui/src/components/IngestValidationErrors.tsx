@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { ExclamationTriangleIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import {
+  ExclamationTriangleIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+} from '@heroicons/react/24/outline';
 import { ValidationResult, ValidationError } from '../lib/api';
 
 interface IngestValidationErrorsProps {
@@ -7,7 +11,10 @@ interface IngestValidationErrorsProps {
   readonly validationResult: ValidationResult;
 }
 
-export default function IngestValidationErrors({ filename, validationResult }: IngestValidationErrorsProps) {
+export default function IngestValidationErrors({
+  filename,
+  validationResult,
+}: IngestValidationErrorsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const { errors, warnings, summary } = validationResult;
@@ -28,16 +35,24 @@ export default function IngestValidationErrors({ filename, validationResult }: I
     const bgColor = error.severity === 'error' ? 'bg-red-50' : 'bg-yellow-50';
 
     return (
-      <div key={index} className={`${bgColor} p-3 rounded border-l-4 ${error.severity === 'error' ? 'border-red-500' : 'border-yellow-500'}`}>
+      <div
+        key={index}
+        className={`${bgColor} p-3 rounded border-l-4 ${error.severity === 'error' ? 'border-red-500' : 'border-yellow-500'}`}
+      >
         <div className="flex items-start">
-          <ExclamationTriangleIcon className={`h-5 w-5 ${severityColor} mr-2 flex-shrink-0 mt-0.5`} />
+          <ExclamationTriangleIcon
+            className={`h-5 w-5 ${severityColor} mr-2 flex-shrink-0 mt-0.5`}
+          />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-mono font-semibold text-gray-600">{location}</span>
               {error.rule && (
                 <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">{error.rule}</span>
               )}
-              <span className="text-xs uppercase font-semibold" style={{ color: error.severity === 'error' ? '#991b1b' : '#92400e' }}>
+              <span
+                className="text-xs uppercase font-semibold"
+                style={{ color: error.severity === 'error' ? '#991b1b' : '#92400e' }}
+              >
                 {error.severity}
               </span>
             </div>
@@ -90,9 +105,7 @@ export default function IngestValidationErrors({ filename, validationResult }: I
           {/* Errors Section */}
           {errors.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-red-900 mb-2">
-                Errors ({errors.length})
-              </h4>
+              <h4 className="text-sm font-semibold text-red-900 mb-2">Errors ({errors.length})</h4>
               <div className="space-y-2">
                 {errors.map((error, index) => renderValidationError(error, index))}
               </div>
@@ -106,11 +119,12 @@ export default function IngestValidationErrors({ filename, validationResult }: I
                 Warnings ({warnings.length})
               </h4>
               <div className="space-y-2">
-                {warnings.map((warning, index) => renderValidationError(warning, `warning-${index}`))}
+                {warnings.map((warning, index) =>
+                  renderValidationError(warning, `warning-${index}`)
+                )}
               </div>
             </div>
           )}
-
         </div>
       )}
     </div>
