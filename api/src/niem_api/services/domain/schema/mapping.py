@@ -166,15 +166,10 @@ def _is_meaningful_class(class_info: dict[str, Any]) -> bool:
         class_info: Class information dictionary
 
     Returns:
-        True if class has meaningful content
+        True if class has meaningful content (must have at least an ID)
     """
-    return any([
-        class_info.get("id"),
-        class_info.get("name"),
-        class_info.get("namespace_prefix"),
-        class_info.get("subclass_of"),
-        class_info.get("props", [])
-    ])
+    # A class must have an ID to be meaningful - this is the primary identifier
+    return bool(class_info.get("id"))
 
 
 def parse_classes(root: ET.Element) -> list[dict[str, Any]]:

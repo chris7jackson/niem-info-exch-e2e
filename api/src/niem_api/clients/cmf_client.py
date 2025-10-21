@@ -232,8 +232,20 @@ def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> dict
                 warnings.append(error_dict)
 
     # If no structured errors found but output exists, create a generic error
+    # But skip if output indicates success (e.g., "No errors found", "Validation successful")
     if not errors and not warnings and combined_output.strip():
-        if "[error]" in combined_output.lower() or "error" in combined_output.lower():
+        output_lower = combined_output.lower()
+        # Check for actual error indicators, but exclude success messages
+        has_error_indicator = (
+            "[error]" in output_lower or
+            ("error" in output_lower and "no error" not in output_lower)
+        )
+        # Don't create error if output indicates success
+        is_success = any(phrase in output_lower for phrase in [
+            "validation successful", "no errors", "successful"
+        ])
+
+        if has_error_indicator and not is_success:
             errors.append({
                 "file": filename,
                 "line": None,

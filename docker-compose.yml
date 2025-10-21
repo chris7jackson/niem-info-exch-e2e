@@ -50,8 +50,8 @@ services:
       context: .
       dockerfile: ./api/Dockerfile
       args:
-        VERSION: ${VERSION:-dev}
-        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        VERSION: ${VERSION:-0.1.0}
+        GIT_COMMIT: ${GIT_COMMIT:-dev}
         BUILD_DATE: ${BUILD_DATE:-unknown}
     environment:
       DEV_TOKEN: ${DEV_TOKEN:-devtoken}
@@ -87,8 +87,8 @@ services:
       context: .
       dockerfile: ./ui/Dockerfile
       args:
-        VERSION: ${VERSION:-dev}
-        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        VERSION: ${VERSION:-0.1.0}
+        GIT_COMMIT: ${GIT_COMMIT:-dev}
         BUILD_DATE: ${BUILD_DATE:-unknown}
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:${API_PORT:-8000}}
