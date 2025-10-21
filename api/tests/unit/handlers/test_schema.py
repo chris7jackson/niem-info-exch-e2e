@@ -49,57 +49,64 @@ class TestSchemaHandlers:
     @pytest.mark.asyncio
     async def test_handle_schema_upload_success(self, mock_s3_client, mock_upload_files):
         """Test successful schema upload and processing"""
-        with patch('niem_api.handlers.schema.NiemNdrValidator') as mock_validator, \
-             patch('niem_api.handlers.schema.convert_xsd_to_cmf') as mock_cmf_convert, \
-             patch('niem_api.handlers.schema.upload_file') as mock_upload, \
-             patch('niem_api.handlers.schema.generate_mapping_from_cmf_content') as mock_mapping:
+        from niem_api.models.models import SchevalReport
 
-            # Mock NDR validation success
-            mock_ndr_instance = Mock()
-            mock_validator.return_value = mock_ndr_instance
-            mock_ndr_instance.validate_xsd_conformance = AsyncMock(return_value={
-                "status": "pass",
-                "message": "Schema is valid",
-                "conformance_target": "niem-6.0",
-                "violations": [],
-                "summary": {"error_count": 0}
-            })
+        with patch('niem_api.handlers.schema._validate_all_scheval') as mock_scheval, \
+             patch('niem_api.handlers.schema._convert_to_cmf') as mock_cmf_convert, \
+             patch('niem_api.handlers.schema.upload_file') as mock_upload:
+
+            # Mock scheval validation success
+            mock_scheval.return_value = SchevalReport(
+                status="pass",
+                message="Schema is valid",
+                conformance_target="niem-6.0",
+                errors=[],
+                warnings=[],
+                summary={"error_count": 0, "warning_count": 0}
+            )
 
             # Mock CMF conversion success
-            mock_cmf_convert.return_value = {
-                "status": "success",
-                "cmf_content": "<cmf>test</cmf>"
-            }
-
-            # Mock mapping generation
-            mock_mapping.return_value = {"objects": [], "associations": []}
+            mock_cmf_convert.return_value = (
+                {"status": "success", "cmf_content": "<cmf>test</cmf>"},
+                {"status": "success"}
+            )
 
             result = await handle_schema_upload(mock_upload_files, mock_s3_client)
 
             assert result.schema_id is not None
             assert result.is_active is True
-            assert result.niem_ndr_report.status == "pass"
+            assert result.scheval_report.status == "pass"
             mock_upload.assert_called()
 
     @pytest.mark.asyncio
     async def test_handle_schema_upload_ndr_failure(self, mock_s3_client, mock_upload_files):
         """Test schema upload with NDR validation failure"""
-        with patch('niem_api.handlers.schema.NiemNdrValidator') as mock_validator:
-            mock_ndr_instance = Mock()
-            mock_validator.return_value = mock_ndr_instance
-            mock_ndr_instance.validate_xsd_conformance = AsyncMock(return_value={
-                "status": "fail",
-                "message": "Schema validation failed",
-                "conformance_target": "niem-6.0",
-                "violations": [{"type": "error", "message": "Invalid element"}],
-                "summary": {"error_count": 1}
-            })
+        from niem_api.models.models import SchevalReport, SchevalIssue
+
+        with patch('niem_api.handlers.schema._validate_all_scheval') as mock_scheval:
+            # Mock scheval validation failure
+            mock_scheval.return_value = SchevalReport(
+                status="fail",
+                message="Schema validation failed",
+                conformance_target="niem-6.0",
+                errors=[SchevalIssue(
+                    file="test.xsd",
+                    line=1,
+                    column=1,
+                    severity="error",
+                    message="Invalid element",
+                    rule=None,
+                    context=None
+                )],
+                warnings=[],
+                summary={"error_count": 1, "warning_count": 0}
+            )
 
             with pytest.raises(HTTPException) as exc_info:
                 await handle_schema_upload(mock_upload_files, mock_s3_client)
 
             assert exc_info.value.status_code == 400
-            assert "NIEM NDR validation failures" in exc_info.value.detail
+            assert "NIEM NDR validation" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_handle_schema_upload_file_too_large(self, mock_s3_client):
