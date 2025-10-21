@@ -44,7 +44,7 @@ export default function ConversionResults({ results }: ConversionResultsProps) {
       const url = URL.createObjectURL(content);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `conversions-${Date.now()}.zip`;
+      a.download = `xml-to-json-conversions-${new Date().toISOString().split('T')[0]}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
