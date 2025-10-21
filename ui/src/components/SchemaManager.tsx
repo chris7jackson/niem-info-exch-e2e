@@ -298,13 +298,13 @@ export default function SchemaManager() {
 
       {/* Validation Results */}
       {lastValidationResult &&
-        typeof lastValidationResult === 'object' &&
-        lastValidationResult !== null && (
-          <ValidationResults
-            importReport={(lastValidationResult as any).import_validation_report}
-            schevalReport={(lastValidationResult as any).scheval_report}
-          />
-        )}
+      typeof lastValidationResult === 'object' &&
+      lastValidationResult !== null ? (
+        <ValidationResults
+          importReport={(lastValidationResult as any).import_validation_report}
+          schevalReport={(lastValidationResult as any).scheval_report}
+        />
+      ) : null}
 
       {/* Upload Area */}
       <div className="bg-white shadow rounded-lg p-6">

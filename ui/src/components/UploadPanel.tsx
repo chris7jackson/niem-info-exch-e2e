@@ -107,15 +107,16 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
             {activeSchema ? (
               <>
                 {contentType === 'xml' ? (
-                  <p className="text-sm text-gray-600">{activeSchema.primary_filename}</p>
+                  <p className="text-sm text-gray-600">{activeSchema.primary_filename ?? 'N/A'}</p>
                 ) : (
                   <div className="mt-1">
                     <p className="text-sm text-gray-900 font-medium">
                       {activeSchema.json_schema_filename ||
-                        activeSchema.primary_filename.replace(/\.xsd$/i, '.json')}
+                        activeSchema.primary_filename?.replace(/\.xsd$/i, '.json') ||
+                        'schema.json'}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Generated via cmftool from {activeSchema.primary_filename}
+                      Generated via cmftool from {activeSchema.primary_filename ?? 'N/A'}
                     </p>
                   </div>
                 )}
