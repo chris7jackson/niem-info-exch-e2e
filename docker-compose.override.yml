@@ -50,6 +50,10 @@ services:
     # Development command
     command: npm run dev
 
+    # Development environment variables
+    environment:
+      NEXT_PUBLIC_DEV_TOKEN: ${NEXT_PUBLIC_DEV_TOKEN:-devtoken}
+
     # Mount source code for hot reload
     volumes:
       - ./ui:/app:ro

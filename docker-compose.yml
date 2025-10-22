@@ -92,6 +92,7 @@ services:
         BUILD_DATE: ${BUILD_DATE:-unknown}
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:${API_PORT:-8000}}
+      NEXT_PUBLIC_DEV_TOKEN: ${NEXT_PUBLIC_DEV_TOKEN:-devtoken}
     ports:
       - "${UI_PORT:-3000}:3000"
     networks:
