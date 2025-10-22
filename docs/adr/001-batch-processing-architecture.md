@@ -177,8 +177,6 @@ This pattern **MUST** be applied to all batch operations:
 
 ❌ **No Progress Updates**: Users wait for entire batch to complete (no streaming updates)
 
-❌ **Batch Size Limitation**: 10 files maximum may not suit all use cases
-
 ❌ **Sequential Bottlenecks**: Only 3 concurrent operations across entire system
 
 ### Mitigation Strategies
@@ -186,7 +184,6 @@ This pattern **MUST** be applied to all batch operations:
 For limitations above:
 - **HTTP Timeouts**: Batch size limit (10 files) keeps total time reasonable
 - **Progress Updates**: Frontend shows "Converting X of Y files..." but no real-time granularity
-- **Larger Batches**: See "Future Considerations" for async job queue architecture
 
 ## Alternatives Considered
 
@@ -236,99 +233,13 @@ For limitations above:
 - Over-engineered for current batch sizes (1-10 files)
 - Operational complexity for deployment
 
-**Verdict**: ❌ Rejected for now - Over-engineered for small batches, but see "Future Considerations"
+**Verdict**: ❌ Rejected for now - Over-engineered for small batches, but see possibly for future consideration
 
-### Alternative 4: Serverless Functions (AWS Lambda per file)
-
-**Approach**: Trigger separate Lambda for each file
-
-**Pros**:
-- Infinite scalability
-- Pay-per-use
-- No resource management needed
-
-**Cons**:
-- Vendor lock-in (AWS-specific)
-- Cold start latency
-- Requires rearchitecting deployment
-- Complex state aggregation
-- Doesn't work for local Docker development
-
-**Verdict**: ❌ Rejected - Doesn't support local development requirement
-
-### Alternative 5: Stream Processing (Kafka/RabbitMQ)
-
-**Approach**: Stream files through message queue
-
-**Pros**:
-- Handles high throughput
-- Decoupled architecture
-
-**Cons**:
-- Massive infrastructure overhead
-- Complex operational requirements
-- Total overkill for batch sizes of 1-10 files
-
-**Verdict**: ❌ Rejected - Overengineered
-
-## Future Considerations
-
-### Trigger for Re-evaluation
-
-This decision should be **revisited** when:
-- Batch size requirements exceed 50 files
-- Request timeout becomes a blocker (users complain about wait times)
-- Deployment moves to production cloud with dedicated infrastructure budget
-
-### Recommended Future Architecture: Async Job Queue
-
-If batch requirements grow, migrate to async job processing:
-
-**Architecture**:
-```
-┌─────────┐      ┌─────────┐      ┌──────────┐      ┌─────────┐
-│ Frontend│─────▶│ FastAPI │─────▶│ Job Queue│─────▶│ Workers │
-│         │◀─────│         │◀─────│  (Redis) │      │ (Celery)│
-└─────────┘      └─────────┘      └──────────┘      └─────────┘
-   │                  │                                    │
-   │                  │                                    ▼
-   │                  │                              ┌──────────┐
-   │                  └──────────────────────────────│  Neo4j   │
-   │ Poll for results                                │  MinIO   │
-   └───────────────────────────────────────────────▶│  etc.    │
-                                                     └──────────┘
-```
-
-**Flow**:
-1. `POST /api/convert/xml-to-json/batch` returns `job_id` immediately
-2. Background workers process files asynchronously
-3. `GET /api/jobs/{job_id}` polls for status and results
-4. Optional: WebSocket for real-time progress updates
-
-**Benefits**:
-- Supports large batches (100+ files)
-- Non-blocking HTTP requests
-- Real-time progress tracking
-- Horizontal scaling of workers
-
-**Implementation Options**:
-- **Self-hosted**: Celery + Redis (Docker-friendly)
-- **AWS**: SQS + Lambda + DynamoDB (serverless)
-- **Azure**: Service Bus + Functions + Cosmos DB
-- **GCP**: Pub/Sub + Cloud Run + Firestore
-
-**Migration Path**:
-1. Create new `/batch` endpoints (keep existing for backward compatibility)
-2. Add job status tracking (Redis or database)
-3. Deploy Celery workers (or cloud equivalent)
-4. Update frontend to poll for results
-5. Optional: Add WebSocket support for progress updates
 
 ## References
 
 - [FastAPI Background Tasks](https://fastapi.tiangolo.com/tutorial/background-tasks/)
 - [Python asyncio Semaphores](https://docs.python.org/3/library/asyncio-sync.html#asyncio.Semaphore)
-- [Celery Distributed Task Queue](https://docs.celeryq.dev/)
 - Issue #33: Improve XML to JSON converter with batch processing
 
 ## Related Decisions
