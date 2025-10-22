@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const DEV_TOKEN = 'devtoken'; // In production, this would come from environment or auth
+const DEV_TOKEN = process.env.NEXT_PUBLIC_DEV_TOKEN || 'devtoken';
 
 export interface Schema {
   schema_id: string;

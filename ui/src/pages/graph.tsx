@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import cytoscape from 'cytoscape';
 
+const DEV_TOKEN = process.env.NEXT_PUBLIC_DEV_TOKEN || 'devtoken';
+
 interface GraphNode {
   id: string;
   label: string;
@@ -174,7 +176,7 @@ export default function GraphPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
+          'Authorization': `Bearer ${localStorage.getItem('token') || DEV_TOKEN}`
         },
         body: JSON.stringify({ query, limit: 1000 })
       });

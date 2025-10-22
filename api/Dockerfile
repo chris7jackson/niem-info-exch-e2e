@@ -19,15 +19,17 @@ LABEL org.opencontainers.image.version="${VERSION}" \
 
 WORKDIR /app
 
-# Install system dependencies including Java for CMF tool
+# Install system dependencies including Java for CMF tool and dos2unix
 RUN apt-get update && apt-get install -y \
     curl \
     openjdk-21-jre-headless \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
 COPY api/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY api/src/ ./src/
@@ -35,22 +37,18 @@ COPY api/src/ ./src/
 # Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
-# Copy third-party tools (embedded in api directory) and set ownership
-COPY --chown=appuser:appgroup api/third_party/niem-ndr /app/third_party/niem-ndr
-COPY --chown=appuser:appgroup api/third_party/niem-cmf /app/third_party/niem-cmf
-COPY --chown=appuser:appgroup api/third_party/niem-scheval /app/third_party/niem-scheval
-COPY --chown=appuser:appgroup api/third_party/niem-tran /app/third_party/niem-tran
+# Copy third-party tools (embedded in api directory) in a single layer
+COPY --chown=appuser:appgroup api/third_party /app/third_party
 
 # Fix line endings and permissions for all shell scripts
-RUN apt-get update && apt-get install -y dos2unix \
-    && dos2unix /app/third_party/niem-cmf/cmftool-1.0/bin/cmftool \
+RUN dos2unix /app/third_party/niem-cmf/cmftool-1.0/bin/cmftool \
     && dos2unix /app/third_party/niem-scheval/scheval-1.0/bin/scheval \
     && dos2unix /app/third_party/niem-tran/niemtran-1.0/bin/niemtran \
     && chmod +x /app/third_party/niem-cmf/cmftool-1.0/bin/cmftool \
     && chmod +x /app/third_party/niem-scheval/scheval-1.0/bin/scheval \
     && chmod +x /app/third_party/niem-tran/niemtran-1.0/bin/niemtran \
     && find /app/third_party/niem-ndr -name "*.sh" -exec chmod +x {} \; \
-    && chown -R appuser:appgroup /app/src
+    && chown -R appuser:appgroup /app/src /app/third_party
 
 USER appuser
 
