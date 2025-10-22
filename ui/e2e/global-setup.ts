@@ -7,7 +7,6 @@ import fs from 'fs'
  * Uploads a test schema via API before all tests run
  */
 async function globalSetup(config: FullConfig) {
-  const baseURL = config.use?.baseURL || 'http://localhost:3000'
   const apiURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
   console.log('🔧 Global Setup: Uploading test schema via API...')
