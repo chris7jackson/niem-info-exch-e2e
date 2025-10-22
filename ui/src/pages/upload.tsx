@@ -22,7 +22,7 @@ export default function UploadPage() {
 
       <Tab.Group selectedIndex={selectedIndex} onChange={setSelectedIndex}>
         <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1">
-          {tabs.map((tab, index) => (
+          {tabs.map((tab, _index) => (
             <Tab
               key={tab.name}
               className={({ selected }) =>

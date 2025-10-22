@@ -31,21 +31,21 @@ export class SchemaManagerPage extends BasePage {
    */
   async goto() {
     await this.navigate('/schemas')
-    await this.page.waitForSelector('h1:has-text("Schema Management")', { state: 'visible' })
+    await this.page.waitForSelector('h2:has-text("Schema Management")', { state: 'visible' })
   }
 
   /**
-   * Upload a schema file
-   * @param fileName - Name of file in e2e/fixtures/schemas/
+   * Upload a schema directory
+   * @param dirName - Name of directory in e2e/fixtures/schemas/ (e.g., 'valid-simple-dir')
    */
-  async uploadSchema(fileName: string) {
-    const filePath = path.join(process.cwd(), 'e2e', 'fixtures', 'schemas', fileName)
+  async uploadSchema(dirName: string) {
+    const dirPath = path.join(process.cwd(), 'e2e', 'fixtures', 'schemas', dirName)
 
-    // Set the file on the input element
-    await this.fileInput.setInputFiles(filePath)
+    // For directory inputs, pass the directory path directly (Playwright handles it)
+    await this.fileInput.setInputFiles(dirPath)
 
-    // Wait for file to appear in the list (if component shows selected files)
-    await this.page.waitForTimeout(500) // Small delay for UI to update
+    // Wait for files to appear in the list
+    await this.page.waitForTimeout(500)
 
     // Click upload button if it exists
     const uploadBtn = this.page.locator('button').filter({ hasText: /upload \d+ file|upload schema/i })
@@ -112,9 +112,14 @@ export class SchemaManagerPage extends BasePage {
 
   /**
    * Wait for schema upload to complete
+   * Instead of waiting for a toast, wait for the schema to appear in the uploaded list
    */
   async waitForUploadComplete(timeout = 30000) {
-    await this.waitForSuccess(timeout)
+    // Wait for the "Uploaded Schemas" section to show at least one schema
+    await this.page.waitForSelector('.bg-white.shadow:has-text("Uploaded Schemas") .p-4', {
+      timeout,
+      state: 'visible'
+    })
   }
 
   /**
