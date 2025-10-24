@@ -678,11 +678,31 @@ def traverse(elem: ET.Element, parent_info: Tuple[str, str], path_stack: List[ET
             ordinal_path = "/".join([qname_from_tag(e.tag, ns_map) for e in path_stack] + [elem_qn])
             node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
 
-        # Step 3c: Extract Properties
+        # Step 3c: Hybrid Property Extraction (Schema-Driven + Auto-Extraction)
+        """
+        This hybrid approach combines the best of both worlds:
+        1. Schema-driven flattening via scalar_props (controlled, optimized paths)
+        2. Automatic extraction of everything else (no data loss)
+
+        The approach ensures:
+        - No duplicates (tracks what scalar_props already extracted)
+        - No data loss (captures all CMF elements and augmentations)
+        - Clear augmentation marking (_isAugmentation flags)
+        - Minimal configuration (only map what needs flattening)
+        """
         props = {}
+        mapped_child_qnames = set()
+
+        # STEP 1: Extract explicitly mapped scalar properties (schema-driven flattening)
         if obj_rule:
             """
-            Scalar Property Extraction:
+            Scalar Property Extraction (from mapping.yaml):
+
+            What makes something a "scalar property"?
+            - Schema analysis in mapping.py classifies datatypes as SIMPLE, WRAPPER, or COMPLEX
+            - SIMPLE: Direct values (xs:string, xs:date) → direct property
+            - WRAPPER: Single child container → flatten through (unwrap)
+            - COMPLEX: Multiple children → flatten all to separate properties
 
             For each scalar_props entry in mapping:
             {
@@ -692,44 +712,125 @@ def traverse(elem: ET.Element, parent_info: Tuple[str, str], path_stack: List[ET
 
             Traverse nested path from current element:
             1. Start at <nc:Person>
-            2. Find child <nc:PersonName>
-            3. Find child <nc:PersonGivenName>
+            2. Find child <nc:PersonName> (COMPLEX type with 2+ children)
+            3. Find child <nc:PersonGivenName> (SIMPLE type: xs:string)
             4. Extract text content: "John"
             5. Add to props: {"nc_PersonName_nc_PersonGivenName": "John"}
+
+            This flattening avoids creating intermediate PersonName nodes.
             """
             setters = collect_scalar_setters(obj_rule, elem, ns_map)
             for key, value in setters:
                 props[key] = value
 
-        # Step 3d: Extract Augmentation Properties
+            # Track which direct children were already processed by scalar_props
+            # This prevents duplicate extraction in the auto-extraction phase
+            for prop_config in obj_rule.get("scalar_props", []) or []:
+                path = prop_config["path"]
+                if not path.startswith("@"):
+                    # Extract first path segment (direct child element)
+                    first_segment = path.split("/")[0]
+                    mapped_child_qnames.add(first_segment)
+
+        # STEP 2: Auto-extract ALL remaining simple-text children (hybrid approach)
+        """
+        Automatic Property Extraction:
+
+        This phase captures everything NOT already handled by scalar_props:
+        1. CMF elements not in mapping (no data loss)
+        2. Augmentation elements (extension data)
+
+        Example with mapping that only includes nc:PersonName/* :
+
+        XML:
+        <nc:Person>
+          <nc:PersonName>                    ← Handled by scalar_props
+            <nc:PersonGivenName>John</nc:PersonGivenName>
+            <nc:PersonSurName>Smith</nc:PersonSurName>
+          </nc:PersonName>
+          <nc:PersonBirthDate>1980-01-01</nc:PersonBirthDate>  ← AUTO-EXTRACTED (CMF, unmapped)
+          <exch:CustomField>value</exch:CustomField>            ← AUTO-EXTRACTED (augmentation)
+        </nc:Person>
+
+        Result properties:
+        {
+          # From scalar_props (flattened):
+          nc_PersonName_nc_PersonGivenName: "John",
+          nc_PersonName_nc_PersonSurName: "Smith",
+
+          # From auto-extraction (CMF element not in mapping):
+          nc_PersonBirthDate: "1980-01-01",
+
+          # From auto-extraction (augmentation):
+          exch_CustomField: "value",
+          exch_CustomField_isAugmentation: true
+        }
+
+        Benefits:
+        - No data loss: captures all simple-text values
+        - No duplicates: skips children already in scalar_props
+        - Clear semantics: exact property names, augmentation flags
+        - Minimal config: only map what needs special flattening
+        """
         aug_props = {}
-        if cmf_element_index:
-            """
-            Augmentation Detection:
+        for child in elem:
+            child_qn = qname_from_tag(child.tag, ns_map)
 
-            Any element/attribute NOT in cmf_element_index is an augmentation.
+            # Skip if already extracted via scalar_props (avoid duplication)
+            if child_qn in mapped_child_qnames:
+                continue
 
-            Example:
-            <nc:Person>
-              <exch:PersonFictionalCharacterIndicator>true</exch:PersonFictionalCharacterIndicator>
-            </nc:Person>
+            # Check if child has simple text content (no nested elements)
+            if child.text and child.text.strip() and len(list(child)) == 0:
+                # Use exact property name (preserve semantic meaning)
+                prop_name = child_qn.replace(':', '_')
 
-            If "exch:PersonFictionalCharacterIndicator" NOT in cmf_element_index:
-            1. Extract as augmentation property
-            2. Add prefix: "aug_exch_PersonFictionalCharacterIndicator"
-            3. Store value: "true"
+                # Check if this is an augmentation (extension data not in CMF schema)
+                is_aug = cmf_element_index and is_augmentation(child_qn, cmf_element_index)
 
-            For complex augmentations (nested structure):
-            1. Create separate Augmentation node
-            2. Link to parent: (parent)-[:AugmentedBy]->(Augmentation)
-            """
-            aug_props = extract_unmapped_properties(elem, ns_map, cmf_element_index)
+                if is_aug:
+                    # Store as augmentation property with metadata flag
+                    aug_props[prop_name] = child.text.strip()
+                    aug_props[f"{prop_name}_isAugmentation"] = True
+                else:
+                    # Store as regular property (CMF element not in mapping)
+                    props[prop_name] = child.text.strip()
 
-            # Handle complex augmentations
-            for child in elem:
-                child_qn = qname_from_tag(child.tag, ns_map)
-                if is_augmentation(child_qn, cmf_element_index) and len(list(child)) > 0:
-                    handle_complex_augmentation(child, ns_map, node_id, file_prefix, nodes, contains)
+            # STEP 3: Handle complex augmentation children (nested structures)
+            # Attach properties directly to parent node (no orphan Augmentation nodes)
+            elif cmf_element_index and is_augmentation(child_qn, cmf_element_index) and len(list(child)) > 0:
+                """
+                Complex Augmentation Flattening:
+
+                <nc:Person>
+                  <cb_exchange:TransmittalSubjectChild>
+                    <nc:PersonFullName>Jane Doe</nc:PersonFullName>
+                    <nc:PersonBirthDate>1990-01-01</nc:PersonBirthDate>
+                  </cb_exchange:TransmittalSubjectChild>
+                </nc:Person>
+
+                Creates properties on parent node (NO separate Augmentation nodes):
+                {
+                  "cb_exchange_TransmittalSubjectChild.nc_PersonFullName": "Jane Doe",
+                  "cb_exchange_TransmittalSubjectChild.nc_PersonFullName_isAugmentation": true,
+                  "cb_exchange_TransmittalSubjectChild.nc_PersonBirthDate": "1990-01-01",
+                  "cb_exchange_TransmittalSubjectChild.nc_PersonBirthDate_isAugmentation": true
+                }
+
+                Benefits:
+                - NO orphan Augmentation nodes - all data co-located with parent
+                - Exact property names preserve semantic meaning
+                - Fast queries - no traversals needed
+                - Entity resolution enabled - all data available for matching
+                """
+                # Extract nested properties with dot notation
+                nested_props = _extract_all_properties_recursive(child, ns_map)
+                for key, value in nested_props.items():
+                    # Flatten with exact property names (NO aug_ prefix for semantic clarity)
+                    prop_name = f"{child_qn.replace(':', '_').replace('.', '_')}.{key}"
+                    aug_props[prop_name] = value
+                    # Add augmentation metadata flag for identification
+                    aug_props[f"{prop_name}_isAugmentation"] = True
 
         # Step 3e: Register Node
         if node_id in nodes:
@@ -987,20 +1088,78 @@ node_id = f"{file_prefix}_{structures_id}"
 - Schema-agnostic pattern works with any entity type (Person, Organization, Vehicle, etc.)
 - Query all roles for an entity: `MATCH (e {id: "P01"})<-[:REPRESENTS]-(role) RETURN e, role`
 
-### Decision 4: Augmentation Property Prefixing
+### Decision 4: Hybrid Property Extraction (Schema-Driven + Auto-Extraction)
 
-**Problem:** Extension data not in original schema should be clearly marked
+**Problem:** Need to balance schema control with data completeness - don't lose unmapped CMF elements or augmentations
 
-**Solution:**
+**Solution: 3-Phase Hybrid Approach**
+
+1. **Scalar Properties (Schema-Driven Flattening)**
+   - Configured in mapping.yaml based on CMF datatype analysis (SIMPLE/WRAPPER/COMPLEX)
+   - Flattens nested structures (e.g., `nc:PersonName/nc:PersonGivenName`)
+   - Provides control over graph schema optimization
+
+2. **Auto-Extraction (Everything Else)**
+   - Captures ALL simple-text children not already in scalar_props
+   - Ensures no data loss for unmapped CMF elements
+   - Automatically detects and marks augmentations
+
+3. **Complex Augmentations (Flattened to Parent)**
+   - Nested augmentation structures flattened with dot notation
+   - All data co-located on parent node (no orphan Augmentation nodes)
+
+**Example:**
 ```cypher
-n.nc_PersonGivenName='John'  // Mapped property from schema
-n.aug_exch_CustomField='value'  // Augmentation property (not in CMF)
+-- Given mapping.yaml with only nc:PersonName/* configured:
+CREATE (n:nc_Person {
+  -- Phase 1: From scalar_props (schema-driven flattening)
+  nc_PersonName_nc_PersonGivenName: 'John',
+  nc_PersonName_nc_PersonSurName: 'Smith',
+
+  -- Phase 2: Auto-extracted (CMF elements NOT in mapping - no data loss!)
+  nc_PersonBirthDate: '1980-01-01',
+  nc_PersonFullName: 'John Smith',
+
+  -- Phase 2: Auto-extracted (augmentation - extension data)
+  exch_CustomField: 'value',
+  exch_CustomField_isAugmentation: true,
+
+  -- Phase 3: Complex augmentation (flattened with dot notation)
+  cb_exchange_TransmittalSubjectChild.nc_PersonFullName: 'Jane Doe',
+  `cb_exchange_TransmittalSubjectChild.nc_PersonFullName_isAugmentation`: true
+})
 ```
 
+**Key Principles:**
+- **Hybrid = Schema-Driven + Auto-Extraction**: Best of both worlds
+- **No duplicates**: Tracks what scalar_props already extracted
+- **No data loss**: Auto-extracts everything else (CMF + augmentations)
+- **No aug_ prefix**: Property names preserve exact semantic meaning
+- **Augmentation metadata**: `_isAugmentation: true` flag identifies extension data
+- **No orphan nodes**: All data co-located on parent (fast queries, no joins)
+- **Minimal configuration**: Only map what needs special flattening
+
 **Benefits:**
-- Clear distinction between schema-defined and extension data
-- Preserves all information from source documents
-- Enables filtering queries: `WHERE NOT keys(n) =~ 'aug_.*'`
+- **Zero data loss**: Captures all CMF elements and augmentations automatically
+- **Controlled optimization**: Schema-driven flattening where you need it
+- **Clear distinction**: Regular vs augmentation properties via flags
+- **Entity resolution enabled**: All data available for matching/deduplication
+- **Fast queries**: No traversals needed, all data on node
+- **Semantic clarity**: Exact property names preserve meaning
+- **Minimal config burden**: Only configure paths needing special handling
+
+**Query Examples:**
+```cypher
+-- Find all nodes with augmentation properties
+MATCH (n)
+WHERE any(k IN keys(n) WHERE k ENDS WITH '_isAugmentation')
+RETURN n
+
+-- Get only augmentation properties from a node
+MATCH (n:nc_Person {id: 'P01'})
+RETURN [k IN keys(n) WHERE k ENDS WITH '_isAugmentation' |
+  replace(k, '_isAugmentation', '') + ': ' + n[replace(k, '_isAugmentation', '')]]
+```
 
 ### Decision 5: Metadata Relationships via Containment
 
@@ -1101,14 +1260,22 @@ RETURN vehicle, driver
 ### Query 4: Find Augmented Data
 
 ```cypher
+-- Find all nodes with augmentation properties
 MATCH (n)
-WHERE any(key IN keys(n) WHERE key STARTS WITH 'aug_')
-RETURN n, [key IN keys(n) WHERE key STARTS WITH 'aug_' | key + ': ' + n[key]]
+WHERE any(key IN keys(n) WHERE key ENDS WITH '_isAugmentation')
+RETURN n, [key IN keys(n) WHERE key ENDS WITH '_isAugmentation' |
+  replace(key, '_isAugmentation', '') + ': ' + n[replace(key, '_isAugmentation', '')]]
+
+-- Find specific augmentation property
+MATCH (n)
+WHERE n.customNamespace_customField_isAugmentation = true
+RETURN n.customNamespace_customField AS value
 ```
 
 **Demonstrates:**
-- Augmentation property prefixing
+- Augmentation metadata flags (`_isAugmentation`)
 - Easy to identify extension data
+- Exact property names (semantic clarity)
 
 ---
 

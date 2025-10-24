@@ -350,8 +350,8 @@ def collect_scalar_setters(
                 value = cur.text.strip()
 
         if value is not None:
-            # Escape single quotes for Cypher
-            escaped_value = value.replace("'", "\\'")
+            # Escape backslashes first, then single quotes for Cypher
+            escaped_value = value.replace("\\", "\\\\").replace("'", "\\'")
             setters.append((key, escaped_value))
     return setters
 
@@ -390,11 +390,55 @@ def generate_for_xml_content(
     # Use timestamp + filename hash for uniqueness
     import json
     import time
+    from datetime import datetime, timezone
+
     file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode()).hexdigest()[:8]
+    ingest_timestamp = datetime.now(timezone.utc).isoformat()
 
     nodes = {}  # id -> (label, qname, props_dict, aug_props_dict)
     edges = []  # (from_id, from_label, to_id, to_label, rel_type, rel_props)
     contains = []  # (parent_id, parent_label, child_id, child_label, HAS_REL)
+
+    # ID registry for two-pass traversal
+    # Collect all IDs in first pass to enable forward reference resolution
+    id_registry = {}  # id -> element info for deferred processing
+    pending_refs = []  # List of (source_id, target_id, context) for validation
+    id_collisions = []  # List of ID collisions detected during Pass 1
+
+    def collect_ids_pass1(elem: ET.Element):
+        """Pass 1: Collect all elements with structures:id for forward reference resolution.
+
+        Args:
+            elem: XML element to process
+        """
+        sid = elem.attrib.get(f"{{{STRUCT_NS}}}id")
+        if sid:
+            prefixed_id = f"{file_prefix}_{sid}"
+            elem_qn = qname_from_tag(elem.tag, xml_ns_map)
+
+            # Check for ID collisions
+            if prefixed_id in id_registry:
+                # ID collision detected - same structures:id used multiple times
+                existing_qn = id_registry[prefixed_id]['qname']
+                id_collisions.append({
+                    'id': sid,
+                    'first_qname': existing_qn,
+                    'second_qname': elem_qn,
+                    'prefixed_id': prefixed_id
+                })
+                # Keep the first occurrence in the registry
+                # Later we can decide whether to error or warn
+            else:
+                # Register new ID
+                id_registry[prefixed_id] = {
+                    'element': elem,
+                    'qname': elem_qn,
+                    'raw_id': sid
+                }
+
+        # Recurse to all children
+        for child in elem:
+            collect_ids_pass1(child)
 
     def get_metadata_refs(elem: ET.Element, xml_ns_map: dict[str, str]) -> list[str]:
         """Extract metadata reference IDs from nc:metadataRef or priv:privacyMetadataRef attributes.
@@ -454,7 +498,32 @@ def generate_for_xml_content(
                 # Prefix referenced IDs with file_prefix
                 id_a_prefixed = f"{file_prefix}_{id_a}"
                 id_b_prefixed = f"{file_prefix}_{id_b}"
-                edges.append((id_a_prefixed, label_a, id_b_prefixed, label_b, rel, {}))
+
+                # Validate references exist in ID registry
+                if id_a_prefixed not in id_registry:
+                    pending_refs.append((elem_qn, id_a_prefixed, f"Association {elem_qn} endpoint A"))
+                if id_b_prefixed not in id_registry:
+                    pending_refs.append((elem_qn, id_b_prefixed, f"Association {elem_qn} endpoint B"))
+
+                # RICH EDGE STRATEGY: Extract simple properties from association element
+                # and add them to the relationship properties (for simple associations)
+                # This follows NIEM best practice of using rich edges when possible
+                edge_props = {}
+                for child in list(elem):
+                    child_qn = qname_from_tag(child.tag, xml_ns_map)
+                    # Skip role elements (already processed)
+                    is_role = any(child_qn == ep["role_qname"] for ep in endpoints)
+                    if not is_role and child.text and child.text.strip() and len(list(child)) == 0:
+                        # Simple text property - add to edge
+                        prop_name = child_qn.replace(":", "_").replace(".", "_")
+                        edge_props[prop_name] = child.text.strip()
+
+                # Extract augmentation properties for the edge
+                if cmf_element_index:
+                    aug_edge_props = extract_unmapped_properties(elem, xml_ns_map, cmf_element_index)
+                    edge_props.update(aug_edge_props)
+
+                edges.append((id_a_prefixed, label_a, id_b_prefixed, label_b, rel, edge_props))
 
             # Check if association should also be created as a node
             # (if it has metadata refs, structures:id, or explicit mapping that creates nodes)
@@ -493,6 +562,10 @@ def generate_for_xml_content(
                 target_id = f"{file_prefix}_{ref}"
             elif uri_ref:
                 target_id = f"{file_prefix}_{uri_ref[1:]}" if uri_ref.startswith("#") else f"{file_prefix}_{uri_ref}"
+
+            # Validate reference exists in ID registry
+            if target_id and target_id not in id_registry:
+                pending_refs.append((elem_qn, target_id, f"structures:ref/uri in {elem_qn}"))
 
             # Create or register entity node if not already exists (for forward references)
             # Use element QName to determine entity type (e.g., <nc:Person> creates nc:Person entity)
@@ -535,6 +608,10 @@ def generate_for_xml_content(
                 else:
                     entity_id = f"{file_prefix}_{uri_ref}"
 
+                # Validate reference exists in ID registry
+                if entity_id not in id_registry:
+                    pending_refs.append((elem_qn, entity_id, f"structures:uri role reference in {elem_qn}"))
+
                 # Create the role node with synthetic ID
                 parent_id = parent_info[0] if parent_info else "root"
                 chain = [qname_from_tag(e.tag, xml_ns_map) for e in path_stack] + [elem_qn]
@@ -553,25 +630,61 @@ def generate_for_xml_content(
                 ordinal_path = "/".join(chain)
                 node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
 
-            # Collect scalar properties if configured
+            # Step 1: Extract explicitly mapped scalar properties (schema-driven flattening)
+            # Tracks which direct children are already handled by scalar_props to avoid duplication
+            mapped_child_qnames = set()
             if obj_rule:
                 setters = collect_scalar_setters(obj_rule, elem, xml_ns_map)
-                if setters:
-                    for key, value in setters:
-                        props[key] = value
+                for key, value in setters:
+                    props[key] = value
 
-            # Extract augmentation properties (unmapped data)
+                # Track which direct children were already processed by scalar_props
+                # This prevents duplicate extraction in the auto-extraction phase
+                for prop_config in obj_rule.get("scalar_props", []) or []:
+                    path = prop_config["path"]
+                    if not path.startswith("@"):
+                        # Extract first path segment (direct child element)
+                        first_segment = path.split("/")[0]
+                        mapped_child_qnames.add(first_segment)
+
+            # Step 2: Auto-extract ALL remaining simple-text children (hybrid approach)
+            # This ensures no data loss for CMF elements not in scalar_props mapping
+            # and captures augmentation data in a single unified pass
             aug_props = {}
-            if cmf_element_index:
-                aug_props = extract_unmapped_properties(elem, xml_ns_map, cmf_element_index)
+            for child in elem:
+                child_qn = qname_from_tag(child.tag, xml_ns_map)
 
-                # Check for complex augmentation children (nested structures)
-                for child in elem:
-                    child_qn = qname_from_tag(child.tag, xml_ns_map)
-                    if is_augmentation(child_qn, cmf_element_index) and len(list(child)) > 0:
-                        # Child is an unmapped element with nested structure
-                        # Create separate Augmentation node
-                        handle_complex_augmentation(child, xml_ns_map, node_id, file_prefix, nodes, contains)
+                # Skip if already extracted via scalar_props (avoid duplication)
+                if child_qn in mapped_child_qnames:
+                    continue
+
+                # Check if child has simple text content (no nested elements)
+                if child.text and child.text.strip() and len(list(child)) == 0:
+                    # Use exact property name (preserve semantic meaning)
+                    prop_name = child_qn.replace(':', '_')
+
+                    # Check if this is an augmentation (extension data not in CMF schema)
+                    is_aug = cmf_element_index and is_augmentation(child_qn, cmf_element_index)
+
+                    if is_aug:
+                        # Store as augmentation property with metadata flag
+                        aug_props[prop_name] = child.text.strip()
+                        aug_props[f"{prop_name}_isAugmentation"] = True
+                    else:
+                        # Store as regular property (CMF element not in mapping)
+                        props[prop_name] = child.text.strip()
+
+                # Step 3: Handle complex augmentation children (nested structures)
+                # Attach properties directly to parent node (no orphan Augmentation nodes)
+                elif cmf_element_index and is_augmentation(child_qn, cmf_element_index) and len(list(child)) > 0:
+                    # Extract nested properties with dot notation
+                    nested_props = _extract_all_properties_recursive(child, xml_ns_map)
+                    for key, value in nested_props.items():
+                        # Flatten with exact property names (NO aug_ prefix for semantic clarity)
+                        prop_name = f"{child_qn.replace(':', '_').replace('.', '_')}.{key}"
+                        aug_props[prop_name] = value
+                        # Add augmentation metadata flag for identification
+                        aug_props[f"{prop_name}_isAugmentation"] = True
 
             # Register node
             if node_id in nodes:
@@ -617,6 +730,11 @@ def generate_for_xml_content(
                         if to_id and node_id:
                             # Prefix referenced ID with file_prefix
                             to_id_prefixed = f"{file_prefix}_{to_id}"
+
+                            # Validate reference exists in ID registry
+                            if to_id_prefixed not in id_registry:
+                                pending_refs.append((elem_qn, to_id_prefixed, f"Reference from {elem_qn} via {rule['field_qname']}"))
+
                             # Use the node_id that was assigned to this element
                             edges.append((
                                 node_id, rule["owner_object"].replace(":", "_"),
@@ -630,18 +748,75 @@ def generate_for_xml_content(
             traverse(ch, parent_ctx, path_stack)
         path_stack.pop()
 
-    # Start traversal - skip root if it's not explicitly mapped and has no structures:id
-    # This avoids creating redundant wrapper nodes
+    # ALWAYS process root element for document provenance
+    # Root element provides critical context: what document, when ingested, etc.
+    # Even if unmapped, it serves as anchor preventing orphaned nodes
     root_qn = qname_from_tag(root.tag, xml_ns_map)
-    root_has_id = root.attrib.get(f"{{{STRUCT_NS}}}id") is not None
+    root_has_id = root.attrib.get(f"{{{STRUCT_NS}}}id")
 
-    if root_qn not in obj_rules and not root_has_id:
-        # Skip root element and process its children directly
-        for child in list(root):
-            traverse(child, None, [])
-    else:
-        # Root element is mapped or has structures:id, process normally
-        traverse(root, None, [])
+    # Ensure root gets an ID (explicit or synthetic)
+    if not root_has_id:
+        # Generate synthetic ID for root
+        root_synthetic_id = f"{file_prefix}_root"
+        root.attrib[f"{{{STRUCT_NS}}}id"] = root_synthetic_id
+
+        # Add provenance metadata to root if it becomes a node
+        # This will be picked up during traversal if root creates a node
+
+    # TWO-PASS TRAVERSAL for forward reference resolution
+    # Pass 1: Collect all IDs to enable forward/backward reference resolution
+    collect_ids_pass1(root)
+
+    # Report ID collisions if any were detected
+    if id_collisions:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Found {len(id_collisions)} ID collisions in {filename}")
+        for collision in id_collisions:
+            logger.warning(
+                f"  - Duplicate ID '{collision['id']}': "
+                f"first in {collision['first_qname']}, "
+                f"again in {collision['second_qname']}"
+            )
+
+    # Pass 2: Process root element and create graph structure (always)
+    traverse(root, None, [])
+
+    # HANDLE UNRESOLVED REFERENCES
+    # After traversal, check for any references that weren't found in the ID registry
+    # These indicate potential data quality issues or forward/external references
+    unresolved_refs = []
+    for source_qn, target_id, context in pending_refs:
+        if target_id not in nodes:
+            # Target ID doesn't exist - could be forward ref or missing element
+            # Create placeholder UnresolvedReference node to prevent orphaned edges
+            unresolved_refs.append({
+                'target_id': target_id,
+                'context': context,
+                'source': source_qn
+            })
+
+            # Create placeholder node so edges don't fail
+            # This allows the graph to be created while flagging data quality issues
+            nodes[target_id] = [
+                "UnresolvedReference",
+                "unresolved:Reference",
+                {
+                    'error': f'Referenced ID not found in document',
+                    'context': context,
+                    'raw_id': target_id
+                },
+                {}
+            ]
+
+    # Log unresolved references for reporting (can be added to return value later)
+    # For now, add as comment in Cypher output
+    if unresolved_refs:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Found {len(unresolved_refs)} unresolved references in {filename}")
+        for ref in unresolved_refs:
+            logger.warning(f"  - {ref['context']}: {ref['target_id']}")
 
     # Resolve placeholder labels in edges (for metadata references)
     resolved_edges = []
@@ -672,24 +847,31 @@ def generate_for_xml_content(
         aug_props = node_data[3] if len(node_data) > 3 else {}
 
         lines.append(f"MERGE (n:`{label}` {{id:'{nid}'}})")
-        setbits = [f"n.qname='{qn}'", f"n.sourceDoc='{filename}'"]
+        setbits = [f"n.qname='{qn}'", f"n.sourceDoc='{filename}'", f"n.ingestDate='{ingest_timestamp}'"]
 
         # Add core mapped properties
         for key, value in sorted(props.items()):
             # Escape property names with dots using backticks
             prop_key = f"`{key}`" if '.' in key else key
-            setbits.append(f"n.{prop_key}='{value}'")
+            # Escape backslashes first, then single quotes
+            escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
+            setbits.append(f"n.{prop_key}='{escaped_value}'")
 
         # Add augmentation properties
         for key, value in sorted(aug_props.items()):
             # Escape property names with dots using backticks
             prop_key = f"`{key}`" if '.' in key else key
-            if isinstance(value, list):
+            if isinstance(value, bool):
+                # Write boolean flags directly (for _isAugmentation metadata)
+                setbits.append(f"n.{prop_key}={str(value).lower()}")
+            elif isinstance(value, list):
                 # Store as JSON array for multiple values
+                # json.dumps already escapes backslashes and quotes properly
                 json_value = json.dumps(value).replace("'", "\\'")
                 setbits.append(f"n.{prop_key}='{json_value}'")
             else:
-                escaped_value = str(value).replace("'", "\\'")
+                # Escape backslashes first, then single quotes
+                escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
                 setbits.append(f"n.{prop_key}='{escaped_value}'")
 
         lines.append("  ON CREATE SET " + ", ".join(setbits) + ";")
@@ -699,8 +881,31 @@ def generate_for_xml_content(
         lines.append(f"MATCH (p:`{plabel}` {{id:'{pid}'}}), (c:`{clabel}` {{id:'{cid}'}}) MERGE (p)-[:`{rel}`]->(c);")
 
     # MERGE reference/association edges
-    for fid, flabel, tid, tlabel, rel, _ in edges:
-        lines.append(f"MATCH (a:`{flabel}` {{id:'{fid}'}}), (b:`{tlabel}` {{id:'{tid}'}}) MERGE (a)-[:`{rel}`]->(b);")
+    for fid, flabel, tid, tlabel, rel, rprops in edges:
+        # Build relationship properties if any
+        if rprops:
+            # Build property setters for rich edges
+            prop_setters = []
+            for key, value in sorted(rprops.items()):
+                prop_key = f"`{key}`" if '.' in key else key
+                if isinstance(value, list):
+                    # json.dumps already escapes backslashes and quotes properly
+                    json_value = json.dumps(value).replace("'", "\\'")
+                    prop_setters.append(f"r.{prop_key}='{json_value}'")
+                else:
+                    # Escape backslashes first, then single quotes
+                    escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
+                    prop_setters.append(f"r.{prop_key}='{escaped_value}'")
+
+            # MERGE with properties on relationship (rich edge pattern)
+            props_clause = ", ".join(prop_setters)
+            lines.append(
+                f"MATCH (a:`{flabel}` {{id:'{fid}'}}), (b:`{tlabel}` {{id:'{tid}'}}) "
+                f"MERGE (a)-[r:`{rel}`]->(b) ON CREATE SET {props_clause};"
+            )
+        else:
+            # Simple edge without properties
+            lines.append(f"MATCH (a:`{flabel}` {{id:'{fid}'}}), (b:`{tlabel}` {{id:'{tid}'}}) MERGE (a)-[:`{rel}`]->(b);")
 
     return "\n".join(lines), nodes, contains, edges
 
