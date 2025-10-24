@@ -1,14 +1,14 @@
 blank_issues_enabled: false
 contact_links:
   - name: 💬 Ask a Question
-    url: https://github.com/your-org/your-repo/discussions/new?category=q-a
+    url: https://github.com/chris7jackson/niem-info-exch-e2e/discussions/new?category=q-a
     about: Ask questions and get help from the community
   - name: 💡 Feature Discussion
-    url: https://github.com/your-org/your-repo/discussions/new?category=ideas
+    url: https://github.com/chris7jackson/niem-info-exch-e2e/discussions/new?category=ideas
     about: Discuss and propose new ideas before creating a formal feature request
   - name: 📚 Documentation
-    url: https://github.com/your-org/your-repo/wiki
+    url: https://github.com/chris7jackson/niem-info-exch-e2e/wiki
     about: Browse project documentation and guides
   - name: 🔒 Security Vulnerability (Private)
-    url: https://github.com/your-org/your-repo/security/advisories/new
+    url: https://github.com/chris7jackson/niem-info-exch-e2e/security/advisories/new
     about: Report security vulnerabilities privately through GitHub Security Advisories
