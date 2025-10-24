@@ -9,7 +9,6 @@ export default function XmlToJsonConverter() {
   const [allSchemas, setAllSchemas] = useState<Schema[]>([]);
   const [selectedSchemaId, setSelectedSchemaId] = useState<string>('');
   const [files, setFiles] = useState<File[]>([]);
-  const [includeContext, setIncludeContext] = useState(false);
   const [converting, setConverting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [batchResult, setBatchResult] = useState<BatchConversionResult | null>(null);
@@ -75,8 +74,7 @@ export default function XmlToJsonConverter() {
 
       const result = await apiClient.convertXmlToJson(
         files,
-        selectedSchemaId || undefined,
-        includeContext
+        selectedSchemaId || undefined
       );
 
       setBatchResult(result);
@@ -141,19 +139,6 @@ export default function XmlToJsonConverter() {
                 </p>
               </div>
             )}
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="includeContext"
-              checked={includeContext}
-              onChange={(e) => setIncludeContext(e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="includeContext" className="ml-2 block text-sm text-gray-900">
-              Include complete @context in result
-            </label>
           </div>
         </div>
       </div>

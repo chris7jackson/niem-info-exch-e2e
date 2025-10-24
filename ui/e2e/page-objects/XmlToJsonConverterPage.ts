@@ -15,7 +15,6 @@ import path from 'path'
 export class XmlToJsonConverterPage extends BasePage {
   // Locators
   readonly schemaSelect: Locator
-  readonly includeContextCheckbox: Locator
   readonly fileInput: Locator
   readonly convertButton: Locator
   readonly removeAllButton: Locator
@@ -23,7 +22,6 @@ export class XmlToJsonConverterPage extends BasePage {
   constructor(page: Page) {
     super(page)
     this.schemaSelect = page.locator('select')
-    this.includeContextCheckbox = page.locator('input[type="checkbox"]#includeContext')
     this.fileInput = page.locator('input[type="file"]')
     this.convertButton = page.locator('button:has-text("Convert")')
     this.removeAllButton = page.locator('button:has-text("Remove All")')
@@ -60,16 +58,6 @@ export class XmlToJsonConverterPage extends BasePage {
 
     // Wait for files to appear in list
     await this.page.waitForTimeout(500)
-  }
-
-  /**
-   * Toggle the "Include complete @context" checkbox
-   */
-  async toggleIncludeContext(checked: boolean) {
-    const isChecked = await this.includeContextCheckbox.isChecked()
-    if (isChecked !== checked) {
-      await this.includeContextCheckbox.click()
-    }
   }
 
   /**
