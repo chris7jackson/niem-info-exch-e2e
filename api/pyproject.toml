@@ -146,7 +146,8 @@ branch = true
 precision = 2
 show_missing = true
 skip_covered = false
-fail_under = 80.0
+# fail_under removed - using diff-cover in CI to only check new code
+# This allows existing tech debt while enforcing coverage on new changes
 
 exclude_lines = [
     "pragma: no cover",

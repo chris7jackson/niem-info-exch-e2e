@@ -7,6 +7,7 @@ This document outlines the comprehensive test strategy for the NIEM GraphRAG UI,
 ## Strategy Summary
 
 We use a **balanced test pyramid**:
+
 - **Unit Tests (15)**: Fast feedback on component rendering and API client logic
 - **E2E Tests (20+)**: Complete user workflows including file uploads and interactions
 
@@ -42,6 +43,7 @@ ui/
 ```
 
 **Why this structure?**
+
 - ✅ **Unit tests separated**: Prevents Next.js from treating test files as pages
 - ✅ **E2E tests separate**: Different purpose, tooling (Playwright), and fixtures
 - ✅ **Global config isolated**: Shared test setup in `src/test/setup.ts`
@@ -63,6 +65,7 @@ ui/
 **Location**: Separate test directory (`tests/unit/**/*.test.{ts,tsx}`)
 
 #### API Client Tests (`tests/unit/lib/api.test.ts`) - 8 tests
+
 - ✅ Schema management (getSchemas, activateSchema)
 - ✅ Data ingestion metadata (getUploadedFiles)
 - ✅ Admin operations (resetSystem, getNeo4jStats)
@@ -74,6 +77,7 @@ ui/
 **Execution time**: <1 second
 
 #### Schema Manager Tests (`tests/unit/components/SchemaManager.test.tsx`) - 3 tests
+
 - ✅ Component renders without crashing
 - ✅ Displays API data correctly
 - ✅ Schema activation workflow
@@ -83,6 +87,7 @@ ui/
 **Execution time**: <1 second
 
 #### Graph Page Tests (`tests/unit/pages/graph.test.tsx`) - 4 tests
+
 - ✅ Component renders with controls
 - ✅ Loads and displays graph statistics
 - ✅ Handles server errors gracefully
@@ -101,6 +106,7 @@ ui/
 **Location**: `e2e/tests/*.spec.ts`
 
 #### Schema Upload Tests (`schema-upload.spec.ts`) - 5 tests
+
 - E2E-001: Upload valid schema successfully
 - E2E-002: Upload invalid schema shows error
 - E2E-003: Uploaded schema is marked as active
@@ -110,6 +116,7 @@ ui/
 **Why E2E**: File uploads cannot be reliably tested in jsdom, require real browser APIs.
 
 #### Graph Interaction Tests (`graph-interaction.spec.ts`) - 8 tests
+
 - E2E-101: Graph page renders with controls
 - E2E-102: Graph loads and displays statistics
 - E2E-103: Can execute custom Cypher query
@@ -122,6 +129,7 @@ ui/
 **Why E2E**: Cytoscape interactions (zoom, pan, click) require real DOM and canvas rendering.
 
 #### Data Ingestion Tests (`data-ingestion.spec.ts`) - 7 tests
+
 - E2E-201: Successfully ingest valid XML file
 - E2E-202: Can ingest multiple XML files
 - E2E-203: Shows error for invalid XML
@@ -133,6 +141,7 @@ ui/
 **Why E2E**: Tests complete data flow from upload through backend processing to UI feedback.
 
 #### Critical Path Tests (`critical-path.spec.ts`) - 3 tests
+
 - E2E-301: Complete workflow from schema to visualization
 - E2E-302: Cannot ingest data without schema
 - E2E-303: Graph shows empty state with no data
@@ -172,10 +181,12 @@ ui/
 ### Removed (High Maintenance, Low Value)
 
 ❌ **Deleted 5 SchemaManager file upload unit tests**
+
 - Reason: jsdom can't reliably simulate file uploads
 - Moved to: E2E tests with real browser
 
 ❌ **Removed 2 redundant graph unit tests**
+
 - "executes custom cypher queries" - redundant with load test
 - "validates query input" - doesn't actually test validation
 - Moved to: E2E tests for complete query workflows
@@ -183,22 +194,26 @@ ui/
 ### Added (High Value, Manageable Maintenance)
 
 ✅ **Playwright E2E Test Suite**
+
 - Real browser testing
 - File upload workflows
 - Graph interactions
 - Complete user journeys
 
 ✅ **Page Object Model Pattern**
+
 - Encapsulates UI interactions
 - Easy to update when UI changes
 - Reduces test maintenance
 
 ✅ **Comprehensive Test Fixtures**
+
 - Sample XSD schemas
 - Sample XML data files
 - Invalid files for error testing
 
 ✅ **JSDoc Documentation**
+
 - Every test suite documented
 - Purpose and scope clearly defined
 - Maintenance instructions included
@@ -208,6 +223,7 @@ ui/
 ## When to Use Each Test Type
 
 ### Use Unit Tests For:
+
 ✅ API client method logic
 ✅ Component rendering (smoke tests)
 ✅ Error state handling
@@ -215,6 +231,7 @@ ui/
 ✅ Utility functions
 
 ### Use E2E Tests For:
+
 ✅ File uploads
 ✅ Multi-page workflows
 ✅ Graph visualizations
@@ -222,6 +239,7 @@ ui/
 ✅ Critical user journeys
 
 ### Don't Test:
+
 ❌ Third-party libraries (Cytoscape, Next.js)
 ❌ Implementation details (internal state)
 ❌ Styling (use visual regression instead)
@@ -255,6 +273,7 @@ npm run test:all
 We use **different test suites for PRs vs main branch** for optimal feedback speed:
 
 #### PR Pipeline (Fast Feedback - ~2 minutes)
+
 ```bash
 1. Lint & Type Check (parallel)
 2. Build (parallel)
@@ -265,6 +284,7 @@ We use **different test suites for PRs vs main branch** for optimal feedback spe
 **Why**: PRs get fast feedback without waiting for slow E2E tests.
 
 #### Main Branch Pipeline (Full Validation - ~10 minutes)
+
 ```bash
 1. Lint & Type Check (parallel)
 2. Build (parallel)
@@ -281,6 +301,7 @@ We use **different test suites for PRs vs main branch** for optimal feedback spe
 **Why**: Main branch gets full validation before production deployment.
 
 **Benefits**:
+
 - ✅ Fast PR feedback (developers don't wait 10 minutes)
 - ✅ Comprehensive validation before production
 - ✅ Reduced CI costs (E2E only on merges)
@@ -348,18 +369,18 @@ test('calls useState hook', () => {
  * Good: Tests user workflow
  */
 test('user can upload schema and view in list', async ({ page }) => {
-  const schemaPage = new SchemaManagerPage(page)
-  await schemaPage.goto()
-  await schemaPage.uploadSchema('valid.xsd')
-  expect(await schemaPage.schemaExists('valid.xsd')).toBe(true)
-})
+  const schemaPage = new SchemaManagerPage(page);
+  await schemaPage.goto();
+  await schemaPage.uploadSchema('valid.xsd');
+  expect(await schemaPage.schemaExists('valid.xsd')).toBe(true);
+});
 
 /**
  * Bad: Tests too many things
  */
 test('tests entire application', async ({ page }) => {
   // Split into multiple focused tests
-})
+});
 ```
 
 ---
@@ -410,11 +431,13 @@ test('tests entire application', async ({ page }) => {
 ## Future Improvements
 
 ### Short Term (Next Sprint)
+
 - [ ] Add visual regression testing (Percy/Chromatic)
 - [ ] Configure coverage thresholds in CI
 - [ ] Add performance benchmarks to E2E tests
 
 ### Long Term (Next Quarter)
+
 - [ ] Implement contract testing for API
 - [ ] Add accessibility tests (axe-core)
 - [ ] Create load tests for graph visualization
@@ -443,6 +466,7 @@ test('tests entire application', async ({ page }) => {
 ## Changelog
 
 ### 2025-01-XX
+
 - Initial test strategy document
 - Migrated from 22 unit tests to 15 unit + 20+ E2E
 - Removed file upload unit tests (moved to E2E)

@@ -13,21 +13,25 @@ Migration tooling is stubbed but not active during the prerelease phase. Breakin
 When the UI reaches version 1.0.0, this directory will contain:
 
 ### LocalStorage Migrations
+
 - Scripts to migrate browser localStorage schemas
 - Version upgrade procedures
 - Data format transformations
 
 ### State Management Migrations
+
 - Updates to application state structure
 - Redux/context migrations (if applicable)
 - Cache invalidation strategies
 
 ### Configuration Migrations
+
 - User preferences migrations
 - Settings schema changes
 - Feature flag transitions
 
 ### Example Migration:
+
 ```typescript
 // 001_migrate_local_storage.ts
 export function migrateLocalStorage(currentVersion: string) {
@@ -46,11 +50,13 @@ export function migrateLocalStorage(currentVersion: string) {
 ## Migration Triggers
 
 Migrations may run:
+
 - On application load (version check)
 - On user login
 - On specific user actions
 - Via admin panel
 
 ## Related Documentation
+
 - `docs/VERSIONING.md` - Semantic versioning strategy
 - `docs/MIGRATION.md` - Migration guides (future)

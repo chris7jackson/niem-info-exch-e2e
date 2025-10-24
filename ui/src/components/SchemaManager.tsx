@@ -1,5 +1,12 @@
 import React, { useState, useEffect, DragEvent } from 'react';
-import { CheckCircleIcon, CloudArrowUpIcon, XMarkIcon, ArrowUpIcon, ArrowDownIcon, StarIcon } from '@heroicons/react/24/outline';
+import {
+  CheckCircleIcon,
+  CloudArrowUpIcon,
+  XMarkIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  StarIcon,
+} from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import apiClient, { Schema } from '../lib/api';
 import ExpandableError from './ExpandableError';
@@ -38,7 +45,7 @@ export default function SchemaManager() {
 
   const handleFilesSelected = (files: File[]) => {
     // Filter to only XSD files, ignore non-XSD files
-    const xsdFiles = files.filter(file => file.name.endsWith('.xsd'));
+    const xsdFiles = files.filter((file) => file.name.endsWith('.xsd'));
     const nonXsdCount = files.length - xsdFiles.length;
 
     // Show informational message if non-XSD files were filtered
@@ -56,7 +63,7 @@ export default function SchemaManager() {
     }
 
     // Add XSD files to preview list, capturing directory paths
-    const newPreviews: FilePreview[] = xsdFiles.map(file => {
+    const newPreviews: FilePreview[] = xsdFiles.map((file) => {
       // Try to get relative path from webkitRelativePath (when folder is selected)
       // Otherwise use just the filename
       const path = (file as any).webkitRelativePath || file.name;
@@ -64,7 +71,7 @@ export default function SchemaManager() {
       return {
         file,
         id: Math.random().toString(36).substring(7),
-        path
+        path,
       };
     });
     setFilePreviews([...filePreviews, ...newPreviews]);
@@ -87,8 +94,11 @@ export default function SchemaManager() {
   };
 
   const handleValidationErrors = (result: any) => {
-    const ndrHasErrors = result.scheval_report && (result.scheval_report.status === 'fail' || result.scheval_report.status === 'error');
-    const importHasErrors = result.import_validation_report && result.import_validation_report.status === 'fail';
+    const ndrHasErrors =
+      result.scheval_report &&
+      (result.scheval_report.status === 'fail' || result.scheval_report.status === 'error');
+    const importHasErrors =
+      result.import_validation_report && result.import_validation_report.status === 'fail';
 
     if (ndrHasErrors || importHasErrors) {
       const errorParts = [];
@@ -109,10 +119,14 @@ export default function SchemaManager() {
       const detail = err.response?.data?.detail;
       console.log('Detail object:', detail);
 
-      if (detail && typeof detail === 'object' && (detail.import_validation_report || detail.scheval_report)) {
+      if (
+        detail &&
+        typeof detail === 'object' &&
+        (detail.import_validation_report || detail.scheval_report)
+      ) {
         setLastValidationResult({
           import_validation_report: detail.import_validation_report || null,
-          scheval_report: detail.scheval_report || null
+          scheval_report: detail.scheval_report || null,
         });
         setError(detail.message || 'Schema validation failed');
       } else if (typeof detail === 'string') {
@@ -133,8 +147,8 @@ export default function SchemaManager() {
     try {
       setUploading(true);
       setError(null);
-      const files = filePreviews.map(fp => fp.file);
-      const filePaths = filePreviews.map(fp => fp.path);
+      const files = filePreviews.map((fp) => fp.file);
+      const filePaths = filePreviews.map((fp) => fp.path);
       const result = await apiClient.uploadSchema(files, filePaths, skipNiemNdr);
 
       setLastValidationResult(result);
@@ -147,7 +161,7 @@ export default function SchemaManager() {
   };
 
   const removeFile = (id: string) => {
-    setFilePreviews(filePreviews.filter(fp => fp.id !== id));
+    setFilePreviews(filePreviews.filter((fp) => fp.id !== id));
   };
 
   const moveFile = (index: number, direction: 'up' | 'down') => {
@@ -182,7 +196,11 @@ export default function SchemaManager() {
     }
   };
 
-  const handleDownloadFile = async (schemaId: string, fileType: 'cmf' | 'json', filename: string) => {
+  const handleDownloadFile = async (
+    schemaId: string,
+    fileType: 'cmf' | 'json',
+    filename: string
+  ) => {
     try {
       const blob = await apiClient.downloadSchemaFile(schemaId, fileType);
       const url = window.URL.createObjectURL(blob);
@@ -262,7 +280,7 @@ export default function SchemaManager() {
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
   return (
@@ -270,26 +288,23 @@ export default function SchemaManager() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Schema Management</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Upload and manage NIEM XSD schemas for data validation. You must upload ALL required files together,
-          including the main schema, all NIEM reference schemas, and any custom reference schemas.
+          Upload and manage NIEM XSD schemas for data validation. You must upload ALL required files
+          together, including the main schema, all NIEM reference schemas, and any custom reference
+          schemas.
         </p>
       </div>
 
-      {error && (
-        <ExpandableError
-          title="Schema Upload Error"
-          message={error}
-          maxLength={300}
-        />
-      )}
+      {error && <ExpandableError title="Schema Upload Error" message={error} maxLength={300} />}
 
       {/* Validation Results */}
-      {lastValidationResult && typeof lastValidationResult === 'object' && lastValidationResult !== null && (
+      {lastValidationResult &&
+      typeof lastValidationResult === 'object' &&
+      lastValidationResult !== null ? (
         <ValidationResults
           importReport={(lastValidationResult as any).import_validation_report}
           schevalReport={(lastValidationResult as any).scheval_report}
         />
-      )}
+      ) : null}
 
       {/* Upload Area */}
       <div className="bg-white shadow rounded-lg p-6">
@@ -298,21 +313,28 @@ export default function SchemaManager() {
         {/* Important Notice */}
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div className="flex items-start">
-            <svg className="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            <svg
+              className="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
             </svg>
             <div className="flex-1 text-sm">
               <p className="font-semibold text-amber-900 mb-1">Upload Complete Schema Set</p>
-              <p className="text-amber-800">
-                You must upload ALL required XSD files together:
-              </p>
+              <p className="text-amber-800">You must upload ALL required XSD files together:</p>
               <ul className="list-disc list-inside mt-2 space-y-1 text-amber-800">
                 <li>Main schema file (will be set as primary)</li>
                 <li>All NIEM reference schemas (niem-core.xsd, structures.xsd, etc.)</li>
                 <li>All custom reference schemas your schema imports</li>
               </ul>
               <p className="mt-2 text-amber-800">
-                All files will be validated against NIEM NDR rules and checked for missing dependencies.
+                All files will be validated against NIEM NDR rules and checked for missing
+                dependencies.
               </p>
             </div>
           </div>
@@ -345,9 +367,7 @@ export default function SchemaManager() {
             onDrop={handleDrop}
             onClick={() => document.getElementById('folder-input')?.click()}
             className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-              isDragActive
-                ? 'border-blue-400 bg-blue-50'
-                : 'border-gray-300 hover:border-gray-400'
+              isDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
             }`}
           >
             <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -355,9 +375,7 @@ export default function SchemaManager() {
               <p className="mt-2 text-sm text-gray-600">Drop the folder here</p>
             ) : (
               <>
-                <p className="mt-2 text-sm font-medium text-gray-900">
-                  Select Schema Folder
-                </p>
+                <p className="mt-2 text-sm font-medium text-gray-900">Select Schema Folder</p>
                 <p className="mt-1 text-sm text-gray-600">
                   Drag and drop a folder containing XSD schemas, or click to browse
                 </p>
@@ -371,123 +389,142 @@ export default function SchemaManager() {
           {/* File Preview List */}
           {filePreviews.length > 0 && (
             <>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <div className="flex items-start">
-                <StarIconSolid className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
-                <div className="text-sm text-blue-800">
-                  <strong>Primary file:</strong> The first file in the list will be used as the primary schema.
-                  Use the controls to reorder files or set a different file as primary.
-                </div>
-              </div>
-            </div>
-
-            <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
-              {filePreviews.map((fp, index) => (
-                <div key={fp.id} className={`p-4 ${(() => {
-                  return index === 0 ? 'bg-blue-50' : 'bg-white';
-                })()}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center flex-1 min-w-0">
-                      {index === 0 && (
-                        <StarIconSolid className="h-5 w-5 text-blue-600 mr-2 flex-shrink-0" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {fp.path}
-                          </p>
-                          {index === 0 && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                              Primary
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {formatFileSize(fp.file.size)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-1 ml-4">
-                      {index !== 0 && (
-                        <button
-                          onClick={() => setPrimaryFile(index)}
-                          className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-                          title="Set as primary"
-                        >
-                          <StarIcon className="h-5 w-5" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => moveFile(index, 'up')}
-                        disabled={index === 0}
-                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed rounded hover:bg-gray-100"
-                        title="Move up"
-                      >
-                        <ArrowUpIcon className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => moveFile(index, 'down')}
-                        disabled={index === filePreviews.length - 1}
-                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed rounded hover:bg-gray-100"
-                        title="Move down"
-                      >
-                        <ArrowDownIcon className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => removeFile(fp.id)}
-                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                        title="Remove"
-                      >
-                        <XMarkIcon className="h-5 w-5" />
-                      </button>
-                    </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-start">
+                  <StarIconSolid className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+                  <div className="text-sm text-blue-800">
+                    <strong>Primary file:</strong> The first file in the list will be used as the
+                    primary schema. Use the controls to reorder files or set a different file as
+                    primary.
                   </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setFilePreviews([])}
-                  className="text-sm text-gray-600 hover:text-gray-800"
-                >
-                  Clear all
-                </button>
-                <label className="inline-flex items-center text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={skipNiemNdr}
-                    onChange={(e) => setSkipNiemNdr(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                  <span className="ml-2">Skip NIEM NDR validation</span>
-                </label>
               </div>
-              <button
-                onClick={handleSchemaUpload}
-                disabled={uploading || filePreviews.length === 0}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {uploading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <CloudArrowUpIcon className="h-5 w-5 mr-2" />
-                    Upload {filePreviews.length} {(() => {
-                      return filePreviews.length === 1 ? 'File' : 'Files';
-                    })()}
-                  </>
-                )}
-              </button>
-            </div>
+
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
+                {filePreviews.map((fp, index) => (
+                  <div
+                    key={fp.id}
+                    className={`p-4 ${(() => {
+                      return index === 0 ? 'bg-blue-50' : 'bg-white';
+                    })()}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center flex-1 min-w-0">
+                        {index === 0 && (
+                          <StarIconSolid className="h-5 w-5 text-blue-600 mr-2 flex-shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center">
+                            <p className="text-sm font-medium text-gray-900 truncate">{fp.path}</p>
+                            {index === 0 && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                Primary
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {formatFileSize(fp.file.size)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-1 ml-4">
+                        {index !== 0 && (
+                          <button
+                            onClick={() => setPrimaryFile(index)}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                            title="Set as primary"
+                          >
+                            <StarIcon className="h-5 w-5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => moveFile(index, 'up')}
+                          disabled={index === 0}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed rounded hover:bg-gray-100"
+                          title="Move up"
+                        >
+                          <ArrowUpIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => moveFile(index, 'down')}
+                          disabled={index === filePreviews.length - 1}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed rounded hover:bg-gray-100"
+                          title="Move down"
+                        >
+                          <ArrowDownIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => removeFile(fp.id)}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                          title="Remove"
+                        >
+                          <XMarkIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setFilePreviews([])}
+                    className="text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    Clear all
+                  </button>
+                  <label className="inline-flex items-center text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={skipNiemNdr}
+                      onChange={(e) => setSkipNiemNdr(e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    <span className="ml-2">Skip NIEM NDR validation</span>
+                  </label>
+                </div>
+                <button
+                  onClick={handleSchemaUpload}
+                  disabled={uploading || filePreviews.length === 0}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? (
+                    <>
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <CloudArrowUpIcon className="h-5 w-5 mr-2" />
+                      Upload {filePreviews.length}{' '}
+                      {(() => {
+                        return filePreviews.length === 1 ? 'File' : 'Files';
+                      })()}
+                    </>
+                  )}
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -515,82 +552,110 @@ export default function SchemaManager() {
             );
           }
           return (
-          <div className="divide-y divide-gray-200">
-            {schemas.map((schema) => (
-              <div key={schema.schema_id} className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center">
-                      <h4 className="text-sm font-medium text-gray-900">
-                        {(() => {
-                          return schema.primary_filename || schema.filename;
-                        })()}
-                        {schema.all_filenames && schema.all_filenames.length > 1 && (
-                          <span className="ml-2 text-xs text-gray-500">
-                            (+{schema.all_filenames.length - 1} more files)
-                          </span>
+            <div className="divide-y divide-gray-200">
+              {schemas.map((schema) => (
+                <div key={schema.schema_id} className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center">
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {(() => {
+                            return schema.primary_filename || schema.filename;
+                          })()}
+                          {schema.all_filenames && schema.all_filenames.length > 1 && (
+                            <span className="ml-2 text-xs text-gray-500">
+                              (+{schema.all_filenames.length - 1} more files)
+                            </span>
+                          )}
+                        </h4>
+                        {schema.active && (
+                          <CheckCircleIcon className="ml-2 h-5 w-5 text-green-500" />
                         )}
-                      </h4>
-                      {schema.active && (
-                        <CheckCircleIcon className="ml-2 h-5 w-5 text-green-500" />
-                      )}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-500">
+                        <span>Schema ID: {schema.schema_id.substring(0, 8)}...</span>
+                        <span className="ml-4">
+                          Uploaded: {new Date(schema.uploaded_at).toLocaleDateString()}
+                        </span>
+                        {schema.all_filenames && schema.all_filenames.length > 1 && (
+                          <div className="mt-1 text-xs text-gray-400">
+                            Files: {schema.all_filenames.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="text-xs text-gray-500 mr-2">Generated files:</span>
+                        {schema.cmf_filename && (
+                          <button
+                            onClick={() =>
+                              handleDownloadFile(schema.schema_id, 'cmf', schema.cmf_filename!)
+                            }
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100"
+                          >
+                            <svg
+                              className="h-3 w-3 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                              />
+                            </svg>
+                            {schema.cmf_filename}
+                          </button>
+                        )}
+                        {schema.json_schema_filename && (
+                          <button
+                            onClick={() =>
+                              handleDownloadFile(
+                                schema.schema_id,
+                                'json',
+                                schema.json_schema_filename!
+                              )
+                            }
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded hover:bg-green-100"
+                          >
+                            <svg
+                              className="h-3 w-3 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                              />
+                            </svg>
+                            {schema.json_schema_filename}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-1 text-sm text-gray-500">
-                      <span>Schema ID: {schema.schema_id.substring(0, 8)}...</span>
-                      <span className="ml-4">
-                        Uploaded: {new Date(schema.uploaded_at).toLocaleDateString()}
-                      </span>
-                      {schema.all_filenames && schema.all_filenames.length > 1 && (
-                        <div className="mt-1 text-xs text-gray-400">
-                          Files: {schema.all_filenames.join(', ')}
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="text-xs text-gray-500 mr-2">Generated files:</span>
-                      {schema.cmf_filename && (
-                        <button
-                          onClick={() => handleDownloadFile(schema.schema_id, 'cmf', schema.cmf_filename!)}
-                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100"
-                        >
-                          <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                          {schema.cmf_filename}
-                        </button>
-                      )}
-                      {schema.json_schema_filename && (
-                        <button
-                          onClick={() => handleDownloadFile(schema.schema_id, 'json', schema.json_schema_filename!)}
-                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded hover:bg-green-100"
-                        >
-                          <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                          {schema.json_schema_filename}
-                        </button>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="flex items-center space-x-3">
-                    {schema.active ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handleActivateSchema(schema.schema_id)}
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
-                      >
-                        Activate
-                      </button>
-                    )}
+                    <div className="flex items-center space-x-3">
+                      {schema.active ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Active
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleActivateSchema(schema.schema_id)}
+                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
+                        >
+                          Activate
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           );
         })()}
       </div>

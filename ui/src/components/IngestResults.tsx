@@ -8,8 +8,8 @@ interface IngestResultsProps {
 }
 
 export default function IngestResults({ results }: IngestResultsProps) {
-  const successfulFiles = results.results.filter(r => r.status === 'success').length;
-  const failedFiles = results.results.filter(r => r.status === 'failed').length;
+  const successfulFiles = results.results.filter((r) => r.status === 'success').length;
+  const failedFiles = results.results.filter((r) => r.status === 'failed').length;
 
   return (
     <div className="bg-white shadow rounded-lg p-6">
@@ -35,7 +35,9 @@ export default function IngestResults({ results }: IngestResultsProps) {
             <div className="text-sm text-gray-600">Nodes Created</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-purple-600">{results.total_relationships_created}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {results.total_relationships_created}
+            </div>
             <div className="text-sm text-gray-600">Relationships</div>
           </div>
         </div>
@@ -62,7 +64,7 @@ export default function IngestResults({ results }: IngestResultsProps) {
                   </div>
                 ) : (
                   <div className="text-sm text-red-600">
-                    {file.validation_details ? 'Validation failed' : (file.error || 'Unknown error')}
+                    {file.validation_details ? 'Validation failed' : file.error || 'Unknown error'}
                   </div>
                 )}
               </div>

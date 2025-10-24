@@ -10,7 +10,7 @@ export default function ToolsPage() {
     {
       name: 'XML to JSON Converter',
       component: <XmlToJsonConverter />,
-      description: 'Convert NIEM XML messages to JSON format'
+      description: 'Convert NIEM XML messages to JSON format',
     },
     // Future tools can be added here as new tabs
   ];
@@ -20,7 +20,8 @@ export default function ToolsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Helper Tools</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Utility tools for working with NIEM data. These tools are for demonstration and testing purposes.
+          Utility tools for working with NIEM data. These tools are for demonstration and testing
+          purposes.
         </p>
       </div>
 
@@ -46,9 +47,7 @@ export default function ToolsPage() {
 
         <Tab.Panels className="mt-6">
           {tabs.map((tab, index) => (
-            <Tab.Panel key={index}>
-              {tab.component}
-            </Tab.Panel>
+            <Tab.Panel key={index}>{tab.component}</Tab.Panel>
           ))}
         </Tab.Panels>
       </Tab.Group>

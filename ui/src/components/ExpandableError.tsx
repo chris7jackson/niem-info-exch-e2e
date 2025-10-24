@@ -8,9 +8,9 @@ interface ExpandableErrorProps {
 }
 
 export default function ExpandableError({
-  title = "Error",
+  title = 'Error',
   message,
-  maxLength = 200
+  maxLength = 200,
 }: ExpandableErrorProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -22,14 +22,14 @@ export default function ExpandableError({
     const nearbyPeriod = message.lastIndexOf('.', maxLength);
     const nearbyNewline = message.lastIndexOf('\n', maxLength);
     const bestBreak = Math.max(nearbyPeriod, nearbyNewline);
-    if (bestBreak > maxLength * 0.7) { // Only use if it's not too far back
+    if (bestBreak > maxLength * 0.7) {
+      // Only use if it's not too far back
       truncateAt = bestBreak + 1;
     }
   }
 
-  const displayMessage = shouldTruncate && !isExpanded
-    ? message.substring(0, truncateAt).trimEnd() + '...'
-    : message;
+  const displayMessage =
+    shouldTruncate && !isExpanded ? message.substring(0, truncateAt).trimEnd() + '...' : message;
 
   return (
     <div className="rounded-md bg-red-50 p-4">

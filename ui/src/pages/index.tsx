@@ -8,7 +8,6 @@ interface Stats {
   activeSchema: string | null;
 }
 
-
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats>({ schemas: 0, activeSchema: null });
   const [loading, setLoading] = useState(true);
@@ -22,11 +21,11 @@ export default function Dashboard() {
       setLoading(true);
       const schemas = await apiClient.getSchemas();
 
-      const activeSchema = schemas.find(s => s.active);
+      const activeSchema = schemas.find((s) => s.active);
 
       setStats({
         schemas: schemas.length,
-        activeSchema: activeSchema ? activeSchema.filename : null
+        activeSchema: activeSchema ? activeSchema.filename : null,
       });
     } catch (error) {
       console.error('Failed to load stats:', error);
@@ -34,7 +33,6 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
-
 
   const cards = [
     {
@@ -69,15 +67,15 @@ export default function Dashboard() {
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className={`w-8 h-8 ${card.color} rounded-md flex items-center justify-center`}>
+                    <div
+                      className={`w-8 h-8 ${card.color} rounded-md flex items-center justify-center`}
+                    >
                       <Icon className="h-5 w-5 text-white" />
                     </div>
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        {card.title}
-                      </dt>
+                      <dt className="text-sm font-medium text-gray-500 truncate">{card.title}</dt>
                       <dd className="text-lg font-medium text-gray-900">
                         {loading ? '...' : card.value}
                       </dd>
@@ -105,7 +103,8 @@ export default function Dashboard() {
             </div>
             <div className="mt-4">
               <h3 className="text-lg font-medium">
-                <span className="absolute inset-0" aria-hidden="true"/>Manage Schemas
+                <span className="absolute inset-0" aria-hidden="true" />
+                Manage Schemas
               </h3>
               <p className="mt-2 text-sm text-gray-500">
                 Upload and activate NIEM XSD schemas for data validation.
@@ -124,7 +123,8 @@ export default function Dashboard() {
             </div>
             <div className="mt-4">
               <h3 className="text-lg font-medium">
-                <span className="absolute inset-0" aria-hidden="true"/>Upload Data
+                <span className="absolute inset-0" aria-hidden="true" />
+                Upload Data
               </h3>
               <p className="mt-2 text-sm text-gray-500">
                 Upload XML or JSON files for validation and ingestion.
@@ -143,7 +143,8 @@ export default function Dashboard() {
             </div>
             <div className="mt-4">
               <h3 className="text-lg font-medium">
-                <span className="absolute inset-0" aria-hidden="true"/>Explore Graph
+                <span className="absolute inset-0" aria-hidden="true" />
+                Explore Graph
               </h3>
               <p className="mt-2 text-sm text-gray-500">
                 Visualize and explore the ingested data graph.
@@ -152,7 +153,6 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
-
     </div>
   );
 }

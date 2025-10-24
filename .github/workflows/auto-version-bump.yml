@@ -1,5 +1,13 @@
 name: Auto Version Bump
 
+# This workflow runs on every push to main and automatically bumps versions
+# based on conventional commit messages (feat/fix/BREAKING CHANGE).
+#
+# The version bump commit does NOT include [skip ci] because we want
+# the Main Pipeline to run with the updated versions. However, the version
+# bump commit itself will trigger this workflow again but it will skip
+# due to the "chore: bump" prefix check in the if condition.
+
 on:
   push:
     branches: [main]
@@ -161,13 +169,14 @@ jobs:
           else
             COMMIT_MSG+="${COMMIT_PARTS[0]}"
           fi
-          COMMIT_MSG+=" [skip ci]"
 
+          # Note: No [skip ci] - we want main-pipeline to run with updated versions
           git add api/VERSION ui/VERSION 2>/dev/null || true
           git commit -m "$COMMIT_MSG"
           git push
 
           echo "✅ Version bump committed and pushed"
+          echo "ℹ️  Main pipeline will run with updated versions"
 
       - name: Summary
         if: always()

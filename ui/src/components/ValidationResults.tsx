@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { ChevronDownIcon, ChevronRightIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  XCircleIcon,
+} from '@heroicons/react/24/outline';
 
 interface ImportInfo {
   schema_location: string;
@@ -64,13 +70,13 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
   }
 
   const toggleFile = (filename: string) => {
-    setExpandedFiles(prev => ({ ...prev, [filename]: !prev[filename] }));
+    setExpandedFiles((prev) => ({ ...prev, [filename]: !prev[filename] }));
   };
 
   // Group scheval issues by file
   const schevalIssuesByFile: { [key: string]: SchevalIssue[] } = {};
   if (schevalReport) {
-    [...schevalReport.errors, ...schevalReport.warnings].forEach(issue => {
+    [...schevalReport.errors, ...schevalReport.warnings].forEach((issue) => {
       const file = issue.file;
       if (!schevalIssuesByFile[file]) {
         schevalIssuesByFile[file] = [];
@@ -91,9 +97,7 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
     <div className="bg-white shadow rounded-lg p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium text-gray-900">Validation Results</h3>
-        {overallSuccess && (
-          <CheckCircleIcon className="h-6 w-6 text-green-500" />
-        )}
+        {overallSuccess && <CheckCircleIcon className="h-6 w-6 text-green-500" />}
       </div>
 
       {/* Summary */}
@@ -117,7 +121,9 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
                 return (
                   <>
                     <XCircleIcon className="h-5 w-5 text-red-500 mr-2" />
-                    <span className="text-sm text-red-700">{schevalReport?.summary.error_count || 0} errors</span>
+                    <span className="text-sm text-red-700">
+                      {schevalReport?.summary.error_count || 0} errors
+                    </span>
                   </>
                 );
               }
@@ -150,7 +156,9 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
                 return (
                   <>
                     <XCircleIcon className="h-5 w-5 text-red-500 mr-2" />
-                    <span className="text-sm text-red-700">{importReport.missing_count || 0} missing</span>
+                    <span className="text-sm text-red-700">
+                      {importReport.missing_count || 0} missing
+                    </span>
                   </>
                 );
               }
@@ -179,7 +187,8 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
                 <ChevronRightIcon className="h-5 w-5 text-gray-400 mr-2" />
               )}
               <span className="text-sm font-medium text-gray-900">
-                NIEM NDR Violations by File ({schevalReport.errors.length + schevalReport.warnings.length})
+                NIEM NDR Violations by File (
+                {schevalReport.errors.length + schevalReport.warnings.length})
               </span>
             </div>
           </button>
@@ -199,16 +208,25 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
                       )}
                       <span className="text-sm font-medium text-gray-700">{filename}</span>
                       <span className="ml-2 text-xs text-gray-500">
-                        ({issues.filter(i => i.severity === 'error').length} errors,{' '}
-                        {issues.filter(i => i.severity === 'warn' || i.severity === 'warning').length} warnings)
+                        ({issues.filter((i) => i.severity === 'error').length} errors,{' '}
+                        {
+                          issues.filter((i) => i.severity === 'warn' || i.severity === 'warning')
+                            .length
+                        }{' '}
+                        warnings)
                       </span>
                     </div>
                   </button>
                   {expandedFiles[`scheval-${filename}`] && (
                     <div className="px-3 pb-3 space-y-2">
                       {issues.map((issue, idx) => (
-                        <div key={`${issue.file}-${issue.line}-${issue.column}-${idx}`} className="text-xs border-l-2 pl-3 py-2"
-                             style={{ borderLeftColor: issue.severity === 'error' ? '#ef4444' : '#f59e0b' }}>
+                        <div
+                          key={`${issue.file}-${issue.line}-${issue.column}-${idx}`}
+                          className="text-xs border-l-2 pl-3 py-2"
+                          style={{
+                            borderLeftColor: issue.severity === 'error' ? '#ef4444' : '#f59e0b',
+                          }}
+                        >
                           <div className="flex items-start">
                             {issue.severity === 'error' ? (
                               <XCircleIcon className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
@@ -224,7 +242,9 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
                                   <span className="font-medium text-blue-700">{issue.rule}</span>
                                 )}
                               </div>
-                              <div className="text-gray-700 mt-1.5 leading-relaxed">{issue.message}</div>
+                              <div className="text-gray-700 mt-1.5 leading-relaxed">
+                                {issue.message}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -259,8 +279,10 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
           {expandedImports && (
             <div className="px-4 pb-4 space-y-2">
               {importReport.files.map((file) => {
-                const missingImports = file.imports.filter(i => i.status === 'missing').length;
-                const missingNamespaces = file.namespaces_used.filter(n => n.status === 'missing').length;
+                const missingImports = file.imports.filter((i) => i.status === 'missing').length;
+                const missingNamespaces = file.namespaces_used.filter(
+                  (n) => n.status === 'missing'
+                ).length;
                 const hasMissing = missingImports > 0 || missingNamespaces > 0;
 
                 return (
@@ -292,7 +314,10 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
                           <div>
                             <div className="text-xs font-medium text-gray-500 mb-1">Imports:</div>
                             {file.imports.map((imp, idx) => (
-                              <div key={`import-${imp.schema_location}-${idx}`} className="flex items-center text-xs py-1">
+                              <div
+                                key={`import-${imp.schema_location}-${idx}`}
+                                className="flex items-center text-xs py-1"
+                              >
                                 {imp.status === 'satisfied' ? (
                                   <CheckCircleIcon className="h-3 w-3 text-green-500 mr-2 flex-shrink-0" />
                                 ) : (
@@ -305,9 +330,14 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
                         )}
                         {file.namespaces_used.length > 0 && (
                           <div>
-                            <div className="text-xs font-medium text-gray-500 mb-1">Namespaces:</div>
+                            <div className="text-xs font-medium text-gray-500 mb-1">
+                              Namespaces:
+                            </div>
                             {file.namespaces_used.map((ns, idx) => (
-                              <div key={`namespace-${ns.prefix}-${ns.namespace_uri}-${idx}`} className="flex items-center text-xs py-1">
+                              <div
+                                key={`namespace-${ns.prefix}-${ns.namespace_uri}-${idx}`}
+                                className="flex items-center text-xs py-1"
+                              >
                                 {ns.status === 'satisfied' ? (
                                   <CheckCircleIcon className="h-3 w-3 text-green-500 mr-2 flex-shrink-0" />
                                 ) : (

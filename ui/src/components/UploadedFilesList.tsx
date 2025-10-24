@@ -7,7 +7,10 @@ interface UploadedFilesListProps {
   readonly refreshTrigger?: number; // Used to trigger refresh from parent
 }
 
-export default function UploadedFilesList({ contentType = 'all', refreshTrigger }: UploadedFilesListProps) {
+export default function UploadedFilesList({
+  contentType = 'all',
+  refreshTrigger,
+}: UploadedFilesListProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +28,7 @@ export default function UploadedFilesList({ contentType = 'all', refreshTrigger 
       // Filter by content type if specified
       let filteredFiles = uploadedFiles;
       if (contentType !== 'all') {
-        filteredFiles = uploadedFiles.filter(file => {
+        filteredFiles = uploadedFiles.filter((file) => {
           const extension = file.original_name.toLowerCase().split('.').pop();
           return extension === contentType;
         });
@@ -113,7 +116,8 @@ export default function UploadedFilesList({ contentType = 'all', refreshTrigger 
         <div className="text-center py-8">
           <DocumentIcon className="mx-auto h-12 w-12 text-gray-300 mb-3" />
           <p className="text-gray-500">
-            No {contentType !== 'all' ? contentType.toUpperCase() : ''} files have been uploaded yet.
+            No {contentType !== 'all' ? contentType.toUpperCase() : ''} files have been uploaded
+            yet.
           </p>
           <p className="text-sm text-gray-400 mt-1">
             Files will appear here after successful upload and ingestion.

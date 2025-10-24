@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { CloudArrowUpIcon, DocumentIcon } from '@heroicons/react/24/outline';
-import apiClient, { Schema, BatchConversionResult } from '../lib/api';
-import ConversionResults from './ConversionResults';
+import { CloudArrowUpIcon, DocumentIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import apiClient, { Schema, ConversionResult } from '../lib/api';
 
 export default function XmlToJsonConverter() {
   const [activeSchema, setActiveSchema] = useState<Schema | null>(null);
   const [allSchemas, setAllSchemas] = useState<Schema[]>([]);
   const [selectedSchemaId, setSelectedSchemaId] = useState<string>('');
-  const [files, setFiles] = useState<File[]>([]);
+  const [file, setFile] = useState<File | null>(null);
   const [includeContext, setIncludeContext] = useState(false);
   const [converting, setConverting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [batchResult, setBatchResult] = useState<BatchConversionResult | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
+  const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
 
   useEffect(() => {
     loadSchemas();
@@ -22,7 +22,7 @@ export default function XmlToJsonConverter() {
     try {
       const schemas = await apiClient.getSchemas();
       setAllSchemas(schemas);
-      const active = schemas.find(s => s.active);
+      const active = schemas.find((s) => s.active);
       setActiveSchema(active || null);
       // Default to active schema
       if (active) {
@@ -35,33 +35,23 @@ export default function XmlToJsonConverter() {
 
   const handleFileDrop = (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      setFiles(prev => [...prev, ...acceptedFiles]);
+      setFile(acceptedFiles[0]);
       setError(null);
-      setBatchResult(null); // Clear previous results
+      setConversionResult(null); // Clear previous result
     }
   };
 
-  const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
-    if (files.length === 1) {
-      // If removing the last file, clear results
-      setBatchResult(null);
-    }
-  };
-
-  const clearAllFiles = () => {
-    setFiles([]);
-    setBatchResult(null);
+  const removeFile = () => {
+    setFile(null);
+    setConversionResult(null);
+    setValidationErrors(null);
   };
 
   const handleConvert = async () => {
-    if (files.length === 0) {
-      setError('Please select at least one XML file to convert');
+    if (!file) {
+      setError('Please select an XML file to convert');
       return;
     }
-
-    // Note: Max batch size is configurable on backend via BATCH_MAX_CONVERSION_FILES env var (default: 20)
-    // If backend rejects with 400, the error message will show the actual limit
 
     if (!selectedSchemaId && !activeSchema) {
       setError('No schema selected. Please upload and activate a schema first.');
@@ -71,21 +61,33 @@ export default function XmlToJsonConverter() {
     try {
       setConverting(true);
       setError(null);
-      setBatchResult(null);
+      setValidationErrors(null);
 
       const result = await apiClient.convertXmlToJson(
-        files,
+        file,
         selectedSchemaId || undefined,
         includeContext
       );
 
-      setBatchResult(result);
+      if (result.success) {
+        setConversionResult(result);
+      } else {
+        setError(result.error || 'Conversion failed');
+      }
     } catch (err: any) {
       const errorDetail = err.response?.data?.detail;
-      if (typeof errorDetail === 'string') {
+      if (typeof errorDetail === 'object') {
+        // Handle validation errors with detailed structure
+        if (errorDetail.errors && Array.isArray(errorDetail.errors)) {
+          setError(errorDetail.message || 'XML validation failed');
+          setValidationErrors(errorDetail.errors);
+        } else if (errorDetail.message) {
+          setError(errorDetail.message);
+        } else {
+          setError('Conversion failed');
+        }
+      } else if (typeof errorDetail === 'string') {
         setError(errorDetail);
-      } else if (typeof errorDetail === 'object' && errorDetail.message) {
-        setError(errorDetail.message);
       } else {
         setError(err.message || 'Conversion failed');
       }
@@ -94,13 +96,27 @@ export default function XmlToJsonConverter() {
     }
   };
 
+  const downloadJson = () => {
+    if (!conversionResult?.json_string) return;
+
+    const blob = new Blob([conversionResult.json_string], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file?.name?.replace('.xml', '.json') || 'converted.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: handleFileDrop,
     accept: {
       'application/xml': ['.xml'],
-      'text/xml': ['.xml']
+      'text/xml': ['.xml'],
     },
-    multiple: true,
+    multiple: false,
   });
 
   return (
@@ -108,8 +124,8 @@ export default function XmlToJsonConverter() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900">XML to JSON Converter</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Convert NIEM XML messages to JSON format using the NIEMTran tool.
-          Supports batch processing. This is a demo utility that converts files without storing or ingesting them.
+          Convert NIEM XML messages to JSON format using the NIEMTran tool. This is a demo utility
+          that converts files without storing or ingesting them.
         </p>
       </div>
 
@@ -160,74 +176,62 @@ export default function XmlToJsonConverter() {
 
       {error && (
         <div className="rounded-md bg-red-50 p-4">
-          <div className="text-sm font-medium text-red-800">{error}</div>
+          <div className="text-sm font-medium text-red-800 mb-2">{error}</div>
+          {validationErrors && validationErrors.length > 0 && (
+            <div className="mt-2 text-xs text-red-700">
+              <div className="font-medium mb-1">Validation Errors:</div>
+              <ul className="list-disc list-inside space-y-1">
+                {validationErrors.map((err, idx) => (
+                  <li key={idx} className="font-mono">
+                    {err}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
       {/* File Upload Area */}
       <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Select XML Files</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Select XML File</h3>
 
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-            isDragActive
-              ? 'border-blue-400 bg-blue-50'
-              : 'border-gray-300 hover:border-gray-400'
+            isDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
           }`}
         >
           <input {...getInputProps()} />
           <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
 
           {isDragActive ? (
-            <p className="mt-2 text-sm text-gray-600">Drop the XML files here</p>
+            <p className="mt-2 text-sm text-gray-600">Drop the XML file here</p>
           ) : (
             <>
               <p className="mt-2 text-sm text-gray-600">
-                Drag and drop XML files here, or click to select
+                Drag and drop an XML file here, or click to select
               </p>
               <p className="text-xs text-gray-500">XML files only</p>
             </>
           )}
         </div>
 
-        {/* Selected Files */}
-        {files.length > 0 && (
+        {/* Selected File */}
+        {file && (
           <div className="mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-gray-900">
-                Selected Files ({files.length})
-              </h4>
-              {files.length > 1 && (
-                <button
-                  onClick={clearAllFiles}
-                  className="text-sm text-red-600 hover:text-red-500"
-                >
-                  Remove All
-                </button>
-              )}
-            </div>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {files.map((file, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between bg-gray-50 p-3 rounded"
-                >
-                  <div className="flex items-center min-w-0 flex-1">
-                    <DocumentIcon className="h-5 w-5 text-gray-400 mr-2 flex-shrink-0" />
-                    <span className="text-sm text-gray-900 truncate">{file.name}</span>
-                    <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
-                      ({(file.size / 1024).toFixed(1)} KB)
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="text-sm text-red-600 hover:text-red-500"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+            <h4 className="text-sm font-medium text-gray-900 mb-2">Selected File</h4>
+            <div className="flex items-center justify-between bg-gray-50 p-3 rounded">
+              <div className="flex items-center">
+                <DocumentIcon className="h-5 w-5 text-gray-400 mr-2" />
+                <span className="text-sm text-gray-900">{file.name}</span>
+                <span className="text-xs text-gray-500 ml-2">
+                  ({(file.size / 1024).toFixed(1)} KB)
+                </span>
+              </div>
+              <button onClick={removeFile} className="text-sm text-red-600 hover:text-red-500">
+                Remove
+              </button>
             </div>
           </div>
         )}
@@ -236,24 +240,55 @@ export default function XmlToJsonConverter() {
         <div className="mt-6">
           <button
             onClick={handleConvert}
-            disabled={converting || files.length === 0 || allSchemas.length === 0}
+            disabled={converting || !file || allSchemas.length === 0}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {converting
-              ? `Converting ${files.length} file${files.length > 1 ? 's' : ''}...`
-              : `Convert ${files.length} file${files.length > 1 ? 's' : ''} to JSON`}
+            {converting ? 'Converting...' : 'Convert to JSON'}
           </button>
-          {files.length > 0 && (
-            <p className="mt-2 text-xs text-center text-gray-500">
-              Files will be processed with controlled concurrency (max 3 at a time)
-            </p>
-          )}
         </div>
       </div>
 
-      {/* Conversion Results */}
-      {batchResult && (
-        <ConversionResults results={batchResult} />
+      {/* Conversion Result */}
+      {conversionResult && conversionResult.success && (
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Conversion Result</h3>
+            <button
+              onClick={downloadJson}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+              Download JSON
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div className="bg-green-50 rounded-md p-3">
+              <p className="text-sm text-green-800">
+                {conversionResult.message || 'Conversion successful'}
+              </p>
+            </div>
+
+            {conversionResult.schema_filename && (
+              <div className="text-xs text-gray-600">
+                <span className="font-medium">Schema used:</span> {conversionResult.schema_filename}
+              </div>
+            )}
+
+            {conversionResult.json_string && (
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  JSON Output Preview
+                </label>
+                <div className="relative">
+                  <pre className="bg-gray-50 rounded-md p-4 text-xs overflow-x-auto max-h-96 overflow-y-auto border border-gray-200">
+                    <code>{conversionResult.json_string}</code>
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
