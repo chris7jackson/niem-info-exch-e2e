@@ -137,26 +137,6 @@ test.describe('XML to JSON Converter', () => {
     const isEnabledAfterUpload = await converterPage.isConvertButtonDisabled()
     expect(isEnabledAfterUpload).toBeFalsy()
   })
-
-  test('E2E-306: Include context checkbox affects conversion', async ({ page }) => {
-    // ARRANGE: Upload XML file
-    await converterPage.uploadXmlFiles('valid-person.xml')
-
-    // ACT: Enable include context checkbox
-    await converterPage.toggleIncludeContext(true)
-
-    // ACT: Convert
-    await converterPage.clickConvert()
-    await converterPage.waitForConversionComplete()
-
-    // ASSERT: Conversion completes successfully
-    const stats = await converterPage.getConversionStats()
-    expect(stats.successful).toBe(1)
-
-    // Note: We're not testing the actual JSON content here,
-    // just that the conversion completes with the checkbox enabled.
-    // The backend should handle the @context inclusion.
-  })
 })
 
 /**

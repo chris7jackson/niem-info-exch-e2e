@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 async def convert_xml_to_json(
     xml_content: bytes,
     cmf_content: str,
-    include_context: bool = False,
     context_uri: Optional[str] = None
 ) -> Dict[str, Any]:
     """
@@ -37,10 +36,11 @@ async def convert_xml_to_json(
     4. Cleaning up temporary files
     5. Error handling and reporting
 
+    The complete @context is always included in the conversion result.
+
     Args:
         xml_content: XML file content as bytes
         cmf_content: CMF model content as string
-        include_context: If True, include complete @context in result
         context_uri: Optional URI to include as "@context:" URI pair
 
     Returns:
@@ -75,10 +75,10 @@ async def convert_xml_to_json(
             # Build NIEMTran command
             cmd = ["x2j"]
 
-            # Add optional flags
-            if include_context:
-                cmd.append("--context")
+            # Always include complete @context
+            cmd.append("--context")
 
+            # Add optional context URI
             if context_uri:
                 cmd.extend(["--curi", context_uri])
 
