@@ -197,7 +197,7 @@ class ApiClient {
 
     // Handle both single file and array of files
     const fileArray = Array.isArray(files) ? files : [files];
-    fileArray.forEach(file => {
+    fileArray.forEach((file) => {
       formData.append('files', file);
     });
 

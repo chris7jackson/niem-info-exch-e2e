@@ -31,8 +31,8 @@ export default function ConversionResults({ results }: ConversionResultsProps) {
 
       // Add all successful conversions to ZIP
       results.results
-        .filter(r => r.status === 'success' && r.json_string)
-        .forEach(r => {
+        .filter((r) => r.status === 'success' && r.json_string)
+        .forEach((r) => {
           const jsonFilename = r.filename.replace('.xml', '.json');
           zip.file(jsonFilename, r.json_string!);
         });
@@ -108,9 +108,7 @@ export default function ConversionResults({ results }: ConversionResultsProps) {
               <div className="flex items-center gap-3">
                 {file.status === 'success' ? (
                   <>
-                    <div className="text-sm text-gray-600">
-                      Converted successfully
-                    </div>
+                    <div className="text-sm text-gray-600">Converted successfully</div>
                     <button
                       onClick={() => downloadJson(file.filename, file.json_string!)}
                       className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -121,7 +119,7 @@ export default function ConversionResults({ results }: ConversionResultsProps) {
                   </>
                 ) : (
                   <div className="text-sm text-red-600">
-                    {file.validation_details ? 'Validation failed' : (file.error || 'Unknown error')}
+                    {file.validation_details ? 'Validation failed' : file.error || 'Unknown error'}
                   </div>
                 )}
               </div>
