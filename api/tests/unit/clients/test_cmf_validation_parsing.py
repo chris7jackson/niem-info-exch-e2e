@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Tests for CMF validation output parsing."""
 
-import pytest
 from niem_api.clients.cmf_client import parse_cmf_validation_output
 
 

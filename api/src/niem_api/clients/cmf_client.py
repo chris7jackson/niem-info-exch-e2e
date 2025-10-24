@@ -10,18 +10,13 @@ For CMF-related business operations (XSD conversion, JSON schema generation),
 use the services/cmf_tool.py module.
 """
 
-import json
 import logging
 import os
-import platform
 import subprocess
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
-# Detect platform for cross-platform compatibility
-IS_WINDOWS = platform.system() == "Windows"
 
 # CMF tool configuration
 # Check for environment variable first, then fall back to default path
@@ -34,8 +29,8 @@ if _CMF_PATH_ENV:
 else:
     # Default: Go up 4 levels from clients/cmf_client.py to get to api/ directory
     # File is at: api/src/niem_api/clients/cmf_client.py -> need 4 .parent to reach api/
-    # On Windows, use cmftool.bat; on Unix/Mac, use cmftool
-    _CMF_SCRIPT_NAME = "cmftool.bat" if IS_WINDOWS else "cmftool"
+    # In Docker, the container is always Linux, so always use the shell script (not .bat)
+    _CMF_SCRIPT_NAME = "cmftool"
     _CMF_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / f"third_party/niem-cmf/cmftool-1.0/bin/{_CMF_SCRIPT_NAME}"
 
     if _CMF_DEFAULT_PATH.exists():
@@ -148,7 +143,7 @@ def get_cmf_version() -> str:
             raise CMFError(f"Version check failed: {result['stderr']}")
     except Exception as e:
         logger.error(f"Failed to get CMF version: {e}")
-        raise CMFError(f"Failed to get CMF version: {str(e)}")
+        raise CMFError(f"Failed to get CMF version: {str(e)}") from e
 
 
 async def download_and_setup_cmf() -> bool:
@@ -174,7 +169,7 @@ async def download_and_setup_cmf() -> bool:
         return False
 
 
-def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> Dict[str, Any]:
+def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> dict[str, Any]:
     """
     Parse CMF tool validation output into structured error information.
 
@@ -195,11 +190,10 @@ def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> Dict
     Example output line:
         [error] file.xml:42:15: cvc-complex-type.2.4.a: Invalid content
     """
-    from typing import List
     import re
 
-    errors: List[Dict[str, Any]] = []
-    warnings: List[Dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
 
     # Combine stdout and stderr for parsing
     combined_output = (stdout or "") + "\n" + (stderr or "")
@@ -238,8 +232,20 @@ def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> Dict
                 warnings.append(error_dict)
 
     # If no structured errors found but output exists, create a generic error
+    # But skip if output indicates success (e.g., "No errors found", "Validation successful")
     if not errors and not warnings and combined_output.strip():
-        if "[error]" in combined_output.lower() or "error" in combined_output.lower():
+        output_lower = combined_output.lower()
+        # Check for actual error indicators, but exclude success messages
+        has_error_indicator = (
+            "[error]" in output_lower or
+            ("error" in output_lower and "no error" not in output_lower)
+        )
+        # Don't create error if output indicates success
+        is_success = any(phrase in output_lower for phrase in [
+            "validation successful", "no errors", "successful"
+        ])
+
+        if has_error_indicator and not is_success:
             errors.append({
                 "file": filename,
                 "line": None,
@@ -320,8 +326,8 @@ def _validate_cmf_command(cmd: list) -> None:
 def run_cmf_command(
     cmd: list,
     timeout: int = CMF_TIMEOUT,
-    working_dir: Optional[str] = None
-) -> Dict[str, Any]:
+    working_dir: str | None = None
+) -> dict[str, Any]:
     """
     Execute a CMF tool command with timeout and safety checks.
 
@@ -424,9 +430,9 @@ def run_cmf_command(
             "stdout": result.stdout,
             "stderr": result.stderr
         }
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
         logger.error(f"CMF command timed out after {timeout} seconds")
-        raise CMFError(f"Operation timed out after {timeout} seconds")
+        raise CMFError(f"Operation timed out after {timeout} seconds") from e
     except Exception as e:
         logger.error(f"CMF command execution failed: {e}")
-        raise CMFError(f"Command execution failed: {e}")
+        raise CMFError(f"Command execution failed: {e}") from e

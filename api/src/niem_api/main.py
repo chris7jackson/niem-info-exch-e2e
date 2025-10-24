@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
 
-import asyncio
 import logging
 import os
 import time
 from contextlib import asynccontextmanager
 from typing import List
 
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from neo4j import GraphDatabase
 
-from .core.dependencies import get_s3_client
-from .models.models import SchemaResponse, ResetRequest
 from .core.auth import verify_token
+from .core.dependencies import get_s3_client
 from .core.logging import setup_logging
+from .models.models import ResetRequest, SchemaResponse
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +72,8 @@ async def startup_tasks():
 
         logger.info("Startup tasks completed successfully")
 
-        # TODO potentially, fetch all third party references. i.e. niem open reference xsd schemas. niem cmftool, niem naming design rules. Or document how to update. 
+        # TODO potentially, fetch all third party references. i.e. niem open reference xsd schemas.
+        # niem cmftool, niem naming design rules. Or document how to update.
 
     except Exception as e:
         logger.error(f"Startup tasks failed: {e}")
@@ -144,16 +143,16 @@ async def readiness_check():
 
     except Exception as e:
         logger.warning(f"Readiness check failed: {e}")
-        raise HTTPException(status_code=503, detail={"status": "not_ready"})
+        raise HTTPException(status_code=503, detail={"status": "not_ready"}) from e
 
 
-  
+
 
 # Schema Management Routes
 
 @app.post("/api/schema/xsd", response_model=SchemaResponse)
 async def upload_schema(
-    files: List[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
     file_paths: str = Form("[]"),
     skip_niem_ndr: bool = Form(False),
     token: str = Depends(verify_token),
@@ -172,6 +171,7 @@ async def upload_schema(
         s3: MinIO client dependency
     """
     import json
+
     from .handlers.schema import handle_schema_upload
 
     # Parse file paths JSON
@@ -214,8 +214,9 @@ async def download_schema_file(
         schema_id: ID of the schema
         file_type: Type of file ('cmf' or 'json')
     """
-    from .handlers.schema import handle_schema_file_download
     from fastapi.responses import Response
+
+    from .handlers.schema import handle_schema_file_download
 
     content, filename = await handle_schema_file_download(schema_id, file_type, s3)
 
@@ -235,7 +236,7 @@ async def download_schema_file(
 
 @app.post("/api/ingest/xml")
 async def ingest_xml(
-    files: List[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
     schema_id: str = Form(None),  # Optional schema selection
     token: str = Depends(verify_token),
     s3=Depends(get_s3_client)
@@ -247,7 +248,7 @@ async def ingest_xml(
 
 @app.post("/api/ingest/json")
 async def ingest_json(
-    files: List[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
     schema_id: str = Form(None),  # Optional schema selection
     token: str = Depends(verify_token),
     s3=Depends(get_s3_client)
@@ -275,23 +276,29 @@ async def get_uploaded_files(
 
 @app.post("/api/convert/xml-to-json")
 async def convert_xml_to_json(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(None),
+    file: UploadFile = File(None),
     schema_id: str = Form(None),
     include_context: bool = Form(False),
     context_uri: str = Form(None),
     token: str = Depends(verify_token),
     s3=Depends(get_s3_client)
 ):
-    """Convert NIEM XML message to JSON format.
+    """Convert NIEM XML message(s) to JSON format.
 
+    Supports both single file and batch conversion.
     Uses the active schema's CMF model to perform the conversion.
     The resulting JSON follows NIEM JSON-LD conventions.
 
     This is a utility tool for demo purposes - converted JSON is returned
     but not stored or ingested.
 
+    Batch processing uses controlled concurrency (max 3 files simultaneously)
+    to prevent resource exhaustion. See docs/adr/001-batch-processing-architecture.md
+
     Args:
-        file: XML file to convert
+        files: Multiple XML files to convert (for batch processing)
+        file: Single XML file to convert (for backward compatibility)
         schema_id: Optional schema ID (uses active schema if not provided)
         include_context: Include complete @context in the result
         context_uri: Optional URI to include as "@context:" URI pair
@@ -299,10 +306,24 @@ async def convert_xml_to_json(
         s3: MinIO client dependency
 
     Returns:
-        JSON response with converted content
+        JSON response with converted content (batch format if multiple files)
     """
-    from .handlers.convert import handle_xml_to_json_conversion
-    return await handle_xml_to_json_conversion(file, s3, schema_id, include_context, context_uri)
+    from .handlers.convert import handle_xml_to_json_batch
+
+    # Handle backward compatibility: accept either 'file' or 'files', or both
+    if file and files:
+        # Both provided - combine them
+        files = [file] + files
+    elif file:
+        # Only single file - convert to list for batch handler
+        files = [file]
+    elif not files:
+        raise HTTPException(
+            status_code=400,
+            detail="No files provided. Please upload at least one XML file."
+        )
+
+    return await handle_xml_to_json_batch(files, s3, schema_id, include_context, context_uri)
 
 
 # Admin Routes

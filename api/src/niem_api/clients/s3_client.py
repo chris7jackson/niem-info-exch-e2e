@@ -10,7 +10,8 @@ Use services layer for business logic that uses this client.
 """
 
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Any
+
 from minio import Minio
 from minio.error import S3Error
 
@@ -91,7 +92,7 @@ async def upload_file(
     """
     try:
         from io import BytesIO
-        result = client.put_object(
+        client.put_object(
             bucket,
             object_name,
             BytesIO(data),
@@ -141,7 +142,7 @@ async def download_file(client: Minio, bucket: str, object_name: str) -> bytes:
         raise
 
 
-async def list_files(client: Minio, bucket: str, prefix: str = "") -> List[Dict[str, Any]]:
+async def list_files(client: Minio, bucket: str, prefix: str = "") -> list[dict[str, Any]]:
     """
     List files in a MinIO bucket with optional prefix filter.
 
@@ -234,7 +235,7 @@ def get_text_content(client: Minio, bucket: str, object_name: str) -> str:
         raise
 
 
-def get_json_content(client: Minio, bucket: str, object_name: str) -> Dict[str, Any]:
+def get_json_content(client: Minio, bucket: str, object_name: str) -> dict[str, Any]:
     """
     Get object content as parsed JSON with proper connection cleanup.
 
@@ -272,7 +273,7 @@ def get_json_content(client: Minio, bucket: str, object_name: str) -> Dict[str, 
         raise
 
 
-def get_yaml_content(client: Minio, bucket: str, object_name: str) -> Dict[str, Any]:
+def get_yaml_content(client: Minio, bucket: str, object_name: str) -> dict[str, Any]:
     """
     Get object content as parsed YAML with proper connection cleanup.
 

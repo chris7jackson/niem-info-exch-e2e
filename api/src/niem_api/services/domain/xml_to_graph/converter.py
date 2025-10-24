@@ -8,9 +8,9 @@ reference relationships.
 import argparse
 import hashlib
 import re
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
 import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -19,8 +19,8 @@ STRUCT_NS = "https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 
 
-def load_mapping_from_dict(mapping_dict: Dict[str, Any]) -> Tuple[
-    Dict[str, Any], Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, str]
+def load_mapping_from_dict(mapping_dict: dict[str, Any]) -> tuple[
+    dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]
 ]:
     """Load mapping from dictionary instead of file.
 
@@ -37,8 +37,8 @@ def load_mapping_from_dict(mapping_dict: Dict[str, Any]) -> Tuple[
     return mapping_dict, obj_qnames, associations, references, namespaces
 
 
-def load_mapping(mapping_path: Path) -> Tuple[
-    Dict[str, Any], Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, str]
+def load_mapping(mapping_path: Path) -> tuple[
+    dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]
 ]:
     """Load mapping from YAML file.
 
@@ -56,7 +56,7 @@ def load_mapping(mapping_path: Path) -> Tuple[
     return mapping, obj_qnames, associations, references, namespaces
 
 
-def parse_ns(xml_text: str) -> Dict[str, str]:
+def parse_ns(xml_text: str) -> dict[str, str]:
     """Parse namespace declarations from XML text.
 
     Args:
@@ -72,7 +72,7 @@ def parse_ns(xml_text: str) -> Dict[str, str]:
     return ns_map
 
 
-def qname_from_tag(tag: str, ns_map: Dict[str, str]) -> str:
+def qname_from_tag(tag: str, ns_map: dict[str, str]) -> str:
     """Convert XML tag to qualified name using namespace map.
 
     Args:
@@ -120,7 +120,7 @@ def synth_id(parent_id: str, elem_qn: str, ordinal_path: str, file_prefix: str =
     return f"{file_prefix}_{synth}" if file_prefix else synth
 
 
-def build_refs_index(references: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+def build_refs_index(references: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     """Build index of reference rules by owner object.
 
     Args:
@@ -135,7 +135,7 @@ def build_refs_index(references: List[Dict[str, Any]]) -> Dict[str, List[Dict[st
     return by_owner
 
 
-def build_assoc_index(associations: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def build_assoc_index(associations: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Build index of association rules by qualified name.
 
     Args:
@@ -165,9 +165,9 @@ def is_augmentation(element_qname: str, cmf_element_index: set) -> bool:
 
 def extract_unmapped_properties(
     elem: ET.Element,
-    ns_map: Dict[str, str],
+    ns_map: dict[str, str],
     cmf_element_index: set
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Extract properties from unmapped/augmentation elements and attributes.
 
     Args:
@@ -218,11 +218,11 @@ def extract_unmapped_properties(
 
 def handle_complex_augmentation(
     elem: ET.Element,
-    ns_map: Dict[str, str],
+    ns_map: dict[str, str],
     parent_node_id: str,
     file_prefix: str,
-    nodes: Dict[str, List],
-    contains: List[Tuple]
+    nodes: dict[str, list],
+    contains: list[tuple]
 ) -> str:
     """Create separate augmentation node for complex nested structures.
 
@@ -255,7 +255,7 @@ def handle_complex_augmentation(
     return aug_node_id
 
 
-def _extract_all_properties_recursive(elem: ET.Element, ns_map: Dict[str, str]) -> Dict[str, Any]:
+def _extract_all_properties_recursive(elem: ET.Element, ns_map: dict[str, str]) -> dict[str, Any]:
     """Recursively extract all properties from complex augmentation element.
 
     Args:
@@ -295,8 +295,8 @@ def _extract_all_properties_recursive(elem: ET.Element, ns_map: Dict[str, str]) 
 
 
 def collect_scalar_setters(
-    obj_rule: Dict[str, Any], elem: ET.Element, ns_map: Dict[str, str]
-) -> List[Tuple[str, str]]:
+    obj_rule: dict[str, Any], elem: ET.Element, ns_map: dict[str, str]
+) -> list[tuple[str, str]]:
     """Collect scalar property setters for an object element.
 
     Args:
@@ -357,8 +357,8 @@ def collect_scalar_setters(
 
 
 def generate_for_xml_content(
-    xml_content: str, mapping_dict: Dict[str, Any], filename: str = "memory", cmf_element_index: set = None
-) -> Tuple[str, Dict[str, Any], List[Tuple], List[Tuple]]:
+    xml_content: str, mapping_dict: dict[str, Any], filename: str = "memory", cmf_element_index: set = None
+) -> tuple[str, dict[str, Any], list[tuple], list[tuple]]:
     """Generate Cypher statements from XML content and mapping dictionary.
 
     Args:
@@ -388,8 +388,8 @@ def generate_for_xml_content(
 
     # Generate file-specific prefix for node IDs to ensure uniqueness across files
     # Use timestamp + filename hash for uniqueness
-    import time
     import json
+    import time
     from datetime import datetime, timezone
 
     file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode()).hexdigest()[:8]
@@ -440,7 +440,7 @@ def generate_for_xml_content(
         for child in elem:
             collect_ids_pass1(child)
 
-    def get_metadata_refs(elem: ET.Element, xml_ns_map: Dict[str, str]) -> List[str]:
+    def get_metadata_refs(elem: ET.Element, xml_ns_map: dict[str, str]) -> list[str]:
         """Extract metadata reference IDs from nc:metadataRef or priv:privacyMetadataRef attributes.
 
         Args:
@@ -453,7 +453,7 @@ def generate_for_xml_content(
         metadata_refs = []
 
         # Check for nc:metadataRef
-        for prefix, uri in xml_ns_map.items():
+        for _, uri in xml_ns_map.items():
             if 'niem-core' in uri:
                 nc_metadata_ref = elem.attrib.get(f"{{{uri}}}metadataRef")
                 if nc_metadata_ref:
@@ -707,7 +707,6 @@ def generate_for_xml_content(
             # BUT we don't need them if the metadata is a direct structural child (already has containment edge)
             # For now, skip metadata reference edges entirely - containment edges are sufficient
             # The HAS_METADATA, HAS_PRIVACYMETADATA containment edges already capture the relationships
-            metadata_refs = get_metadata_refs(elem, xml_ns_map)
             # Note: We're intentionally not creating metadata reference edges here
             # The structural containment edges (HAS_METADATA, HAS_PRIVACYMETADATA, etc.)
             # already capture the relationships between elements and their metadata
@@ -931,7 +930,7 @@ def main():
         all_lines.append(cypher)
 
     Path(args.out).write_text("\n\n".join(all_lines), encoding="utf-8")
-    print(f"OK: wrote Cypher to {args.out}")
+    print(f"OK: wrote Cypher to {args.out}")  # noqa: T201
 
 
 if __name__ == "__main__":

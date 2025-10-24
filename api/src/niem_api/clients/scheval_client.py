@@ -12,16 +12,12 @@ For schematron validation business operations, use the services/domain/schema/sc
 import json
 import logging
 import os
-import platform
 import re
 import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
-
-# Detect platform for cross-platform compatibility
-IS_WINDOWS = platform.system() == "Windows"
 
 # Scheval tool configuration
 # Check for environment variable first, then fall back to default path
@@ -34,8 +30,8 @@ if _SCHEVAL_PATH_ENV:
 else:
     # Default: Go up 4 levels from clients/scheval_client.py to get to api/ directory
     # File is at: api/src/niem_api/clients/scheval_client.py -> need 4 .parent to reach api/
-    # On Windows, use scheval.bat; on Unix/Mac, use scheval
-    _SCHEVAL_SCRIPT_NAME = "scheval.bat" if IS_WINDOWS else "scheval"
+    # In Docker, the container is always Linux, so always use the shell script (not .bat)
+    _SCHEVAL_SCRIPT_NAME = "scheval"
     _SCHEVAL_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / f"third_party/niem-scheval/scheval-1.0/bin/{_SCHEVAL_SCRIPT_NAME}"
 
     if _SCHEVAL_DEFAULT_PATH.exists():

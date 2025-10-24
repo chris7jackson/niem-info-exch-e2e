@@ -40,6 +40,10 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const clearAllFiles = () => {
+    setFiles([]);
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       setError('Please select files to upload');
@@ -166,8 +170,20 @@ export default function UploadPanel({ contentType }: UploadPanelProps) {
 
         {/* Selected Files */}
         {files.length > 0 && (
-          <div className="mt-4 space-y-2">
-            <h4 className="text-sm font-medium text-gray-900">Selected Files ({files.length})</h4>
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-gray-900">
+                Selected Files ({files.length})
+              </h4>
+              {files.length > 1 && (
+                <button
+                  onClick={clearAllFiles}
+                  className="text-sm text-red-600 hover:text-red-500"
+                >
+                  Remove All
+                </button>
+              )}
+            </div>
             <div className="space-y-1">
               {files.map((file, index) => (
                 <div key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between bg-gray-50 p-2 rounded">

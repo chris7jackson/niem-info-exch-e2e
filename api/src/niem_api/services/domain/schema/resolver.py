@@ -3,7 +3,6 @@
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Set, Optional
 from xml.etree import ElementTree as ET
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ class SchemaValidator:
     def __init__(self):
         pass
 
-    def _extract_schema_imports(self, xsd_content: str) -> Set[str]:
+    def _extract_schema_imports(self, xsd_content: str) -> set[str]:
         """Extract schemaLocation paths from XSD imports"""
         schema_locations = set()
 
@@ -45,7 +44,7 @@ class SchemaValidator:
 
         return schema_locations
 
-    def _extract_imported_namespaces(self, xsd_content: str) -> Set[str]:
+    def _extract_imported_namespaces(self, xsd_content: str) -> set[str]:
         """Extract namespace URIs from xs:import elements"""
         imported_namespaces = set()
 
@@ -88,7 +87,7 @@ class SchemaValidator:
 
         return imported_namespaces
 
-    def _extract_namespace_declarations(self, xsd_content: str) -> Dict[str, str]:
+    def _extract_namespace_declarations(self, xsd_content: str) -> dict[str, str]:
         """Extract namespace prefix to URI mappings from schema root element"""
         namespace_map = {}
 
@@ -121,7 +120,7 @@ class SchemaValidator:
 
         return namespace_map
 
-    def _find_used_namespace_prefixes(self, xsd_content: str) -> Set[str]:
+    def _find_used_namespace_prefixes(self, xsd_content: str) -> set[str]:
         """Find all namespace prefixes that are actually used in element/type references"""
         used_prefixes = set()
 
@@ -144,7 +143,7 @@ class SchemaValidator:
         logger.debug(f"Found used namespace prefixes: {used_prefixes}")
         return used_prefixes
 
-    def validate_uploaded_schemas(self, uploaded_schemas: Dict[str, str]) -> Dict[str, any]:
+    def validate_uploaded_schemas(self, uploaded_schemas: dict[str, str]) -> dict[str, any]:
         """
         Validate that all dependencies in uploaded schemas can be resolved within the uploaded files.
 
@@ -201,7 +200,8 @@ class SchemaValidator:
                     # Also check if any uploaded schema path ends with this import path
                     for uploaded_name in uploaded_schemas.keys():
                         normalized_uploaded = uploaded_name.replace('\\', '/')
-                        if normalized_uploaded.endswith(normalized_location) or normalized_uploaded.endswith(import_filename):
+                        if (normalized_uploaded.endswith(normalized_location)
+                                or normalized_uploaded.endswith(import_filename)):
                             found = True
                             break
 
@@ -256,7 +256,10 @@ class SchemaValidator:
                     })
 
                     if status == 'missing':
-                        logger.warning(f"{filename} uses prefix {prefix}:{namespace_uri} but no uploaded schema provides this namespace")
+                        logger.warning(
+                            f"{filename} uses prefix {prefix}:{namespace_uri} but no uploaded "
+                            f"schema provides this namespace"
+                        )
 
             file_details.append({
                 'filename': filename,
@@ -318,7 +321,7 @@ class SchemaValidator:
 _validator = SchemaValidator()
 
 
-def validate_schema_dependencies(uploaded_schemas: Dict[str, str]) -> Dict[str, any]:
+def validate_schema_dependencies(uploaded_schemas: dict[str, str]) -> dict[str, any]:
     """
     Convenience function to validate that all schema dependencies exist within uploaded files.
 

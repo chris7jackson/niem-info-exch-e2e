@@ -66,6 +66,25 @@ export interface UploadedFile {
   content_type: string;
 }
 
+export interface ConversionFileResult {
+  filename: string;
+  status: string;
+  json_content?: any;
+  json_string?: string;
+  schema_id?: string;
+  schema_filename?: string;
+  error?: string;
+  validation_details?: ValidationResult;
+}
+
+export interface BatchConversionResult {
+  files_processed: number;
+  successful: number;
+  failed: number;
+  results: ConversionFileResult[];
+}
+
+// Deprecated: Use BatchConversionResult for new code
 export interface ConversionResult {
   success: boolean;
   json_content?: any;
@@ -75,6 +94,16 @@ export interface ConversionResult {
   schema_filename?: string;
   source_filename?: string;
   error?: string;
+}
+
+export interface HealthResponse {
+  status: string;
+  timestamp: number;
+  uptime: number;
+  api_version: string;
+  git_commit: string;
+  build_date: string;
+  niem_version: string;
 }
 
 class ApiClient {
@@ -155,13 +184,19 @@ class ApiClient {
 
   // Format Conversion
   async convertXmlToJson(
-    file: File,
+    files: File | File[],
     schemaId?: string,
     includeContext: boolean = false,
     contextUri?: string
-  ): Promise<ConversionResult> {
+  ): Promise<BatchConversionResult> {
     const formData = new FormData();
-    formData.append('file', file);
+
+    // Handle both single file and array of files
+    const fileArray = Array.isArray(files) ? files : [files];
+    fileArray.forEach(file => {
+      formData.append('files', file);
+    });
+
     if (schemaId) {
       formData.append('schema_id', schemaId);
     }
@@ -200,6 +235,12 @@ class ApiClient {
   async getUploadedFiles(): Promise<UploadedFile[]> {
     const response = await this.client.get('/api/ingest/files');
     return response.data.files;
+  }
+
+  // Health check and version info
+  async getHealth(): Promise<HealthResponse> {
+    const response = await this.client.get('/healthz');
+    return response.data;
   }
 }
 

@@ -2,6 +2,7 @@
 
 import logging
 import logging.config
+
 from pythonjsonlogger import jsonlogger
 
 
@@ -13,7 +14,10 @@ def setup_logging():
         "formatters": {
             "json": {
                 "()": jsonlogger.JsonFormatter,
-                "format": "%(asctime)s %(name)s %(levelname)s %(message)s %(trace_id)s %(job_id)s %(file_id)s %(schema_id)s"
+                "format": (
+                    "%(asctime)s %(name)s %(levelname)s %(message)s "
+                    "%(trace_id)s %(job_id)s %(file_id)s %(schema_id)s"
+                )
             }
         },
         "handlers": {

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
-import pytest
 from xml.etree import ElementTree as ET
 
+import pytest
+
 from niem_api.services.domain.schema.mapping import (
-    generate_mapping_from_cmf_content,
-    to_qname,
-    to_label,
-    to_rel_type,
+    build_element_to_class,
     build_prefix_map,
+    generate_mapping_from_cmf_content,
     parse_classes,
-    build_element_to_class
+    to_label,
+    to_qname,
+    to_rel_type,
 )
 
 
@@ -130,23 +131,30 @@ class TestCMFToMapping:
         assert "augmentations" in mapping
         assert "polymorphism" in mapping
 
-        # Check namespaces
+        # Check namespaces (only test namespace has defined classes)
         assert "test" in mapping["namespaces"]
-        assert "nc" in mapping["namespaces"]
+        # nc namespace is referenced but has no classes defined in this CMF, so it won't be in used namespaces
 
         # Check objects (non-association types)
         objects = mapping["objects"]
-        assert len(objects) == 1
-        person_obj = objects[0]
-        assert person_obj["qname"] == "test:Person"
+        assert len(objects) == 2  # test.Person and test.PersonName
+        person_obj = next((obj for obj in objects if obj["qname"] == "test:Person"), None)
+        assert person_obj is not None
         assert person_obj["label"] == "test_Person"
         assert person_obj["carries_structures_id"] is True
+
+        # Verify PersonName object also exists
+        person_name_obj = next((obj for obj in objects if obj["qname"] == "test:PersonName"), None)
+        assert person_name_obj is not None
 
         # Check associations
         associations = mapping["associations"]
         assert len(associations) == 1
         person_assoc = associations[0]
-        assert "test:PersonAssociation" in person_assoc["qname"] or "test:PersonAssociationType" in person_assoc["qname"]
+        assert (
+            "test:PersonAssociation" in person_assoc["qname"]
+            or "test:PersonAssociationType" in person_assoc["qname"]
+        )
 
         # Check polymorphism settings
         assert mapping["polymorphism"]["strategy"] == "extraLabel"
