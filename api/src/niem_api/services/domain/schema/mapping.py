@@ -12,7 +12,8 @@ Key Features:
 """
 import re
 import sys
-import xml.etree.ElementTree as ET
+# Use defusedxml for secure XML parsing (prevents XXE attacks)
+import defusedxml.ElementTree as ET
 from typing import Any
 
 import yaml
