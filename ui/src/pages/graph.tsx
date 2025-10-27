@@ -154,6 +154,8 @@ export default function GraphPage() {
   const [selectedLayout, setSelectedLayout] = useState('cose');
   const [showNodeLabels, setShowNodeLabels] = useState(true);
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
+  const [resolutionRunning, setResolutionRunning] = useState(false);
+  const [resolutionMessage, setResolutionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const validLayouts = ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'];
@@ -500,6 +502,86 @@ export default function GraphPage() {
     executeQuery(cypherQuery);
   };
 
+  const runEntityResolution = async () => {
+    setResolutionRunning(true);
+    setResolutionMessage(null);
+    setError(null);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/entity-resolution/run`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        setResolutionMessage(result.message);
+        // Automatically refresh graph to show resolved entities
+        setTimeout(() => {
+          executeQuery(cypherQuery);
+        }, 500);
+      } else {
+        throw new Error(result.message || 'Entity resolution failed');
+      }
+
+    } catch (err: any) {
+      console.error('Entity resolution failed:', err);
+      setError(err.message || 'Failed to run entity resolution');
+    } finally {
+      setResolutionRunning(false);
+    }
+  };
+
+  const resetEntityResolution = async () => {
+    if (!confirm('This will remove all resolved entity nodes. Continue?')) {
+      return;
+    }
+
+    setResolutionRunning(true);
+    setResolutionMessage(null);
+    setError(null);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/entity-resolution/reset`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        setResolutionMessage('Entity resolution reset successfully');
+        // Refresh graph
+        setTimeout(() => {
+          executeQuery(cypherQuery);
+        }, 500);
+      } else {
+        throw new Error(result.message || 'Reset failed');
+      }
+
+    } catch (err: any) {
+      console.error('Reset failed:', err);
+      setError(err.message || 'Failed to reset entity resolution');
+    } finally {
+      setResolutionRunning(false);
+    }
+  };
+
   // Simplified query options - default shows everything
   const explorationQueries = [
     {
@@ -609,13 +691,35 @@ export default function GraphPage() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {loading ? 'Loading...' : 'Show Graph'}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {loading ? 'Loading...' : 'Show Graph'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={runEntityResolution}
+                  disabled={resolutionRunning || loading}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                  title="Find and link duplicate entities based on name and birth date"
+                >
+                  {resolutionRunning ? 'Running...' : 'Run Entity Resolution'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={resetEntityResolution}
+                  disabled={resolutionRunning || loading}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  title="Remove all resolved entity nodes"
+                >
+                  Reset
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -631,8 +735,25 @@ export default function GraphPage() {
               </svg>
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Query Error</h3>
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
               <p className="mt-2 text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Message Display */}
+      {resolutionMessage && (
+        <div className="bg-green-50 border border-green-200 rounded-md p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-green-800">Success</h3>
+              <p className="mt-2 text-sm text-green-700">{resolutionMessage}</p>
             </div>
           </div>
         </div>
