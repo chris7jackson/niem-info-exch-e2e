@@ -31,7 +31,8 @@ isort==5.12.0  # Import sorting
 pytest-benchmark==4.0.0
 
 # Security testing
-bandit==1.7.5  # Security linter
+pbr>=5.11.0  # Required by bandit (explicit for better dependency resolution)
+bandit[toml]==1.7.9  # Security linter (updated for better pbr compatibility)
 # safety removed due to packaging dependency conflict
 # Use pip-audit or trivy instead for vulnerability scanning
 
