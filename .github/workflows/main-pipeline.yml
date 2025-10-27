@@ -119,7 +119,10 @@ jobs:
       - name: Install UI dependencies
         run: |
           cd ui
-          npm ci
+          # Handle npm bug with optional dependencies (Rollup)
+          # https://github.com/npm/cli/issues/4828
+          rm -rf node_modules
+          npm install --prefer-offline --no-audit
 
       - name: Install Playwright browsers
         run: |

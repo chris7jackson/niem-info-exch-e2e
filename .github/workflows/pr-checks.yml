@@ -337,7 +337,8 @@ jobs:
           cd ui
           # Handle npm bug with optional dependencies (Rollup)
           # https://github.com/npm/cli/issues/4828
-          npm ci || (echo "npm ci failed, trying clean install..." && rm -rf node_modules && npm install)
+          rm -rf node_modules
+          npm install --prefer-offline --no-audit
 
       - name: Run ESLint
         run: |
