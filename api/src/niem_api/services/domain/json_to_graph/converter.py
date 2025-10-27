@@ -217,7 +217,8 @@ def generate_for_json_content(
         cmf_element_index = set(cmf_elements_list) if cmf_elements_list else set()
 
     # Generate file-specific prefix for node IDs
-    file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode()).hexdigest()[:8]
+    # SHA1 used for ID generation only, not cryptographic security
+    file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode(), usedforsecurity=False).hexdigest()[:8]
 
     nodes = {}  # id -> (label, qname, props_dict, aug_props_dict)
     edges = []  # (from_id, from_label, to_id, to_label, rel_type, rel_props)
