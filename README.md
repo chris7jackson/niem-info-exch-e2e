@@ -471,7 +471,7 @@ This walkthrough demonstrates:
 
 ## Next Steps
 
-- Upload your own NIEM-compliant XSD schemas
+- Upload your own NIEM-conformant XSD schemas
 - Test with different NIEM domains (Justice, Immigration, Emergency Management, etc.)
 - Experiment with custom privacy extensions
 - Build custom Cypher queries for your use case

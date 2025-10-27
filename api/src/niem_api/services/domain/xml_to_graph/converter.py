@@ -7,6 +7,7 @@ reference relationships.
 """
 import argparse
 import hashlib
+import json
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -17,6 +18,10 @@ import yaml
 # NIEM structures namespace
 STRUCT_NS = "https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
+
+# Cypher property name validation pattern - only alphanumeric and underscore are safe
+# Property names with dots, hyphens, or other special chars must be escaped with backticks
+CYPHER_SAFE_PROPERTY_NAME = r'^[a-zA-Z_][a-zA-Z0-9_]*$'
 
 
 def load_mapping_from_dict(mapping_dict: dict[str, Any]) -> tuple[
@@ -567,11 +572,10 @@ def generate_for_xml_content(
             if target_id and target_id not in id_registry:
                 pending_refs.append((elem_qn, target_id, f"structures:ref/uri in {elem_qn}"))
 
-            # Create or register entity node if not already exists (for forward references)
-            # Use element QName to determine entity type (e.g., <nc:Person> creates nc:Person entity)
-            if target_id and target_id not in nodes:
-                entity_label = elem_qn.replace(":", "_")
-                nodes[target_id] = [entity_label, elem_qn, {}, {}]
+            # NOTE: Do NOT create placeholder nodes for reference targets
+            # The actual element with structures:id will create its own node when traversed
+            # Creating placeholder nodes here leads to orphaned nodes for invalid references
+            # If target doesn't exist, Cypher MATCH will fail and edge won't be created
 
             # NOTE: Do NOT create containment relationships for reference elements
             # Reference elements (xsi:nil="true" with structures:ref/uri) are pure references
@@ -589,7 +593,14 @@ def generate_for_xml_content(
         metadata_ref_list = get_metadata_refs(elem, xml_ns_map)
         has_metadata_refs = bool(metadata_ref_list)
 
-        if obj_rule or sid or has_metadata_refs:
+        # Check if element has complex children (child elements, not just text)
+        # Elements with complex structure should become nodes to preserve hierarchy
+        has_complex_children = any(
+            isinstance(child.tag, str) and not child.tag.startswith("{http://www.w3.org/2001/XMLSchema")
+            for child in elem
+        )
+
+        if obj_rule or sid or has_metadata_refs or has_complex_children:
             # Generate label from mapping or from element name
             if obj_rule:
                 node_label = obj_rule["label"]
@@ -697,10 +708,23 @@ def generate_for_xml_content(
                 nodes[node_id] = [node_label, elem_qn, props, aug_props]
 
             # Create containment edge
+            # Check if parent has a reference rule for this child - if so, skip containment edge
+            # to avoid duplicate relationships (the reference rule creates the semantic edge)
             if parent_info:
-                p_id, p_label = parent_info
-                rel = "HAS_" + re.sub(r'[^A-Za-z0-9]', '_', local_from_qname(elem_qn)).upper()
-                contains.append((p_id, p_label, node_id, node_label, rel))
+                p_id, p_label, p_qname = parent_info
+
+                # Check if parent has reference rules that handle this child element
+                skip_containment = False
+                if p_qname in refs_by_owner:
+                    for rule in refs_by_owner[p_qname]:
+                        if rule["field_qname"] == elem_qn:
+                            skip_containment = True
+                            break
+
+                # Only create containment edge if not handled by reference rules
+                if not skip_containment:
+                    rel = "HAS_" + re.sub(r'[^A-Za-z0-9]', '_', local_from_qname(elem_qn)).upper()
+                    contains.append((p_id, p_label, node_id, node_label, rel))
 
             # Handle metadata references for CROSS-REFERENCES only
             # Metadata references (nc:metadataRef, priv:privacyMetadataRef) create semantic links
@@ -711,7 +735,7 @@ def generate_for_xml_content(
             # The structural containment edges (HAS_METADATA, HAS_PRIVACYMETADATA, etc.)
             # already capture the relationships between elements and their metadata
 
-            parent_ctx = (node_id, node_label)
+            parent_ctx = (node_id, node_label, elem_qn)
         else:
             parent_ctx = parent_info
 
@@ -851,16 +875,18 @@ def generate_for_xml_content(
 
         # Add core mapped properties
         for key, value in sorted(props.items()):
-            # Escape property names with dots using backticks
-            prop_key = f"`{key}`" if '.' in key else key
+            # Escape property names with special characters (dots, hyphens, etc.) using backticks
+            # Only alphanumeric and underscore are safe without backticks in Cypher
+            prop_key = f"`{key}`" if not re.match(CYPHER_SAFE_PROPERTY_NAME, key) else key
             # Escape backslashes first, then single quotes
             escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
             setbits.append(f"n.{prop_key}='{escaped_value}'")
 
         # Add augmentation properties
         for key, value in sorted(aug_props.items()):
-            # Escape property names with dots using backticks
-            prop_key = f"`{key}`" if '.' in key else key
+            # Escape property names with special characters (dots, hyphens, etc.) using backticks
+            # Only alphanumeric and underscore are safe without backticks in Cypher
+            prop_key = f"`{key}`" if not re.match(CYPHER_SAFE_PROPERTY_NAME, key) else key
             if isinstance(value, bool):
                 # Write boolean flags directly (for _isAugmentation metadata)
                 setbits.append(f"n.{prop_key}={str(value).lower()}")
@@ -887,7 +913,9 @@ def generate_for_xml_content(
             # Build property setters for rich edges
             prop_setters = []
             for key, value in sorted(rprops.items()):
-                prop_key = f"`{key}`" if '.' in key else key
+                # Escape property names with special characters (dots, hyphens, etc.) using backticks
+                # Only alphanumeric and underscore are safe without backticks in Cypher
+                prop_key = f"`{key}`" if not re.match(CYPHER_SAFE_PROPERTY_NAME, key) else key
                 if isinstance(value, list):
                     # json.dumps already escapes backslashes and quotes properly
                     json_value = json.dumps(value).replace("'", "\\'")
