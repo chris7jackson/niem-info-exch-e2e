@@ -23,38 +23,50 @@ logger = logging.getLogger(__name__)
 def extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
     """Extract Person and CrashDriver entities from Neo4j for resolution.
 
+    Extracts entities with connected name and birth date information.
+
     Args:
         neo4j_client: Neo4j client instance
 
     Returns:
         List of entity dictionaries with properties
     """
-    # Target labels for entity resolution
-    target_labels = ['j:CrashDriver', 'j:CrashPerson', 'nc:Person']
+    # Query to get CrashDriver nodes with connected PersonName data
+    query = """
+    MATCH (d:j_CrashDriver)-[:HAS_PERSONNAME]->(pn:nc_PersonName)
+    OPTIONAL MATCH (d)-[:HAS_PERSONBIRTHDATE]->(pbd:nc_PersonBirthDate)
+    RETURN
+        id(d) as neo4j_id,
+        d.id as entity_id,
+        d.qname as qname,
+        labels(d) as labels,
+        d as driver_node,
+        pn.nc_PersonGivenName as PersonGivenName,
+        pn.nc_PersonSurName as PersonSurName,
+        pn.nc_PersonMiddleName as PersonMiddleName,
+        pbd.id as birth_date_id
+    """
 
+    # Use query() instead of query_graph() for scalar results
+    results = neo4j_client.query(query, {})
     entities = []
 
-    for label in target_labels:
-        query = f"""
-        MATCH (n:`{label}`)
-        RETURN
-            id(n) as neo4j_id,
-            n.id as entity_id,
-            n.qname as qname,
-            labels(n) as labels,
-            properties(n) as properties
-        """
+    for record in results:
+        driver_props = dict(record['driver_node'].items()) if record.get('driver_node') else {}
 
-        result = neo4j_client.query_graph(query, {})
-
-        for node in result.get('nodes', []):
-            entities.append({
-                'neo4j_id': node['id'],
-                'entity_id': node.get('properties', {}).get('id'),
-                'qname': node.get('properties', {}).get('qname'),
-                'labels': node['labels'],
-                'properties': node.get('properties', {})
-            })
+        entities.append({
+            'neo4j_id': record['neo4j_id'],
+            'entity_id': record.get('entity_id'),
+            'qname': record.get('qname'),
+            'labels': record.get('labels', []),
+            'properties': {
+                **driver_props,
+                'PersonGivenName': record.get('PersonGivenName', ''),
+                'PersonSurName': record.get('PersonSurName', ''),
+                'PersonMiddleName': record.get('PersonMiddleName', ''),
+                'PersonBirthDate': record.get('birth_date_id', '')  # Use birth date node ID as proxy
+            }
+        })
 
     logger.info(f"Extracted {len(entities)} entities from Neo4j")
     return entities
@@ -63,8 +75,8 @@ def extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
 def create_entity_key(entity: Dict) -> str:
     """Create a matching key for entity resolution.
 
-    Uses PersonGivenName, PersonSurName, and PersonBirthDate to create
-    a deterministic key for matching.
+    Uses PersonGivenName and PersonSurName to create a deterministic key for matching.
+    In a real system, this would include birth date, SSN, or other identifiers.
 
     Args:
         entity: Entity dictionary with properties
@@ -77,14 +89,13 @@ def create_entity_key(entity: Dict) -> str:
     # Extract name components
     given_name = props.get('PersonGivenName', '').strip().lower()
     surname = props.get('PersonSurName', '').strip().lower()
-    birth_date = props.get('PersonBirthDate', '').strip()
 
-    # Need at least surname and birth date for matching
-    if not surname or not birth_date:
+    # Need at least given name and surname for matching
+    if not given_name or not surname:
         return ''
 
-    # Create normalized key
-    key = f"{given_name}_{surname}_{birth_date}"
+    # Create normalized key (using full name for matching)
+    key = f"{given_name}_{surname}"
     return key
 
 
@@ -194,8 +205,8 @@ def create_resolved_entity_nodes(
             neo4j_client.query_graph(create_rel_query, {
                 'neo4j_id': int(entity['neo4j_id']),
                 'entity_id': entity_id,
-                'confidence': 1.0,  # Mock perfect confidence
-                'matched_on': 'name+birth_date',
+                'confidence': 0.95,  # Mock high confidence (name-only matching)
+                'matched_on': 'given_name+surname',
                 'resolved_at': timestamp
             })
 
