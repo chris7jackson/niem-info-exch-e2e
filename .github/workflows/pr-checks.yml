@@ -329,16 +329,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: ui/package-lock.json
+          # Disable npm cache due to Rollup optional dependency bug
+          # cache: 'npm'
+          # cache-dependency-path: ui/package-lock.json
 
       - name: Install dependencies
         run: |
           cd ui
           # Handle npm bug with optional dependencies (Rollup)
           # https://github.com/npm/cli/issues/4828
+          # Remove both package-lock.json and node_modules for clean install
+          rm -f package-lock.json
           rm -rf node_modules
-          npm install --prefer-offline --no-audit
+          npm install --no-audit
 
       - name: Run ESLint
         run: |
