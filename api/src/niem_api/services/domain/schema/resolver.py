@@ -3,7 +3,8 @@
 import logging
 import re
 from pathlib import Path
-from xml.etree import ElementTree as ET
+# Use defusedxml for secure XML parsing (prevents XXE attacks)
+from defusedxml import ElementTree as ET
 
 logger = logging.getLogger(__name__)
 
