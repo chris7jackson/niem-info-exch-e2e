@@ -123,20 +123,31 @@ jobs:
           GIT_COMMIT: ${{ github.sha }}
           BUILD_DATE: ${{ github.event.head_commit.timestamp }}
         run: |
+          # Create shared infrastructure network
+          docker network create niem-infra || true
+
+          # Build and start infrastructure services
+          docker compose --profile infra up -d
+
+          # Wait for infrastructure to be ready
+          timeout 60 bash -c 'until docker exec niem-infra-neo4j cypher-shell -u neo4j -p password "RETURN 1" 2>/dev/null; do sleep 2; done'
+          timeout 60 bash -c 'until curl -f http://localhost:9001/minio/health/live 2>/dev/null; do sleep 2; done'
+          echo "✅ Infrastructure services are ready"
+
           # Build API with version metadata
           docker compose build --build-arg VERSION=${API_VERSION} \
             --build-arg GIT_COMMIT=${GIT_COMMIT} \
             --build-arg BUILD_DATE=${BUILD_DATE} \
-            api
+            api-prod
 
           # Build UI with version metadata
           docker compose build --build-arg VERSION=${UI_VERSION} \
             --build-arg GIT_COMMIT=${GIT_COMMIT} \
             --build-arg BUILD_DATE=${BUILD_DATE} \
-            ui
+            ui-prod
 
-          # Start all services
-          docker compose up -d
+          # Start production services
+          docker compose --profile prod up -d
 
       - name: Wait for services to be ready
         run: |
@@ -172,17 +183,19 @@ jobs:
         if: failure()
         run: |
           echo "=== API Logs ==="
-          docker compose logs api
+          docker compose logs api-prod
           echo "=== UI Logs ==="
-          docker compose logs ui
+          docker compose logs ui-prod
           echo "=== Neo4j Logs ==="
-          docker compose logs neo4j
+          docker compose --profile infra logs neo4j
           echo "=== MinIO Logs ==="
-          docker compose logs minio
+          docker compose --profile infra logs minio
 
       - name: Stop services
         if: always()
-        run: docker compose down
+        run: |
+          docker compose --profile prod down
+          docker compose --profile infra down
 
   # =============================================================================
   # SECURITY SCANNING (NON-BLOCKING)
