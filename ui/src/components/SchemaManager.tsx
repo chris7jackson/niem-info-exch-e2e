@@ -72,7 +72,7 @@ export default function SchemaManager() {
   };
 
   const buildNdrErrorMessage = (result: any): string => {
-    const errors = result.scheval_report.errors || [];
+    const errors = result.ndr_validation?.errors || [];
     const totalErrors = errors.length;
     const fileCount = errors.reduce((acc: any, e: any) => {
       acc.add(e.file || 'Unknown');
@@ -87,7 +87,7 @@ export default function SchemaManager() {
   };
 
   const handleValidationErrors = (result: any) => {
-    const ndrHasErrors = result.scheval_report && (result.scheval_report.status === 'fail' || result.scheval_report.status === 'error');
+    const ndrHasErrors = result.ndr_validation && (result.ndr_validation.status === 'fail' || result.ndr_validation.status === 'error');
     const importHasErrors = result.import_validation_report && result.import_validation_report.status === 'fail';
 
     if (ndrHasErrors || importHasErrors) {
@@ -109,10 +109,10 @@ export default function SchemaManager() {
       const detail = err.response?.data?.detail;
       console.log('Detail object:', detail);
 
-      if (detail && typeof detail === 'object' && (detail.import_validation_report || detail.scheval_report)) {
+      if (detail && typeof detail === 'object' && (detail.import_validation_report || detail.ndr_validation)) {
         setLastValidationResult({
           import_validation_report: detail.import_validation_report || null,
-          scheval_report: detail.scheval_report || null
+          ndr_validation: detail.ndr_validation || null
         });
         setError(detail.message || 'Schema validation failed');
       } else if (typeof detail === 'string') {
@@ -287,7 +287,7 @@ export default function SchemaManager() {
       {lastValidationResult && typeof lastValidationResult === 'object' && lastValidationResult !== null && (
         <ValidationResults
           importReport={(lastValidationResult as any).import_validation_report}
-          schevalReport={(lastValidationResult as any).scheval_report}
+          ndrValidation={(lastValidationResult as any).ndr_validation}
         />
       )}
 

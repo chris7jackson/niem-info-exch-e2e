@@ -17,7 +17,7 @@ import xml.etree.ElementTree as ET
 
 from ..clients.s3_client import upload_file
 from ..clients.scheval_client import is_scheval_available
-from ..models.models import SchevalIssue, SchevalReport, SchemaResponse
+from ..models.models import NdrValidationIssue, NdrValidationReport, SchemaResponse
 from ..services.cmf_tool import (
     convert_cmf_to_jsonschema,
     convert_xsd_to_cmf,
@@ -420,8 +420,8 @@ async def _validate_and_read_files(
     return file_contents, file_path_map, primary_file, schema_id
 
 
-async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalReport:
-    """Validate all files using schematron rules via scheval tool.
+async def _validate_ndr(file_contents: dict[str, bytes]) -> NdrValidationReport:
+    """Validate all files using NIEM NDR rules via scheval tool.
 
     This is the primary NIEM NDR validation method, providing actionable validation
     errors with precise line/column numbers.
@@ -430,15 +430,15 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
         file_contents: Dictionary mapping filename to file content
 
     Returns:
-        Aggregated scheval validation report with line/column information
+        Aggregated NDR validation report with line/column information
     """
     logger.info(
-        f"Running NIEM NDR validation (scheval) on {len(file_contents)} files"
+        f"Running NIEM NDR validation on {len(file_contents)} files"
     )
 
     if not is_scheval_available():
         logger.warning("Scheval tool not available, skipping NIEM NDR validation")
-        return SchevalReport(
+        return NdrValidationReport(
             status="error",
             message="Scheval tool not available",
             conformance_target="unknown",
@@ -474,7 +474,7 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
 
     if not xslt_path.exists():
         logger.error(f"Pre-compiled XSLT not found: {xslt_path}")
-        return SchevalReport(
+        return NdrValidationReport(
             status="error",
             message=f"Pre-compiled schematron XSLT not found: {xslt_filename}",
             conformance_target=f"{schema_type}Target",
@@ -559,16 +559,16 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
     }
     conformance_target = conformance_target_map.get(schema_type, conformance_target_map['sub'])
 
-    # Convert to SchevalIssue objects
-    scheval_errors = [SchevalIssue(**error) for error in all_errors]
-    scheval_warnings = [SchevalIssue(**warning) for warning in all_warnings]
+    # Convert to NdrValidationIssue objects
+    ndr_errors = [NdrValidationIssue(**error) for error in all_errors]
+    ndr_warnings = [NdrValidationIssue(**warning) for warning in all_warnings]
 
-    scheval_report = SchevalReport(
+    ndr_report = NdrValidationReport(
         status=status,
         message=message,
         conformance_target=conformance_target,
-        errors=scheval_errors,
-        warnings=scheval_warnings,
+        errors=ndr_errors,
+        warnings=ndr_warnings,
         summary={
             "total_issues": total_error_count + total_warning_count,
             "error_count": total_error_count,
@@ -582,7 +582,7 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
         }
     )
 
-    return scheval_report
+    return ndr_report
 
 
 async def _convert_to_cmf(
@@ -878,10 +878,10 @@ async def handle_schema_upload(
         primary_content = file_contents[primary_file.filename]
         timestamp = datetime.now(UTC).isoformat()
 
-        # Step 2: Validate NIEM NDR conformance using scheval (unless skipped)
-        scheval_report = None
+        # Step 2: Validate NIEM NDR conformance (unless skipped)
+        ndr_validation = None
         if not skip_niem_ndr:
-            scheval_report = await _validate_all_scheval(file_contents)
+            ndr_validation = await _validate_ndr(file_contents)
         else:
             logger.info("Skipping NIEM NDR validation as requested")
 
@@ -891,7 +891,7 @@ async def handle_schema_upload(
         )
 
         # Step 3.5: Check all validations and fail with combined reports if any failed
-        scheval_has_errors = scheval_report and scheval_report.status in (
+        ndr_has_errors = ndr_validation and ndr_validation.status in (
             "fail",
             "error",
         )
@@ -899,7 +899,7 @@ async def handle_schema_upload(
             "status"
         ) in ("dependency_failed", "fail", "error")
 
-        if scheval_has_errors or import_has_errors:
+        if ndr_has_errors or import_has_errors:
             # Extract import validation report
             import_validation_report = (
                 cmf_conversion_result.get("import_validation_report")
@@ -908,10 +908,10 @@ async def handle_schema_upload(
 
             # Build combined error message
             error_parts = []
-            if scheval_has_errors:
-                scheval_error_count = scheval_report.summary.get("error_count", 0)
+            if ndr_has_errors:
+                ndr_error_count = ndr_validation.summary.get("error_count", 0)
                 error_parts.append(
-                    f"NIEM NDR validation found {scheval_error_count} error(s)"
+                    f"NIEM NDR validation found {ndr_error_count} error(s)"
                 )
             if import_has_errors:
                 cmf_status = cmf_conversion_result.get("status")
@@ -937,8 +937,8 @@ async def handle_schema_upload(
                 status_code=400,
                 detail={
                     "message": combined_message,
-                    "scheval_report": (
-                        scheval_report.model_dump() if scheval_report else None
+                    "ndr_validation": (
+                        ndr_validation.model_dump() if ndr_validation else None
                     ),
                     "import_validation_report": (
                         import_validation_report.model_dump()
@@ -970,7 +970,7 @@ async def handle_schema_upload(
 
         return SchemaResponse(
             schema_id=schema_id,
-            scheval_report=scheval_report,
+            ndr_validation=ndr_validation,
             import_validation_report=import_validation_report,
             is_active=True  # Latest uploaded schema is automatically active
         )

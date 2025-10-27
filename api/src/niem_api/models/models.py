@@ -25,8 +25,8 @@ class NiemNdrReport(BaseModel):
     rules_applied: int | None = None  # Number of rules applied
 
 
-class SchevalIssue(BaseModel):
-    """Schematron validation issue with precise line/column information."""
+class NdrValidationIssue(BaseModel):
+    """NIEM NDR validation issue with precise line/column information."""
 
     file: str  # File being validated
     line: int  # Line number where issue occurs
@@ -36,14 +36,14 @@ class SchevalIssue(BaseModel):
     rule: str | None = None  # Validation rule identifier (e.g., "Rule 7-10")
 
 
-class SchevalReport(BaseModel):
-    """Schematron validation report from scheval tool."""
+class NdrValidationReport(BaseModel):
+    """NIEM NDR validation report from scheval tool."""
 
     status: str  # 'pass', 'fail', 'error'
     message: str
     conformance_target: str
-    errors: list[SchevalIssue] = []
-    warnings: list[SchevalIssue] = []
+    errors: list[NdrValidationIssue] = []
+    warnings: list[NdrValidationIssue] = []
     summary: dict[str, int] = {}  # 'total_issues', 'error_count', 'warning_count'
     metadata: dict[str, Any] = {}  # Additional metadata about the validation
 
@@ -79,7 +79,7 @@ class ImportValidationReport(BaseModel):
 
 class SchemaResponse(BaseModel):
     schema_id: str
-    scheval_report: SchevalReport | None = None
+    ndr_validation: NdrValidationReport | None = None
     import_validation_report: ImportValidationReport | None = None
     is_active: bool
 

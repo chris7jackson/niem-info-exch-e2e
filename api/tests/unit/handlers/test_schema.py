@@ -49,14 +49,14 @@ class TestSchemaHandlers:
     @pytest.mark.asyncio
     async def test_handle_schema_upload_success(self, mock_s3_client, mock_upload_files):
         """Test successful schema upload and processing"""
-        from niem_api.models.models import SchevalReport
+        from niem_api.models.models import NdrValidationReport
 
-        with patch('niem_api.handlers.schema._validate_all_scheval') as mock_scheval, \
+        with patch('niem_api.handlers.schema._validate_ndr') as mock_ndr, \
              patch('niem_api.handlers.schema._convert_to_cmf') as mock_cmf_convert, \
              patch('niem_api.handlers.schema.upload_file') as mock_upload:
 
-            # Mock scheval validation success
-            mock_scheval.return_value = SchevalReport(
+            # Mock NDR validation success
+            mock_ndr.return_value = NdrValidationReport(
                 status="pass",
                 message="Schema is valid",
                 conformance_target="niem-6.0",
@@ -75,29 +75,28 @@ class TestSchemaHandlers:
 
             assert result.schema_id is not None
             assert result.is_active is True
-            assert result.scheval_report.status == "pass"
+            assert result.ndr_validation.status == "pass"
             mock_upload.assert_called()
 
     @pytest.mark.asyncio
     async def test_handle_schema_upload_ndr_failure(self, mock_s3_client, mock_upload_files):
         """Test schema upload with NDR validation failure"""
-        from niem_api.models.models import SchevalReport, SchevalIssue
+        from niem_api.models.models import NdrValidationReport, NdrValidationIssue
 
-        with patch('niem_api.handlers.schema._validate_all_scheval') as mock_scheval, \
+        with patch('niem_api.handlers.schema._validate_ndr') as mock_ndr, \
              patch('niem_api.handlers.schema._convert_to_cmf') as mock_cmf_convert:
-            # Mock scheval validation failure
-            mock_scheval.return_value = SchevalReport(
+            # Mock NDR validation failure
+            mock_ndr.return_value = NdrValidationReport(
                 status="fail",
                 message="Schema validation failed",
                 conformance_target="niem-6.0",
-                errors=[SchevalIssue(
+                errors=[NdrValidationIssue(
                     file="test.xsd",
                     line=1,
                     column=1,
                     severity="error",
                     message="Invalid element",
-                    rule=None,
-                    context=None
+                    rule=None
                 )],
                 warnings=[],
                 summary={"error_count": 1, "warning_count": 0}
