@@ -8,7 +8,8 @@ reference relationships.
 import argparse
 import hashlib
 import re
-import xml.etree.ElementTree as ET
+# Use defusedxml for secure XML parsing (prevents XXE attacks)
+import defusedxml.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
