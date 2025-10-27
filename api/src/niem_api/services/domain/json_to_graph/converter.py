@@ -161,8 +161,16 @@ def extract_properties(
                 else:
                     current = None
                     break
-            if current and isinstance(current, str):
-                value = current
+            if current:
+                if isinstance(current, str):
+                    value = current
+                elif isinstance(current, list) and len(current) > 0:
+                    # Handle array values - take first element if single item, join if multiple
+                    if len(current) == 1:
+                        value = current[0] if isinstance(current[0], str) else str(current[0])
+                    else:
+                        # Multiple values - join with space (e.g., middle names)
+                        value = ' '.join(str(item) for item in current if item)
         else:
             # Direct property
             if json_path.startswith("@"):
@@ -171,6 +179,14 @@ def extract_properties(
             else:
                 # Regular property
                 value = obj.get(json_path)
+
+            # Handle array values for direct properties too
+            if isinstance(value, list) and len(value) > 0:
+                if len(value) == 1:
+                    value = value[0] if isinstance(value[0], str) else str(value[0])
+                else:
+                    # Multiple values - join with space
+                    value = ' '.join(str(item) for item in value if item)
 
         if value is not None:
             # Escape single quotes for Cypher
