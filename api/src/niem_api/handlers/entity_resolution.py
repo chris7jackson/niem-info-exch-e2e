@@ -12,7 +12,7 @@ Coordinates between Neo4j client and mock entity resolution service to:
 import logging
 from typing import Dict
 
-from ..clients.neo4j_client import get_neo4j_client
+from ..clients.neo4j_client import Neo4jClient
 from ..services.mock_entity_resolution import (
     create_resolved_entity_nodes,
     extract_entities_from_neo4j,
@@ -40,7 +40,7 @@ def handle_run_entity_resolution() -> Dict:
 
     try:
         # Get Neo4j client
-        neo4j_client = get_neo4j_client()
+        neo4j_client = Neo4jClient()
 
         # Step 1: Extract entities from Neo4j
         logger.info("Extracting entities from Neo4j")
@@ -114,7 +114,7 @@ def handle_get_resolution_status() -> Dict:
         Dictionary with resolution status and counts
     """
     try:
-        neo4j_client = get_neo4j_client()
+        neo4j_client = Neo4jClient()
         status = get_resolution_status(neo4j_client)
 
         return {
@@ -142,7 +142,7 @@ def handle_reset_entity_resolution() -> Dict:
     logger.info("Resetting entity resolution")
 
     try:
-        neo4j_client = get_neo4j_client()
+        neo4j_client = Neo4jClient()
         counts = reset_entity_resolution(neo4j_client)
 
         logger.info(
