@@ -74,6 +74,42 @@ The API provides automatic interactive documentation via FastAPI:
 - 8GB+ RAM recommended
 - Ports 3000, 7474, 7687, 8000, 9000, 9001 available
 
+### Senzing License (Optional)
+
+For entity resolution features, a Senzing license is required.
+
+**What the system expects:**
+- **Folder name pattern**: `g2license_*` (e.g., `g2license_20251201-120000`)
+- **File name inside folder**: `g2.lic_base64` (base64-encoded license)
+- **Location**: `api/g2license_*/g2.lic_base64`
+
+The system automatically searches for and decodes any matching license file on startup.
+
+**Setup:**
+1. Contact support@senzing.com to obtain a license
+2. Receive license folder (typically named `g2license_YYYYMMDD-HHMMSS.zip`)
+3. Unzip the folder into the `api/` directory
+4. Start/restart the system - license is automatically decoded
+
+**Example:**
+```bash
+# Unzip your license folder into api/
+unzip g2license_20251201-120000.zip -d api/
+
+# Verify the structure matches what the system expects:
+ls api/g2license_20251201-120000/g2.lic_base64
+# Should show: api/g2license_20251201-120000/g2.lic_base64
+
+# Start/restart system
+docker compose up -d
+
+# Check logs to confirm license was decoded:
+docker compose logs api | grep -i senzing
+# Should show: "✅ Senzing license decoded successfully"
+```
+
+**Note**: If you have multiple license folders, the system uses the most recent one (sorted by folder name).
+
 ### 1. Start the System
 
 ```bash
