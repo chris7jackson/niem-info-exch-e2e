@@ -214,11 +214,13 @@ networks:
 # ============================================================================
 
 volumes:
-  # Infrastructure volumes (shared, named)
+  # Infrastructure volumes (shared, external)
   minio-data:
     name: niem-infra-minio-data
+    external: true
   neo4j-data:
     name: niem-infra-neo4j-data
+    external: true
 
   # Application volume (per worktree)
   api-data:

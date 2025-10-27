@@ -55,6 +55,8 @@ help: ## Show this help message
 infra-up: ## Start shared infrastructure (neo4j + minio)
 	@echo "$(GREEN)Starting shared infrastructure...$(NC)"
 	@docker network inspect niem-infra >/dev/null 2>&1 || docker network create niem-infra
+	@docker volume inspect niem-infra-neo4j-data >/dev/null 2>&1 || docker volume create niem-infra-neo4j-data
+	@docker volume inspect niem-infra-minio-data >/dev/null 2>&1 || docker volume create niem-infra-minio-data
 	@docker compose --profile infra up -d
 	@echo "$(GREEN)Infrastructure started:$(NC)"
 	@echo "  Neo4j Browser:  http://localhost:7474"
