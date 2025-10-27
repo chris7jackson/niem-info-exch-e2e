@@ -4,7 +4,8 @@ import asyncio
 import logging
 import os
 import tempfile
-import xml.etree.ElementTree as ET
+# Use defusedxml for secure XML parsing (prevents XXE attacks)
+import defusedxml.ElementTree as ET
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
