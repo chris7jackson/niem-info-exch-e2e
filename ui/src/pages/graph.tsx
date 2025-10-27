@@ -202,6 +202,49 @@ export default function GraphPage() {
     }
   };
 
+  const resetEntityResolution = async () => {
+    if (!confirm('This will remove all resolved entity nodes. Continue?')) {
+      return;
+    }
+
+    setResolutionRunning(true);
+    setResolutionMessage(null);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/entity-resolution/reset`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        setResolutionMessage('Entity resolution reset successfully');
+        // Refresh graph only if currently viewing
+        if (graphData) {
+          setTimeout(() => {
+            executeQuery(cypherQuery);
+          }, 500);
+        }
+      } else {
+        throw new Error(result.message || 'Reset failed');
+      }
+
+    } catch (err: any) {
+      console.error('Reset failed:', err);
+      setResolutionMessage(`Error: ${err.message || 'Failed to reset entity resolution'}`);
+    } finally {
+      setResolutionRunning(false);
+    }
+  };
+
   const renderGraph = (data: GraphData) => {
     if (!cyRef.current) return;
 
@@ -541,41 +584,6 @@ export default function GraphPage() {
     }
   };
 
-  const resetEntityResolution = async () => {
-    if (!confirm('This will remove all resolved entity nodes. Continue?')) {
-      return;
-    }
-
-    setResolutionRunning(true);
-    setResolutionMessage(null);
-
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/entity-resolution/reset`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.status === 'success') {
-        setResolutionMessage('Entity resolution reset successfully');
-        // Refresh graph only if currently viewing
-        if (graphData) {
-          setTimeout(() => {
-            executeQuery(cypherQuery);
-          }, 500);
-        }
-      } else {
-        throw new Error(result.message || 'Reset failed');
-      }
-
     } catch (err: any) {
       console.error('Reset failed:', err);
       setResolutionMessage(`Error: ${err.message || 'Failed to reset entity resolution'}`);
@@ -619,70 +627,43 @@ export default function GraphPage() {
       {/* Entity Resolution Section */}
       <div className="bg-white shadow rounded-lg">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Entity Resolution</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Identify and link duplicate entities across the graph based on name matching
+          <h3 className="text-lg font-medium text-gray-900">Entity Resolution</h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Find and link duplicate entities based on name matching. Creates ResolvedEntity nodes showing which entities represent the same real-world person.
           </p>
         </div>
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Click &quot;Run&quot; to analyze entities and create ResolvedEntity nodes linking duplicates.
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={runEntityResolution}
-                disabled={resolutionRunning}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Find and link duplicate entities based on name matching"
-              >
-                {resolutionRunning ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Running...
-                  </>
-                ) : (
-                  'Run Entity Resolution'
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={resetEntityResolution}
-                disabled={resolutionRunning}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Remove all resolved entity nodes and relationships"
-              >
-                Reset Resolution
-              </button>
-            </div>
+        <div className="p-6">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={runEntityResolution}
+              disabled={resolutionRunning}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Find and link duplicate entities based on name matching"
+            >
+              {resolutionRunning ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Running...
+                </>
+              ) : (
+                'Run Entity Resolution'
+              )}
+            </button>
+            <button
+              onClick={resetEntityResolution}
+              disabled={resolutionRunning}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Remove all resolved entity nodes"
+            >
+              Reset
+            </button>
           </div>
-
-          {/* Entity Resolution Status Message */}
           {resolutionMessage && (
-            <div className={`mt-4 rounded-md p-4 ${resolutionMessage.startsWith('Error') ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  {resolutionMessage.startsWith('Error') ? (
-                    <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </div>
-                <div className="ml-3">
-                  <p className={`text-sm font-medium ${resolutionMessage.startsWith('Error') ? 'text-red-800' : 'text-green-800'}`}>
-                    {resolutionMessage}
-                  </p>
-                </div>
-              </div>
+            <div className={`mt-4 p-3 rounded-md ${resolutionMessage.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+              {resolutionMessage}
             </div>
           )}
         </div>
