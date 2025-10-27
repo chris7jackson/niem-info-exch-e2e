@@ -373,6 +373,7 @@ async def get_full_graph(
 
 if __name__ == "__main__":
     import uvicorn
+    # nosec B104 - Binding to all interfaces is intentional for containerized API
     host = os.getenv("API_HOST", "0.0.0.0")
     port = int(os.getenv("API_PORT", "8000"))
     uvicorn.run(app, host=host, port=port)
