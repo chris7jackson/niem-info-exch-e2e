@@ -697,10 +697,23 @@ def generate_for_xml_content(
                 nodes[node_id] = [node_label, elem_qn, props, aug_props]
 
             # Create containment edge
+            # Check if parent has a reference rule for this child - if so, skip containment edge
+            # to avoid duplicate relationships (the reference rule creates the semantic edge)
             if parent_info:
-                p_id, p_label = parent_info
-                rel = "HAS_" + re.sub(r'[^A-Za-z0-9]', '_', local_from_qname(elem_qn)).upper()
-                contains.append((p_id, p_label, node_id, node_label, rel))
+                p_id, p_label, p_qname = parent_info
+
+                # Check if parent has reference rules that handle this child element
+                skip_containment = False
+                if p_qname in refs_by_owner:
+                    for rule in refs_by_owner[p_qname]:
+                        if rule["field_qname"] == elem_qn:
+                            skip_containment = True
+                            break
+
+                # Only create containment edge if not handled by reference rules
+                if not skip_containment:
+                    rel = "HAS_" + re.sub(r'[^A-Za-z0-9]', '_', local_from_qname(elem_qn)).upper()
+                    contains.append((p_id, p_label, node_id, node_label, rel))
 
             # Handle metadata references for CROSS-REFERENCES only
             # Metadata references (nc:metadataRef, priv:privacyMetadataRef) create semantic links
@@ -711,7 +724,7 @@ def generate_for_xml_content(
             # The structural containment edges (HAS_METADATA, HAS_PRIVACYMETADATA, etc.)
             # already capture the relationships between elements and their metadata
 
-            parent_ctx = (node_id, node_label)
+            parent_ctx = (node_id, node_label, elem_qn)
         else:
             parent_ctx = parent_info
 
