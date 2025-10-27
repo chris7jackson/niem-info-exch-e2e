@@ -70,6 +70,14 @@ async def startup_tasks():
         else:
             logger.warning("NIEMTran tool setup failed - XML to JSON conversion will not be available")
 
+        # Setup Senzing license (auto-decode if needed)
+        from .core.config import senzing_config
+        senzing_available = senzing_config.ensure_license()
+        if senzing_available:
+            logger.info("Senzing entity resolution is available")
+        else:
+            logger.info("Senzing entity resolution is not available (license not found)")
+
         logger.info("Startup tasks completed successfully")
 
         # TODO potentially, fetch all third party references. i.e. niem open reference xsd schemas.
@@ -369,6 +377,40 @@ async def get_full_graph(
     """Get the complete graph structure with all nodes and relationships"""
     from .handlers.graph import get_full_graph
     return get_full_graph(limit)
+
+
+# Entity Resolution Routes
+
+@app.post("/api/entity-resolution/run")
+async def run_entity_resolution(
+    token: str = Depends(verify_token)
+):
+    """Run mock entity resolution on the current graph.
+
+    Identifies duplicate entities based on name and birth date,
+    creates ResolvedEntity nodes to show which entities represent
+    the same real-world person.
+    """
+    from .handlers.entity_resolution import handle_run_entity_resolution
+    return handle_run_entity_resolution()
+
+
+@app.get("/api/entity-resolution/status")
+async def get_entity_resolution_status(
+    token: str = Depends(verify_token)
+):
+    """Get current entity resolution statistics"""
+    from .handlers.entity_resolution import handle_get_resolution_status
+    return handle_get_resolution_status()
+
+
+@app.delete("/api/entity-resolution/reset")
+async def reset_entity_resolution(
+    token: str = Depends(verify_token)
+):
+    """Reset entity resolution by removing all ResolvedEntity nodes"""
+    from .handlers.entity_resolution import handle_reset_entity_resolution
+    return handle_reset_entity_resolution()
 
 
 if __name__ == "__main__":

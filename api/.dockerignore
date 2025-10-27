@@ -1,3 +1,9 @@
+# Secrets and licenses - CRITICAL: NEVER include in Docker images
+secrets/
+*.lic
+*.lic_base64
+g2license_*/
+
 # Git
 .git/
 .gitignore
