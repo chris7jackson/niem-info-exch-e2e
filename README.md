@@ -71,8 +71,11 @@ The API provides automatic interactive documentation via FastAPI:
 
 - Docker Desktop installed and running
 - Docker Compose (included with Docker Desktop)
+- **Make** (for build automation):
+  - macOS/Linux: Pre-installed
+  - Windows: Git Bash (included with [Git for Windows](https://gitforwindows.org/)) or WSL2
 - 8GB+ RAM recommended
-- Ports 3000, 7474, 7687, 8000, 9000, 9001 available
+- Ports 3000+, 7474, 7687, 8000+, 9000, 9001 available
 
 ### 1. Start the System
 
@@ -81,64 +84,229 @@ The API provides automatic interactive documentation via FastAPI:
 git clone <repository-url>
 cd niem-info-exch-e2e
 
-# Copy environment configuration
+# Optional: Copy environment configuration for customization
 cp .env.example .env
 
-# Start all services
-docker compose up -d
+# Start infrastructure and application in development mode
+make dev-up
 
 # Wait for services to be healthy (2-3 minutes)
-docker compose ps
+# Infrastructure starts automatically if not already running
 ```
 
 ### 2. Access the Web Interface
 
 Open http://localhost:3000 in your browser
 
-### 3. Rebuilding After Code Changes
+### 3. View Logs and Status
 
-When new code is pushed or you make local changes, you need to rebuild and restart the affected services.
-
-#### Rebuild All Services (API + UI)
+Check logs and service status:
 
 ```bash
-# Stop services
-docker compose down
+# View application logs (API + UI)
+make logs
 
-# Rebuild and restart all services
-docker compose up -d --build
+# Filter logs (pipe to grep)
+make logs | grep ERROR
 
-# Or in one command:
-docker compose up -d --build --force-recreate
+# View infrastructure logs
+make infra-logs
+
+# Check current configuration
+make help
 ```
 
-#### View Logs
-
-Check logs during/after rebuild to verify successful startup:
+### 4. Stopping Services
 
 ```bash
-# All services
-docker compose logs -f
+# Stop this worktree's application services
+make dev-down
 
-# Specific service
-docker compose logs -f api
-docker compose logs -f ui
+# Stop shared infrastructure (affects all worktrees!)
+make infra-down
 
-# Last 50 lines
-docker compose logs --tail=50 api
+# Stop everything (infrastructure + all worktrees)
+make clean-all
 ```
 
-#### Common Rebuild Scenarios
+## Development Workflows
 
-| Scenario | Command | Notes |
-|----------|---------|-------|
-| Pull latest code | `git pull && docker compose up -d --build` | Rebuilds changed services |
-| API code changes | `docker compose up -d --build api` | Python dependencies cached unless requirements change |
-| UI code changes | `docker compose up -d --build ui` | npm dependencies cached unless package.json changes |
-| Environment changes | `docker compose down && docker compose up -d` | No rebuild needed for .env changes |
-| Dependency updates | `docker compose build --no-cache` then `docker compose up -d` | Forces fresh install of all dependencies |
-| Complete reset | `docker compose down -v && docker compose up -d --build` | Removes volumes (deletes all data!) |
+This project uses a Makefile-based workflow that automatically manages infrastructure and assigns unique ports per worktree.
 
+### Single Worktree Development
+
+For working on a single branch:
+
+```bash
+# Start development environment (auto-starts infrastructure if needed)
+make dev-up
+
+# View logs
+make logs
+
+# Stop application
+make dev-down
+```
+
+**Features**:
+- Hot reloading enabled automatically
+- Source code mounted as volumes (changes reflect immediately)
+- Infrastructure shared across worktrees (Neo4j + MinIO)
+- Automatic port assignment (default: API=8000, UI=3000)
+
+### Multi-Worktree Development
+
+For working on multiple git branches simultaneously (e.g., comparing features, parallel development):
+
+```bash
+# Worktree 1: main branch
+cd ~/code/niem/main
+make dev-up
+# → Automatically assigns: API=8000, UI=3000, Project=niem-main
+
+# Worktree 2: feature-auth branch
+cd ~/code/niem/feature-auth
+make dev-up
+# → Automatically assigns: API=8001, UI=3001, Project=niem-feature-auth
+
+# Worktree 3: test-docker-tree branch
+cd ~/code/niem/test-docker-tree
+make dev-up
+# → Automatically assigns: API=8002, UI=3002, Project=niem-test-docker-tree
+
+# Now access all three:
+# http://localhost:3000 - main
+# http://localhost:3001 - feature-auth
+# http://localhost:3002 - test-docker-tree
+# All sharing the same Neo4j and MinIO data
+```
+
+**How it works**:
+- Port offset calculated from branch name hash (0-9)
+- Each worktree gets unique container names
+- All worktrees share infrastructure (one Neo4j, one MinIO)
+- No manual configuration needed
+
+**Available commands**:
+```bash
+make help          # Show all commands and current configuration
+make dev-up        # Start development environment
+make dev-down      # Stop this worktree only
+make prod-up       # Start in production mode (no hot reload)
+make logs          # View application logs
+make infra-up      # Manually start infrastructure
+make infra-down    # Stop infrastructure (affects all worktrees!)
+make infra-logs    # View infrastructure logs
+make clean-all     # Stop everything
+```
+
+### Production Mode
+
+For production-like testing without hot reload:
+
+```bash
+# Start in production mode
+make prod-up
+
+# View logs
+make logs
+
+# Stop everything when done
+make clean-all
+```
+
+**Differences from dev**:
+- No source code volume mounts
+- Optimized multi-stage builds (~70% smaller images)
+- Production commands (no auto-reload)
+- Standalone Next.js output
+
+### Build Optimizations
+
+The Dockerfiles use BuildKit features for faster builds:
+
+**Enable BuildKit** (if not already default):
+```bash
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+```
+
+**Cache Benefits**:
+- `pip install` results cached (API rebuilds in ~10s instead of ~60s)
+- `npm ci` results cached (UI rebuilds in ~15s instead of ~90s)
+- Multi-stage builds reduce final image size by ~70%
+
+### Port Reference
+
+**Infrastructure** (shared, fixed ports):
+
+| Service | Port | Access |
+|---------|------|--------|
+| Neo4j Browser | 7474 | http://localhost:7474 |
+| Neo4j Bolt | 7687 | bolt://localhost:7687 |
+| MinIO API | 9001 | http://localhost:9001 |
+| MinIO Console | 9002 | http://localhost:9002 |
+
+**Application** (per-worktree, auto-assigned):
+
+| Worktree | API Port | UI Port |
+|----------|----------|---------|
+| main (offset 0) | 8000 | 3000 |
+| feature-x (offset 1) | 8001 | 3001 |
+| test-y (offset 2) | 8002 | 3002 |
+| ... | 8000-8009 | 3000-3009 |
+
+Run `make help` to see your current port assignments.
+
+### Troubleshooting
+
+**Port conflicts**:
+```bash
+# Check your assigned ports
+make help
+
+# Find what's using a port
+lsof -i :8000  # macOS/Linux
+netstat -ano | findstr :8000  # Windows
+
+# Ports are auto-assigned based on branch name
+# To force different ports, set in .env:
+API_PORT=8005
+UI_PORT=3005
+```
+
+**Shared infrastructure not found**:
+```bash
+# Verify infrastructure is running
+docker network inspect niem-infra
+
+# Start if needed
+make infra-up
+```
+
+**Hot reload not working**:
+```bash
+# Verify you're in dev mode (not prod mode)
+make logs | grep "uvicorn.*reload"
+
+# Check file permissions (especially on Windows)
+# Files must be readable by Docker
+```
+
+**Make command not found (Windows)**:
+```bash
+# Install Git for Windows (includes Git Bash)
+# Download from: https://gitforwindows.org/
+
+# Or use WSL2 for full Linux environment
+```
+
+**Build cache issues**:
+```bash
+# Rebuild without cache
+docker compose build --no-cache --profile dev
+make dev-up
+```
 
 ## Complete Walkthrough: CrashDriver Sample Data
 

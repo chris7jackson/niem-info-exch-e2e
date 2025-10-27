@@ -142,12 +142,12 @@ async def _convert_single_file(
     schema_metadata: Dict[str, Any],
     cmf_content: str,
     schema_dir: str,
-    include_context: bool,
     context_uri: str
 ) -> Dict[str, Any]:
     """Convert a single XML file to JSON with error handling.
 
     This function is called concurrently for multiple files, controlled by semaphore.
+    The complete @context is always included in the conversion result.
 
     Args:
         file: Uploaded XML file
@@ -156,7 +156,6 @@ async def _convert_single_file(
         schema_metadata: Schema metadata
         cmf_content: CMF file content
         schema_dir: Path to schema directory for validation
-        include_context: Include complete @context
         context_uri: Optional context URI
 
     Returns:
@@ -208,7 +207,6 @@ async def _convert_single_file(
                 conversion_result = await niemtran_service.convert_xml_to_json(
                     xml_content=xml_content,
                     cmf_content=cmf_content,
-                    include_context=include_context,
                     context_uri=context_uri
                 )
 
@@ -258,7 +256,6 @@ async def handle_xml_to_json_batch(
     files: List[UploadFile],
     s3: Minio,
     schema_id: str = None,
-    include_context: bool = False,
     context_uri: str = None
 ) -> Dict[str, Any]:
     """
@@ -266,12 +263,12 @@ async def handle_xml_to_json_batch(
 
     Implements controlled concurrency as defined in ADR-001.
     Processes multiple files with semaphore-controlled parallelism.
+    The complete @context is always included in conversion results.
 
     Args:
         files: List of uploaded XML files
         s3: MinIO client
         schema_id: Optional schema ID (uses active schema if not provided)
-        include_context: Include complete @context in result
         context_uri: Optional URI to include as "@context:" URI pair
 
     Returns:
@@ -360,7 +357,7 @@ async def handle_xml_to_json_batch(
             asyncio.wait_for(
                 _convert_single_file(
                     file, s3, schema_id, schema_metadata, cmf_content,
-                    schema_dir, include_context, context_uri
+                    schema_dir, context_uri
                 ),
                 timeout=batch_config.OPERATION_TIMEOUT
             )

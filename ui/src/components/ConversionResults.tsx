@@ -108,13 +108,15 @@ export default function ConversionResults({ results }: ConversionResultsProps) {
               <div className="flex items-center gap-3">
                 {file.status === 'success' ? (
                   <>
-                    <div className="text-sm text-gray-600">Converted successfully</div>
+                    <div className="text-sm text-gray-600">
+                      JSON file ready ({file.filename.replace('.xml', '.json')})
+                    </div>
                     <button
                       onClick={() => downloadJson(file.filename, file.json_string!)}
                       className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                     >
                       <ArrowDownTrayIcon className="h-3 w-3 mr-1" />
-                      Download
+                      Download JSON
                     </button>
                   </>
                 ) : (
