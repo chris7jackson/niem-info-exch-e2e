@@ -208,7 +208,11 @@ def generate_for_json_content(
     context = data.get("@context", {})
 
     # Load mapping
-    _, obj_rules, _, _, _ = load_mapping_from_dict(mapping_dict)
+    _, obj_rules, associations, references, _ = load_mapping_from_dict(mapping_dict)
+
+    # Build reference and association indices
+    refs_by_owner = build_refs_index(references)
+    assoc_by_qn = build_assoc_index(associations)
 
     # Extract CMF element index from mapping metadata if not provided
     if cmf_element_index is None:
@@ -259,6 +263,52 @@ def generate_for_json_content(
                 edges.append((parent_id, parent_label, obj_id, qname, property_name, {}))
             return obj_id
 
+        # Handle Association elements - create edges between role endpoints, not nodes
+        assoc_rule = assoc_by_qn.get(qname)
+        if assoc_rule:
+            # Extract role references from association
+            role_refs = []
+            endpoints = assoc_rule.get("endpoints", [])
+            for ep in endpoints:
+                target_id = None
+                role_qname = ep["role_qname"]
+                # Find property matching role_qname with @id reference
+                for key, value in obj.items():
+                    if key == role_qname:
+                        if is_reference(value):
+                            target_id = value["@id"]
+                        break
+                role_refs.append((ep, target_id))
+
+            # If both endpoints found, create edge between them
+            if len(role_refs) >= 2 and all(rid for (_, rid) in role_refs[:2]):
+                ep_a, id_a = role_refs[0]
+                ep_b, id_b = role_refs[1]
+                label_a = ep_a["maps_to_label"]
+                label_b = ep_b["maps_to_label"]
+                rel = assoc_rule.get("rel_type")
+
+                # Extract simple properties from association for rich edges
+                edge_props = {}
+                for key, value in obj.items():
+                    if key.startswith("@"):
+                        continue
+                    # Skip role properties
+                    is_role = any(key == ep["role_qname"] for ep in endpoints)
+                    if not is_role and isinstance(value, (str, int, float, bool)):
+                        prop_name = key.replace(":", "_")
+                        edge_props[prop_name] = str(value)
+
+                edges.append((id_a, label_a, id_b, label_b, rel, edge_props))
+
+            # Skip creating association as node unless it has @id (explicit identifier)
+            # Associations are primarily edges, not nodes
+            if not obj.get("@id"):
+                return None
+
+            # If association has @id, fall through to create it as a node too
+            # (for cases where association needs to be referenced)
+
         # Find matching object rule
         obj_rule = obj_rules.get(qname) if qname else None
 
@@ -275,12 +325,23 @@ def generate_for_json_content(
             nodes[obj_id] = (label, qname, props_dict, {})
 
             # Create containment edge if nested
+            # Skip if parent has a reference rule for this property to avoid duplicates
             if parent_id:
-                rel_type = (
-                    f"HAS_{local_from_qname(property_name)}"
-                    if property_name else 'HAS_CHILD'
-                )
-                contains.append((parent_id, parent_label, obj_id, label, rel_type))
+                skip_containment = False
+                # Check if parent QName has reference rules for this property
+                parent_qname = nodes.get(parent_id, (None, None, {}, {}))[1] if parent_id in nodes else None
+                if parent_qname and parent_qname in refs_by_owner and property_name:
+                    for rule in refs_by_owner[parent_qname]:
+                        if rule["field_qname"] == property_name:
+                            skip_containment = True
+                            break
+
+                if not skip_containment:
+                    rel_type = (
+                        f"HAS_{local_from_qname(property_name)}"
+                        if property_name else 'HAS_CHILD'
+                    )
+                    contains.append((parent_id, parent_label, obj_id, label, rel_type))
 
             # Process nested properties
             for key, value in obj.items():
@@ -290,7 +351,7 @@ def generate_for_json_content(
                 if is_reference(value):
                     # Reference edge
                     target_id = value["@id"]
-                    edges.append((obj_id, label, target_id, None, key, {}))
+                    edges.append((obj_id, label, target_id, None, key, {"isReference": True}))
 
                 elif isinstance(value, dict):
                     # Nested object (containment edge created automatically)
@@ -302,9 +363,30 @@ def generate_for_json_content(
                         if isinstance(item, dict):
                             if is_reference(item):
                                 target_id = item["@id"]
-                                edges.append((obj_id, label, target_id, None, key, {}))
+                                edges.append((obj_id, label, target_id, None, key, {"isReference": True}))
                             else:
                                 process_jsonld_object(item, obj_id, label, key)
+
+            # Handle reference edges from mapping.references
+            # Create semantic relationships (e.g., HAS_CHARGE) instead of raw property names
+            if qname in refs_by_owner:
+                for rule in refs_by_owner[qname]:
+                    field_qname = rule["field_qname"]
+                    # Find child property matching field_qname with @id reference
+                    for key, value in obj.items():
+                        if key.startswith("@"):
+                            continue
+                        if key == field_qname:
+                            if is_reference(value):
+                                # Single reference
+                                edges.append((obj_id, label, value["@id"], rule["target_label"],
+                                            rule["rel_type"], {"isReference": True}))
+                            elif isinstance(value, list):
+                                # Array of references
+                                for item in value:
+                                    if isinstance(item, dict) and is_reference(item):
+                                        edges.append((obj_id, label, item["@id"], rule["target_label"],
+                                                    rule["rel_type"], {"isReference": True}))
 
             return obj_id
         else:
@@ -322,26 +404,38 @@ def generate_for_json_content(
 
             nodes[obj_id] = (label, qname or "Object", props_dict, {})
 
+            # Create containment edge if nested
+            # Skip if parent has a reference rule for this property to avoid duplicates
             if parent_id:
-                rel_type = (
-                    f"HAS_{local_from_qname(property_name)}"
-                    if property_name else 'HAS_CHILD'
-                )
-                contains.append((parent_id, parent_label, obj_id, label, rel_type))
+                skip_containment = False
+                # Check if parent QName has reference rules for this property
+                parent_qname = nodes.get(parent_id, (None, None, {}, {}))[1] if parent_id in nodes else None
+                if parent_qname and parent_qname in refs_by_owner and property_name:
+                    for rule in refs_by_owner[parent_qname]:
+                        if rule["field_qname"] == property_name:
+                            skip_containment = True
+                            break
+
+                if not skip_containment:
+                    rel_type = (
+                        f"HAS_{local_from_qname(property_name)}"
+                        if property_name else 'HAS_CHILD'
+                    )
+                    contains.append((parent_id, parent_label, obj_id, label, rel_type))
 
             # Process nested
             for key, value in obj.items():
                 if key.startswith("@"):
                     continue
                 if is_reference(value):
-                    edges.append((obj_id, label, value["@id"], None, key, {}))
+                    edges.append((obj_id, label, value["@id"], None, key, {"isReference": True}))
                 elif isinstance(value, dict):
                     process_jsonld_object(value, obj_id, label, key)
                 elif isinstance(value, list):
                     for item in value:
                         if isinstance(item, dict):
                             if is_reference(item):
-                                edges.append((obj_id, label, item["@id"], None, key, {}))
+                                edges.append((obj_id, label, item["@id"], None, key, {"isReference": True}))
                             else:
                                 process_jsonld_object(item, obj_id, label, key)
 
@@ -394,20 +488,35 @@ def generate_cypher_from_structures(
         )
 
     # Generate MERGE statements for reference/association edges
-    for from_id, from_label, to_id, to_label, rel_type, _ in edges:
+    for from_id, from_label, to_id, to_label, rel_type, edge_props in edges:
         # Clean relationship type
         clean_rel_type = rel_type.replace(":", "_").upper()
+
+        # Build edge properties clause if any
+        props_clause = ""
+        if edge_props:
+            prop_setters = []
+            for key, value in edge_props.items():
+                prop_key = f"`{key}`" if '.' in key else key
+                # Handle boolean values
+                if isinstance(value, bool):
+                    prop_setters.append(f"r.{prop_key}={str(value).lower()}")
+                else:
+                    escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
+                    prop_setters.append(f"r.{prop_key}='{escaped_value}'")
+            if prop_setters:
+                props_clause = " ON CREATE SET " + ", ".join(prop_setters)
 
         if to_label:
             cypher_lines.append(
                 f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to:{to_label} {{id: '{to_id}'}}) "
-                f"MERGE (from)-[:{clean_rel_type}]->(to);"
+                f"MERGE (from)-[r:{clean_rel_type}]->(to){props_clause};"
             )
         else:
             # Find target by ID only
             cypher_lines.append(
                 f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to {{id: '{to_id}'}}) "
-                f"MERGE (from)-[:{clean_rel_type}]->(to);"
+                f"MERGE (from)-[r:{clean_rel_type}]->(to){props_clause};"
             )
 
     return "\n".join(cypher_lines)
