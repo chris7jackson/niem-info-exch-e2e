@@ -572,11 +572,10 @@ def generate_for_xml_content(
             if target_id and target_id not in id_registry:
                 pending_refs.append((elem_qn, target_id, f"structures:ref/uri in {elem_qn}"))
 
-            # Create or register entity node if not already exists (for forward references)
-            # Use element QName to determine entity type (e.g., <nc:Person> creates nc:Person entity)
-            if target_id and target_id not in nodes:
-                entity_label = elem_qn.replace(":", "_")
-                nodes[target_id] = [entity_label, elem_qn, {}, {}]
+            # NOTE: Do NOT create placeholder nodes for reference targets
+            # The actual element with structures:id will create its own node when traversed
+            # Creating placeholder nodes here leads to orphaned nodes for invalid references
+            # If target doesn't exist, Cypher MATCH will fail and edge won't be created
 
             # NOTE: Do NOT create containment relationships for reference elements
             # Reference elements (xsi:nil="true" with structures:ref/uri) are pure references
