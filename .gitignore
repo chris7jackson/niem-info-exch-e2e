@@ -78,6 +78,12 @@ build/
 *.bak
 *.backup
 
+# Secrets and licenses
+api/secrets/
+api/g2license_*/
+*.lic
+*.lic_base64
+
 # Keep samples directory but ignore generated test data
 !samples/
 

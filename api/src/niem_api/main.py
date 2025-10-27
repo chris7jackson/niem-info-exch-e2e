@@ -70,6 +70,14 @@ async def startup_tasks():
         else:
             logger.warning("NIEMTran tool setup failed - XML to JSON conversion will not be available")
 
+        # Setup Senzing license (auto-decode if needed)
+        from .core.config import senzing_config
+        senzing_available = senzing_config.ensure_license()
+        if senzing_available:
+            logger.info("Senzing entity resolution is available")
+        else:
+            logger.info("Senzing entity resolution is not available (license not found)")
+
         logger.info("Startup tasks completed successfully")
 
         # TODO potentially, fetch all third party references. i.e. niem open reference xsd schemas.
