@@ -593,7 +593,14 @@ def generate_for_xml_content(
         metadata_ref_list = get_metadata_refs(elem, xml_ns_map)
         has_metadata_refs = bool(metadata_ref_list)
 
-        if obj_rule or sid or has_metadata_refs:
+        # Check if element has complex children (child elements, not just text)
+        # Elements with complex structure should become nodes to preserve hierarchy
+        has_complex_children = any(
+            isinstance(child.tag, str) and not child.tag.startswith("{http://www.w3.org/2001/XMLSchema")
+            for child in elem
+        )
+
+        if obj_rule or sid or has_metadata_refs or has_complex_children:
             # Generate label from mapping or from element name
             if obj_rule:
                 node_label = obj_rule["label"]
