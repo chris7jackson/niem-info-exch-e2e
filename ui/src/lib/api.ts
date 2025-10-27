@@ -186,7 +186,6 @@ class ApiClient {
   async convertXmlToJson(
     files: File | File[],
     schemaId?: string,
-    includeContext: boolean = false,
     contextUri?: string
   ): Promise<BatchConversionResult> {
     const formData = new FormData();
@@ -200,7 +199,6 @@ class ApiClient {
     if (schemaId) {
       formData.append('schema_id', schemaId);
     }
-    formData.append('include_context', includeContext.toString());
     if (contextUri) {
       formData.append('context_uri', contextUri);
     }

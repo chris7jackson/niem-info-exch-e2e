@@ -279,7 +279,6 @@ async def convert_xml_to_json(
     files: List[UploadFile] = File(None),
     file: UploadFile = File(None),
     schema_id: str = Form(None),
-    include_context: bool = Form(False),
     context_uri: str = Form(None),
     token: str = Depends(verify_token),
     s3=Depends(get_s3_client)
@@ -289,6 +288,7 @@ async def convert_xml_to_json(
     Supports both single file and batch conversion.
     Uses the active schema's CMF model to perform the conversion.
     The resulting JSON follows NIEM JSON-LD conventions.
+    The complete @context is always included in conversion results.
 
     This is a utility tool for demo purposes - converted JSON is returned
     but not stored or ingested.
@@ -300,7 +300,6 @@ async def convert_xml_to_json(
         files: Multiple XML files to convert (for batch processing)
         file: Single XML file to convert (for backward compatibility)
         schema_id: Optional schema ID (uses active schema if not provided)
-        include_context: Include complete @context in the result
         context_uri: Optional URI to include as "@context:" URI pair
         token: Authentication token
         s3: MinIO client dependency
@@ -323,7 +322,7 @@ async def convert_xml_to_json(
             detail="No files provided. Please upload at least one XML file."
         )
 
-    return await handle_xml_to_json_batch(files, s3, schema_id, include_context, context_uri)
+    return await handle_xml_to_json_batch(files, s3, schema_id, context_uri)
 
 
 # Admin Routes
