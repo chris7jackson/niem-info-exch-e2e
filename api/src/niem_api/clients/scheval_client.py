@@ -311,6 +311,7 @@ def _validate_scheval_command(args: list) -> None:
             if arg.startswith("/"):
                 from pathlib import Path as P
                 arg_path = P(arg).resolve()
+                # nosec B108 - Intentional hardcoded path for security validation
                 allowed_prefixes = [P("/tmp").resolve(), P("/app").resolve()]
                 if os.getenv("HOME"):
                     allowed_prefixes.append(P(os.getenv("HOME")).resolve())
@@ -411,6 +412,7 @@ def run_scheval_command(
                 raise SchevalError(f"Working directory is not a directory: {working_dir_path}")
 
             # Security: Ensure working directory is within /tmp or /app (expected safe zones)
+            # nosec B108 - Intentional hardcoded path for security validation
             allowed_prefixes = [Path("/tmp").resolve(), Path("/app").resolve()]
             if os.getenv("HOME"):
                 allowed_prefixes.append(Path(os.getenv("HOME")).resolve())
