@@ -123,8 +123,8 @@ class NiemNdrValidator:
                 if not file_path.exists():
                     raise FileNotFoundError(f"Required schematron fragment not found: {file_path}")
 
-            # Create output directory
-            composite_dir = Path("/tmp/compiled_xslt/composite_schematrons")
+            # Create output directory in system temp directory
+            composite_dir = Path(tempfile.gettempdir()) / "compiled_xslt" / "composite_schematrons"
             composite_dir.mkdir(parents=True, exist_ok=True)
 
             # Output path
