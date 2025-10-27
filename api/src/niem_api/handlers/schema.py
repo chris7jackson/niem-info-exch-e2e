@@ -102,8 +102,6 @@ def _extract_schema_imports(xsd_content: str) -> list[dict[str, Any]]:
     Returns:
         List of import dictionaries with namespace and schema_location
     """
-    import xml.etree.ElementTree as ET
-
     imports = []
     try:
         root = ET.fromstring(xsd_content)
