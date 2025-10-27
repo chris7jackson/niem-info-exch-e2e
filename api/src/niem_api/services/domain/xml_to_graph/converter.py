@@ -116,7 +116,8 @@ def synth_id(parent_id: str, elem_qn: str, ordinal_path: str, file_prefix: str =
         Synthetic ID with file_prefix and 'syn_' prefix
     """
     basis = f"{parent_id}|{elem_qn}|{ordinal_path}"
-    synth = "syn_" + hashlib.sha1(basis.encode("utf-8")).hexdigest()[:16]
+    # SHA1 used for synthetic ID generation only, not cryptographic security
+    synth = "syn_" + hashlib.sha1(basis.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
     return f"{file_prefix}_{synth}" if file_prefix else synth
 
 
@@ -392,7 +393,8 @@ def generate_for_xml_content(
     import time
     from datetime import datetime, timezone
 
-    file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode()).hexdigest()[:8]
+    # SHA1 used for file prefix generation only, not cryptographic security
+    file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode(), usedforsecurity=False).hexdigest()[:8]
     ingest_timestamp = datetime.now(timezone.utc).isoformat()
 
     nodes = {}  # id -> (label, qname, props_dict, aug_props_dict)
