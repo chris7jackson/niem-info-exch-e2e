@@ -11,3 +11,15 @@ jsonschema==4.20.0
 python-json-logger==2.0.7
 pyyaml==6.0.1
 neo4j==5.15.0
+
+# Senzing Entity Resolution SDK
+# Note: Senzing packages require a license to function
+# The actual package names and versions depend on your Senzing installation
+# These are placeholders - replace with actual Senzing SDK packages
+# senzing==3.0.0  # Uncomment when Senzing SDK is available
+# g2engine  # Core entity resolution engine
+# g2config  # Configuration management
+# g2configmgr  # Configuration manager
+# g2diagnostic  # Diagnostics
+# g2hasher  # Record hashing
+# g2product  # Product information
