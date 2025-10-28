@@ -543,11 +543,9 @@ export default function GraphPage() {
 
       {/* Entity Resolution Section */}
       <EntityResolutionPanel
-        onResolutionComplete={(response) => {
+        onResolutionComplete={(_response) => {
           // Refresh the graph to show resolved entities
-          if (lastQueryRef.current) {
-            runQuery(lastQueryRef.current);
-          }
+          executeQuery(cypherQuery);
         }}
         onError={(error) => {
           console.error('Entity resolution error:', error);
