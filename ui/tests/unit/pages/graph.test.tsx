@@ -136,11 +136,14 @@ describe('Graph Page', () => {
     render(<GraphPage />);
 
     // Component auto-loads on mount, so error should appear
-    await waitFor(() => {
-      // Look for the specific HTTP error message (not just "error")
-      expect(screen.getByText(/HTTP error! status: 500/i)).toBeInTheDocument()
-    }, { timeout: 3000 })
-  })
+    await waitFor(
+      () => {
+        // Look for the specific HTTP error message (not just "error")
+        expect(screen.getByText(/HTTP error! status: 500/i)).toBeInTheDocument();
+      },
+      { timeout: 3000 }
+    );
+  });
 
   test('handles invalid Cypher syntax errors', async () => {
     server.use(
@@ -152,9 +155,12 @@ describe('Graph Page', () => {
     render(<GraphPage />);
 
     // Wait for initial error from bad query
-    await waitFor(() => {
-      // Look for the specific HTTP error message (not just "error")
-      expect(screen.getByText(/HTTP error! status: 400/i)).toBeInTheDocument()
-    }, { timeout: 3000 })
-  })
-})
+    await waitFor(
+      () => {
+        // Look for the specific HTTP error message (not just "error")
+        expect(screen.getByText(/HTTP error! status: 400/i)).toBeInTheDocument();
+      },
+      { timeout: 3000 }
+    );
+  });
+});

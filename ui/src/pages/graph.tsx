@@ -190,7 +190,7 @@ export default function GraphPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token') || 'devtoken'}`,
         },
-        body: JSON.stringify({ query, limit: resultLimit })
+        body: JSON.stringify({ query, limit: resultLimit }),
       });
 
       if (!response.ok) {
@@ -226,8 +226,8 @@ export default function GraphPage() {
       const response = await fetch(`${apiUrl}/api/entity-resolution/reset`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('token') || 'devtoken'}`,
+        },
       });
 
       if (!response.ok) {
@@ -247,7 +247,6 @@ export default function GraphPage() {
       } else {
         throw new Error(result.message || 'Reset failed');
       }
-
     } catch (err: any) {
       console.error('Reset failed:', err);
       setResolutionMessage(`Error: ${err.message || 'Failed to reset entity resolution'}`);
@@ -568,8 +567,8 @@ export default function GraphPage() {
       const response = await fetch(`${apiUrl}/api/entity-resolution/run`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('token') || 'devtoken'}`,
+        },
       });
 
       if (!response.ok) {
@@ -589,7 +588,6 @@ export default function GraphPage() {
       } else {
         throw new Error(result.message || 'Entity resolution failed');
       }
-
     } catch (err: any) {
       console.error('Entity resolution failed:', err);
       setResolutionMessage(`Error: ${err.message || 'Failed to run entity resolution'}`);
@@ -603,18 +601,19 @@ export default function GraphPage() {
     {
       name: 'Complete Graph',
       query: 'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m',
-      description: 'Show ALL nodes and relationships (up to limit)'
+      description: 'Show ALL nodes and relationships (up to limit)',
     },
     {
       name: 'Limited (100)',
       query: 'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 100',
-      description: 'Show first 100 nodes/relationships'
+      description: 'Show first 100 nodes/relationships',
     },
     {
       name: 'Resolved Entities',
-      query: 'MATCH (entity)-[:RESOLVED_TO]->(re:ResolvedEntity) OPTIONAL MATCH (entity)-[r]-(m) RETURN entity, re, r, m',
-      description: 'Show entities with resolution relationships'
-    }
+      query:
+        'MATCH (entity)-[:RESOLVED_TO]->(re:ResolvedEntity) OPTIONAL MATCH (entity)-[r]-(m) RETURN entity, re, r, m',
+      description: 'Show entities with resolution relationships',
+    },
   ];
 
   const layoutOptions = [
@@ -644,7 +643,8 @@ export default function GraphPage() {
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">Entity Resolution</h3>
           <p className="mt-1 text-sm text-gray-600">
-            Find and link duplicate entities based on name matching. Creates ResolvedEntity nodes showing which entities represent the same real-world person.
+            Find and link duplicate entities based on name matching. Creates ResolvedEntity nodes
+            showing which entities represent the same real-world person.
           </p>
         </div>
         <div className="p-6">
@@ -657,9 +657,24 @@ export default function GraphPage() {
             >
               {resolutionRunning ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   Running...
                 </>
@@ -677,7 +692,9 @@ export default function GraphPage() {
             </button>
           </div>
           {resolutionMessage && (
-            <div className={`mt-4 p-3 rounded-md ${resolutionMessage.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+            <div
+              className={`mt-4 p-3 rounded-md ${resolutionMessage.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}
+            >
               {resolutionMessage}
             </div>
           )}
@@ -729,7 +746,10 @@ export default function GraphPage() {
 
             {/* Result Limit Control */}
             <div>
-              <label htmlFor="result-limit" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="result-limit"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Result Limit
               </label>
               <div className="flex items-center gap-2">
