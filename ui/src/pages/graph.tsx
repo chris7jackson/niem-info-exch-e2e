@@ -727,13 +727,13 @@ export default function GraphPage() {
                   value={resultLimit}
                   onChange={(e) => {
                     const val = Number.parseInt(e.target.value);
-                    if (!isNaN(val) && val >= 1 && val <= 100000) {
+                    if (!Number.isNaN(val) && val >= 1 && val <= 100000) {
                       setResultLimit(val);
                     }
                   }}
                   onBlur={(e) => {
                     const val = Number.parseInt(e.target.value);
-                    if (isNaN(val) || val < 1) {
+                    if (Number.isNaN(val) || val < 1) {
                       setResultLimit(10000);
                     } else if (val > 100000) {
                       setResultLimit(100000);
