@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for JSON to Cypher converter."""
 
+import json
 import pytest
 from niem_api.services.domain.json_to_graph.converter import generate_for_json_content
 
@@ -27,7 +28,7 @@ def test_generate_for_json_content_uses_sha1_hash():
         }
     }
 
-    # Minimal NIEM JSON
+    # Minimal NIEM JSON (as dict, will convert to string)
     json_data = {
         "@context": {
             "nc": "http://example.com/nc"
@@ -41,9 +42,12 @@ def test_generate_for_json_content_uses_sha1_hash():
         ]
     }
 
+    # Convert to JSON string (function expects string, not dict)
+    json_str = json.dumps(json_data)
+
     # Generate Cypher - this should trigger the SHA1 hash generation at line 237
     cypher, nodes, edges, contains = generate_for_json_content(
-        json_data,
+        json_str,
         mapping_dict,
         "test.json"
     )
