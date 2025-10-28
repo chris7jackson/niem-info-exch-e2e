@@ -163,3 +163,23 @@ class TestNiemNdrValidator:
         # Unknown falls back to subset
         assert validator._get_rule_count('unknown') == 144
 
+    def test_generate_composite_schematron_uses_tempdir(self, mock_ndr_tools_path, tmp_path):
+        """Test that _generate_composite_schematron uses tempfile.gettempdir()."""
+        # This test ensures coverage of line 127 (tempfile.gettempdir())
+
+        # Create required source files
+        src_dir = mock_ndr_tools_path / "src"
+        src_dir.mkdir(parents=True)
+        (src_dir / "hdr.sch").write_text("<schema>header</schema>")
+        (src_dir / "all.sch").write_text("<schema>all rules</schema>")
+        (src_dir / "ref.sch").write_text("<schema>ref rules</schema>")
+
+        validator = NiemNdrValidator(ndr_tools_path=str(mock_ndr_tools_path))
+
+        # Call the method - this should trigger the tempfile.gettempdir() call at line 127
+        result = validator._generate_composite_schematron('ref')
+
+        # Verify the composite schematron was created
+        assert result.exists(), "Composite schematron file should be created"
+        assert "ref_composite.sch" in str(result), "Output file should have correct name"
+
