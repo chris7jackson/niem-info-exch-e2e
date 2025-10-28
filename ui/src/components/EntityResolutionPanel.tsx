@@ -76,15 +76,24 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
   };
 
   const handleResetResolution = async () => {
-    if (!confirm('Are you sure you want to reset all entity resolution data?')) {
-      return;
-    }
-
     setIsLoading(true);
     try {
       await apiClient.resetEntityResolution();
       setLastResult(null);
-      await fetchResolutionStatus();
+      // Refresh all data
+      await Promise.all([fetchResolutionStatus(), fetchNodeTypes()]);
+      // Notify parent to refresh (e.g., graph visualization)
+      onResolutionComplete?.({
+        status: 'success',
+        message: 'Entity resolution reset successfully',
+        entitiesExtracted: 0,
+        duplicateGroupsFound: 0,
+        resolvedEntitiesCreated: 0,
+        relationshipsCreated: 0,
+        entitiesResolved: 0,
+        resolutionMethod: 'text_based',
+        nodeTypesProcessed: [],
+      });
     } catch (error) {
       console.error('Failed to reset entity resolution:', error);
       onError?.('Failed to reset entity resolution');
