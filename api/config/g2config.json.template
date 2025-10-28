@@ -1,0 +1,174 @@
+{
+  "G2_CONFIG": {
+    "CFG_VERSION": "3",
+    "CFG_ETYPE": [
+      {
+        "ETYPE_ID": 1,
+        "ETYPE_CODE": "PERSON",
+        "ETYPE_DESC": "Person entities from NIEM graph"
+      },
+      {
+        "ETYPE_ID": 2,
+        "ETYPE_CODE": "ORGANIZATION",
+        "ETYPE_DESC": "Organization entities from NIEM graph"
+      },
+      {
+        "ETYPE_ID": 3,
+        "ETYPE_CODE": "ADDRESS",
+        "ETYPE_DESC": "Address entities from NIEM graph"
+      },
+      {
+        "ETYPE_ID": 4,
+        "ETYPE_CODE": "VEHICLE",
+        "ETYPE_DESC": "Vehicle entities from NIEM graph"
+      }
+    ],
+    "CFG_DSRC": [
+      {
+        "DSRC_ID": 1,
+        "DSRC_CODE": "NIEM_GRAPH",
+        "DSRC_DESC": "NIEM GraphRAG Neo4j data source"
+      }
+    ],
+    "CFG_ATTR": [
+      {
+        "ATTR_ID": 1001,
+        "ATTR_CODE": "PRIMARY_NAME_FULL",
+        "ATTR_CLASS": "NAME",
+        "FTYPE_CODE": "NAME",
+        "FELEM_CODE": "FULL_NAME",
+        "ATTR_DESC": "Full name from NIEM PersonFullName"
+      },
+      {
+        "ATTR_ID": 1002,
+        "ATTR_CODE": "PRIMARY_NAME_FIRST",
+        "ATTR_CLASS": "NAME",
+        "FTYPE_CODE": "NAME",
+        "FELEM_CODE": "GIVEN_NAME",
+        "ATTR_DESC": "Given name from NIEM PersonGivenName"
+      },
+      {
+        "ATTR_ID": 1003,
+        "ATTR_CODE": "PRIMARY_NAME_LAST",
+        "ATTR_CLASS": "NAME",
+        "FTYPE_CODE": "NAME",
+        "FELEM_CODE": "SURNAME",
+        "ATTR_DESC": "Surname from NIEM PersonSurName"
+      },
+      {
+        "ATTR_ID": 1004,
+        "ATTR_CODE": "PRIMARY_NAME_MIDDLE",
+        "ATTR_CLASS": "NAME",
+        "FTYPE_CODE": "NAME",
+        "FELEM_CODE": "MIDDLE_NAME",
+        "ATTR_DESC": "Middle name from NIEM PersonMiddleName"
+      },
+      {
+        "ATTR_ID": 1005,
+        "ATTR_CODE": "DATE_OF_BIRTH",
+        "ATTR_CLASS": "ATTRIBUTE",
+        "FTYPE_CODE": "DOB",
+        "FELEM_CODE": "DATE",
+        "ATTR_DESC": "Birth date from NIEM PersonBirthDate"
+      },
+      {
+        "ATTR_ID": 1006,
+        "ATTR_CODE": "SSN_NUMBER",
+        "ATTR_CLASS": "ATTRIBUTE",
+        "FTYPE_CODE": "SSN",
+        "FELEM_CODE": "NUMBER",
+        "ATTR_DESC": "SSN from NIEM PersonSSNIdentification"
+      },
+      {
+        "ATTR_ID": 1007,
+        "ATTR_CODE": "ORG_NAME",
+        "ATTR_CLASS": "NAME",
+        "FTYPE_CODE": "NAME",
+        "FELEM_CODE": "ORG_NAME",
+        "ATTR_DESC": "Organization name from NIEM OrganizationName"
+      },
+      {
+        "ATTR_ID": 1008,
+        "ATTR_CODE": "ADDR_FULL",
+        "ATTR_CLASS": "ADDRESS",
+        "FTYPE_CODE": "ADDRESS",
+        "FELEM_CODE": "FULL_ADDRESS",
+        "ATTR_DESC": "Full address from NIEM AddressFullText"
+      },
+      {
+        "ATTR_ID": 1009,
+        "ATTR_CODE": "ADDR_LINE1",
+        "ATTR_CLASS": "ADDRESS",
+        "FTYPE_CODE": "ADDRESS",
+        "FELEM_CODE": "ADDR_LINE1",
+        "ATTR_DESC": "Street address from NIEM StreetName"
+      },
+      {
+        "ATTR_ID": 1010,
+        "ATTR_CODE": "ADDR_CITY",
+        "ATTR_CLASS": "ADDRESS",
+        "FTYPE_CODE": "ADDRESS",
+        "FELEM_CODE": "CITY",
+        "ATTR_DESC": "City from NIEM CityName"
+      },
+      {
+        "ATTR_ID": 1011,
+        "ATTR_CODE": "ADDR_STATE",
+        "ATTR_CLASS": "ADDRESS",
+        "FTYPE_CODE": "ADDRESS",
+        "FELEM_CODE": "STATE",
+        "ATTR_DESC": "State from NIEM StateName"
+      },
+      {
+        "ATTR_ID": 1012,
+        "ATTR_CODE": "ADDR_POSTAL_CODE",
+        "ATTR_CLASS": "ADDRESS",
+        "FTYPE_CODE": "ADDRESS",
+        "FELEM_CODE": "POSTAL",
+        "ATTR_DESC": "Postal code from NIEM PostalCode"
+      },
+      {
+        "ATTR_ID": 1013,
+        "ATTR_CODE": "PHONE_NUMBER",
+        "ATTR_CLASS": "ATTRIBUTE",
+        "FTYPE_CODE": "PHONE",
+        "FELEM_CODE": "NUMBER",
+        "ATTR_DESC": "Phone number from NIEM TelephoneNumber"
+      },
+      {
+        "ATTR_ID": 1014,
+        "ATTR_CODE": "EMAIL_ADDRESS",
+        "ATTR_CLASS": "ATTRIBUTE",
+        "FTYPE_CODE": "EMAIL",
+        "FELEM_CODE": "ADDRESS",
+        "ATTR_DESC": "Email from NIEM EmailAddress"
+      }
+    ],
+    "CFG_EFBOM": [
+      {
+        "EFBOM_ID": 1,
+        "ETYPE_ID": 1,
+        "FTYPE_ID": 1,
+        "EFBOM_DESC": "Person name matching"
+      },
+      {
+        "EFBOM_ID": 2,
+        "ETYPE_ID": 1,
+        "FTYPE_ID": 2,
+        "EFBOM_DESC": "Person DOB matching"
+      },
+      {
+        "EFBOM_ID": 3,
+        "ETYPE_ID": 1,
+        "FTYPE_ID": 3,
+        "EFBOM_DESC": "Person SSN matching"
+      },
+      {
+        "EFBOM_ID": 4,
+        "ETYPE_ID": 2,
+        "FTYPE_ID": 1,
+        "EFBOM_DESC": "Organization name matching"
+      }
+    ]
+  }
+}

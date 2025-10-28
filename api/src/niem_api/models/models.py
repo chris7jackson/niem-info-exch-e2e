@@ -82,6 +82,7 @@ class SchemaResponse(BaseModel):
     scheval_report: SchevalReport | None = None
     import_validation_report: ImportValidationReport | None = None
     is_active: bool
+    warnings: list[str] = []
 
 
 class ResetRequest(BaseModel):
@@ -115,3 +116,32 @@ class ValidationResult(BaseModel):
     errors: list[ValidationError] = []
     warnings: list[ValidationError] = []
     summary: str  # Human-readable summary
+
+
+# Entity Resolution Models
+
+class NodeTypeInfo(BaseModel):
+    """Information about a node type available for entity resolution."""
+    qname: str  # Qualified name (e.g., 'j:CrashDriver')
+    label: str  # Neo4j label (e.g., 'j_CrashDriver')
+    count: int  # Number of entities of this type
+    nameFields: list[str]  # Available name fields for matching
+    category: str | None = None  # Entity category: person, organization, location, address, vehicle, other
+    recommended: bool = False  # Whether this type is recommended for entity resolution
+
+
+class EntityResolutionRequest(BaseModel):
+    """Request to run entity resolution with selected node types."""
+    selectedNodeTypes: list[str] = []  # List of qnames to resolve
+
+
+class EntityResolutionResponse(BaseModel):
+    """Response from entity resolution operation."""
+    status: str  # 'success' or 'error'
+    message: str
+    entitiesExtracted: int = 0
+    duplicateGroupsFound: int = 0
+    resolvedEntitiesCreated: int = 0
+    relationshipsCreated: int = 0
+    entitiesResolved: int = 0  # Total entities involved in resolution
+    nodeTypesProcessed: list[str] = []  # List of qnames that were processed

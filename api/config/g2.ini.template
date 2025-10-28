@@ -1,0 +1,25 @@
+# Senzing G2 Configuration File Template
+# This file configures the Senzing entity resolution engine
+# Copy to g2.ini and update with your specific settings
+
+[PIPELINE]
+CONFIGPATH=/app/config/
+RESOURCEPATH=/opt/senzing/g2/resources/
+SUPPORTPATH=/opt/senzing/data/
+
+[SQL]
+# SQLite configuration (for development/testing)
+CONNECTION=sqlite3://na:na@/data/senzing/g2.db
+
+# PostgreSQL configuration (for production)
+# CONNECTION=postgresql://senzing:senzing@postgres:5432/g2
+
+# MySQL configuration (alternative)
+# CONNECTION=mysql://senzing:senzing@mysql:3306/g2
+
+[HYBRID]
+# Hybrid configuration for better performance
+SSHOSTNAME=localhost
+SSPORT=8250
+SSUSER=root
+SSPASSWORD=root

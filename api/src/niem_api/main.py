@@ -13,7 +13,7 @@ from neo4j import GraphDatabase
 from .core.auth import verify_token
 from .core.dependencies import get_s3_client
 from .core.logging import setup_logging
-from .models.models import ResetRequest, SchemaResponse
+from .models.models import EntityResolutionRequest, ResetRequest, SchemaResponse
 
 logger = logging.getLogger(__name__)
 
@@ -73,10 +73,21 @@ async def startup_tasks():
         # Setup Senzing license (auto-decode if needed)
         from .core.config import senzing_config
         senzing_available = senzing_config.ensure_license()
+
+        # Initialize Senzing configuration if available
         if senzing_available:
-            logger.info("Senzing entity resolution is available")
+            try:
+                from .startup.initialize_senzing import initialize_senzing
+                senzing_configured = initialize_senzing()
+                if senzing_configured:
+                    logger.info("✓ Senzing entity resolution is available and configured")
+                else:
+                    logger.info("✓ Senzing license found but configuration failed - using fallback")
+            except ImportError:
+                logger.info("Senzing initialization module not found - using defaults")
+                senzing_configured = senzing_available
         else:
-            logger.info("Senzing entity resolution is not available (license not found)")
+            logger.info("✗ Senzing entity resolution not available (no license) - using text-based entity matching")
 
         logger.info("Startup tasks completed successfully")
 
@@ -383,16 +394,40 @@ async def get_full_graph(
 
 @app.post("/api/entity-resolution/run")
 async def run_entity_resolution(
+    request: EntityResolutionRequest,
     token: str = Depends(verify_token)
 ):
-    """Run mock entity resolution on the current graph.
+    """Run entity resolution on the current graph.
 
-    Identifies duplicate entities based on name and birth date,
+    Identifies duplicate entities based on name and other attributes,
     creates ResolvedEntity nodes to show which entities represent
-    the same real-world person.
+    the same real-world entity.
+
+    Args:
+        request: Request body with selected node types to resolve (required)
     """
     from .handlers.entity_resolution import handle_run_entity_resolution
-    return handle_run_entity_resolution()
+
+    if not request.selectedNodeTypes:
+        raise HTTPException(
+            status_code=400,
+            detail="selectedNodeTypes is required and cannot be empty"
+        )
+
+    return handle_run_entity_resolution(request.selectedNodeTypes)
+
+
+@app.get("/api/entity-resolution/node-types")
+async def get_available_node_types(
+    token: str = Depends(verify_token)
+):
+    """Get all available node types that can be resolved.
+
+    Returns node types that have name properties and can be
+    used for entity resolution.
+    """
+    from .handlers.entity_resolution import handle_get_available_node_types
+    return handle_get_available_node_types()
 
 
 @app.get("/api/entity-resolution/status")

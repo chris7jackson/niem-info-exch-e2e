@@ -257,11 +257,9 @@ def generate_for_json_content(
         if not isinstance(obj, dict):
             return None
 
-        # Extract @id or generate one
+        # Extract @id (if present)
         obj_id = obj.get("@id")
-        if not obj_id:
-            object_counter += 1
-            obj_id = f"{file_prefix}_obj{object_counter}"
+        has_id = obj_id is not None
 
         # Extract @type to determine object type
         obj_type = obj.get("@type")
@@ -269,15 +267,47 @@ def generate_for_json_content(
         # Determine QName - prefer @type, fall back to property name
         qname = obj_type if obj_type else property_name
 
+        # Find matching object rule
+        obj_rule = obj_rules.get(qname) if qname else None
+        in_mapping = obj_rule is not None
+
+        # Decision: Create node only if has @id OR in mapping
+        should_create_node = has_id or in_mapping
+
+        if not should_create_node:
+            # Flatten properties onto parent node (if parent exists)
+            if parent_id and parent_id in nodes:
+                parent_node = nodes[parent_id]
+                parent_props = parent_node[2]  # props_dict is at index 2
+
+                # Flatten simple properties with property_name prefix
+                for key, value in obj.items():
+                    if key.startswith("@"):
+                        continue
+                    if isinstance(value, (str, int, float, bool)):
+                        safe_key = key.replace(":", "_")
+                        parent_props[safe_key] = value
+                    elif isinstance(value, list):
+                        # Flatten list values
+                        safe_key = key.replace(":", "_")
+                        simple_values = [v for v in value if isinstance(v, (str, int, float, bool))]
+                        if simple_values:
+                            parent_props[safe_key] = simple_values
+
+            # Don't create a node, return None
+            return None
+
+        # Generate ID only if should create node but doesn't have one
+        if not obj_id:
+            object_counter += 1
+            obj_id = f"{file_prefix}_obj{object_counter}"
+
         # Skip if already processed
         if obj_id in nodes:
             # Create reference edge if this is a nested occurrence
             if parent_id and property_name:
                 edges.append((parent_id, parent_label, obj_id, qname, property_name, {}))
             return obj_id
-
-        # Find matching object rule
-        obj_rule = obj_rules.get(qname) if qname else None
 
         if obj_rule:
             # Extract label and properties
@@ -320,45 +350,6 @@ def generate_for_json_content(
                             if is_reference(item):
                                 target_id = item["@id"]
                                 edges.append((obj_id, label, target_id, None, key, {}))
-                            else:
-                                process_jsonld_object(item, obj_id, label, key)
-
-            return obj_id
-        else:
-            # No mapping rule - create generic node
-            label = local_from_qname(qname) if qname else "Object"
-            props_dict = {"_source_file": filename}
-
-            # Extract simple string properties
-            for key, value in obj.items():
-                if key.startswith("@"):
-                    continue
-                if isinstance(value, (str, int, float, bool)):
-                    safe_key = key.replace(":", "_")
-                    props_dict[safe_key] = str(value).replace("'", "\\'")
-
-            nodes[obj_id] = (label, qname or "Object", props_dict, {})
-
-            if parent_id:
-                rel_type = (
-                    f"HAS_{local_from_qname(property_name)}"
-                    if property_name else 'HAS_CHILD'
-                )
-                contains.append((parent_id, parent_label, obj_id, label, rel_type))
-
-            # Process nested
-            for key, value in obj.items():
-                if key.startswith("@"):
-                    continue
-                if is_reference(value):
-                    edges.append((obj_id, label, value["@id"], None, key, {}))
-                elif isinstance(value, dict):
-                    process_jsonld_object(value, obj_id, label, key)
-                elif isinstance(value, list):
-                    for item in value:
-                        if isinstance(item, dict):
-                            if is_reference(item):
-                                edges.append((obj_id, label, item["@id"], None, key, {}))
                             else:
                                 process_jsonld_object(item, obj_id, label, key)
 

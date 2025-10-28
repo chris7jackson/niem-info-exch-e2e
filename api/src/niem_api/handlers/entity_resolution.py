@@ -1,53 +1,71 @@
 #!/usr/bin/env python3
 """
-Entity resolution handler for mock entity resolution workflows.
+Entity resolution handler for NIEM graph entities.
 
-This module provides a simple deterministic matching algorithm that identifies
-duplicate entities based on name matching, creating ResolvedEntity nodes
-to show which entities represent the same real-world person.
+This module provides entity resolution capabilities using either:
+1. Senzing SDK for advanced ML-based entity resolution (if available)
+2. Text-based entity matching as fallback (simple name matching)
 
-This is a simplified mock - real Senzing provides much more sophisticated matching
-including phonetic matching, fuzzy logic, and machine learning.
+The handler supports dynamic node type selection, allowing users to choose
+which entity types to resolve from the Neo4j graph.
 """
 
 import hashlib
+import json
 import logging
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from ..clients.neo4j_client import Neo4jClient
 
 logger = logging.getLogger(__name__)
+
+# Try to import Senzing integration
+SENZING_AVAILABLE = False
+try:
+    from ..clients.senzing_client import get_senzing_client, SenzingClient
+    from ..services.entity_to_senzing import (
+        batch_convert_to_senzing,
+        senzing_result_to_neo4j_format,
+        extract_confidence_from_senzing
+    )
+    SENZING_AVAILABLE = True
+    logger.info("Senzing integration available")
+except ImportError:
+    logger.info("Senzing integration not available - will use text-based entity matching")
 
 
 # ============================================================================
 # Internal Helper Functions (Entity Resolution Logic)
 # ============================================================================
 
-def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
-    """Extract person entities from Neo4j for resolution.
+def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types: List[str]) -> List[Dict]:
+    """Extract entities from Neo4j for resolution.
 
-    Supports multiple entity types:
-    - j:CrashDriver (direct connection to PersonName)
-    - cyfs:Child (NEICE child entities, nested via RoleOfPerson)
-
-    Supports multiple name formats:
-    - PersonGivenName + PersonSurName (CrashDriver)
-    - PersonFullName (Child entities from NEICE documents)
+    Supports any entity type with name properties accessible through
+    direct or nested relationships to PersonName nodes.
 
     Args:
         neo4j_client: Neo4j client instance
+        selected_node_types: List of qnames to resolve (required)
 
     Returns:
         List of entity dictionaries with properties
     """
-    # Query to get both CrashDriver and Child entities
-    # Use variable-length path to handle both:
-    #   - Direct: CrashDriver -> PersonName (1 hop)
-    #   - Nested: Child -> RoleOfPerson -> PersonName (2 hops)
+    if not selected_node_types:
+        logger.warning("No node types selected for entity resolution")
+        return []
+
+    logger.info(f"Extracting entities for resolution: {selected_node_types}")
+
+    # Query to get entities of selected types
+    # Use variable-length path (1-3 hops):
+    #   - 1 hop: Entity -> PersonName (direct, e.g., CrashDriver extends PersonType)
+    #   - 2 hops: Entity -> NestedObject -> PersonName
+    #   - 3 hops: Entity -> Container -> NestedObject -> PersonName
     query = """
-    MATCH (entity)-[*1..2]->(pn:nc_PersonName)
-    WHERE entity.qname IN ['j:CrashDriver', 'cyfs:Child']
+    MATCH (entity)-[*1..3]->(pn:nc_PersonName)
+    WHERE entity.qname IN $node_types
     RETURN
         id(entity) as neo4j_id,
         entity.id as entity_id,
@@ -63,7 +81,7 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
     """
 
     # Use query() instead of query_graph() for scalar results
-    results = neo4j_client.query(query, {})
+    results = neo4j_client.query(query, {'node_types': selected_node_types})
     entities = []
 
     for record in results:
@@ -83,17 +101,28 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
         if full_name:
             logger.info(
                 f"✓ Extracted {entity_type} entity: PersonFullName='{full_name}' "
-                f"from {source} (node {record.get('entity_id')})"
+                f"from {source} (node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')})"
             )
         elif given_name and surname:
             logger.info(
                 f"✓ Extracted {entity_type} entity: GivenName='{given_name}', SurName='{surname}' "
-                f"from {source} (node {record.get('entity_id')})"
+                f"from {source} (node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')})"
             )
+        elif given_name:
+            # Accept entities with just given name (might be incomplete data)
+            logger.warning(
+                f"⚠ Partial extraction for {entity_type}: GivenName='{given_name}' only "
+                f"from {source} (node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')}). "
+                f"Skipping - need at least given name + surname for matching."
+            )
+            continue
         else:
             logger.warning(
-                f"✗ Failed to extract name from {entity_type} in {source} (node {record.get('entity_id')}). "
-                f"PersonFullName='{full_name}', GivenName='{given_name}', SurName='{surname}'"
+                f"✗ Failed to extract name from {entity_type} in {source} "
+                f"(node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')}). "
+                f"PersonFullName='{full_name}', GivenName='{given_name}', SurName='{surname}', "
+                f"PersonName fields from query: FullName={record.get('PersonFullName')}, "
+                f"GivenName={record.get('PersonGivenName')}, SurName={record.get('PersonSurName')}"
             )
             continue  # Skip entities without sufficient name data
 
@@ -271,7 +300,7 @@ def _create_resolved_entity_nodes(
             neo4j_client.query_graph(create_rel_query, {
                 'neo4j_id': int(entity['neo4j_id']),
                 'entity_id': entity_id,
-                'confidence': 0.95,  # Mock high confidence (name-only matching)
+                'confidence': 0.95,  # High confidence for text-based matching (name-only)
                 'matched_on': 'given_name+surname',
                 'resolved_at': timestamp
             })
@@ -286,8 +315,238 @@ def _create_resolved_entity_nodes(
     return resolved_count, relationship_count
 
 
+def _create_resolved_entity_relationships(neo4j_client: Neo4jClient) -> int:
+    """Create relationships between ResolvedEntity nodes based on original entity relationships.
+
+    This function finds relationships between original entities that have been resolved,
+    then creates corresponding relationships between their ResolvedEntity nodes.
+
+    Args:
+        neo4j_client: Neo4j client instance
+
+    Returns:
+        Count of relationships created between ResolvedEntity nodes
+    """
+    # Query to find relationships between resolved entities
+    # For each relationship between original entities, create a relationship
+    # between their corresponding ResolvedEntity nodes
+    query = """
+    // Find all relationships between entities that have been resolved
+    MATCH (source)-[original_rel]->(target)
+    WHERE NOT type(original_rel) = 'RESOLVED_TO'
+      AND exists((source)-[:RESOLVED_TO]->())
+      AND exists((target)-[:RESOLVED_TO]->())
+
+    // Get the ResolvedEntity nodes for source and target
+    MATCH (source)-[:RESOLVED_TO]->(source_re:ResolvedEntity)
+    MATCH (target)-[:RESOLVED_TO]->(target_re:ResolvedEntity)
+
+    // Avoid creating duplicate relationships
+    WHERE NOT exists((source_re)-[]->(target_re))
+
+    // Create relationship between ResolvedEntity nodes with same type as original
+    WITH source_re, target_re, type(original_rel) as rel_type,
+         collect(distinct id(original_rel)) as original_rel_ids
+
+    // Use CALL to dynamically create relationships with the original type
+    CALL apoc.create.relationship(source_re, rel_type, {
+        original_relationship_ids: original_rel_ids,
+        created_at: datetime()
+    }, target_re) YIELD rel
+
+    RETURN count(rel) as relationships_created
+    """
+
+    try:
+        result = neo4j_client.query(query, {})
+        if result and len(result) > 0:
+            count = result[0].get('relationships_created', 0)
+            logger.info(f"Created {count} relationships between ResolvedEntity nodes")
+            return count
+        return 0
+    except Exception as e:
+        logger.warning(f"Could not create resolved entity relationships (APOC may not be available): {e}")
+        logger.info("Falling back to generic RESOLVED_RELATIONSHIP type")
+
+        # Fallback query without APOC - uses generic relationship type
+        fallback_query = """
+        MATCH (source)-[original_rel]->(target)
+        WHERE NOT type(original_rel) = 'RESOLVED_TO'
+          AND exists((source)-[:RESOLVED_TO]->())
+          AND exists((target)-[:RESOLVED_TO]->())
+
+        MATCH (source)-[:RESOLVED_TO]->(source_re:ResolvedEntity)
+        MATCH (target)-[:RESOLVED_TO]->(target_re:ResolvedEntity)
+
+        WHERE NOT exists((source_re)-[]->(target_re))
+
+        WITH source_re, target_re, type(original_rel) as rel_type,
+             collect(distinct id(original_rel)) as original_rel_ids
+
+        MERGE (source_re)-[r:RESOLVED_RELATIONSHIP]->(target_re)
+        SET r.original_type = rel_type,
+            r.original_relationship_ids = original_rel_ids,
+            r.created_at = datetime()
+
+        RETURN count(r) as relationships_created
+        """
+
+        result = neo4j_client.query(fallback_query, {})
+        if result and len(result) > 0:
+            count = result[0].get('relationships_created', 0)
+            logger.info(f"Created {count} RESOLVED_RELATIONSHIP relationships (fallback mode)")
+            return count
+        return 0
+
+
+def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dict]) -> Tuple[int, int]:
+    """
+    Resolve entities using Senzing SDK.
+
+    Args:
+        neo4j_client: Neo4j client instance
+        entities: List of entity dictionaries to resolve
+
+    Returns:
+        Tuple of (resolved_entity_count, relationship_count)
+    """
+    if not SENZING_AVAILABLE:
+        logger.error("Senzing not available but Senzing resolution was called")
+        return 0, 0
+
+    # Get or initialize Senzing client
+    senzing_client = get_senzing_client()
+    if not senzing_client.is_available():
+        logger.error("Senzing client not available (license or configuration issue)")
+        return 0, 0
+
+    if not senzing_client.initialized:
+        if not senzing_client.initialize():
+            logger.error("Failed to initialize Senzing client")
+            return 0, 0
+
+    try:
+        # Convert entities to Senzing format
+        senzing_records = batch_convert_to_senzing(entities)
+
+        # Process records through Senzing
+        batch_result = senzing_client.process_batch(senzing_records)
+        logger.info(f"Processed {batch_result['processed']} records through Senzing")
+
+        # Track resolution results
+        resolved_entities = {}
+        resolved_count = 0
+        relationship_count = 0
+        timestamp = datetime.utcnow().isoformat()
+
+        # Get resolution results for each entity
+        for entity in entities:
+            record_id = str(entity.get('entity_id') or entity.get('neo4j_id', ''))
+
+            # Get Senzing resolution result
+            result = senzing_client.get_entity_by_record_id("NIEM_GRAPH", record_id)
+            if not result:
+                continue
+
+            # Extract Senzing entity ID
+            senzing_entity_id = result.get('RESOLVED_ENTITY', {}).get('ENTITY_ID')
+            if not senzing_entity_id:
+                continue
+
+            # Check if this is a duplicate (multiple records resolved to same entity)
+            if senzing_entity_id not in resolved_entities:
+                # First time seeing this Senzing entity
+                resolved_entities[senzing_entity_id] = {
+                    'entities': [],
+                    'senzing_data': result.get('RESOLVED_ENTITY', {})
+                }
+
+            resolved_entities[senzing_entity_id]['entities'].append(entity)
+
+        # Create ResolvedEntity nodes for groups with duplicates
+        for senzing_entity_id, group_data in resolved_entities.items():
+            entities_in_group = group_data['entities']
+            senzing_data = group_data['senzing_data']
+
+            # Only create resolved entity if there are duplicates
+            if len(entities_in_group) < 2:
+                continue
+
+            # Create unique entity ID for Neo4j
+            entity_hash = hashlib.sha256(str(senzing_entity_id).encode()).hexdigest()[:12]
+            neo4j_entity_id = f"SE_{entity_hash}"
+
+            # Extract name from Senzing result
+            entity_name = senzing_data.get('ENTITY_NAME', '')
+            if not entity_name:
+                # Fall back to first entity's name
+                first_entity = entities_in_group[0]
+                props = first_entity.get('properties', {})
+                entity_name = props.get('PersonFullName', '')
+                if not entity_name:
+                    given = props.get('PersonGivenName', '')
+                    surname = props.get('PersonSurName', '')
+                    entity_name = f"{given} {surname}".strip()
+
+            # Get match confidence from Senzing
+            confidence = extract_confidence_from_senzing({'RESOLVED_ENTITY': senzing_data})
+
+            # Create ResolvedEntity node
+            create_node_query = """
+            MERGE (re:ResolvedEntity {entity_id: $entity_id})
+            SET re.name = $name,
+                re.senzing_entity_id = $senzing_entity_id,
+                re.resolved_count = $resolved_count,
+                re.resolved_at = $resolved_at,
+                re.resolution_method = 'senzing',
+                re.confidence = $confidence
+            RETURN re
+            """
+
+            neo4j_client.query_graph(create_node_query, {
+                'entity_id': neo4j_entity_id,
+                'name': entity_name,
+                'senzing_entity_id': senzing_entity_id,
+                'resolved_count': len(entities_in_group),
+                'resolved_at': timestamp,
+                'confidence': confidence
+            })
+
+            resolved_count += 1
+
+            # Create RESOLVED_TO relationships
+            for entity in entities_in_group:
+                create_rel_query = """
+                MATCH (n), (re:ResolvedEntity {entity_id: $entity_id})
+                WHERE id(n) = $neo4j_id
+                MERGE (n)-[r:RESOLVED_TO]->(re)
+                SET r.confidence = $confidence,
+                    r.resolution_method = 'senzing',
+                    r.resolved_at = $resolved_at,
+                    r.senzing_entity_id = $senzing_entity_id
+                RETURN r
+                """
+
+                neo4j_client.query_graph(create_rel_query, {
+                    'neo4j_id': int(entity['neo4j_id']),
+                    'entity_id': neo4j_entity_id,
+                    'confidence': confidence,
+                    'resolved_at': timestamp,
+                    'senzing_entity_id': senzing_entity_id
+                })
+
+                relationship_count += 1
+
+        logger.info(f"Senzing resolution created {resolved_count} resolved entities with {relationship_count} relationships")
+        return resolved_count, relationship_count
+
+    except Exception as e:
+        logger.error(f"Error during Senzing resolution: {e}", exc_info=True)
+        return 0, 0
+
+
 def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
-    """Remove all entity resolution data from Neo4j.
+    """Remove all entity resolution data from Neo4j and Senzing.
 
     Args:
         neo4j_client: Neo4j client instance
@@ -302,10 +561,10 @@ def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
     RETURN count(r) as count
     """
 
-    rel_result = neo4j_client.query_graph(delete_rels_query, {})
+    rel_result = neo4j_client.query(delete_rels_query, {})
     rel_count = 0
-    if rel_result.get('nodes'):
-        rel_count = rel_result['nodes'][0].get('properties', {}).get('count', 0)
+    if rel_result and len(rel_result) > 0:
+        rel_count = rel_result[0].get('count', 0)
 
     # Delete ResolvedEntity nodes
     delete_nodes_query = """
@@ -314,15 +573,27 @@ def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
     RETURN count(re) as count
     """
 
-    node_result = neo4j_client.query_graph(delete_nodes_query, {})
+    node_result = neo4j_client.query(delete_nodes_query, {})
     node_count = 0
-    if node_result.get('nodes'):
-        node_count = node_result['nodes'][0].get('properties', {}).get('count', 0)
+    if node_result and len(node_result) > 0:
+        node_count = node_result[0].get('count', 0)
 
     logger.info(
         f"Reset entity resolution: deleted {node_count} nodes "
-        f"and {rel_count} relationships"
+        f"and {rel_count} relationships from Neo4j"
     )
+
+    # Also clear Senzing repository if available
+    if SENZING_AVAILABLE:
+        try:
+            senzing_client = get_senzing_client()
+            if senzing_client.is_available() and senzing_client.initialized:
+                if senzing_client.purge_repository():
+                    logger.info("Purged all records from Senzing repository")
+                else:
+                    logger.warning("Failed to purge Senzing repository")
+        except Exception as e:
+            logger.warning(f"Could not purge Senzing repository: {e}")
 
     return {
         'resolved_entities_deleted': node_count,
@@ -345,10 +616,10 @@ def _get_resolution_status(neo4j_client: Neo4jClient) -> Dict:
     RETURN count(re) as resolved_entities
     """
 
-    result = neo4j_client.query_graph(count_query, {})
+    result = neo4j_client.query(count_query, {})
     resolved_count = 0
-    if result.get('nodes'):
-        resolved_count = result['nodes'][0].get('properties', {}).get('resolved_entities', 0)
+    if result and len(result) > 0:
+        resolved_count = result[0].get('resolved_entities', 0)
 
     # Count RESOLVED_TO relationships
     rel_count_query = """
@@ -356,10 +627,10 @@ def _get_resolution_status(neo4j_client: Neo4jClient) -> Dict:
     RETURN count(r) as relationships
     """
 
-    rel_result = neo4j_client.query_graph(rel_count_query, {})
+    rel_result = neo4j_client.query(rel_count_query, {})
     rel_count = 0
-    if rel_result.get('nodes'):
-        rel_count = rel_result['nodes'][0].get('properties', {}).get('relationships', 0)
+    if rel_result and len(rel_result) > 0:
+        rel_count = rel_result[0].get('relationships', 0)
 
     return {
         'resolved_entity_clusters': resolved_count,
@@ -368,23 +639,166 @@ def _get_resolution_status(neo4j_client: Neo4jClient) -> Dict:
     }
 
 
+def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
+    """Get all available node types that can be resolved.
+
+    This function discovers all node types in the graph that have:
+    - A qname property (indicating they're NIEM entities)
+    - Name properties (either PersonFullName or PersonGivenName/PersonSurName)
+
+    Args:
+        neo4j_client: Neo4j client instance
+
+    Returns:
+        List of dictionaries containing node type information
+    """
+    # Query to find all distinct qnames and check if they have name properties
+    discovery_query = """
+    // Find all distinct qnames in the graph
+    MATCH (n)
+    WHERE n.qname IS NOT NULL
+    WITH DISTINCT n.qname as qname, labels(n)[0] as label
+
+    // Count entities for each qname
+    MATCH (entity)
+    WHERE entity.qname = qname
+    WITH qname, label, count(entity) as count
+
+    // Check if entities of this type have name properties
+    // Using 1-3 hop path to find entities with PersonName relationships
+    // 1 hop: Entity -> PersonName (direct, e.g., CrashDriver extends PersonType)
+    // 2 hops: Entity -> NestedObject -> PersonName
+    // 3 hops: Entity -> Container -> NestedObject -> PersonName
+    OPTIONAL MATCH (sample)-[*1..3]->(pn:nc_PersonName)
+    WHERE sample.qname = qname
+    WITH qname, label, count,
+         collect(DISTINCT pn.nc_PersonFullName)[0] as sampleFullName,
+         collect(DISTINCT pn.nc_PersonGivenName)[0] as sampleGivenName,
+         collect(DISTINCT pn.nc_PersonSurName)[0] as sampleSurName
+
+    // Only return types that have name properties
+    WHERE sampleFullName IS NOT NULL
+       OR (sampleGivenName IS NOT NULL AND sampleSurName IS NOT NULL)
+
+    // Find the hierarchy path from root to this entity type
+    WITH qname, label, count, sampleFullName, sampleGivenName, sampleSurName
+    OPTIONAL MATCH path = (root)-[*]->(sample)
+    WHERE sample.qname = qname
+      AND NOT EXISTS((()-[]->(root)))  // root has no incoming edges
+      AND root.qname IS NOT NULL
+    WITH qname, label, count, sampleFullName, sampleGivenName, sampleSurName,
+         collect(DISTINCT [node in nodes(path) | node.qname])[0] as pathQnames
+
+    RETURN DISTINCT qname, label, count,
+           CASE
+               WHEN sampleFullName IS NOT NULL THEN true
+               ELSE false
+           END as hasFullName,
+           CASE
+               WHEN sampleGivenName IS NOT NULL AND sampleSurName IS NOT NULL THEN true
+               ELSE false
+           END as hasGivenAndSurname,
+           sampleFullName,
+           sampleGivenName,
+           sampleSurName,
+           pathQnames[0..-1] as hierarchyPath
+    ORDER BY count DESC
+    """
+
+    results = neo4j_client.query(discovery_query, {})
+    node_types = []
+    seen_qnames = set()  # Track qnames to prevent duplicates
+
+    for record in results:
+        qname = record['qname']
+
+        # Skip if we've already seen this qname
+        if qname in seen_qnames:
+            continue
+        seen_qnames.add(qname)
+
+        # Determine which name fields are available
+        name_fields = []
+        if record.get('hasFullName'):
+            name_fields.append('PersonFullName')
+        if record.get('hasGivenAndSurname'):
+            name_fields.append('PersonGivenName + PersonSurName')
+
+        # Determine category
+        category = 'other'
+        try:
+            from ..services.entity_to_senzing import get_entity_category
+            entity_mock = {'qname': qname}
+            category = get_entity_category(entity_mock)
+        except:
+            pass
+
+        # Filter: Only include person and organization entity types
+        # Exclude vehicles, addresses, and other non-person entities
+        # This is necessary when using 1-3 hop paths which may include container entities
+        if category not in ['person', 'organization']:
+            logger.debug(f"Excluding {qname} from entity resolution (category: {category})")
+            continue
+
+        # Extract hierarchy path (list of qnames from root to this entity)
+        hierarchy_path = record.get('hierarchyPath', [])
+        if hierarchy_path and isinstance(hierarchy_path, list):
+            # Filter out None values and ensure it's a list of strings
+            hierarchy_path = [str(h) for h in hierarchy_path if h is not None]
+        else:
+            hierarchy_path = []
+
+        node_type_info = {
+            'qname': qname,
+            'label': record['label'],
+            'count': record['count'],
+            'nameFields': name_fields,
+            'category': category,
+            'hierarchyPath': hierarchy_path
+        }
+
+        node_types.append(node_type_info)
+
+        logger.info(
+            f"Found resolvable type: {record['qname']} "
+            f"({record['count']} entities, name fields: {', '.join(name_fields)})"
+        )
+
+    logger.info(f"Discovered {len(node_types)} resolvable node types")
+    return node_types
+
+
 # ============================================================================
 # Public Handler Functions (API Endpoints)
 # ============================================================================
 
-def handle_run_entity_resolution() -> Dict:
-    """Run mock entity resolution on the current Neo4j graph.
+def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
+    """Run entity resolution on the current Neo4j graph.
 
     This is the main orchestration function that:
-    1. Extracts entities from Neo4j
-    2. Groups entities by matching keys
-    3. Creates ResolvedEntity nodes for duplicates
-    4. Returns summary statistics
+    1. Extracts entities from Neo4j for selected node types
+    2. Uses Senzing SDK for entity resolution (if available)
+    3. Falls back to text-based entity matching if Senzing unavailable
+    4. Creates ResolvedEntity nodes for duplicates
+    5. Returns summary statistics
+
+    Args:
+        selected_node_types: List of qnames to resolve (required)
 
     Returns:
         Dictionary with resolution results and statistics
     """
-    logger.info("Starting mock entity resolution")
+    if not selected_node_types:
+        return {
+            'status': 'error',
+            'message': 'No node types selected for entity resolution',
+            'entities_extracted': 0,
+            'duplicate_groups_found': 0,
+            'resolved_entities_created': 0,
+            'relationships_created': 0
+        }
+
+    logger.info(f"Starting entity resolution for node types: {selected_node_types}")
 
     try:
         # Get Neo4j client
@@ -392,7 +806,7 @@ def handle_run_entity_resolution() -> Dict:
 
         # Step 1: Extract entities from Neo4j
         logger.info("Extracting entities from Neo4j")
-        entities = _extract_entities_from_neo4j(neo4j_client)
+        entities = _extract_entities_from_neo4j(neo4j_client, selected_node_types)
 
         if not entities:
             return {
@@ -418,29 +832,68 @@ def handle_run_entity_resolution() -> Dict:
                 'relationships_created': 0
             }
 
-        # Step 3: Create ResolvedEntity nodes and relationships
-        logger.info(f"Creating ResolvedEntity nodes for {len(entity_groups)} groups")
-        resolved_count, relationship_count = _create_resolved_entity_nodes(
-            neo4j_client,
-            entity_groups
-        )
+        # Step 3: Perform entity resolution
+        # Check if Senzing is available
+        if SENZING_AVAILABLE:
+            try:
+                senzing_client = get_senzing_client()
+                if senzing_client.is_available():
+                    logger.info("Using Senzing SDK for entity resolution")
+                    resolved_count, relationship_count = _resolve_entities_with_senzing(
+                        neo4j_client,
+                        entities
+                    )
+                else:
+                    logger.info("Senzing not available (no license), falling back to text-based entity matching")
+                    resolved_count, relationship_count = _create_resolved_entity_nodes(
+                        neo4j_client,
+                        entity_groups
+                    )
+            except Exception as e:
+                logger.error(f"Senzing resolution failed, falling back to text-based entity matching: {e}")
+                resolved_count, relationship_count = _create_resolved_entity_nodes(
+                    neo4j_client,
+                    entity_groups
+                )
+        else:
+            logger.info("Using text-based entity matching (Senzing SDK not installed)")
+            resolved_count, relationship_count = _create_resolved_entity_nodes(
+                neo4j_client,
+                entity_groups
+            )
+
+        # Step 4: Create relationships between ResolvedEntity nodes
+        logger.info("Creating relationships between resolved entities")
+        resolved_relationships_count = _create_resolved_entity_relationships(neo4j_client)
 
         # Calculate total entities involved in resolution
         total_resolved_entities = sum(len(group) for group in entity_groups.values())
 
         logger.info(
             f"Entity resolution completed: {resolved_count} clusters created, "
-            f"{total_resolved_entities} entities resolved"
+            f"{total_resolved_entities} entities resolved, "
+            f"{resolved_relationships_count} relationships created between resolved entities"
         )
+
+        # Determine which resolution method was used
+        resolution_method = 'text_based'
+        if SENZING_AVAILABLE:
+            try:
+                if get_senzing_client().is_available():
+                    resolution_method = 'senzing'
+            except:
+                pass
 
         return {
             'status': 'success',
-            'message': f'Successfully resolved {total_resolved_entities} entities into {resolved_count} clusters',
-            'entities_extracted': len(entities),
-            'duplicate_groups_found': len(entity_groups),
-            'resolved_entities_created': resolved_count,
-            'relationships_created': relationship_count,
-            'entities_resolved': total_resolved_entities
+            'message': f'Successfully resolved {total_resolved_entities} entities into {resolved_count} clusters with {resolved_relationships_count} relationships',
+            'entitiesExtracted': len(entities),
+            'duplicateGroupsFound': len(entity_groups),
+            'resolvedEntitiesCreated': resolved_count,
+            'relationshipsCreated': relationship_count + resolved_relationships_count,
+            'entitiesResolved': total_resolved_entities,
+            'resolutionMethod': resolution_method,
+            'nodeTypesProcessed': selected_node_types
         }
 
     except Exception as e:
@@ -448,10 +901,10 @@ def handle_run_entity_resolution() -> Dict:
         return {
             'status': 'error',
             'message': f'Entity resolution failed: {str(e)}',
-            'entities_extracted': 0,
-            'duplicate_groups_found': 0,
-            'resolved_entities_created': 0,
-            'relationships_created': 0
+            'entitiesExtracted': 0,
+            'duplicateGroupsFound': 0,
+            'resolvedEntitiesCreated': 0,
+            'relationshipsCreated': 0
         }
 
 
@@ -511,4 +964,34 @@ def handle_reset_entity_resolution() -> Dict:
             'message': f'Failed to reset entity resolution: {str(e)}',
             'resolved_entities_deleted': 0,
             'relationships_deleted': 0
+        }
+
+
+def handle_get_available_node_types() -> Dict:
+    """Get all available node types that can be resolved.
+
+    Returns:
+        Dictionary with available node types and their information
+    """
+    logger.info("Getting available node types for entity resolution")
+
+    try:
+        neo4j_client = Neo4jClient()
+        node_types = _get_available_node_types(neo4j_client)
+
+        logger.info(f"Found {len(node_types)} resolvable node types")
+
+        return {
+            'status': 'success',
+            'nodeTypes': node_types,
+            'totalTypes': len(node_types)
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get available node types: {e}", exc_info=True)
+        return {
+            'status': 'error',
+            'message': f'Failed to get available node types: {str(e)}',
+            'nodeTypes': [],
+            'totalTypes': 0
         }

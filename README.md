@@ -11,8 +11,9 @@ This system provides end-to-end NIEM information exchange capabilities:
 1. **Schema Management** - Upload and validate NIEM XSD schemas using CMF (Common Model Format) tools
 2. **Data Ingestion** - Validate and ingest XML/JSON files against NIEM schemas
 3. **Graph Storage** - Neo4j for storing and querying interconnected NIEM data
-4. **Web Interface** - React/Next.js UI for management and monitoring
-5. **Graph Visualization** - Interactive graph exploration and querying interface
+4. **Entity Resolution** - ML-based duplicate detection using Senzing SDK (with license) or text-based entity matching (without)
+5. **Web Interface** - React/Next.js UI for management and monitoring
+6. **Graph Visualization** - Interactive graph exploration and querying interface
 
 ## Architecture
 
@@ -29,6 +30,8 @@ This system provides end-to-end NIEM information exchange capabilities:
 XSD Upload → NDR Validation → Schema Storage (MinIO)
      ↓
 XML/JSON Upload → CMF Validation → Graph Parsing → Neo4j Storage → File Storage (MinIO)
+     ↓
+Entity Resolution (Optional) → Duplicate Detection → ResolvedEntity Nodes
 ```
 
 ## Third-Party Dependencies
@@ -63,6 +66,7 @@ The API provides automatic interactive documentation via FastAPI:
 - **Data Ingestion**: Upload and validate XML/JSON files against schemas
 - **NDR Validation**: Type-aware NIEM NDR validation (reference/extension/subset schemas)
 - **Graph Operations**: Query and manage Neo4j graph data
+- **Entity Resolution**: Detect and merge duplicate entities using ML or text-based entity matching
 - **System Admin**: Health checks, statistics, reset operations
 
 ## Quick Start
@@ -363,7 +367,66 @@ Navigate to the **"Graph"** tab to explore the ingested data:
    - Lists relationship types with styling
    - Interaction help
 
-### Step 5: Neo4j Direct Access
+### Step 5: Entity Resolution (Optional)
+
+Navigate to the **"Graph"** tab and use the **Entity Resolution** panel:
+
+#### 5.1 Without Senzing License (Text-Based Entity Matching)
+
+If no Senzing license is installed, the system uses text-based entity matching:
+
+1. **Open Entity Resolution Panel**:
+   - Click "Entity Resolution" in the sidebar
+   - Shows "Method: Text-Based Entity Matching" at the top
+
+2. **Select Node Types**:
+   - Available types are discovered from your graph
+   - For CrashDriver data, select:
+     - `j:CrashDriverType` - Drivers from crash incidents
+     - `j:PersonType` - Other persons involved
+   - Use search box to filter types
+   - Click "Select All" or individually check types
+
+3. **Run Resolution**:
+   - Click "Run Entity Resolution"
+   - Creates `ResolvedEntity` nodes for duplicates
+   - Shows statistics (entities found, duplicates detected)
+
+#### 5.2 With Senzing License (ML-Based Resolution)
+
+If Senzing license is installed (see Setup section):
+
+1. **Verify Senzing Active**:
+   - Entity Resolution panel shows "Method: Senzing SDK"
+   - More sophisticated matching capabilities
+
+2. **Enhanced Matching**:
+   - Fuzzy name matching (handles typos, variations)
+   - Phonetic matching (sounds-like matching)
+   - Date normalization (handles format variations)
+   - Confidence scoring for matches
+
+3. **View Results**:
+   - `ResolvedEntity` nodes with confidence scores
+   - `RESOLVED_TO` relationships link duplicates
+   - Query to see resolved entities:
+     ```cypher
+     MATCH (n)-[:RESOLVED_TO]->(re:ResolvedEntity)
+     RETURN n, re
+     ```
+
+#### 5.3 Reset Entity Resolution
+
+To clear resolution results and start over:
+
+1. **In UI**: Click "Reset Entity Resolution" button
+2. **Via API**:
+   ```bash
+   curl -X DELETE http://localhost:8000/api/entity-resolution/reset \
+     -H "Authorization: Bearer devtoken"
+   ```
+
+### Step 6: Neo4j Direct Access
 
 Open Neo4j Browser at **http://localhost:7474** (username: `neo4j`, password: `password`):
 
@@ -374,7 +437,7 @@ Open Neo4j Browser at **http://localhost:7474** (username: `neo4j`, password: `p
    MATCH (m) RETURN m
    ```
 
-### Step 6: Verify Data Storage in MinIO
+### Step 7: Verify Data Storage in MinIO
 
 Access MinIO at **http://localhost:9002** (username: `minio`, password: `minio123`):
 
@@ -389,11 +452,11 @@ Access MinIO at **http://localhost:9002** (username: `minio`, password: `minio12
    - Original file content preserved
    - File metadata and executed cypher query
 
-### Step 7: System Administration
+### Step 8: System Administration
 
 Navigate to the **"Admin"** tab:
 
-#### 7.1 View System Status
+#### 8.1 View System Status
 
 - **Neo4j Statistics**:
   - Total node count
@@ -405,7 +468,7 @@ Navigate to the **"Admin"** tab:
   - MinIO bucket information
   - Schema storage status
 
-#### 7.2 Reset the System
+#### 8.2 Reset the System
 
 To clean all data and start fresh:
 
@@ -414,7 +477,7 @@ To clean all data and start fresh:
 2. Click "Reset System" button
 3. Confirm reset operation
 
-### Step 8: Full Cycle Test
+### Step 9: Full Cycle Test
 
 Complete end-to-end test workflow:
 
@@ -425,10 +488,11 @@ Complete end-to-end test workflow:
 5. ✅ Upload CrashDriver1.json → Verify success
 6. ❌ Upload CrashDriverInvalid1.json → View errors
 7. 📊 View graph visualization → Explore nodes/relationships
-8. 🔍 Query in Neo4j Browser → Run custom Cypher
-9. 💾 Check MinIO → Verify file storage
-10. 🔄 Admin reset → Clean system
-11. 🔁 Repeat with different schemas/data
+8. 🔍 Run entity resolution → Find duplicate persons
+9. 🔬 Query in Neo4j Browser → Run custom Cypher
+10. 💾 Check MinIO → Verify file storage
+11. 🔄 Admin reset → Clean system
+12. 🔁 Repeat with different schemas/data
 
 ## Key Features Demonstrated
 
@@ -457,13 +521,19 @@ This walkthrough demonstrates:
    - Privacy metadata and reference relationships
    - Source file tracking for data provenance
 
-5. **Interactive Graph Visualization**:
+5. **Entity Resolution**:
+   - Dynamic node type selection from graph
+   - Dual-mode operation: Senzing SDK (with license) or text-based entity matching
+   - Creates ResolvedEntity nodes for duplicates
+   - Confidence scoring and relationship tracking
+
+6. **Interactive Graph Visualization**:
    - Auto-colored nodes by type
    - Multiple layout algorithms
    - Custom Cypher query support
    - Click for node/relationship details
 
-6. **System Administration**:
+7. **System Administration**:
    - Real-time statistics (node/relationship counts)
    - Complete system reset capability
    - MinIO storage verification
@@ -479,6 +549,8 @@ This walkthrough demonstrates:
 ## Known Issues & TODO
 
 1. **Graph Visualizations**: Limitations on rebuilding graph UI from neo4j browser for full set of nodes and edges.
+
+2. **JSON Schema Conversion**: CMFTool v1.0 has a bug that prevents JSON Schema generation for certain NIEM 3.0 schemas (e.g., NEICE IEPD). This affects JSON file ingestion but XML ingestion still works. See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for details and workarounds.
 
 3. **Design Documentation**: Update architecture diagrams and component documentation to reflect current implementation.
 

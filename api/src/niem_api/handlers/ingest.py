@@ -758,13 +758,27 @@ async def handle_json_ingest(
         # Step 1: Get schema ID (use provided or get active)
         schema_id = _get_schema_id(s3, schema_id)
 
-        # Step 2: Load mapping specification
+        # Step 2: Validate JSON Schema exists for this schema
+        from .schema import get_schema_metadata
+        metadata = get_schema_metadata(s3, schema_id)
+        if not metadata or not metadata.get("json_schema_filename"):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "JSON schema is not available for this schema. "
+                    "The JSON schema was not successfully converted during XSD upload, "
+                    "likely due to CMF tool conversion issues. "
+                    "Please re-upload the XSD schema or use XML ingestion instead."
+                )
+            )
+
+        # Step 3: Load mapping specification
         mapping = _load_mapping_from_s3(s3, schema_id)
 
-        # Step 3: Download JSON Schema for validation
+        # Step 4: Download JSON Schema for validation
         json_schema = _download_json_schema_from_s3(s3, schema_id)
 
-        # Step 4: Process files
+        # Step 5: Process files
         results = []
         total_statements_executed = 0
         total_nodes = 0
