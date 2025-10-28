@@ -24,12 +24,13 @@ logger = logging.getLogger(__name__)
 # Internal Helper Functions (Entity Resolution Logic)
 # ============================================================================
 
-def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
+def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types: List[str] = None) -> List[Dict]:
     """Extract person entities from Neo4j for resolution.
 
     Supports multiple entity types:
     - j:CrashDriver (direct connection to PersonName)
     - cyfs:Child (NEICE child entities, nested via RoleOfPerson)
+    - Any other entity type with PersonName properties
 
     Supports multiple name formats:
     - PersonGivenName + PersonSurName (CrashDriver)
@@ -37,17 +38,27 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
 
     Args:
         neo4j_client: Neo4j client instance
+        selected_node_types: Optional list of qnames to resolve. If None, uses default types.
 
     Returns:
         List of entity dictionaries with properties
     """
-    # Query to get both CrashDriver and Child entities
+    # Use provided node types or fall back to default
+    if selected_node_types:
+        node_types = selected_node_types
+        logger.info(f"Using provided node types for resolution: {node_types}")
+    else:
+        # Default node types for backward compatibility
+        node_types = ['j:CrashDriver', 'cyfs:Child']
+        logger.info(f"No node types provided, using defaults: {node_types}")
+
+    # Query to get entities of selected types
     # Use variable-length path to handle both:
-    #   - Direct: CrashDriver -> PersonName (1 hop)
-    #   - Nested: Child -> RoleOfPerson -> PersonName (2 hops)
+    #   - Direct: Entity -> PersonName (1 hop)
+    #   - Nested: Entity -> RoleOfPerson -> PersonName (2 hops)
     query = """
     MATCH (entity)-[*1..2]->(pn:nc_PersonName)
-    WHERE entity.qname IN ['j:CrashDriver', 'cyfs:Child']
+    WHERE entity.qname IN $node_types
     RETURN
         id(entity) as neo4j_id,
         entity.id as entity_id,
@@ -63,7 +74,7 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
     """
 
     # Use query() instead of query_graph() for scalar results
-    results = neo4j_client.query(query, {})
+    results = neo4j_client.query(query, {'node_types': node_types})
     entities = []
 
     for record in results:
@@ -368,11 +379,98 @@ def _get_resolution_status(neo4j_client: Neo4jClient) -> Dict:
     }
 
 
+def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
+    """Get all available node types that can be resolved.
+
+    This function discovers all node types in the graph that have:
+    - A qname property (indicating they're NIEM entities)
+    - Name properties (either PersonFullName or PersonGivenName/PersonSurName)
+
+    Args:
+        neo4j_client: Neo4j client instance
+
+    Returns:
+        List of dictionaries containing node type information
+    """
+    # Query to find all distinct qnames and check if they have name properties
+    discovery_query = """
+    // Find all distinct qnames in the graph
+    MATCH (n)
+    WHERE n.qname IS NOT NULL
+    WITH DISTINCT n.qname as qname, labels(n)[0] as label
+
+    // Count entities for each qname
+    MATCH (entity)
+    WHERE entity.qname = qname
+    WITH qname, label, count(entity) as count
+
+    // Check if entities of this type have name properties
+    // Using OPTIONAL MATCH to check for name properties
+    OPTIONAL MATCH (sample)-[*1..2]->(pn:nc_PersonName)
+    WHERE sample.qname = qname
+    WITH qname, label, count,
+         collect(DISTINCT pn.nc_PersonFullName)[0] as sampleFullName,
+         collect(DISTINCT pn.nc_PersonGivenName)[0] as sampleGivenName,
+         collect(DISTINCT pn.nc_PersonSurName)[0] as sampleSurName
+
+    // Only return types that have name properties
+    WHERE sampleFullName IS NOT NULL
+       OR (sampleGivenName IS NOT NULL AND sampleSurName IS NOT NULL)
+
+    RETURN qname, label, count,
+           CASE
+               WHEN sampleFullName IS NOT NULL THEN true
+               ELSE false
+           END as hasFullName,
+           CASE
+               WHEN sampleGivenName IS NOT NULL AND sampleSurName IS NOT NULL THEN true
+               ELSE false
+           END as hasGivenAndSurname,
+           sampleFullName,
+           sampleGivenName,
+           sampleSurName
+    ORDER BY count DESC
+    """
+
+    results = neo4j_client.query(discovery_query, {})
+    node_types = []
+
+    for record in results:
+        # Determine which name fields are available
+        name_fields = []
+        if record.get('hasFullName'):
+            name_fields.append('PersonFullName')
+        if record.get('hasGivenAndSurname'):
+            name_fields.append('PersonGivenName + PersonSurName')
+
+        node_type_info = {
+            'qname': record['qname'],
+            'label': record['label'],
+            'count': record['count'],
+            'nameFields': name_fields,
+            'sampleData': {
+                'PersonFullName': record.get('sampleFullName'),
+                'PersonGivenName': record.get('sampleGivenName'),
+                'PersonSurName': record.get('sampleSurName')
+            }
+        }
+
+        node_types.append(node_type_info)
+
+        logger.info(
+            f"Found resolvable type: {record['qname']} "
+            f"({record['count']} entities, name fields: {', '.join(name_fields)})"
+        )
+
+    logger.info(f"Discovered {len(node_types)} resolvable node types")
+    return node_types
+
+
 # ============================================================================
 # Public Handler Functions (API Endpoints)
 # ============================================================================
 
-def handle_run_entity_resolution() -> Dict:
+def handle_run_entity_resolution(selected_node_types: List[str] = None) -> Dict:
     """Run mock entity resolution on the current Neo4j graph.
 
     This is the main orchestration function that:
@@ -381,10 +479,16 @@ def handle_run_entity_resolution() -> Dict:
     3. Creates ResolvedEntity nodes for duplicates
     4. Returns summary statistics
 
+    Args:
+        selected_node_types: Optional list of qnames to resolve. If None, uses default types.
+
     Returns:
         Dictionary with resolution results and statistics
     """
-    logger.info("Starting mock entity resolution")
+    if selected_node_types:
+        logger.info(f"Starting entity resolution for node types: {selected_node_types}")
+    else:
+        logger.info("Starting entity resolution with default node types")
 
     try:
         # Get Neo4j client
@@ -392,7 +496,7 @@ def handle_run_entity_resolution() -> Dict:
 
         # Step 1: Extract entities from Neo4j
         logger.info("Extracting entities from Neo4j")
-        entities = _extract_entities_from_neo4j(neo4j_client)
+        entities = _extract_entities_from_neo4j(neo4j_client, selected_node_types)
 
         if not entities:
             return {
@@ -511,4 +615,34 @@ def handle_reset_entity_resolution() -> Dict:
             'message': f'Failed to reset entity resolution: {str(e)}',
             'resolved_entities_deleted': 0,
             'relationships_deleted': 0
+        }
+
+
+def handle_get_available_node_types() -> Dict:
+    """Get all available node types that can be resolved.
+
+    Returns:
+        Dictionary with available node types and their information
+    """
+    logger.info("Getting available node types for entity resolution")
+
+    try:
+        neo4j_client = Neo4jClient()
+        node_types = _get_available_node_types(neo4j_client)
+
+        logger.info(f"Found {len(node_types)} resolvable node types")
+
+        return {
+            'status': 'success',
+            'nodeTypes': node_types,
+            'totalTypes': len(node_types)
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get available node types: {e}", exc_info=True)
+        return {
+            'status': 'error',
+            'message': f'Failed to get available node types: {str(e)}',
+            'nodeTypes': [],
+            'totalTypes': 0
         }
