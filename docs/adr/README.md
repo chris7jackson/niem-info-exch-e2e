@@ -42,16 +42,28 @@ ADRs are numbered sequentially:
 ## When to Create an ADR
 
 Create an ADR for decisions that:
-- ✅ Affect multiple components or the entire system
-- ✅ Are difficult or expensive to reverse
-- ✅ Impact performance, scalability, or security
-- ✅ Establish patterns that other developers should follow
-- ✅ Solve a recurring architectural problem
+- ✅ Affect system structure or design patterns
+- ✅ Define cross-cutting concerns (auth, logging, error handling)
+- ✅ Impact performance, scalability, or security architecture
+- ✅ Establish architectural patterns that others should follow
+- ✅ Solve recurring architectural problems
+- ✅ Define deployment or infrastructure architecture
 
 Don't create an ADR for:
 - ❌ Implementation details of a single component
 - ❌ Temporary solutions or experiments
-- ❌ Technology choices that are easily reversible
+- ❌ Library/framework choices (use [TDR](../tdr/README.md) instead)
+- ❌ Development tooling decisions (use [TDR](../tdr/README.md) instead)
+
+## ADR vs TDR
+
+**ADR (Architecture):** System design, patterns, structure
+- Example: "Batch processing with controlled concurrency"
+
+**TDR (Tooling):** Libraries, frameworks, tools
+- Example: "Use defusedxml for XML parsing"
+
+See [Tooling Decision Records](../tdr/README.md) for library and tooling choices.
 
 ## Index of ADRs
 

@@ -297,7 +297,7 @@ def run_niemtran_command(
                 raise NIEMTranError(f"Working directory is not a directory: {working_dir_path}")
 
             # Security: Ensure working directory is within /tmp or /app (expected safe zones)
-            allowed_prefixes = [Path("/tmp").resolve(), Path("/app").resolve()]
+            allowed_prefixes = [Path("/tmp").resolve(), Path("/app").resolve()]  # nosec B108
             if os.getenv("HOME"):
                 allowed_prefixes.append(Path(os.getenv("HOME")).resolve())
 

@@ -27,16 +27,15 @@ interface GraphData {
   };
 }
 
-
 // Universal color generation using HSL for consistent, distinguishable colors
 // Works for any number of labels/types without hardcoding
 const generateDistinguishableColors = (count: number): string[] => {
   const colors: string[] = [];
   const saturation = 70; // Good saturation for visibility
-  const lightness = 50;  // Good lightness for contrast
+  const lightness = 50; // Good lightness for contrast
 
   for (let i = 0; i < count; i++) {
-    const hue = (i * 360 / count) % 360;
+    const hue = ((i * 360) / count) % 360;
     colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
   }
 
@@ -44,23 +43,27 @@ const generateDistinguishableColors = (count: number): string[] => {
 };
 
 // Universal relationship styling - data-driven, no hardcoded patterns
-const getRelationshipStyle = (relationshipType: string, allTypes: string[], colorMap: Record<string, string>) => {
+const getRelationshipStyle = (
+  relationshipType: string,
+  allTypes: string[],
+  colorMap: Record<string, string>
+) => {
   return {
     color: colorMap[relationshipType] || '#888888',
-    width: 2,  // Consistent width for all relationships
-    style: 'solid',  // Consistent style for all relationships
-    opacity: 0.8  // Consistent opacity for all relationships
+    width: 2, // Consistent width for all relationships
+    style: 'solid', // Consistent style for all relationships
+    opacity: 0.8, // Consistent opacity for all relationships
   };
 };
 
 // Data-agnostic node sizing based on connectivity
 const getNodeSize = (node: GraphNode, relationships: GraphRelationship[]): number => {
-  const connections = relationships.filter(rel =>
-    rel.startNode === node.id || rel.endNode === node.id
+  const connections = relationships.filter(
+    (rel) => rel.startNode === node.id || rel.endNode === node.id
   ).length;
 
   // Base size + scaling factor for connections
-  return Math.max(30, Math.min(80, 30 + (connections * 3)));
+  return Math.max(30, Math.min(80, 30 + connections * 3));
 };
 
 // Universal label display - prioritizes semantic information
@@ -81,8 +84,14 @@ const getDisplayLabel = (node: GraphNode): string => {
 
   // Priority 3: Common meaningful properties
   const labelPriority = [
-    'name', 'title', 'label', 'identifier',
-    'content', 'text', 'value', 'description'
+    'name',
+    'title',
+    'label',
+    'identifier',
+    'content',
+    'text',
+    'value',
+    'description',
   ];
 
   for (const key of labelPriority) {
@@ -120,7 +129,7 @@ const buildNodeTooltip = (node: GraphNode): string => {
   lines.push(`Properties: ${propCount}`);
 
   // Show augmentation properties if any
-  const augProps = Object.keys(node.properties).filter(k => k.startsWith('aug_'));
+  const augProps = Object.keys(node.properties).filter((k) => k.startsWith('aug_'));
   if (augProps.length > 0) {
     lines.push(`Augmentations: ${augProps.length}`);
   }
@@ -149,7 +158,9 @@ export default function GraphPage() {
   const cyInstance = useRef<cytoscape.Core | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cypherQuery, setCypherQuery] = useState('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m');
+  const [cypherQuery, setCypherQuery] = useState(
+    'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m'
+  );
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [selectedLayout, setSelectedLayout] = useState('cose');
   const [showNodeLabels, setShowNodeLabels] = useState(true);
@@ -177,9 +188,9 @@ export default function GraphPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
+          Authorization: `Bearer ${localStorage.getItem('token') || 'devtoken'}`,
         },
-        body: JSON.stringify({ query, limit: resultLimit })
+        body: JSON.stringify({ query, limit: resultLimit }),
       });
 
       if (!response.ok) {
@@ -194,7 +205,6 @@ export default function GraphPage() {
       } else {
         throw new Error(result.message || 'Query execution failed');
       }
-
     } catch (err: any) {
       console.error('Query execution failed:', err);
       setError(err.message || 'Failed to execute query');
@@ -216,8 +226,8 @@ export default function GraphPage() {
       const response = await fetch(`${apiUrl}/api/entity-resolution/reset`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('token') || 'devtoken'}`,
+        },
       });
 
       if (!response.ok) {
@@ -237,7 +247,6 @@ export default function GraphPage() {
       } else {
         throw new Error(result.message || 'Reset failed');
       }
-
     } catch (err: any) {
       console.error('Reset failed:', err);
       setResolutionMessage(`Error: ${err.message || 'Failed to reset entity resolution'}`);
@@ -264,35 +273,39 @@ export default function GraphPage() {
     });
 
     // Convert nodes to Cytoscape format with universal styling
-    const cyNodes = data.nodes.map(node => {
+    const cyNodes = data.nodes.map((node) => {
       const displayLabel = getDisplayLabel(node);
       const nodeSize = getNodeSize(node, data.relationships);
       const tooltip = buildNodeTooltip(node);
 
       return {
         data: {
-          id: node.id,  // Use semantic ID for node identity
+          id: node.id, // Use semantic ID for node identity
           label: showNodeLabels ? displayLabel : '',
           nodeType: node.label,
           nodeLabels: node.labels,
           properties: node.properties,
           color: labelColorMap[node.label] || '#95A5A6',
           size: nodeSize,
-          tooltip: tooltip
-        }
+          tooltip: tooltip,
+        },
       };
     });
 
     // Convert relationships to Cytoscape format with universal styling
-    const cyEdges = data.relationships.map(rel => {
-      const relStyle = getRelationshipStyle(rel.type, data.metadata.relationshipTypes, relTypeColorMap);
+    const cyEdges = data.relationships.map((rel) => {
+      const relStyle = getRelationshipStyle(
+        rel.type,
+        data.metadata.relationshipTypes,
+        relTypeColorMap
+      );
       const tooltip = buildEdgeTooltip(rel);
 
       return {
         data: {
           id: rel.id,
-          source: rel.startNode,  // Semantic ID
-          target: rel.endNode,    // Semantic ID
+          source: rel.startNode, // Semantic ID
+          target: rel.endNode, // Semantic ID
           label: showRelationshipLabels ? rel.type : '',
           type: rel.type,
           properties: rel.properties,
@@ -300,8 +313,8 @@ export default function GraphPage() {
           width: relStyle.width,
           lineStyle: relStyle.style,
           opacity: relStyle.opacity,
-          tooltip: tooltip
-        }
+          tooltip: tooltip,
+        },
       };
     });
 
@@ -314,76 +327,75 @@ export default function GraphPage() {
     cyInstance.current = cytoscape({
       container: cyRef.current,
 
-      elements: [
-        ...cyNodes,
-        ...cyEdges
-      ],
+      elements: [...cyNodes, ...cyEdges],
 
       style: [
         {
           selector: 'node',
           style: {
             'background-color': 'data(color)',
-            'label': 'data(label)',
+            label: 'data(label)',
             'text-valign': 'center',
             'text-halign': 'center',
-            'color': '#000000',
+            color: '#000000',
             'text-outline-width': 2,
             'text-outline-color': '#ffffff',
             'font-size': '9px',
             'font-weight': 'bold',
-            'width': 'data(size)',
-            'height': 'data(size)',
+            width: 'data(size)',
+            height: 'data(size)',
             'border-width': 1,
             'border-color': '#333333',
             'text-wrap': 'wrap',
-            'text-max-width': '60px'
-          }
+            'text-max-width': '60px',
+          },
         },
         {
           selector: 'node:selected',
           style: {
             'border-width': 3,
             'border-color': '#FFA500',
-            'text-outline-color': '#FFA500'
-          }
+            'text-outline-color': '#FFA500',
+          },
         },
         {
           selector: 'edge',
           style: {
-            'width': 'data(width)',
+            width: 'data(width)',
             'line-color': 'data(color)',
             'target-arrow-color': 'data(color)',
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
-            'label': 'data(label)',
+            label: 'data(label)',
             'font-size': '8px',
-            'color': '#444444',
+            color: '#444444',
             'text-outline-width': 1,
             'text-outline-color': '#ffffff',
-            'opacity': 'data(opacity)' as any,
-            'line-style': 'data(lineStyle)' as any
-          }
+            opacity: 'data(opacity)' as any,
+            'line-style': 'data(lineStyle)' as any,
+          },
         },
         {
           selector: 'edge:selected',
           style: {
-            'width': 3,
+            width: 3,
             'line-color': '#FFA500',
-            'target-arrow-color': '#FFA500'
-          }
+            'target-arrow-color': '#FFA500',
+          },
         },
         {
           selector: 'edge:hover',
           style: {
-            'width': 3,
-            'opacity': 1
-          }
-        }
+            width: 3,
+            opacity: 1,
+          },
+        },
       ],
 
       layout: {
-        name: ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'].includes(selectedLayout) ? selectedLayout : 'cose',
+        name: ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'].includes(selectedLayout)
+          ? selectedLayout
+          : 'cose',
         animate: true,
         animationDuration: 1000,
         fit: true,
@@ -402,24 +414,24 @@ export default function GraphPage() {
           numIter: 1000,
           initialTemp: 200,
           coolingFactor: 0.95,
-          minTemp: 1.0
+          minTemp: 1.0,
         }),
         ...(selectedLayout === 'circle' && {
-          radius: Math.min(200, Math.max(100, data.nodes.length * 8))
+          radius: Math.min(200, Math.max(100, data.nodes.length * 8)),
         }),
         ...(selectedLayout === 'concentric' && {
-          concentric: function(node: any) {
+          concentric: function (node: any) {
             return node.data('size'); // Arrange by connectivity
           },
-          levelWidth: function() {
+          levelWidth: function () {
             return 1;
-          }
-        })
-      } as any
+          },
+        }),
+      } as any,
     });
 
     // Universal event handlers - show complete information
-    cyInstance.current.on('tap', 'node', function(evt) {
+    cyInstance.current.on('tap', 'node', function (evt) {
       const node = evt.target;
       const data = node.data();
       console.log('=== Node Details ===');
@@ -439,7 +451,7 @@ export default function GraphPage() {
       console.log('==================');
     });
 
-    cyInstance.current.on('tap', 'edge', function(evt) {
+    cyInstance.current.on('tap', 'edge', function (evt) {
       const edge = evt.target;
       const data = edge.data();
       console.log('=== Relationship Details ===');
@@ -458,19 +470,19 @@ export default function GraphPage() {
     });
 
     // Add hover effects for nodes
-    cyInstance.current.on('mouseover', 'node', function(evt) {
+    cyInstance.current.on('mouseover', 'node', function (evt) {
       const node = evt.target;
       node.style({
         'border-width': 2,
-        'border-color': '#FF6B35'
+        'border-color': '#FF6B35',
       });
     });
 
-    cyInstance.current.on('mouseout', 'node', function(evt) {
+    cyInstance.current.on('mouseout', 'node', function (evt) {
       const node = evt.target;
       node.style({
         'border-width': 1,
-        'border-color': '#333333'
+        'border-color': '#333333',
       });
     });
 
@@ -504,19 +516,19 @@ export default function GraphPage() {
           numIter: 1000,
           initialTemp: 200,
           coolingFactor: 0.95,
-          minTemp: 1.0
+          minTemp: 1.0,
         }),
         ...(safeLayoutName === 'circle' && {
-          radius: Math.min(200, Math.max(100, graphData.nodes.length * 8))
+          radius: Math.min(200, Math.max(100, graphData.nodes.length * 8)),
         }),
         ...(safeLayoutName === 'concentric' && {
-          concentric: function(node: any) {
+          concentric: function (node: any) {
             return node.data('size');
           },
-          levelWidth: function() {
+          levelWidth: function () {
             return 1;
-          }
-        })
+          },
+        }),
       } as any);
       layout.run();
     }
@@ -528,13 +540,13 @@ export default function GraphPage() {
 
     if (type === 'nodes') {
       setShowNodeLabels(!showNodeLabels);
-      cyInstance.current.nodes().forEach(node => {
+      cyInstance.current.nodes().forEach((node) => {
         const data = node.data();
         node.data('label', !showNodeLabels ? getDisplayLabel(data) : '');
       });
     } else {
       setShowRelationshipLabels(!showRelationshipLabels);
-      cyInstance.current.edges().forEach(edge => {
+      cyInstance.current.edges().forEach((edge) => {
         const data = edge.data();
         edge.data('label', !showRelationshipLabels ? data.type : '');
       });
@@ -555,8 +567,8 @@ export default function GraphPage() {
       const response = await fetch(`${apiUrl}/api/entity-resolution/run`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('token') || 'devtoken'}`,
+        },
       });
 
       if (!response.ok) {
@@ -576,7 +588,6 @@ export default function GraphPage() {
       } else {
         throw new Error(result.message || 'Entity resolution failed');
       }
-
     } catch (err: any) {
       console.error('Entity resolution failed:', err);
       setResolutionMessage(`Error: ${err.message || 'Failed to run entity resolution'}`);
@@ -590,26 +601,31 @@ export default function GraphPage() {
     {
       name: 'Complete Graph',
       query: 'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m',
-      description: 'Show ALL nodes and relationships (up to limit)'
+      description: 'Show ALL nodes and relationships (up to limit)',
     },
     {
       name: 'Limited (100)',
       query: 'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 100',
-      description: 'Show first 100 nodes/relationships'
+      description: 'Show first 100 nodes/relationships',
     },
     {
       name: 'Resolved Entities',
-      query: 'MATCH (entity)-[:RESOLVED_TO]->(re:ResolvedEntity) OPTIONAL MATCH (entity)-[r]-(m) RETURN entity, re, r, m',
-      description: 'Show entities with resolution relationships'
-    }
+      query:
+        'MATCH (entity)-[:RESOLVED_TO]->(re:ResolvedEntity) OPTIONAL MATCH (entity)-[r]-(m) RETURN entity, re, r, m',
+      description: 'Show entities with resolution relationships',
+    },
   ];
 
   const layoutOptions = [
-    { value: 'cose', label: 'Force Physics', description: 'Smart force-directed layout with physics simulation' },
+    {
+      value: 'cose',
+      label: 'Force Physics',
+      description: 'Smart force-directed layout with physics simulation',
+    },
     { value: 'circle', label: 'Circular', description: 'Nodes arranged in circle' },
     { value: 'grid', label: 'Grid', description: 'Systematic grid arrangement' },
     { value: 'breadthfirst', label: 'Hierarchical', description: 'Tree-like hierarchy' },
-    { value: 'concentric', label: 'Concentric', description: 'Layered by importance' }
+    { value: 'concentric', label: 'Concentric', description: 'Layered by importance' },
   ];
 
   return (
@@ -617,8 +633,8 @@ export default function GraphPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Graph Visualization</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Interactive visualization of all nodes and relationships in the Neo4j database.
-          Shows complete graph structure with semantic IDs, QNames, and properties.
+          Interactive visualization of all nodes and relationships in the Neo4j database. Shows
+          complete graph structure with semantic IDs, QNames, and properties.
         </p>
       </div>
 
@@ -627,7 +643,8 @@ export default function GraphPage() {
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">Entity Resolution</h3>
           <p className="mt-1 text-sm text-gray-600">
-            Find and link duplicate entities based on name matching. Creates ResolvedEntity nodes showing which entities represent the same real-world person.
+            Find and link duplicate entities based on name matching. Creates ResolvedEntity nodes
+            showing which entities represent the same real-world person.
           </p>
         </div>
         <div className="p-6">
@@ -640,9 +657,24 @@ export default function GraphPage() {
             >
               {resolutionRunning ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   Running...
                 </>
@@ -660,7 +692,9 @@ export default function GraphPage() {
             </button>
           </div>
           {resolutionMessage && (
-            <div className={`mt-4 p-3 rounded-md ${resolutionMessage.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+            <div
+              className={`mt-4 p-3 rounded-md ${resolutionMessage.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}
+            >
               {resolutionMessage}
             </div>
           )}
@@ -672,8 +706,8 @@ export default function GraphPage() {
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">Cypher Query</h3>
           <p className="mt-1 text-sm text-gray-600">
-            Execute Cypher queries to explore your graph. Default query shows complete graph structure
-            with all nodes, relationships, and properties.
+            Execute Cypher queries to explore your graph. Default query shows complete graph
+            structure with all nodes, relationships, and properties.
           </p>
         </div>
         <div className="p-6">
@@ -694,9 +728,7 @@ export default function GraphPage() {
 
             {/* Quick Query Options */}
             <div>
-              <div className="block text-sm font-medium text-gray-700 mb-2">
-                Quick Options
-              </div>
+              <div className="block text-sm font-medium text-gray-700 mb-2">Quick Options</div>
               <div className="flex flex-wrap gap-2">
                 {explorationQueries.map((query) => (
                   <button
@@ -714,7 +746,10 @@ export default function GraphPage() {
 
             {/* Result Limit Control */}
             <div>
-              <label htmlFor="result-limit" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="result-limit"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Result Limit
               </label>
               <div className="flex items-center gap-2">
@@ -756,7 +791,7 @@ export default function GraphPage() {
                   onChange={(e) => applyLayout(e.target.value)}
                   className="border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {layoutOptions.map(option => (
+                  {layoutOptions.map((option) => (
                     <option key={option.value} value={option.value} title={option.description}>
                       {option.label}
                     </option>
@@ -799,7 +834,11 @@ export default function GraphPage() {
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
             <div className="ml-3">
@@ -818,16 +857,34 @@ export default function GraphPage() {
               <h3 className="text-lg font-medium text-gray-900">Graph Visualization</h3>
               {graphData && (
                 <p className="mt-1 text-sm text-gray-600">
-                  {graphData.metadata.nodeCount} nodes ({graphData.metadata.nodeLabels.length} types),
-                  {graphData.metadata.relationshipCount} relationships ({graphData.metadata.relationshipTypes.length} types)
+                  {graphData.metadata.nodeCount} nodes ({graphData.metadata.nodeLabels.length}{' '}
+                  types),
+                  {graphData.metadata.relationshipCount} relationships (
+                  {graphData.metadata.relationshipTypes.length} types)
                 </p>
               )}
             </div>
             {loading && (
               <div className="flex items-center text-sm text-gray-500">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 Loading graph...
               </div>
@@ -839,12 +896,11 @@ export default function GraphPage() {
           <div className="flex gap-6">
             {/* Graph Visualization */}
             <div className="flex-1">
-              <div className="bg-gray-50 rounded-lg border-2 border-gray-200" style={{ height: '600px' }}>
-                <div
-                  id="graph-viz"
-                  ref={cyRef}
-                  className="w-full h-full rounded-lg"
-                />
+              <div
+                className="bg-gray-50 rounded-lg border-2 border-gray-200"
+                style={{ height: '600px' }}
+              >
+                <div id="graph-viz" ref={cyRef} className="w-full h-full rounded-lg" />
               </div>
             </div>
 
@@ -857,7 +913,9 @@ export default function GraphPage() {
                   </h4>
                   <div className="space-y-2 text-xs max-h-48 overflow-y-auto">
                     {graphData.metadata.nodeLabels.map((label, index) => {
-                      const colors = generateDistinguishableColors(graphData.metadata.nodeLabels.length);
+                      const colors = generateDistinguishableColors(
+                        graphData.metadata.nodeLabels.length
+                      );
                       const color = colors[index];
                       return (
                         <div key={label} className="flex items-center gap-2">
@@ -865,7 +923,9 @@ export default function GraphPage() {
                             className="w-3 h-3 rounded-full border border-gray-300 flex-shrink-0"
                             style={{ backgroundColor: color }}
                           ></div>
-                          <span className="truncate" title={label}>{label}</span>
+                          <span className="truncate" title={label}>
+                            {label}
+                          </span>
                         </div>
                       );
                     })}
@@ -876,7 +936,9 @@ export default function GraphPage() {
                   </h4>
                   <div className="space-y-2 text-xs max-h-40 overflow-y-auto">
                     {graphData.metadata.relationshipTypes.map((type, index) => {
-                      const colors = generateDistinguishableColors(graphData.metadata.relationshipTypes.length);
+                      const colors = generateDistinguishableColors(
+                        graphData.metadata.relationshipTypes.length
+                      );
                       const color = colors[index];
                       return (
                         <div key={type} className="flex items-center gap-2">
@@ -884,7 +946,9 @@ export default function GraphPage() {
                             className="w-4 h-0.5 flex-shrink-0"
                             style={{ backgroundColor: color }}
                           ></div>
-                          <span className="truncate" title={type}>{type}</span>
+                          <span className="truncate" title={type}>
+                            {type}
+                          </span>
                         </div>
                       );
                     })}
@@ -894,12 +958,16 @@ export default function GraphPage() {
 
               <div className="mt-4 pt-3 border-t border-gray-200">
                 <p className="text-xs text-gray-600">
-                  <strong>Controls:</strong><br/>
-                  • Click: View details in console<br/>
-                  • Drag: Pan view<br/>
-                  • Scroll: Zoom in/out<br/>
-                  • Toggle labels on/off<br/>
-                  • Change layouts dynamically
+                  <strong>Controls:</strong>
+                  <br />
+                  • Click: View details in console
+                  <br />
+                  • Drag: Pan view
+                  <br />
+                  • Scroll: Zoom in/out
+                  <br />
+                  • Toggle labels on/off
+                  <br />• Change layouts dynamically
                 </p>
               </div>
             </div>
@@ -907,9 +975,10 @@ export default function GraphPage() {
 
           <div className="mt-4 text-xs text-gray-500">
             <p>
-              <strong>Universal Graph Visualization</strong> - Shows ALL nodes and relationships from Neo4j,
-              matching Neo4j Browser capabilities. Click nodes/edges for full details including semantic IDs,
-              QNames, and augmentation properties. Drag to pan, scroll to zoom.
+              <strong>Universal Graph Visualization</strong> - Shows ALL nodes and relationships
+              from Neo4j, matching Neo4j Browser capabilities. Click nodes/edges for full details
+              including semantic IDs, QNames, and augmentation properties. Drag to pan, scroll to
+              zoom.
             </p>
           </div>
         </div>

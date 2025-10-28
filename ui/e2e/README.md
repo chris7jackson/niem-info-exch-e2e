@@ -29,6 +29,7 @@ e2e/
 ## Test Suites
 
 ### 1. Schema Upload Tests (`schema-upload.spec.ts`)
+
 - **E2E-001**: Upload valid schema successfully
 - **E2E-002**: Upload invalid schema shows error
 - **E2E-003**: Uploaded schema is marked as active
@@ -38,6 +39,7 @@ e2e/
 **Coverage**: Schema upload, validation, activation, listing
 
 ### 2. Graph Interaction Tests (`graph-interaction.spec.ts`)
+
 - **E2E-101**: Graph page renders with controls
 - **E2E-102**: Graph loads and displays statistics
 - **E2E-103**: Can execute custom Cypher query
@@ -50,6 +52,7 @@ e2e/
 **Coverage**: Graph visualization, Cypher queries, layouts, interactions
 
 ### 3. Data Ingestion Tests (`data-ingestion.spec.ts`)
+
 - **E2E-201**: Successfully ingest valid XML file
 - **E2E-202**: Can ingest multiple XML files
 - **E2E-203**: Shows error for invalid XML
@@ -61,6 +64,7 @@ e2e/
 **Coverage**: Data ingestion, validation, batch processing, error handling
 
 ### 4. Critical Path Test (`critical-path.spec.ts`)
+
 - **E2E-301**: Complete workflow from schema to visualization
 - **E2E-302**: Cannot ingest data without schema
 - **E2E-303**: Graph shows empty state with no data
@@ -114,10 +118,12 @@ BASE_URL=https://prod.example.com npm run test:e2e
 ### Fixtures
 
 **Schemas** (`e2e/fixtures/schemas/`):
+
 - `valid-simple.xsd` - Simple valid XSD schema
 - `invalid-syntax.xsd` - Invalid XML syntax (for error testing)
 
 **Data Files** (`e2e/fixtures/data/`):
+
 - `valid-person.xml` - Valid Person XML document
 - `valid-organization.xml` - Valid Organization XML document
 - `invalid-xml.xml` - Malformed XML (for error testing)
@@ -131,6 +137,7 @@ BASE_URL=https://prod.example.com npm run test:e2e
 ## Page Object Model (POM)
 
 All E2E tests use the Page Object Model pattern to:
+
 - Encapsulate page interactions
 - Improve test maintainability
 - Reduce code duplication
@@ -139,15 +146,15 @@ All E2E tests use the Page Object Model pattern to:
 ### Example Usage
 
 ```typescript
-import { test } from '@playwright/test'
-import { SchemaManagerPage } from '../page-objects/SchemaManagerPage'
+import { test } from '@playwright/test';
+import { SchemaManagerPage } from '../page-objects/SchemaManagerPage';
 
 test('upload schema', async ({ page }) => {
-  const schemaPage = new SchemaManagerPage(page)
-  await schemaPage.goto()
-  await schemaPage.uploadSchema('valid-simple.xsd')
-  await schemaPage.waitForUploadComplete()
-})
+  const schemaPage = new SchemaManagerPage(page);
+  await schemaPage.goto();
+  await schemaPage.uploadSchema('valid-simple.xsd');
+  await schemaPage.waitForUploadComplete();
+});
 ```
 
 ## Writing New Tests
@@ -156,33 +163,33 @@ test('upload schema', async ({ page }) => {
 
 ```typescript
 // e2e/tests/my-feature.spec.ts
-import { test, expect } from '@playwright/test'
-import { MyPage } from '../page-objects/MyPage'
+import { test, expect } from '@playwright/test';
+import { MyPage } from '../page-objects/MyPage';
 
 test.describe('My Feature', () => {
   test('E2E-XXX: should do something', async ({ page }) => {
-    const myPage = new MyPage(page)
-    await myPage.goto()
+    const myPage = new MyPage(page);
+    await myPage.goto();
 
     // Test steps
-    await myPage.doSomething()
+    await myPage.doSomething();
 
     // Assertions
-    await expect(page.locator('text=Success')).toBeVisible()
-  })
-})
+    await expect(page.locator('text=Success')).toBeVisible();
+  });
+});
 ```
 
 ### 2. Update Page Object (if needed)
 
 ```typescript
 // e2e/page-objects/MyPage.ts
-import { Page } from '@playwright/test'
-import { BasePage } from './BasePage'
+import { Page } from '@playwright/test';
+import { BasePage } from './BasePage';
 
 export class MyPage extends BasePage {
   async doSomething() {
-    await this.page.click('button.my-button')
+    await this.page.click('button.my-button');
   }
 }
 ```
@@ -195,6 +202,7 @@ export class MyPage extends BasePage {
 ## Best Practices
 
 ### DO ✅
+
 - Use Page Object Model for all interactions
 - Wait for elements explicitly (avoid hardcoded waits)
 - Take screenshots on important steps
@@ -203,6 +211,7 @@ export class MyPage extends BasePage {
 - Clean up test data when necessary
 
 ### DON'T ❌
+
 - Use `page.waitForTimeout()` unless absolutely necessary
 - Hardcode URLs (use `baseURL` from config)
 - Share state between tests (each test should be independent)
@@ -227,16 +236,19 @@ npm run test:e2e:ui
 ### Troubleshooting
 
 **Tests timing out?**
+
 - Check backend API is running
 - Check frontend dev server is running
 - Increase timeout in `playwright.config.ts`
 
 **File upload tests failing?**
+
 - Verify fixture files exist in `e2e/fixtures/`
 - Check file paths are correct
 - Ensure backend accepts multipart/form-data
 
 **Graph tests failing?**
+
 - Ensure Neo4j is running
 - Check data was successfully ingested
 - Verify Cytoscape renders correctly
@@ -248,10 +260,12 @@ E2E tests run automatically in GitHub Actions on **main branch only** for optima
 ### CI Strategy
 
 **PR Pipeline** (Fast Feedback):
+
 - ✅ Unit tests only (~2s)
 - ⏭️ E2E tests skipped (not needed for fast feedback)
 
 **Main Branch Pipeline** (Full Validation):
+
 - ✅ Unit tests (~2s)
 - ✅ E2E tests with full backend (~5-10 min)
   - Neo4j service container
@@ -263,6 +277,7 @@ E2E tests run automatically in GitHub Actions on **main branch only** for optima
 ### CI Configuration
 
 See `.github/workflows/ui-tests.yml` for:
+
 - Unit tests job (runs on all branches)
 - E2E tests job (commented out for PRs, enabled on main)
 - Artifact uploads (screenshots, videos, reports)
@@ -277,6 +292,7 @@ See `.github/workflows/ui-tests.yml` for:
 ### Re-enabling E2E Tests in PRs
 
 To run E2E tests in a PR (useful for debugging):
+
 1. Uncomment the `e2e-tests` job in `.github/workflows/ui-tests.yml`
 2. Ensure API module import issues are resolved
 3. Push changes to trigger CI
@@ -324,6 +340,7 @@ To run E2E tests in a PR (useful for debugging):
 ## Support
 
 For questions or issues:
+
 1. Check this README
 2. Review Playwright docs
 3. Check existing tests for examples

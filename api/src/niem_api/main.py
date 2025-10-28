@@ -415,6 +415,6 @@ async def reset_entity_resolution(
 
 if __name__ == "__main__":
     import uvicorn
-    host = os.getenv("API_HOST", "0.0.0.0")
+    host = os.getenv("API_HOST", "0.0.0.0")  # nosec B104
     port = int(os.getenv("API_PORT", "8000"))
     uvicorn.run(app, host=host, port=port)

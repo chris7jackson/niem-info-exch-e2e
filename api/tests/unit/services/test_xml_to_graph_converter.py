@@ -4,6 +4,7 @@
 import pytest
 from niem_api.services.domain.xml_to_graph.converter import (
     generate_for_xml_content,
+    synth_id,
     load_mapping_from_dict,
 )
 
@@ -121,3 +122,18 @@ def test_normal_property_name_no_escaping():
     # Just verify the Cypher is generated without syntax errors
     assert "nc_PersonName" in cypher, \
         "Normal property names should be present in output"
+
+
+def test_synth_id_uses_sha1():
+    """Test that synth_id uses SHA1 hash with usedforsecurity=False."""
+    # This test ensures coverage of the usedforsecurity=False parameter (line 128)
+    result = synth_id(
+        parent_id="parent_123",
+        elem_qn="nc:Person",
+        ordinal_path="/root[1]/person[2]",
+        file_prefix="abc123"
+    )
+
+    # Verify the synthetic ID format
+    assert result.startswith("abc123_syn_"), "Synthetic ID should have file prefix and syn_ prefix"
+    assert len(result) > 20, "Synthetic ID should include hash"

@@ -12,7 +12,10 @@ Key Features:
 """
 import re
 import sys
-import xml.etree.ElementTree as ET
+# Use defusedxml for secure XML parsing (prevents XXE attacks)
+import defusedxml.ElementTree as ET
+# Import Element type from standard library for type hints
+from xml.etree.ElementTree import Element
 from typing import Any
 
 import yaml
@@ -63,7 +66,7 @@ def to_rel_type(name: str) -> str:
     return re.sub(r"\W", "_", base).upper()
 
 
-def text_of(element: ET.Element, tag: str) -> str | None:
+def text_of(element: Element, tag: str) -> str | None:
     """Extract text content from a child element.
 
     Args:
@@ -77,7 +80,7 @@ def text_of(element: ET.Element, tag: str) -> str | None:
     return child.text.strip() if child is not None and child.text else None
 
 
-def ref_of(element: ET.Element, tag: str) -> str | None:
+def ref_of(element: Element, tag: str) -> str | None:
     """Extract structures:ref attribute from a child element.
 
     Args:
@@ -93,7 +96,7 @@ def ref_of(element: ET.Element, tag: str) -> str | None:
     return None
 
 
-def build_prefix_map(root: ET.Element) -> dict[str, str]:
+def build_prefix_map(root: Element) -> dict[str, str]:
     """Collect prefix→URI bindings from CMF Namespace entries.
 
     Args:
@@ -111,7 +114,7 @@ def build_prefix_map(root: ET.Element) -> dict[str, str]:
     return prefixes
 
 
-def _parse_property_associations(class_element: ET.Element) -> list[dict[str, str]]:
+def _parse_property_associations(class_element: Element) -> list[dict[str, str]]:
     """Parse child property associations for a single class element.
 
     Args:
@@ -135,7 +138,7 @@ def _parse_property_associations(class_element: ET.Element) -> list[dict[str, st
     return props
 
 
-def _extract_class_info(class_element: ET.Element) -> dict[str, Any]:
+def _extract_class_info(class_element: Element) -> dict[str, Any]:
     """Extract basic information from a single class element.
 
     Args:
@@ -172,7 +175,7 @@ def _is_meaningful_class(class_info: dict[str, Any]) -> bool:
     return bool(class_info.get("id"))
 
 
-def parse_classes(root: ET.Element) -> list[dict[str, Any]]:
+def parse_classes(root: Element) -> list[dict[str, Any]]:
     """Extract Classes with their namespace, base class, and child property associations.
 
     Args:
@@ -189,7 +192,7 @@ def parse_classes(root: ET.Element) -> list[dict[str, Any]]:
     return classes_info
 
 
-def build_element_to_class(root: ET.Element) -> dict[str, str]:
+def build_element_to_class(root: Element) -> dict[str, str]:
     """Map ObjectProperty id (element QName) → Class id.
 
     This lets us resolve association role participants to their object classes.
@@ -211,7 +214,7 @@ def build_element_to_class(root: ET.Element) -> dict[str, str]:
     return mapping
 
 
-def build_dataproperty_index(root: ET.Element) -> dict[str, dict[str, Any]]:
+def build_dataproperty_index(root: Element) -> dict[str, dict[str, Any]]:
     """Build index of DataProperty elements from CMF.
 
     Args:
@@ -239,7 +242,7 @@ def build_dataproperty_index(root: ET.Element) -> dict[str, dict[str, Any]]:
     return index
 
 
-def build_datatype_index(root: ET.Element) -> dict[str, dict[str, Any]]:
+def build_datatype_index(root: Element) -> dict[str, dict[str, Any]]:
     """Build index of Datatype and Restriction elements from CMF to classify types.
 
     Args:
@@ -538,7 +541,7 @@ def _create_label_for_class_function(
 
 
 def _build_complete_objects_list(
-    root: ET.Element,
+    root: Element,
     class_index: dict[str, dict[str, Any]],
     element_to_class: dict[str, str],
     association_ids: set[str]
@@ -762,7 +765,7 @@ def generate_mapping_from_cmf_file(cmf_path: str) -> dict[str, Any]:
     return _generate_mapping_from_root(root)
 
 
-def _generate_mapping_from_root(root: ET.Element) -> dict[str, Any]:
+def _generate_mapping_from_root(root: Element) -> dict[str, Any]:
     """Internal function to generate mapping from parsed XML root.
 
     Args:
