@@ -14,7 +14,7 @@ def execute_cypher_query(cypher_query: str = None, limit: int = None) -> dict[st
 
     Args:
         cypher_query: Optional Cypher query. Defaults to basic graph query if not provided.
-        limit: Optional maximum number of results to return. Defaults to 100 if not provided.
+        limit: Optional maximum number of results to return. Defaults to 10000 if not provided.
                Applied only if query doesn't already have LIMIT.
 
     Returns:
@@ -22,7 +22,7 @@ def execute_cypher_query(cypher_query: str = None, limit: int = None) -> dict[st
     """
     # Default limit if not provided
     if limit is None:
-        limit = 1000
+        limit = 10000
 
     # Default query if none provided
     if not cypher_query:
@@ -44,12 +44,12 @@ def execute_cypher_query(cypher_query: str = None, limit: int = None) -> dict[st
         raise
 
 
-def get_full_graph(limit: int = 1000) -> dict[str, Any]:
+def get_full_graph(limit: int = 10000) -> dict[str, Any]:
     """
     Get the complete graph structure with all nodes and relationships.
 
     Args:
-        limit: Maximum number of results to return
+        limit: Maximum number of results to return (default 10000)
 
     Returns:
         Dictionary with status and graph data

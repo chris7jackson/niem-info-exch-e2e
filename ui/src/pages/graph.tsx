@@ -156,6 +156,7 @@ export default function GraphPage() {
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
   const [resolutionRunning, setResolutionRunning] = useState(false);
   const [resolutionMessage, setResolutionMessage] = useState<string | null>(null);
+  const [resultLimit, setResultLimit] = useState(10000);
 
   useEffect(() => {
     const validLayouts = ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'];
@@ -178,7 +179,7 @@ export default function GraphPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
         },
-        body: JSON.stringify({ query, limit: 1000 })
+        body: JSON.stringify({ query, limit: resultLimit })
       });
 
       if (!response.ok) {
@@ -584,25 +585,22 @@ export default function GraphPage() {
     }
   };
 
-    } catch (err: any) {
-      console.error('Reset failed:', err);
-      setResolutionMessage(`Error: ${err.message || 'Failed to reset entity resolution'}`);
-    } finally {
-      setResolutionRunning(false);
-    }
-  };
-
   // Simplified query options - default shows everything
   const explorationQueries = [
     {
       name: 'Complete Graph',
       query: 'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m',
-      description: 'Show ALL nodes and relationships'
+      description: 'Show ALL nodes and relationships (up to limit)'
     },
     {
       name: 'Limited (100)',
       query: 'MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m LIMIT 100',
       description: 'Show first 100 nodes/relationships'
+    },
+    {
+      name: 'Resolved Entities',
+      query: 'MATCH (entity)-[:RESOLVED_TO]->(re:ResolvedEntity) OPTIONAL MATCH (entity)-[r]-(m) RETURN entity, re, r, m',
+      description: 'Show entities with resolution relationships'
     }
   ];
 
@@ -711,6 +709,28 @@ export default function GraphPage() {
                     {query.name}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Result Limit Control */}
+            <div>
+              <label htmlFor="result-limit" className="block text-sm font-medium text-gray-700 mb-2">
+                Result Limit
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="result-limit"
+                  type="number"
+                  min="100"
+                  max="50000"
+                  step="1000"
+                  value={resultLimit}
+                  onChange={(e) => setResultLimit(parseInt(e.target.value) || 10000)}
+                  className="w-32 border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+                <span className="text-xs text-gray-500">
+                  Max results (larger values may impact performance)
+                </span>
               </div>
             </div>
 

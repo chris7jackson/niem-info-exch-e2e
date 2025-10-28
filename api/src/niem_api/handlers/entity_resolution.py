@@ -29,11 +29,11 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
 
     Supports multiple entity types:
     - j:CrashDriver (direct connection to PersonName)
-    - cb_exchange:TransmittalSubjectChild (nested via RoleOfPerson)
+    - cyfs:Child (NEICE child entities, nested via RoleOfPerson)
 
     Supports multiple name formats:
     - PersonGivenName + PersonSurName (CrashDriver)
-    - PersonFullName (TransmittalSubjectChild)
+    - PersonFullName (Child entities from NEICE documents)
 
     Args:
         neo4j_client: Neo4j client instance
@@ -41,13 +41,13 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
     Returns:
         List of entity dictionaries with properties
     """
-    # Query to get both CrashDriver and TransmittalSubjectChild entities
+    # Query to get both CrashDriver and Child entities
     # Use variable-length path to handle both:
     #   - Direct: CrashDriver -> PersonName (1 hop)
-    #   - Nested: TransmittalSubjectChild -> RoleOfPerson -> PersonName (2 hops)
+    #   - Nested: Child -> RoleOfPerson -> PersonName (2 hops)
     query = """
     MATCH (entity)-[*1..2]->(pn:nc_PersonName)
-    WHERE entity.qname IN ['j:CrashDriver', 'cb_exchange:TransmittalSubjectChild']
+    WHERE entity.qname IN ['j:CrashDriver', 'cyfs:Child']
     RETURN
         id(entity) as neo4j_id,
         entity.id as entity_id,
@@ -134,7 +134,7 @@ def _create_entity_key(entity: Dict) -> str:
     """
     props = entity.get('properties', {})
 
-    # Try PersonFullName first (for TransmittalSubjectChild entities)
+    # Try PersonFullName first (for Child entities from NEICE documents)
     full_name = props.get('PersonFullName', '').strip().lower()
     if full_name:
         # Normalize: "Jason Ohlendorf" -> "jason_ohlendorf"
@@ -215,7 +215,7 @@ def _create_resolved_entity_nodes(
         first_entity = entities[0]
         props = first_entity['properties']
 
-        # Use PersonFullName if available (TransmittalSubjectChild format)
+        # Use PersonFullName if available (Child entity format)
         full_name = props.get('PersonFullName', '').strip()
 
         # Otherwise construct from name parts (CrashDriver format)
