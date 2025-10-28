@@ -383,21 +383,27 @@ async def get_full_graph(
 
 @app.post("/api/entity-resolution/run")
 async def run_entity_resolution(
-    request: EntityResolutionRequest | None = None,
+    request: EntityResolutionRequest,
     token: str = Depends(verify_token)
 ):
-    """Run mock entity resolution on the current graph.
+    """Run entity resolution on the current graph.
 
-    Identifies duplicate entities based on name and birth date,
+    Identifies duplicate entities based on name and other attributes,
     creates ResolvedEntity nodes to show which entities represent
-    the same real-world person.
+    the same real-world entity.
 
     Args:
-        request: Optional request body with selected node types to resolve
+        request: Request body with selected node types to resolve (required)
     """
     from .handlers.entity_resolution import handle_run_entity_resolution
-    selected_types = request.selectedNodeTypes if request else None
-    return handle_run_entity_resolution(selected_types)
+
+    if not request.selectedNodeTypes:
+        raise HTTPException(
+            status_code=400,
+            detail="selectedNodeTypes is required and cannot be empty"
+        )
+
+    return handle_run_entity_resolution(request.selectedNodeTypes)
 
 
 @app.get("/api/entity-resolution/node-types")
