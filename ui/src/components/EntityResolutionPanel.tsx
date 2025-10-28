@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  NodeTypeInfo,
-  EntityResolutionResponse,
-  EntityResolutionStatusResponse
-} from '../lib/api';
+import { NodeTypeInfo, EntityResolutionResponse, EntityResolutionStatusResponse } from '../lib/api';
 import apiClient from '../lib/api';
 
 interface EntityResolutionPanelProps {
@@ -13,13 +9,15 @@ interface EntityResolutionPanelProps {
 
 const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
   onResolutionComplete,
-  onError
+  onError,
 }) => {
   const [nodeTypes, setNodeTypes] = useState<NodeTypeInfo[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingTypes, setIsLoadingTypes] = useState(true);
-  const [resolutionStatus, setResolutionStatus] = useState<EntityResolutionStatusResponse | null>(null);
+  const [resolutionStatus, setResolutionStatus] = useState<EntityResolutionStatusResponse | null>(
+    null
+  );
   const [lastResult, setLastResult] = useState<EntityResolutionResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -107,7 +105,7 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
 
   const selectAll = () => {
     const filtered = getFilteredNodeTypes();
-    setSelectedTypes(new Set(filtered.map(nt => nt.qname)));
+    setSelectedTypes(new Set(filtered.map((nt) => nt.qname)));
   };
 
   const selectNone = () => {
@@ -119,9 +117,8 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
 
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(nt =>
-        nt.qname.toLowerCase().includes(lower) ||
-        nt.category?.toLowerCase().includes(lower)
+      filtered = filtered.filter(
+        (nt) => nt.qname.toLowerCase().includes(lower) || nt.category?.toLowerCase().includes(lower)
       );
     }
 
@@ -152,7 +149,9 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
         <h3 className="text-lg font-medium text-gray-900">Entity Resolution</h3>
         <p className="mt-1 text-sm text-gray-600">
           Select entity types to resolve duplicates using{' '}
-          {lastResult?.resolutionMethod === 'senzing' ? 'Senzing SDK' : 'text-based entity matching'}
+          {lastResult?.resolutionMethod === 'senzing'
+            ? 'Senzing SDK'
+            : 'text-based entity matching'}
         </p>
       </div>
 
@@ -160,9 +159,7 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
       {resolutionStatus && resolutionStatus.is_active && (
         <div className="px-6 py-3 bg-blue-50 border-b border-blue-200">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-blue-900">
-              Current Resolution Status
-            </span>
+            <span className="text-sm font-medium text-blue-900">Current Resolution Status</span>
             <div className="flex items-center space-x-4 text-sm text-blue-700">
               <span>{resolutionStatus.resolved_entity_clusters} clusters</span>
               <span>{resolutionStatus.entities_resolved} entities resolved</span>
@@ -215,9 +212,7 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
         ) : (
           <div className="border border-gray-200 rounded-md max-h-64 overflow-y-auto">
             {filteredNodeTypes.length === 0 ? (
-              <div className="py-4 text-center text-gray-500">
-                No matching node types found
-              </div>
+              <div className="py-4 text-center text-gray-500">No matching node types found</div>
             ) : (
               <div className="divide-y divide-gray-200">
                 {filteredNodeTypes.map((nodeType) => (
@@ -234,11 +229,11 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                     />
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
-                        <span className="font-medium text-sm text-gray-900">
-                          {nodeType.qname}
-                        </span>
+                        <span className="font-medium text-sm text-gray-900">{nodeType.qname}</span>
                         {nodeType.category && (
-                          <span className={`px-2 py-0.5 text-xs rounded ${getCategoryColor(nodeType.category)}`}>
+                          <span
+                            className={`px-2 py-0.5 text-xs rounded ${getCategoryColor(nodeType.category)}`}
+                          >
                             {nodeType.category}
                           </span>
                         )}
@@ -290,7 +285,10 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
             <div>Resolved Entities: {lastResult.resolvedEntitiesCreated}</div>
             <div>Relationships Created: {lastResult.relationshipsCreated}</div>
             <div className="col-span-2 mt-2 pt-2 border-t border-green-200">
-              Method: {lastResult.resolutionMethod === 'senzing' ? 'Senzing SDK' : 'Text-Based Entity Matching'}
+              Method:{' '}
+              {lastResult.resolutionMethod === 'senzing'
+                ? 'Senzing SDK'
+                : 'Text-Based Entity Matching'}
             </div>
           </div>
         </div>
