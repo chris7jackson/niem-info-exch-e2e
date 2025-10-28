@@ -113,7 +113,7 @@ export interface NodeTypeInfo {
   count: number;
   nameFields: string[];
   category?: 'person' | 'organization' | 'location' | 'address' | 'vehicle' | 'other';
-  recommended?: boolean;
+  hierarchyPath?: string[]; // Path from root to entity (e.g., ["exch:CrashDriverInfo", "j:Crash", "j:CrashVehicle", "j:CrashDriver"])
 }
 
 export interface EntityResolutionNodeTypesResponse {
@@ -135,7 +135,7 @@ export interface EntityResolutionResponse {
   relationshipsCreated: number;
   entitiesResolved: number;
   nodeTypesProcessed?: string[];
-  resolution_method?: string;
+  resolutionMethod?: string;
 }
 
 export interface EntityResolutionStatusResponse {

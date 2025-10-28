@@ -22,7 +22,6 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
   const [resolutionStatus, setResolutionStatus] = useState<EntityResolutionStatusResponse | null>(null);
   const [lastResult, setLastResult] = useState<EntityResolutionResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showOnlyRecommended, setShowOnlyRecommended] = useState(false);
 
   // Fetch available node types on mount
   useEffect(() => {
@@ -35,12 +34,8 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
       setIsLoadingTypes(true);
       const response = await apiClient.getEntityResolutionNodeTypes();
       setNodeTypes(response.nodeTypes);
-
-      // Auto-select recommended types
-      const recommended = response.nodeTypes
-        .filter(nt => nt.recommended)
-        .map(nt => nt.qname);
-      setSelectedTypes(new Set(recommended));
+      // No types selected by default
+      setSelectedTypes(new Set());
     } catch (error) {
       console.error('Failed to fetch node types:', error);
       onError?.('Failed to fetch available node types');
@@ -122,10 +117,6 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
   const getFilteredNodeTypes = () => {
     let filtered = nodeTypes;
 
-    if (showOnlyRecommended) {
-      filtered = filtered.filter(nt => nt.recommended);
-    }
-
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       filtered = filtered.filter(nt =>
@@ -161,7 +152,7 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
         <h3 className="text-lg font-medium text-gray-900">Entity Resolution</h3>
         <p className="mt-1 text-sm text-gray-600">
           Select entity types to resolve duplicates using{' '}
-          {lastResult?.resolution_method === 'senzing' ? 'Senzing SDK' : 'name matching'}
+          {lastResult?.resolutionMethod === 'senzing' ? 'Senzing SDK' : 'text-based entity matching'}
         </p>
       </div>
 
@@ -183,8 +174,8 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
       {/* Node Type Selection */}
       <div className="px-6 py-4">
         <div className="mb-4 space-y-3">
-          {/* Search and Filter Controls */}
-          <div className="flex items-center space-x-3">
+          {/* Search Control */}
+          <div className="flex items-center">
             <input
               type="text"
               placeholder="Search node types..."
@@ -192,15 +183,6 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={showOnlyRecommended}
-                onChange={(e) => setShowOnlyRecommended(e.target.checked)}
-                className="mr-2"
-              />
-              <span className="text-sm text-gray-700">Recommended only</span>
-            </label>
           </div>
 
           {/* Selection Controls */}
@@ -255,17 +237,17 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                         <span className="font-medium text-sm text-gray-900">
                           {nodeType.qname}
                         </span>
-                        {nodeType.recommended && (
-                          <span className="px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded">
-                            Recommended
-                          </span>
-                        )}
                         {nodeType.category && (
                           <span className={`px-2 py-0.5 text-xs rounded ${getCategoryColor(nodeType.category)}`}>
                             {nodeType.category}
                           </span>
                         )}
                       </div>
+                      {nodeType.hierarchyPath && nodeType.hierarchyPath.length > 0 && (
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          <span className="font-mono">{nodeType.hierarchyPath.join(' → ')}</span>
+                        </div>
+                      )}
                       <div className="text-xs text-gray-500 mt-1">
                         {nodeType.count} entities • {nodeType.nameFields.join(', ')}
                       </div>
@@ -308,7 +290,7 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
             <div>Resolved Entities: {lastResult.resolvedEntitiesCreated}</div>
             <div>Relationships Created: {lastResult.relationshipsCreated}</div>
             <div className="col-span-2 mt-2 pt-2 border-t border-green-200">
-              Method: {lastResult.resolution_method === 'senzing' ? 'Senzing SDK' : 'Mock (Name Matching)'}
+              Method: {lastResult.resolutionMethod === 'senzing' ? 'Senzing SDK' : 'Text-Based Entity Matching'}
             </div>
           </div>
         </div>
