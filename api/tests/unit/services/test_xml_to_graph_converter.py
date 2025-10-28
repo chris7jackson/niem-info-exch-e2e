@@ -3,7 +3,7 @@
 
 import pytest
 from niem_api.services.domain.xml_to_graph.converter import (
-    generate_cypher_from_dict,
+    generate_for_xml_content,
     load_mapping_from_dict,
 )
 
@@ -35,7 +35,7 @@ def test_property_name_with_hyphen_escaping():
 </nc:Location>"""
 
     # Generate Cypher
-    cypher, _, _, _ = generate_cypher_from_dict(
+    cypher, _, _, _ = generate_for_xml_content(
         xml_str,
         mapping_dict,
         "test.xml"
@@ -75,7 +75,7 @@ def test_property_name_with_dot_escaping():
     <nc:Person.Name>John Doe</nc:Person.Name>
 </nc:Person>"""
 
-    cypher, _, _, _ = generate_cypher_from_dict(
+    cypher, _, _, _ = generate_for_xml_content(
         xml_str,
         mapping_dict,
         "test.xml"
@@ -110,7 +110,7 @@ def test_normal_property_name_no_escaping():
     <nc:PersonName>Jane Doe</nc:PersonName>
 </nc:Person>"""
 
-    cypher, _, _, _ = generate_cypher_from_dict(
+    cypher, _, _, _ = generate_for_xml_content(
         xml_str,
         mapping_dict,
         "test.xml"
