@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Playwright E2E Test Configuration
@@ -43,7 +43,7 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report' }],
     ['junit', { outputFile: 'test-results/junit.xml' }],
     ['json', { outputFile: 'test-results/results.json' }],
-    ['list'] // Console output
+    ['list'], // Console output
   ],
 
   // Shared settings for all tests
@@ -103,4 +103,4 @@ export default defineConfig({
     stdout: 'pipe',
     stderr: 'pipe',
   },
-})
+});

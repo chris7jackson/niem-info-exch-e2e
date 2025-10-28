@@ -9,7 +9,10 @@ import argparse
 import hashlib
 import json
 import re
-import xml.etree.ElementTree as ET
+# Use defusedxml for secure XML parsing (prevents XXE attacks)
+import defusedxml.ElementTree as ET
+# Import Element type from standard library for type hints
+from xml.etree.ElementTree import Element
 from pathlib import Path
 from typing import Any
 
@@ -121,7 +124,8 @@ def synth_id(parent_id: str, elem_qn: str, ordinal_path: str, file_prefix: str =
         Synthetic ID with file_prefix and 'syn_' prefix
     """
     basis = f"{parent_id}|{elem_qn}|{ordinal_path}"
-    synth = "syn_" + hashlib.sha1(basis.encode("utf-8")).hexdigest()[:16]
+    # SHA1 used for synthetic ID generation only, not cryptographic security
+    synth = "syn_" + hashlib.sha1(basis.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
     return f"{file_prefix}_{synth}" if file_prefix else synth
 
 
@@ -169,7 +173,7 @@ def is_augmentation(element_qname: str, cmf_element_index: set) -> bool:
 
 
 def extract_unmapped_properties(
-    elem: ET.Element,
+    elem: Element,
     ns_map: dict[str, str],
     cmf_element_index: set
 ) -> dict[str, Any]:
@@ -222,7 +226,7 @@ def extract_unmapped_properties(
 
 
 def handle_complex_augmentation(
-    elem: ET.Element,
+    elem: Element,
     ns_map: dict[str, str],
     parent_node_id: str,
     file_prefix: str,
@@ -260,7 +264,7 @@ def handle_complex_augmentation(
     return aug_node_id
 
 
-def _extract_all_properties_recursive(elem: ET.Element, ns_map: dict[str, str]) -> dict[str, Any]:
+def _extract_all_properties_recursive(elem: Element, ns_map: dict[str, str]) -> dict[str, Any]:
     """Recursively extract all properties from complex augmentation element.
 
     Args:
@@ -300,7 +304,7 @@ def _extract_all_properties_recursive(elem: ET.Element, ns_map: dict[str, str]) 
 
 
 def collect_scalar_setters(
-    obj_rule: dict[str, Any], elem: ET.Element, ns_map: dict[str, str]
+    obj_rule: dict[str, Any], elem: Element, ns_map: dict[str, str]
 ) -> list[tuple[str, str]]:
     """Collect scalar property setters for an object element.
 
@@ -397,7 +401,8 @@ def generate_for_xml_content(
     import time
     from datetime import datetime, timezone
 
-    file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode()).hexdigest()[:8]
+    # SHA1 used for file prefix generation only, not cryptographic security
+    file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode(), usedforsecurity=False).hexdigest()[:8]
     ingest_timestamp = datetime.now(timezone.utc).isoformat()
 
     nodes = {}  # id -> (label, qname, props_dict, aug_props_dict)
@@ -410,7 +415,7 @@ def generate_for_xml_content(
     pending_refs = []  # List of (source_id, target_id, context) for validation
     id_collisions = []  # List of ID collisions detected during Pass 1
 
-    def collect_ids_pass1(elem: ET.Element):
+    def collect_ids_pass1(elem: Element):
         """Pass 1: Collect all elements with structures:id for forward reference resolution.
 
         Args:
@@ -445,7 +450,7 @@ def generate_for_xml_content(
         for child in elem:
             collect_ids_pass1(child)
 
-    def get_metadata_refs(elem: ET.Element, xml_ns_map: dict[str, str]) -> list[str]:
+    def get_metadata_refs(elem: Element, xml_ns_map: dict[str, str]) -> list[str]:
         """Extract metadata reference IDs from nc:metadataRef or priv:privacyMetadataRef attributes.
 
         Args:

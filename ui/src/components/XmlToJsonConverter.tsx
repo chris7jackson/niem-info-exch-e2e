@@ -21,7 +21,7 @@ export default function XmlToJsonConverter() {
     try {
       const schemas = await apiClient.getSchemas();
       setAllSchemas(schemas);
-      const active = schemas.find(s => s.active);
+      const active = schemas.find((s) => s.active);
       setActiveSchema(active || null);
       // Default to active schema
       if (active) {
@@ -34,14 +34,14 @@ export default function XmlToJsonConverter() {
 
   const handleFileDrop = (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      setFiles(prev => [...prev, ...acceptedFiles]);
+      setFiles((prev) => [...prev, ...acceptedFiles]);
       setError(null);
       setBatchResult(null); // Clear previous results
     }
   };
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
     if (files.length === 1) {
       // If removing the last file, clear results
       setBatchResult(null);
@@ -72,10 +72,7 @@ export default function XmlToJsonConverter() {
       setError(null);
       setBatchResult(null);
 
-      const result = await apiClient.convertXmlToJson(
-        files,
-        selectedSchemaId || undefined
-      );
+      const result = await apiClient.convertXmlToJson(files, selectedSchemaId || undefined);
 
       setBatchResult(result);
     } catch (err: any) {
@@ -96,7 +93,7 @@ export default function XmlToJsonConverter() {
     onDrop: handleFileDrop,
     accept: {
       'application/xml': ['.xml'],
-      'text/xml': ['.xml']
+      'text/xml': ['.xml'],
     },
     multiple: true,
   });
@@ -106,8 +103,8 @@ export default function XmlToJsonConverter() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900">XML to JSON Converter</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Convert NIEM XML messages to JSON format using the NIEMTran tool.
-          Supports batch processing. This is a demo utility that converts files without storing or ingesting them.
+          Convert NIEM XML messages to JSON format using the NIEMTran tool. Supports batch
+          processing. This is a demo utility that converts files without storing or ingesting them.
         </p>
       </div>
 
@@ -156,9 +153,7 @@ export default function XmlToJsonConverter() {
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-            isDragActive
-              ? 'border-blue-400 bg-blue-50'
-              : 'border-gray-300 hover:border-gray-400'
+            isDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
           }`}
         >
           <input {...getInputProps()} />
@@ -180,14 +175,9 @@ export default function XmlToJsonConverter() {
         {files.length > 0 && (
           <div className="mt-4">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-gray-900">
-                Selected Files ({files.length})
-              </h4>
+              <h4 className="text-sm font-medium text-gray-900">Selected Files ({files.length})</h4>
               {files.length > 1 && (
-                <button
-                  onClick={clearAllFiles}
-                  className="text-sm text-red-600 hover:text-red-500"
-                >
+                <button onClick={clearAllFiles} className="text-sm text-red-600 hover:text-red-500">
                   Remove All
                 </button>
               )}
@@ -237,9 +227,7 @@ export default function XmlToJsonConverter() {
       </div>
 
       {/* Conversion Results */}
-      {batchResult && (
-        <ConversionResults results={batchResult} />
-      )}
+      {batchResult && <ConversionResults results={batchResult} />}
     </div>
   );
 }

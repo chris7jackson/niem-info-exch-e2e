@@ -42,9 +42,7 @@ export default function UploadPage() {
 
         <Tab.Panels className="mt-6">
           {tabs.map((tab, index) => (
-            <Tab.Panel key={index}>
-              {tab.component}
-            </Tab.Panel>
+            <Tab.Panel key={index}>{tab.component}</Tab.Panel>
           ))}
         </Tab.Panels>
       </Tab.Group>

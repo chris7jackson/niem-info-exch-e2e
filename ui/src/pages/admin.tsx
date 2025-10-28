@@ -32,7 +32,7 @@ export default function AdminPage() {
 
       const result = await apiClient.resetSystem({
         ...resetOptions,
-        dry_run: true
+        dry_run: true,
       });
 
       setCounts(result.counts);
@@ -58,7 +58,7 @@ export default function AdminPage() {
       const result = await apiClient.resetSystem({
         ...resetOptions,
         dry_run: false,
-        confirm_token: confirmToken
+        confirm_token: confirmToken,
       });
 
       setMessage(result.message);
@@ -92,8 +92,8 @@ export default function AdminPage() {
           <div className="ml-3">
             <h3 className="text-sm font-medium text-yellow-800">Warning</h3>
             <p className="mt-1 text-sm text-yellow-700">
-              These administrative actions can permanently delete data. Use with caution.
-              Always run a dry run first to see what will be affected.
+              These administrative actions can permanently delete data. Use with caution. Always run
+              a dry run first to see what will be affected.
             </p>
           </div>
         </div>
@@ -124,38 +124,37 @@ export default function AdminPage() {
                 <input
                   type="checkbox"
                   checked={resetOptions.schemas}
-                  onChange={(e) => setResetOptions(prev => ({ ...prev, schemas: e.target.checked }))}
+                  onChange={(e) =>
+                    setResetOptions((prev) => ({ ...prev, schemas: e.target.checked }))
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <span className="ml-2 text-sm text-gray-700">
-                  NIEM Schemas (XSD schema files)
-                </span>
+                <span className="ml-2 text-sm text-gray-700">NIEM Schemas (XSD schema files)</span>
               </label>
 
               <label className="flex items-center">
                 <input
                   type="checkbox"
                   checked={resetOptions.data}
-                  onChange={(e) => setResetOptions(prev => ({ ...prev, data: e.target.checked }))}
+                  onChange={(e) => setResetOptions((prev) => ({ ...prev, data: e.target.checked }))}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <span className="ml-2 text-sm text-gray-700">
-                  Data Files (XML and JSON files)
-                </span>
+                <span className="ml-2 text-sm text-gray-700">Data Files (XML and JSON files)</span>
               </label>
 
               <label className="flex items-center">
                 <input
                   type="checkbox"
                   checked={resetOptions.neo4j}
-                  onChange={(e) => setResetOptions(prev => ({ ...prev, neo4j: e.target.checked }))}
+                  onChange={(e) =>
+                    setResetOptions((prev) => ({ ...prev, neo4j: e.target.checked }))
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <span className="ml-2 text-sm text-gray-700">
                   Neo4j Graph Database (all nodes and relationships)
                 </span>
               </label>
-
             </div>
           </div>
 

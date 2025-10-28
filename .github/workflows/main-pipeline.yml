@@ -1,7 +1,24 @@
 name: Main Pipeline
 
+# Workflow Execution Flow:
+# 1. PR merges to main → Auto Version Bump workflow runs
+# 2. Auto Version Bump detects changes and bumps versions
+# 3. Auto Version Bump commits new versions and completes
+# 4. Main Pipeline triggers (using updated versions in Docker builds)
+# 5. Version bump commit triggers Auto Version Bump again, but it skips
+# 6. Since Auto Version Bump skipped, Main Pipeline does NOT run again
+#
+# This ensures:
+# - Versions are bumped before building Docker images
+# - Docker images contain correct version metadata
+# - Pipeline only runs once per merge (not twice)
+
 on:
-  push:
+  # Wait for auto-version-bump to complete before running
+  # This ensures Docker images are built with correct versions
+  workflow_run:
+    workflows: ["Auto Version Bump"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:  # Manual trigger for testing
 
@@ -11,12 +28,18 @@ env:
 
 jobs:
   # =============================================================================
-  # INTEGRATION TESTS
+  # E2E TESTS
   # =============================================================================
 
-  integration-tests:
-    name: Integration Tests
+  e2e-tests:
+    name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
+
+    # Only run if auto-version-bump succeeded (not skipped due to version bump commit)
+    # or if manually triggered
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     services:
       neo4j:
@@ -36,6 +59,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # When triggered by workflow_run, checkout the latest main (with version bump)
+          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.ref }}
 
       - name: Start MinIO
         run: |
@@ -59,16 +85,15 @@ jobs:
           cache: 'pip'
           cache-dependency-path: 'api/requirements*.txt'
 
-      - name: Install dependencies
+      - name: Install API dependencies
         run: |
           cd api
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-test.txt
-          # Install package in editable mode for tests
           pip install -e .
 
-      - name: Run integration tests
+      - name: Start API server in background
         env:
           NEO4J_URI: bolt://localhost:7687
           NEO4J_USER: neo4j
@@ -79,16 +104,54 @@ jobs:
           MINIO_SECURE: false
         run: |
           cd api
-          pytest tests/integration/ \
-            --verbose \
-            --junit-xml=integration-report.xml
+          uvicorn src.niem_api.main:app --host 0.0.0.0 --port 8000 &
+          # Wait for API to be ready
+          timeout 60 bash -c 'until curl -f http://localhost:8000/healthz 2>/dev/null; do sleep 2; done'
+          echo "✅ API server is ready"
 
-      - name: Upload integration test results
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          # Disable npm cache due to Rollup optional dependency bug
+          # cache: 'npm'
+          # cache-dependency-path: ui/package-lock.json
+
+      - name: Install UI dependencies
+        run: |
+          cd ui
+          # Handle npm bug with optional dependencies (Rollup)
+          # https://github.com/npm/cli/issues/4828
+          # Remove both package-lock.json and node_modules for clean install
+          rm -f package-lock.json
+          rm -rf node_modules
+          npm install --no-audit
+
+      - name: Install Playwright browsers
+        run: |
+          cd ui
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: |
+          cd ui
+          npm run test:e2e
+
+      - name: Upload E2E test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: integration-test-results
-          path: api/integration-report.xml
+          name: e2e-test-results
+          path: |
+            ui/playwright-report/
+            ui/test-results/
+
+      - name: Upload E2E test videos
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-test-videos
+          path: ui/test-results/**/video.webm
 
   # =============================================================================
   # DOCKER BUILD & SMOKE TESTS
@@ -97,11 +160,13 @@ jobs:
   docker-build-test:
     name: Docker Build & Smoke Tests
     runs-on: ubuntu-latest
-    needs: [integration-tests]
+    needs: [e2e-tests]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.ref }}
 
       - name: Read version files
         id: version
@@ -185,14 +250,15 @@ jobs:
         run: docker compose down
 
   # =============================================================================
-  # SECURITY SCANNING (NON-BLOCKING)
+  # SECURITY SCANNING
   # =============================================================================
 
   security-scan:
     name: Security Scanning (Trivy)
     runs-on: ubuntu-latest
-    needs: [integration-tests]
-    continue-on-error: true  # Non-blocking
+    needs: [e2e-tests]
+    # Block on critical vulnerabilities in production dependencies
+    continue-on-error: false
 
     permissions:
       contents: read
@@ -201,6 +267,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.ref }}
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -209,6 +277,9 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'  # Fail on critical/high vulnerabilities
+          ignore-unfixed: true  # Only fail on issues with available fixes
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
@@ -224,13 +295,15 @@ jobs:
           path: trivy-results.sarif
 
   # =============================================================================
-  # CODE ANALYSIS (NON-BLOCKING)
+  # CODE ANALYSIS
   # =============================================================================
 
   codeql-analysis:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
-    continue-on-error: true  # Non-blocking
+    # Non-blocking: Deep semantic analysis may have false positives
+    # Results are tracked in GitHub Security tab for review
+    continue-on-error: true
 
     permissions:
       security-events: write
@@ -244,6 +317,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.ref }}
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
@@ -265,31 +340,32 @@ jobs:
   pipeline-status:
     name: Pipeline Status
     runs-on: ubuntu-latest
-    needs: [integration-tests, docker-build-test, security-scan, codeql-analysis]
+    needs: [e2e-tests, docker-build-test, security-scan, codeql-analysis]
     if: always()
 
     steps:
       - name: Check critical gates
         run: |
-          integration_result="${{ needs.integration-tests.result }}"
+          e2e_result="${{ needs.e2e-tests.result }}"
           docker_result="${{ needs.docker-build-test.result }}"
-
-          # Security and CodeQL are non-blocking
           security_result="${{ needs.security-scan.result }}"
           codeql_result="${{ needs.codeql-analysis.result }}"
 
           echo "=== Pipeline Results ==="
-          echo "Integration Tests: $integration_result"
+          echo "E2E Tests: $e2e_result"
           echo "Docker Build & Smoke: $docker_result"
-          echo "Security Scan: $security_result (non-blocking)"
+          echo "Security Scan (Trivy): $security_result"
           echo "CodeQL Analysis: $codeql_result (non-blocking)"
           echo ""
 
-          # Only fail on critical gates
-          if [[ "$integration_result" == "success" && "$docker_result" == "success" ]]; then
+          # Critical gates: e2e, docker, security
+          # CodeQL is non-blocking (tracked in Security tab)
+          if [[ "$e2e_result" == "success" && \
+                "$docker_result" == "success" && \
+                "$security_result" == "success" ]]; then
             echo "✅ All critical gates passed!"
             exit 0
           else
-            echo "❌ Critical gates failed!"
+            echo "❌ One or more critical gates failed!"
             exit 1
           fi

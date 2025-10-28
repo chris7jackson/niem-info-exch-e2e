@@ -13,7 +13,8 @@ from fastapi import HTTPException, UploadFile
 from minio import Minio
 from minio.error import S3Error
 
-import xml.etree.ElementTree as ET
+# Use defusedxml for secure XML parsing (prevents XXE attacks)
+import defusedxml.ElementTree as ET
 
 from ..clients.s3_client import upload_file
 from ..clients.scheval_client import is_scheval_available
@@ -101,8 +102,6 @@ def _extract_schema_imports(xsd_content: str) -> list[dict[str, Any]]:
     Returns:
         List of import dictionaries with namespace and schema_location
     """
-    import xml.etree.ElementTree as ET
-
     imports = []
     try:
         root = ET.fromstring(xsd_content)

@@ -1,9 +1,9 @@
-import { vi } from 'vitest'
-import { http, HttpResponse } from 'msw'
-import { setupServer } from 'msw/node'
-import apiClient from '../../../src/lib/api'
+import { vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
+import apiClient from '../../../src/lib/api';
 
-const API_URL = 'http://localhost:8000'
+const API_URL = 'http://localhost:8000';
 
 const server = setupServer(
   // Schema endpoints
@@ -11,8 +11,8 @@ const server = setupServer(
     return HttpResponse.json({
       schema_id: 'test_schema_123',
       niem_ndr_report: { status: 'pass' },
-      is_active: true
-    })
+      is_active: true,
+    });
   }),
   http.get(`${API_URL}/api/schema`, () => {
     return HttpResponse.json([
@@ -20,18 +20,18 @@ const server = setupServer(
         schema_id: 'schema_1',
         filename: 'test1.xsd',
         active: true,
-        uploaded_at: '2024-01-01T00:00:00Z'
+        uploaded_at: '2024-01-01T00:00:00Z',
       },
       {
         schema_id: 'schema_2',
         filename: 'test2.xsd',
         active: false,
-        uploaded_at: '2024-01-02T00:00:00Z'
-      }
-    ])
+        uploaded_at: '2024-01-02T00:00:00Z',
+      },
+    ]);
   }),
   http.post(`${API_URL}/api/schema/activate/:schemaId`, ({ params }) => {
-    return HttpResponse.json({ active_schema_id: params.schemaId })
+    return HttpResponse.json({ active_schema_id: params.schemaId });
   }),
 
   // Ingestion endpoints
@@ -40,16 +40,16 @@ const server = setupServer(
       status: 'success',
       processed_files: 2,
       nodes_created: 10,
-      relationships_created: 5
-    })
+      relationships_created: 5,
+    });
   }),
   http.post(`${API_URL}/api/ingest/json`, () => {
     return HttpResponse.json({
       status: 'success',
       processed_files: 1,
       nodes_created: 5,
-      relationships_created: 3
-    })
+      relationships_created: 3,
+    });
   }),
   http.get(`${API_URL}/api/ingest/files`, () => {
     return HttpResponse.json({
@@ -59,10 +59,10 @@ const server = setupServer(
           stored_name: '20240101_hash_crash_data.xml',
           size: 1024,
           last_modified: '2024-01-01T00:00:00Z',
-          content_type: 'application/xml'
-        }
-      ]
-    })
+          content_type: 'application/xml',
+        },
+      ],
+    });
   }),
 
   // Admin endpoints
@@ -73,15 +73,15 @@ const server = setupServer(
       counts: {
         schemas_deleted: 5,
         data_files_deleted: 10,
-        neo4j_nodes_deleted: 100
-      }
-    })
+        neo4j_nodes_deleted: 100,
+      },
+    });
   })
-)
+);
 
-beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
 
 /**
  * API Client Tests
@@ -102,45 +102,45 @@ afterAll(() => server.close())
 describe('API Functions', () => {
   // localStorage is already mocked in setup.ts, just configure return value
   beforeEach(() => {
-    vi.mocked(window.localStorage.getItem).mockReturnValue('mock_token')
-  })
+    vi.mocked(window.localStorage.getItem).mockReturnValue('mock_token');
+  });
 
   describe('Schema Management', () => {
     test('getSchemas returns schema list', async () => {
-      const schemas = await apiClient.getSchemas()
+      const schemas = await apiClient.getSchemas();
 
-      expect(schemas).toHaveLength(2)
-      expect(schemas[0].schema_id).toBe('schema_1')
-      expect(schemas[0].active).toBe(true)
-    })
+      expect(schemas).toHaveLength(2);
+      expect(schemas[0].schema_id).toBe('schema_1');
+      expect(schemas[0].active).toBe(true);
+    });
 
     test('activateSchema calls correct endpoint', async () => {
-      const result = await apiClient.activateSchema('schema_2')
+      const result = await apiClient.activateSchema('schema_2');
 
-      expect(result.active_schema_id).toBe('schema_2')
-    })
-  })
+      expect(result.active_schema_id).toBe('schema_2');
+    });
+  });
 
   describe('Data Ingestion', () => {
     test('getUploadedFiles returns file metadata', async () => {
-      const files = await apiClient.getUploadedFiles()
+      const files = await apiClient.getUploadedFiles();
 
-      expect(files).toHaveLength(1)
-      expect(files[0].original_name).toBe('crash_data.xml')
-    })
-  })
+      expect(files).toHaveLength(1);
+      expect(files[0].original_name).toBe('crash_data.xml');
+    });
+  });
 
   describe('Admin Operations', () => {
     test('resetSystem sends correct parameters', async () => {
       const result = await apiClient.resetSystem({
         schemas: true,
         data: true,
-        neo4j: false
-      })
+        neo4j: false,
+      });
 
-      expect(result.status).toBe('success')
-      expect(result.message).toBe('System reset completed')
-    })
+      expect(result.status).toBe('success');
+      expect(result.message).toBe('System reset completed');
+    });
 
     test('getNeo4jStats returns database statistics', async () => {
       server.use(
@@ -150,55 +150,55 @@ describe('API Functions', () => {
               nodes: 100,
               relationships: 50,
               indexes: 5,
-              constraints: 3
-            }
-          })
+              constraints: 3,
+            },
+          });
         })
-      )
+      );
 
-      const stats = await apiClient.getNeo4jStats()
+      const stats = await apiClient.getNeo4jStats();
 
-      expect(stats.nodes).toBe(100)
-      expect(stats.relationships).toBe(50)
-    })
-  })
+      expect(stats.nodes).toBe(100);
+      expect(stats.relationships).toBe(50);
+    });
+  });
 
   describe('Authentication', () => {
     test('includes auth token in requests', async () => {
-      let authHeader: string | null = null
+      let authHeader: string | null = null;
 
       server.use(
         http.get(`${API_URL}/api/schema`, ({ request }) => {
-          authHeader = request.headers.get('Authorization')
-          return HttpResponse.json([])
+          authHeader = request.headers.get('Authorization');
+          return HttpResponse.json([]);
         })
-      )
+      );
 
-      await apiClient.getSchemas()
+      await apiClient.getSchemas();
 
-      expect(authHeader).toBe('Bearer devtoken')
-    })
+      expect(authHeader).toBe('Bearer devtoken');
+    });
 
     test('handles authentication errors', async () => {
       server.use(
         http.get(`${API_URL}/api/schema`, () => {
-          return HttpResponse.json({ detail: 'Invalid authentication token' }, { status: 401 })
+          return HttpResponse.json({ detail: 'Invalid authentication token' }, { status: 401 });
         })
-      )
+      );
 
-      await expect(apiClient.getSchemas()).rejects.toThrow()
-    })
-  })
+      await expect(apiClient.getSchemas()).rejects.toThrow();
+    });
+  });
 
   describe('Error Handling', () => {
     test('handles 500 server errors', async () => {
       server.use(
         http.get(`${API_URL}/api/schema`, () => {
-          return HttpResponse.json({ detail: 'Internal server error' }, { status: 500 })
+          return HttpResponse.json({ detail: 'Internal server error' }, { status: 500 });
         })
-      )
+      );
 
-      await expect(apiClient.getSchemas()).rejects.toThrow()
-    })
-  })
-})
+      await expect(apiClient.getSchemas()).rejects.toThrow();
+    });
+  });
+});

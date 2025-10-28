@@ -1,11 +1,11 @@
-import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import '@testing-library/jest-dom'
-import { http, HttpResponse } from 'msw'
-import { setupServer } from 'msw/node'
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import '@testing-library/jest-dom';
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
 
-import SchemaManager from '../../../src/components/SchemaManager'
+import SchemaManager from '../../../src/components/SchemaManager';
 
 const mockSchemas = [
   {
@@ -16,38 +16,38 @@ const mockSchemas = [
     uploaded_at: '2024-01-01T00:00:00Z',
     active: true,
     cmf_filename: 'main.cmf',
-    json_schema_filename: 'main.json'
+    json_schema_filename: 'main.json',
   },
   {
     schema_id: 'schema_2',
     filename: 'other.xsd',
     uploaded_at: '2024-01-02T00:00:00Z',
-    active: false
-  }
-]
+    active: false,
+  },
+];
 
-const API_URL = 'http://localhost:8000'
+const API_URL = 'http://localhost:8000';
 
 const server = setupServer(
   http.get(`${API_URL}/api/schema`, () => {
-    return HttpResponse.json(mockSchemas)
+    return HttpResponse.json(mockSchemas);
   }),
   http.post(`${API_URL}/api/schema/xsd`, () => {
     return HttpResponse.json({
       schema_id: 'new_schema',
       niem_ndr_report: { status: 'pass', violations: [] },
       import_validation_report: { status: 'pass' },
-      is_active: true
-    })
+      is_active: true,
+    });
   }),
   http.post(`${API_URL}/api/schema/activate/:schemaId`, ({ params }) => {
-    return HttpResponse.json({ active_schema_id: params.schemaId })
+    return HttpResponse.json({ active_schema_id: params.schemaId });
   })
-)
+);
 
-beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
 
 /**
  * SchemaManager Component Tests
@@ -67,59 +67,53 @@ afterAll(() => server.close())
  */
 describe('SchemaManager Component', () => {
   test('renders schema manager interface', async () => {
-    render(<SchemaManager />)
+    render(<SchemaManager />);
 
-    expect(screen.getByText(/schema management/i)).toBeInTheDocument()
-    expect(screen.getByText(/upload xsd schema/i)).toBeInTheDocument()
+    expect(screen.getByText(/schema management/i)).toBeInTheDocument();
+    expect(screen.getByText(/upload xsd schema/i)).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText(/uploaded schemas/i)).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText(/uploaded schemas/i)).toBeInTheDocument();
+    });
+  });
 
   test('loads and displays existing schemas', async () => {
-    render(<SchemaManager />)
+    render(<SchemaManager />);
 
     await waitFor(() => {
-      expect(screen.getByText('main.xsd')).toBeInTheDocument()
-      expect(screen.getByText('other.xsd')).toBeInTheDocument()
-    })
+      expect(screen.getByText('main.xsd')).toBeInTheDocument();
+      expect(screen.getByText('other.xsd')).toBeInTheDocument();
+    });
 
-    expect(screen.getByText(/active/i)).toBeInTheDocument()
-  })
-
-
-
+    expect(screen.getByText(/active/i)).toBeInTheDocument();
+  });
 
   test('activates inactive schema', async () => {
-    const user = userEvent.setup()
-    render(<SchemaManager />)
+    const user = userEvent.setup();
+    render(<SchemaManager />);
 
     await waitFor(() => {
-      expect(screen.getByText('other.xsd')).toBeInTheDocument()
-    })
+      expect(screen.getByText('other.xsd')).toBeInTheDocument();
+    });
 
-    const activateButtons = screen.getAllByRole('button', { name: /activate/i })
-    expect(activateButtons.length).toBeGreaterThan(0)
+    const activateButtons = screen.getAllByRole('button', { name: /activate/i });
+    expect(activateButtons.length).toBeGreaterThan(0);
 
     // Mock successful activation
     server.use(
       http.get(`${API_URL}/api/schema`, () => {
         return HttpResponse.json([
           { ...mockSchemas[0], active: false },
-          { ...mockSchemas[1], active: true }
-        ])
+          { ...mockSchemas[1], active: true },
+        ]);
       })
-    )
+    );
 
-    await user.click(activateButtons[0])
+    await user.click(activateButtons[0]);
 
     await waitFor(() => {
-      const activeLabels = screen.getAllByText(/active/i)
-      expect(activeLabels.length).toBeGreaterThan(0)
-    })
-  })
-
-
-})
-
+      const activeLabels = screen.getAllByText(/active/i);
+      expect(activeLabels.length).toBeGreaterThan(0);
+    });
+  });
+});

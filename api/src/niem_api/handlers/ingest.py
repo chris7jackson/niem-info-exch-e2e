@@ -450,7 +450,8 @@ async def _store_processed_files(
 
     # Generate unique filename with timestamp
     timestamp = int(time.time())
-    file_hash = hashlib.md5(content).hexdigest()[:8]
+    # MD5 used for filename generation only, not cryptographic security
+    file_hash = hashlib.md5(content, usedforsecurity=False).hexdigest()[:8]
     base_filename = f"{file_type}/{timestamp}_{file_hash}_{filename}"
 
     # Determine content type

@@ -31,8 +31,8 @@ export default function ConversionResults({ results }: ConversionResultsProps) {
 
       // Add all successful conversions to ZIP
       results.results
-        .filter(r => r.status === 'success' && r.json_string)
-        .forEach(r => {
+        .filter((r) => r.status === 'success' && r.json_string)
+        .forEach((r) => {
           const jsonFilename = r.filename.replace('.xml', '.json');
           zip.file(jsonFilename, r.json_string!);
         });
@@ -121,7 +121,7 @@ export default function ConversionResults({ results }: ConversionResultsProps) {
                   </>
                 ) : (
                   <div className="text-sm text-red-600">
-                    {file.validation_details ? 'Validation failed' : (file.error || 'Unknown error')}
+                    {file.validation_details ? 'Validation failed' : file.error || 'Unknown error'}
                   </div>
                 )}
               </div>

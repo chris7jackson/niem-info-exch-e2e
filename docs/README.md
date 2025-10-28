@@ -40,16 +40,40 @@ Covers:
 
 **When to read:** Before writing tests or when test coverage is insufficient
 
+### [CI/CD Pipeline Architecture](CI_CD_PIPELINE.md)
+**Comprehensive guide to continuous integration and deployment**
+
+Learn about:
+- Pipeline execution flow and triggers
+- Test strategy (what runs where and why)
+- Quality gates and security checks
+- Version management and automatic bumping
+- Troubleshooting common issues
+- Architectural decisions and rationale
+
+**When to read:** Before modifying workflows, investigating pipeline failures, or understanding deployment process
+
 ### [Architecture Decision Records (ADR)](adr/)
 **Important architectural decisions and their rationale**
 
 Documents:
 - System-wide architectural decisions
-- Context, consequences, and alternatives
-- Patterns that developers should follow
-- Future-proofing considerations
+- Design patterns and system structure
+- Cross-cutting concerns
+- Deployment architecture
 
 **When to read:** Before making significant architectural changes or adding new features
+
+### [Tooling Decision Records (TDR)](tdr/)
+**Third-party libraries, frameworks, and tooling choices**
+
+Documents:
+- Library and framework selections
+- Development and build tool choices
+- Security tooling decisions
+- Context, alternatives, and trade-offs
+
+**When to read:** Before adding new dependencies, replacing libraries, or evaluating tooling options
 
 ## Additional Resources
 
