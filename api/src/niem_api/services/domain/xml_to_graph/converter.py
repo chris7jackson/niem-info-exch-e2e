@@ -7,6 +7,7 @@ reference relationships.
 """
 import argparse
 import hashlib
+import json
 import re
 # Use defusedxml for secure XML parsing (prevents XXE attacks)
 import defusedxml.ElementTree as ET
@@ -18,6 +19,10 @@ import yaml
 # NIEM structures namespace
 STRUCT_NS = "https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
+
+# Cypher property name validation pattern - only alphanumeric and underscore are safe
+# Property names with dots, hyphens, or other special chars must be escaped with backticks
+CYPHER_SAFE_PROPERTY_NAME = r'^[a-zA-Z_][a-zA-Z0-9_]*$'
 
 
 def load_mapping_from_dict(mapping_dict: dict[str, Any]) -> tuple[
@@ -854,16 +859,18 @@ def generate_for_xml_content(
 
         # Add core mapped properties
         for key, value in sorted(props.items()):
-            # Escape property names with dots using backticks
-            prop_key = f"`{key}`" if '.' in key else key
+            # Escape property names with special characters (dots, hyphens, etc.) using backticks
+            # Only alphanumeric and underscore are safe without backticks in Cypher
+            prop_key = f"`{key}`" if not re.match(CYPHER_SAFE_PROPERTY_NAME, key) else key
             # Escape backslashes first, then single quotes
             escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
             setbits.append(f"n.{prop_key}='{escaped_value}'")
 
         # Add augmentation properties
         for key, value in sorted(aug_props.items()):
-            # Escape property names with dots using backticks
-            prop_key = f"`{key}`" if '.' in key else key
+            # Escape property names with special characters (dots, hyphens, etc.) using backticks
+            # Only alphanumeric and underscore are safe without backticks in Cypher
+            prop_key = f"`{key}`" if not re.match(CYPHER_SAFE_PROPERTY_NAME, key) else key
             if isinstance(value, bool):
                 # Write boolean flags directly (for _isAugmentation metadata)
                 setbits.append(f"n.{prop_key}={str(value).lower()}")
@@ -890,7 +897,9 @@ def generate_for_xml_content(
             # Build property setters for rich edges
             prop_setters = []
             for key, value in sorted(rprops.items()):
-                prop_key = f"`{key}`" if '.' in key else key
+                # Escape property names with special characters (dots, hyphens, etc.) using backticks
+                # Only alphanumeric and underscore are safe without backticks in Cypher
+                prop_key = f"`{key}`" if not re.match(CYPHER_SAFE_PROPERTY_NAME, key) else key
                 if isinstance(value, list):
                     # json.dumps already escapes backslashes and quotes properly
                     json_value = json.dumps(value).replace("'", "\\'")
