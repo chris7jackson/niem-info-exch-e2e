@@ -4,7 +4,7 @@
 import pytest
 from niem_api.services.domain.xml_to_graph.converter import (
     generate_for_xml_content,
-    generate_synthetic_id,
+    synth_id,
     load_mapping_from_dict,
 )
 
@@ -124,10 +124,10 @@ def test_normal_property_name_no_escaping():
         "Normal property names should be present in output"
 
 
-def test_generate_synthetic_id_uses_sha1():
-    """Test that generate_synthetic_id uses SHA1 hash with usedforsecurity=False."""
+def test_synth_id_uses_sha1():
+    """Test that synth_id uses SHA1 hash with usedforsecurity=False."""
     # This test ensures coverage of the usedforsecurity=False parameter (line 128)
-    result = generate_synthetic_id(
+    result = synth_id(
         parent_id="parent_123",
         elem_qn="nc:Person",
         ordinal_path="/root[1]/person[2]",
