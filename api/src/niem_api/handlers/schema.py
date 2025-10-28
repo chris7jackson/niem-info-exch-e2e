@@ -691,14 +691,22 @@ async def _convert_to_cmf(
                 cmf_content = cmf_conversion_result["cmf_content"]
                 json_schema_conversion_result = convert_cmf_to_jsonschema(cmf_content)
                 if json_schema_conversion_result.get("status") != "success":
-                    logger.warning(
-                        f"CMF to JSON Schema conversion failed: "
-                        f"{json_schema_conversion_result.get('error', 'Unknown error')}"
+                    error_msg = json_schema_conversion_result.get('error', 'Unknown error')
+                    error_details = json_schema_conversion_result.get('details', [])
+                    logger.error(
+                        f"CMF to JSON Schema conversion failed: {error_msg}"
                     )
-                    json_schema_conversion_result = None
+                    if error_details:
+                        logger.error(f"Error details: {error_details}")
+                    # Keep the result with error info for user feedback
             except Exception as e:
-                logger.warning(f"CMF to JSON Schema conversion failed: {e}")
-                json_schema_conversion_result = None
+                logger.error(f"CMF to JSON Schema conversion exception: {e}", exc_info=True)
+                # Create error result structure
+                json_schema_conversion_result = {
+                    "status": "error",
+                    "error": str(e),
+                    "details": []
+                }
 
             return cmf_conversion_result, json_schema_conversion_result
 
@@ -821,7 +829,8 @@ async def _store_schema_metadata(
     schema_id: str,
     primary_file: UploadFile,
     file_contents: dict[str, bytes],
-    timestamp: str
+    timestamp: str,
+    json_schema_conversion_result: dict[str, Any] | None = None
 ) -> None:
     """Store schema metadata and mark as active.
 
@@ -831,24 +840,28 @@ async def _store_schema_metadata(
         primary_file: Primary uploaded file
         file_contents: All file contents
         timestamp: Upload timestamp
+        json_schema_conversion_result: JSON Schema conversion result (optional)
     """
     # Calculate JSON schema and CMF filenames from primary filename
     filename_only = primary_file.filename.replace('\\', '/').split('/')[-1]
     base_name = filename_only.rsplit('.xsd', 1)[0] if filename_only.endswith('.xsd') else filename_only
-    json_schema_filename = f"{base_name}.json"
     cmf_filename = f"{base_name}.cmf"
 
     # Store schema metadata in MinIO
     schema_metadata = {
         "schema_id": schema_id,
         "primary_filename": primary_file.filename,
-        "json_schema_filename": json_schema_filename,
         "cmf_filename": cmf_filename,
         "all_filenames": list(file_contents.keys()),
         "uploaded_at": timestamp,
         "known_gaps": "",
         "is_active": True  # Latest uploaded schema is automatically active
     }
+
+    # Only include json_schema_filename if conversion succeeded
+    if json_schema_conversion_result and json_schema_conversion_result.get("jsonschema"):
+        json_schema_filename = f"{base_name}.json"
+        schema_metadata["json_schema_filename"] = json_schema_filename
     metadata_content = json.dumps(schema_metadata, indent=2).encode()
     await upload_file(s3, "niem-schemas", f"{schema_id}/metadata.json", metadata_content, "application/json")
 
@@ -963,16 +976,29 @@ async def handle_schema_upload(
         await _generate_and_store_mapping(s3, schema_id, cmf_conversion_result)
 
         # Step 6: Store metadata and mark as active
-        await _store_schema_metadata(s3, schema_id, primary_file, file_contents, timestamp)
+        await _store_schema_metadata(s3, schema_id, primary_file, file_contents, timestamp, json_schema_conversion_result)
 
         # Extract import validation report from CMF conversion result
         import_validation_report = cmf_conversion_result.get("import_validation_report")
+
+        # Build warnings list
+        warnings = []
+        if not json_schema_conversion_result or not json_schema_conversion_result.get("jsonschema"):
+            error_msg = "JSON schema conversion failed - JSON file ingestion will not be available. XML ingestion is still supported."
+            if json_schema_conversion_result and json_schema_conversion_result.get("error"):
+                error_msg += f" Error: {json_schema_conversion_result['error']}"
+                if json_schema_conversion_result.get("details"):
+                    details = json_schema_conversion_result["details"]
+                    if isinstance(details, list) and details:
+                        error_msg += f" Details: {'; '.join(str(d) for d in details[:3])}"
+            warnings.append(error_msg)
 
         return SchemaResponse(
             schema_id=schema_id,
             scheval_report=scheval_report,
             import_validation_report=import_validation_report,
-            is_active=True  # Latest uploaded schema is automatically active
+            is_active=True,  # Latest uploaded schema is automatically active
+            warnings=warnings
         )
 
     except Exception as e:

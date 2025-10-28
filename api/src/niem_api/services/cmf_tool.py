@@ -184,8 +184,14 @@ def convert_cmf_to_jsonschema(cmf_content: str) -> dict[str, Any]:
             try:
                 # Convert CMF to JSON Schema
                 # Security: Use relative paths (just filenames) since we're in temp_dir
-                logger.info("Converting CMF to JSON Schema...")
+                logger.info("Converting CMF to JSON Schema using cmftool m2jmsg...")
                 result = run_cmf_command(["m2jmsg", "-o", "schema.json", "model.cmf"], working_dir=temp_dir)
+
+                logger.info(f"CMF to JSON Schema conversion completed with return code: {result['returncode']}")
+                if result["stdout"]:
+                    logger.info(f"STDOUT: {result['stdout']}")
+                if result["stderr"]:
+                    logger.info(f"STDERR: {result['stderr']}")
 
                 if result["returncode"] != 0:
                     errors = []
@@ -194,6 +200,7 @@ def convert_cmf_to_jsonschema(cmf_content: str) -> dict[str, Any]:
                     if result["stdout"]:
                         errors.append(result["stdout"])
 
+                    logger.error(f"CMF to JSON Schema conversion failed with errors: {errors}")
                     return {
                         "status": "error",
                         "error": "Failed to convert CMF to JSON Schema",
