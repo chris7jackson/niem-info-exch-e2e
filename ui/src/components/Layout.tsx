@@ -26,7 +26,7 @@ export default function Layout({ children }: LayoutProps) {
         <link rel="icon" href="/favicon.png" />
         <title>NIEM Information Exchange</title>
       </Head>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
         <nav className="bg-white shadow">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex h-16 justify-between">
@@ -55,11 +55,11 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </nav>
 
-        <main className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8 flex-1">
           <div className="px-4 py-6 sm:px-0">{children}</div>
         </main>
 
-        <footer className="bg-white border-t border-gray-200 mt-12">
+        <footer className="bg-white border-t border-gray-200 mt-auto">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex justify-between items-center text-sm text-gray-500">
               <div>
