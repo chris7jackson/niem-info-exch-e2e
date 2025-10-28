@@ -101,17 +101,28 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
         if full_name:
             logger.info(
                 f"✓ Extracted {entity_type} entity: PersonFullName='{full_name}' "
-                f"from {source} (node {record.get('entity_id')})"
+                f"from {source} (node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')})"
             )
         elif given_name and surname:
             logger.info(
                 f"✓ Extracted {entity_type} entity: GivenName='{given_name}', SurName='{surname}' "
-                f"from {source} (node {record.get('entity_id')})"
+                f"from {source} (node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')})"
             )
+        elif given_name:
+            # Accept entities with just given name (might be incomplete data)
+            logger.warning(
+                f"⚠ Partial extraction for {entity_type}: GivenName='{given_name}' only "
+                f"from {source} (node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')}). "
+                f"Skipping - need at least given name + surname for matching."
+            )
+            continue
         else:
             logger.warning(
-                f"✗ Failed to extract name from {entity_type} in {source} (node {record.get('entity_id')}). "
-                f"PersonFullName='{full_name}', GivenName='{given_name}', SurName='{surname}'"
+                f"✗ Failed to extract name from {entity_type} in {source} "
+                f"(node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')}). "
+                f"PersonFullName='{full_name}', GivenName='{given_name}', SurName='{surname}', "
+                f"PersonName fields from query: FullName={record.get('PersonFullName')}, "
+                f"GivenName={record.get('PersonGivenName')}, SurName={record.get('PersonSurName')}"
             )
             continue  # Skip entities without sufficient name data
 
@@ -304,6 +315,90 @@ def _create_resolved_entity_nodes(
     return resolved_count, relationship_count
 
 
+def _create_resolved_entity_relationships(neo4j_client: Neo4jClient) -> int:
+    """Create relationships between ResolvedEntity nodes based on original entity relationships.
+
+    This function finds relationships between original entities that have been resolved,
+    then creates corresponding relationships between their ResolvedEntity nodes.
+
+    Args:
+        neo4j_client: Neo4j client instance
+
+    Returns:
+        Count of relationships created between ResolvedEntity nodes
+    """
+    # Query to find relationships between resolved entities
+    # For each relationship between original entities, create a relationship
+    # between their corresponding ResolvedEntity nodes
+    query = """
+    // Find all relationships between entities that have been resolved
+    MATCH (source)-[original_rel]->(target)
+    WHERE NOT type(original_rel) = 'RESOLVED_TO'
+      AND exists((source)-[:RESOLVED_TO]->())
+      AND exists((target)-[:RESOLVED_TO]->())
+
+    // Get the ResolvedEntity nodes for source and target
+    MATCH (source)-[:RESOLVED_TO]->(source_re:ResolvedEntity)
+    MATCH (target)-[:RESOLVED_TO]->(target_re:ResolvedEntity)
+
+    // Avoid creating duplicate relationships
+    WHERE NOT exists((source_re)-[]->(target_re))
+
+    // Create relationship between ResolvedEntity nodes with same type as original
+    WITH source_re, target_re, type(original_rel) as rel_type,
+         collect(distinct id(original_rel)) as original_rel_ids
+
+    // Use CALL to dynamically create relationships with the original type
+    CALL apoc.create.relationship(source_re, rel_type, {
+        original_relationship_ids: original_rel_ids,
+        created_at: datetime()
+    }, target_re) YIELD rel
+
+    RETURN count(rel) as relationships_created
+    """
+
+    try:
+        result = neo4j_client.query(query, {})
+        if result and len(result) > 0:
+            count = result[0].get('relationships_created', 0)
+            logger.info(f"Created {count} relationships between ResolvedEntity nodes")
+            return count
+        return 0
+    except Exception as e:
+        logger.warning(f"Could not create resolved entity relationships (APOC may not be available): {e}")
+        logger.info("Falling back to generic RESOLVED_RELATIONSHIP type")
+
+        # Fallback query without APOC - uses generic relationship type
+        fallback_query = """
+        MATCH (source)-[original_rel]->(target)
+        WHERE NOT type(original_rel) = 'RESOLVED_TO'
+          AND exists((source)-[:RESOLVED_TO]->())
+          AND exists((target)-[:RESOLVED_TO]->())
+
+        MATCH (source)-[:RESOLVED_TO]->(source_re:ResolvedEntity)
+        MATCH (target)-[:RESOLVED_TO]->(target_re:ResolvedEntity)
+
+        WHERE NOT exists((source_re)-[]->(target_re))
+
+        WITH source_re, target_re, type(original_rel) as rel_type,
+             collect(distinct id(original_rel)) as original_rel_ids
+
+        MERGE (source_re)-[r:RESOLVED_RELATIONSHIP]->(target_re)
+        SET r.original_type = rel_type,
+            r.original_relationship_ids = original_rel_ids,
+            r.created_at = datetime()
+
+        RETURN count(r) as relationships_created
+        """
+
+        result = neo4j_client.query(fallback_query, {})
+        if result and len(result) > 0:
+            count = result[0].get('relationships_created', 0)
+            logger.info(f"Created {count} RESOLVED_RELATIONSHIP relationships (fallback mode)")
+            return count
+        return 0
+
+
 def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dict]) -> Tuple[int, int]:
     """
     Resolve entities using Senzing SDK.
@@ -466,10 +561,10 @@ def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
     RETURN count(r) as count
     """
 
-    rel_result = neo4j_client.query_graph(delete_rels_query, {})
+    rel_result = neo4j_client.query(delete_rels_query, {})
     rel_count = 0
-    if rel_result.get('nodes'):
-        rel_count = rel_result['nodes'][0].get('properties', {}).get('count', 0)
+    if rel_result and len(rel_result) > 0:
+        rel_count = rel_result[0].get('count', 0)
 
     # Delete ResolvedEntity nodes
     delete_nodes_query = """
@@ -478,10 +573,10 @@ def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
     RETURN count(re) as count
     """
 
-    node_result = neo4j_client.query_graph(delete_nodes_query, {})
+    node_result = neo4j_client.query(delete_nodes_query, {})
     node_count = 0
-    if node_result.get('nodes'):
-        node_count = node_result['nodes'][0].get('properties', {}).get('count', 0)
+    if node_result and len(node_result) > 0:
+        node_count = node_result[0].get('count', 0)
 
     logger.info(
         f"Reset entity resolution: deleted {node_count} nodes "
@@ -521,10 +616,10 @@ def _get_resolution_status(neo4j_client: Neo4jClient) -> Dict:
     RETURN count(re) as resolved_entities
     """
 
-    result = neo4j_client.query_graph(count_query, {})
+    result = neo4j_client.query(count_query, {})
     resolved_count = 0
-    if result.get('nodes'):
-        resolved_count = result['nodes'][0].get('properties', {}).get('resolved_entities', 0)
+    if result and len(result) > 0:
+        resolved_count = result[0].get('resolved_entities', 0)
 
     # Count RESOLVED_TO relationships
     rel_count_query = """
@@ -532,10 +627,10 @@ def _get_resolution_status(neo4j_client: Neo4jClient) -> Dict:
     RETURN count(r) as relationships
     """
 
-    rel_result = neo4j_client.query_graph(rel_count_query, {})
+    rel_result = neo4j_client.query(rel_count_query, {})
     rel_count = 0
-    if rel_result.get('nodes'):
-        rel_count = rel_result['nodes'][0].get('properties', {}).get('relationships', 0)
+    if rel_result and len(rel_result) > 0:
+        rel_count = rel_result[0].get('relationships', 0)
 
     return {
         'resolved_entity_clusters': resolved_count,
@@ -767,12 +862,17 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
                 entity_groups
             )
 
+        # Step 4: Create relationships between ResolvedEntity nodes
+        logger.info("Creating relationships between resolved entities")
+        resolved_relationships_count = _create_resolved_entity_relationships(neo4j_client)
+
         # Calculate total entities involved in resolution
         total_resolved_entities = sum(len(group) for group in entity_groups.values())
 
         logger.info(
             f"Entity resolution completed: {resolved_count} clusters created, "
-            f"{total_resolved_entities} entities resolved"
+            f"{total_resolved_entities} entities resolved, "
+            f"{resolved_relationships_count} relationships created between resolved entities"
         )
 
         # Determine which resolution method was used
@@ -786,11 +886,11 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
 
         return {
             'status': 'success',
-            'message': f'Successfully resolved {total_resolved_entities} entities into {resolved_count} clusters',
+            'message': f'Successfully resolved {total_resolved_entities} entities into {resolved_count} clusters with {resolved_relationships_count} relationships',
             'entitiesExtracted': len(entities),
             'duplicateGroupsFound': len(entity_groups),
             'resolvedEntitiesCreated': resolved_count,
-            'relationshipsCreated': relationship_count,
+            'relationshipsCreated': relationship_count + resolved_relationships_count,
             'entitiesResolved': total_resolved_entities,
             'resolutionMethod': resolution_method,
             'nodeTypesProcessed': selected_node_types
