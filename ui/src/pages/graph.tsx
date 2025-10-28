@@ -721,16 +721,31 @@ export default function GraphPage() {
                 <input
                   id="result-limit"
                   type="number"
-                  min="100"
-                  max="50000"
-                  step="1000"
+                  min="1"
+                  max="100000"
+                  step="1"
                   value={resultLimit}
-                  onChange={(e) => setResultLimit(parseInt(e.target.value) || 10000)}
+                  onChange={(e) => {
+                    const val = Number.parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 1 && val <= 100000) {
+                      setResultLimit(val);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const val = Number.parseInt(e.target.value);
+                    if (isNaN(val) || val < 1) {
+                      setResultLimit(10000);
+                    } else if (val > 100000) {
+                      setResultLimit(100000);
+                    }
+                  }}
                   className="w-32 border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="1-100000"
                 />
-                <span className="text-xs text-gray-500">
-                  Max results (larger values may impact performance)
-                </span>
+                <div className="flex flex-col text-xs text-gray-500">
+                  <span>Any value 1-100,000</span>
+                  <span className="text-gray-400">(larger values may impact performance)</span>
+                </div>
               </div>
             </div>
 
