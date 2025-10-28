@@ -56,8 +56,8 @@ class TestIngestErrorHandling:
         test_filename = "test.xml"
         test_cypher = "CREATE (n:Test)"
 
-        # Mock the upload_file function
-        with patch("niem_api.handlers.ingest.upload_file", new_callable=AsyncMock) as mock_upload:
+        # Mock the upload_file function (patch where it's imported from)
+        with patch("niem_api.clients.s3_client.upload_file", new_callable=AsyncMock) as mock_upload:
             mock_upload.return_value = None
 
             # Call the function
