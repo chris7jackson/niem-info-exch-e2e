@@ -1,0 +1,185 @@
+# NIEM to Senzing Field Mappings Configuration
+# This file defines how NIEM entity properties map to Senzing attributes
+# Edit this file to customize mappings for your specific NIEM implementation
+
+# Entity categorization rules
+# Used to determine entity type based on qname patterns
+entity_categories:
+  person:
+    patterns:
+      - person
+      - driver
+      - child
+      - parent
+      - guardian
+      - witness
+      - victim
+      - subject
+      - arrest
+    senzing_record_type: PERSON
+
+  organization:
+    patterns:
+      - organization
+      - org
+      - company
+      - agency
+      - department
+      - unit
+      - employer
+      - enforcement
+    senzing_record_type: ORGANIZATION
+
+  address:
+    patterns:
+      - address
+      - location
+      - place
+    senzing_record_type: ADDRESS
+
+  vehicle:
+    patterns:
+      - vehicle
+      - conveyance
+      - car
+      - aircraft
+      - vessel
+      - boat
+    senzing_record_type: VEHICLE
+
+# Field mappings from NIEM to Senzing
+# Format: niem_field: senzing_field
+field_mappings:
+  # Person name mappings
+  nc_PersonFullName: PRIMARY_NAME_FULL
+  nc_PersonGivenName: PRIMARY_NAME_FIRST
+  nc_PersonSurName: PRIMARY_NAME_LAST
+  nc_PersonMiddleName: PRIMARY_NAME_MIDDLE
+  nc_PersonMaidenName: MAIDEN_NAME
+  nc_PersonNamePrefixText: NAME_PREFIX
+  nc_PersonNameSuffixText: NAME_SUFFIX
+
+  # Alternative name fields (for different NIEM versions)
+  PersonFullName: PRIMARY_NAME_FULL
+  PersonGivenName: PRIMARY_NAME_FIRST
+  PersonSurName: PRIMARY_NAME_LAST
+  PersonMiddleName: PRIMARY_NAME_MIDDLE
+
+  # Birth and death information
+  nc_PersonBirthDate: DATE_OF_BIRTH
+  nc_PersonBirthLocation: PLACE_OF_BIRTH
+  nc_PersonDeathDate: DATE_OF_DEATH
+
+  # Identification numbers
+  nc_PersonSSNIdentification: SSN_NUMBER
+  nc_DriverLicenseIdentification: DRIVERS_LICENSE_NUMBER
+  nc_PassportIdentification: PASSPORT_NUMBER
+  j_PersonStateFingerprintIdentification: STATE_ID_NUMBER
+  j_PersonFBIIdentification: FBI_NUMBER
+  nc_IdentificationID: NATIONAL_ID_NUMBER
+
+  # Criminal justice specific
+  j_BookingSubjectID: BOOKING_ID
+  j_CaseNumberText: CASE_NUMBER
+  j_IncidentID: INCIDENT_ID
+  j_ArrestAgencyRecordIdentification: ARREST_RECORD_ID
+
+  # Contact information
+  nc_TelephoneNumberFullID: PHONE_NUMBER
+  nc_ElectronicAddressText: EMAIL_ADDRESS
+  nc_ContactWebsiteURI: WEBSITE_URL
+
+  # Physical characteristics
+  nc_PersonHeightMeasure: PHYSICAL_HEIGHT
+  nc_PersonWeightMeasure: PHYSICAL_WEIGHT
+  nc_PersonEyeColorCode: EYE_COLOR
+  nc_PersonHairColorCode: HAIR_COLOR
+  nc_PersonRaceCode: RACE_CODE
+  nc_PersonSexCode: GENDER
+  nc_PersonEthnicityCode: ETHNICITY
+
+  # Scars, marks, tattoos
+  j_PersonScars: SCARS_MARKS
+  nc_PersonTattooDescription: TATTOOS
+
+  # Organization mappings
+  nc_OrganizationName: ORG_NAME
+  nc_OrganizationIdentification: ORG_ID
+  nc_OrganizationCategoryText: ORG_TYPE
+  nc_OrganizationDoingBusinessAsName: DBA_NAME
+  nc_OrganizationTaxIdentification: TAX_ID
+  nc_OrganizationIncorporationDate: ORG_INCORPORATION_DATE
+
+  # Address mappings
+  nc_AddressFullText: ADDR_FULL
+  nc_StreetNumberText: ADDR_NUMBER
+  nc_StreetName: ADDR_LINE1
+  nc_AddressSecondaryUnitText: ADDR_LINE2
+  nc_CityName: ADDR_CITY
+  nc_StateCode: ADDR_STATE
+  nc_StateName: ADDR_STATE
+  nc_PostalCode: ADDR_POSTAL_CODE
+  nc_CountryCode: ADDR_COUNTRY
+  nc_CountyName: ADDR_COUNTY
+
+  # Location coordinates
+  nc_LocationLatitude: LATITUDE
+  nc_LocationLongitude: LONGITUDE
+
+  # Vehicle mappings
+  nc_VehicleIdentification: VIN_NUMBER
+  nc_ConveyanceRegistrationPlateIdentification: LICENSE_PLATE
+  nc_ItemMakeName: VEHICLE_MAKE
+  nc_ItemModelName: VEHICLE_MODEL
+  nc_ItemModelYearDate: VEHICLE_YEAR
+  nc_VehicleColorPrimaryCode: VEHICLE_COLOR
+  nc_ConveyanceEngineID: ENGINE_NUMBER
+
+  # Additional identifiers
+  nc_ItemSerialIdentification: SERIAL_NUMBER
+
+# Multi-value field handling
+# These fields can have multiple values separated by semicolons
+multi_value_fields:
+  - PRIMARY_NAME_MIDDLE
+  - PHONE_NUMBER
+  - EMAIL_ADDRESS
+  - SCARS_MARKS
+  - TATTOOS
+
+# Date format configuration
+date_formats:
+  # Formats to try when parsing dates from NIEM
+  input_formats:
+    - "%Y-%m-%d"
+    - "%m/%d/%Y"
+    - "%d/%m/%Y"
+    - "%Y%m%d"
+    - "%Y-%m-%dT%H:%M:%S"
+    - "%Y-%m-%dT%H:%M:%SZ"
+  # Output format for Senzing
+  output_format: "%Y-%m-%d"
+
+# Recommended entity types for resolution
+# These will be marked as recommended in the UI
+recommended_types:
+  - nc:Person
+  - j:Person
+  - j:CrashDriver
+  - j:CrashPerson
+  - cyfs:Child
+  - cyfs:Parent
+  - nc:Organization
+  - j:Organization
+  - nc:Entity
+  - nc:Address
+  - nc:Location
+  - nc:Vehicle
+  - j:Vehicle
+
+# Custom mappings
+# Add your own project-specific mappings here
+custom_mappings:
+  # Example:
+  # myproject_PersonID: CUSTOM_PERSON_ID
+  # myproject_AccountNumber: ACCOUNT_NUMBER
