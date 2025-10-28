@@ -82,6 +82,7 @@ class SchemaResponse(BaseModel):
     scheval_report: SchevalReport | None = None
     import_validation_report: ImportValidationReport | None = None
     is_active: bool
+    warnings: list[str] = []
 
 
 class ResetRequest(BaseModel):
