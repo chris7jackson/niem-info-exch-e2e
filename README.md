@@ -480,6 +480,8 @@ This walkthrough demonstrates:
 
 1. **Graph Visualizations**: Limitations on rebuilding graph UI from neo4j browser for full set of nodes and edges.
 
+2. **JSON Schema Conversion**: CMFTool v1.0 has a bug that prevents JSON Schema generation for certain NIEM 3.0 schemas (e.g., NEICE IEPD). This affects JSON file ingestion but XML ingestion still works. See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for details and workarounds.
+
 3. **Design Documentation**: Update architecture diagrams and component documentation to reflect current implementation.
 
 4. **Version Control**: Implement semantic versioning mapped to NIEM versions for proper release management. See [GitHub Issues #1-5] for detailed plan.
