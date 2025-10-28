@@ -587,6 +587,15 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
     results = neo4j_client.query(discovery_query, {})
     node_types = []
 
+    # Try to load configuration for categorization
+    try:
+        from ..services.entity_to_senzing import load_mapping_config, get_entity_category
+        config = load_mapping_config()
+        recommended_types = config.get('recommended_types', [])
+    except ImportError:
+        config = {}
+        recommended_types = []
+
     for record in results:
         # Determine which name fields are available
         name_fields = []
@@ -595,16 +604,30 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
         if record.get('hasGivenAndSurname'):
             name_fields.append('PersonGivenName + PersonSurName')
 
+        qname = record['qname']
+
+        # Determine category and recommendation
+        category = 'other'
+        recommended = qname in recommended_types
+
+        # Get category from entity_to_senzing service
+        try:
+            from ..services.entity_to_senzing import get_entity_category
+            entity_mock = {'qname': qname}
+            category = get_entity_category(entity_mock)
+            # Person and Organization are always recommended
+            if category in ['person', 'organization']:
+                recommended = True
+        except:
+            pass
+
         node_type_info = {
-            'qname': record['qname'],
+            'qname': qname,
             'label': record['label'],
             'count': record['count'],
             'nameFields': name_fields,
-            'sampleData': {
-                'PersonFullName': record.get('sampleFullName'),
-                'PersonGivenName': record.get('sampleGivenName'),
-                'PersonSurName': record.get('sampleSurName')
-            }
+            'category': category,
+            'recommended': recommended
         }
 
         node_types.append(node_type_info)
