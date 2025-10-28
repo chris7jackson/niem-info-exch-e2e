@@ -170,12 +170,12 @@ class SenzingClient:
             logger.info("Using fallback minimal configuration")
             return json.dumps({
                 "PIPELINE": {
-                    "CONFIGPATH": "/tmp/senzing/config/",
+                    "CONFIGPATH": "/tmp/senzing/config/",  # nosec B108 - Senzing SDK standard config path
                     "RESOURCEPATH": "/opt/senzing/g2/resources/",
-                    "SUPPORTPATH": "/tmp/senzing/"
+                    "SUPPORTPATH": "/tmp/senzing/"  # nosec B108 - Senzing SDK standard support path
                 },
                 "SQL": {
-                    "CONNECTION": "sqlite3://na:na@/tmp/senzing/g2.db"
+                    "CONNECTION": "sqlite3://na:na@/tmp/senzing/g2.db"  # nosec B108 - Senzing SDK standard DB path
                 }
             })
 
