@@ -30,7 +30,7 @@ interface ImportValidationReport {
   missing_count: number;
 }
 
-interface SchevalIssue {
+interface NdrValidationIssue {
   file: string;
   line: number;
   column: number;
@@ -39,27 +39,27 @@ interface SchevalIssue {
   rule?: string;
 }
 
-interface SchevalReport {
+interface NdrValidationReport {
   status: string;
   message: string;
   conformance_target: string;
-  errors: SchevalIssue[];
-  warnings: SchevalIssue[];
+  errors: NdrValidationIssue[];
+  warnings: NdrValidationIssue[];
   summary: { [key: string]: number };
   metadata?: { [key: string]: any };
 }
 
 interface ValidationResultsProps {
   readonly importReport?: ImportValidationReport;
-  readonly schevalReport?: SchevalReport;
+  readonly ndrValidation?: NdrValidationReport;
 }
 
-export default function ValidationResults({ importReport, schevalReport }: ValidationResultsProps) {
+export default function ValidationResults({ importReport, ndrValidation }: ValidationResultsProps) {
   const [expandedImports, setExpandedImports] = useState(false);
-  const [expandedScheval, setExpandedScheval] = useState(true); // Default expanded for scheval
+  const [expandedNdr, setExpandedNdr] = useState(true); // Default expanded for NDR
   const [expandedFiles, setExpandedFiles] = useState<{ [key: string]: boolean }>({});
 
-  if (!importReport && !schevalReport) {
+  if (!importReport && !ndrValidation) {
     return null;
   }
 
@@ -67,25 +67,25 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
     setExpandedFiles(prev => ({ ...prev, [filename]: !prev[filename] }));
   };
 
-  // Group scheval issues by file
-  const schevalIssuesByFile: { [key: string]: SchevalIssue[] } = {};
-  if (schevalReport) {
-    [...schevalReport.errors, ...schevalReport.warnings].forEach(issue => {
+  // Group NDR issues by file
+  const ndrIssuesByFile: { [key: string]: NdrValidationIssue[] } = {};
+  if (ndrValidation) {
+    [...ndrValidation.errors, ...ndrValidation.warnings].forEach(issue => {
       const file = issue.file;
-      if (!schevalIssuesByFile[file]) {
-        schevalIssuesByFile[file] = [];
+      if (!ndrIssuesByFile[file]) {
+        ndrIssuesByFile[file] = [];
       }
-      schevalIssuesByFile[file].push(issue);
+      ndrIssuesByFile[file].push(issue);
     });
   }
 
   const importStatus = importReport?.status || 'unknown';
-  const schevalStatus = schevalReport?.status || 'unknown';
-  const overallSuccess = importStatus === 'pass' && schevalStatus === 'pass';
+  const ndrStatus = ndrValidation?.status || 'unknown';
+  const overallSuccess = importStatus === 'pass' && ndrStatus === 'pass';
 
   // Debug logging
   console.log('ValidationResults - importReport:', importReport);
-  console.log('ValidationResults - schevalReport:', schevalReport);
+  console.log('ValidationResults - ndrValidation:', ndrValidation);
 
   return (
     <div className="bg-white shadow rounded-lg p-6 space-y-4">
@@ -102,10 +102,10 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
           <div className="text-sm font-medium text-gray-500">NIEM NDR Validation</div>
           <div className="mt-2 flex items-center">
             {(() => {
-              if (!schevalReport) {
+              if (!ndrValidation) {
                 return <span className="text-sm text-gray-500">Not checked</span>;
               }
-              if (schevalStatus === 'pass') {
+              if (ndrStatus === 'pass') {
                 return (
                   <>
                     <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
@@ -113,20 +113,20 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
                   </>
                 );
               }
-              if (schevalStatus === 'fail' || schevalStatus === 'error') {
+              if (ndrStatus === 'fail' || ndrStatus === 'error') {
                 return (
                   <>
                     <XCircleIcon className="h-5 w-5 text-red-500 mr-2" />
-                    <span className="text-sm text-red-700">{schevalReport?.summary.error_count || 0} errors</span>
+                    <span className="text-sm text-red-700">{ndrValidation?.summary.error_count || 0} errors</span>
                   </>
                 );
               }
               return <span className="text-sm text-gray-500">Unknown</span>;
             })()}
           </div>
-          {schevalReport && schevalReport.summary.warning_count > 0 && (
+          {ndrValidation && ndrValidation.summary.warning_count > 0 && (
             <div className="mt-1 text-xs text-yellow-600">
-              {schevalReport.summary.warning_count} warnings
+              {ndrValidation.summary.warning_count} warnings
             </div>
           )}
         </div>
@@ -166,33 +166,33 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
       </div>
 
       {/* NIEM NDR Violations */}
-      {schevalReport && (schevalReport.errors.length > 0 || schevalReport.warnings.length > 0) && (
+      {ndrValidation && (ndrValidation.errors.length > 0 || ndrValidation.warnings.length > 0) && (
         <div className="border border-gray-200 rounded-lg">
           <button
-            onClick={() => setExpandedScheval(!expandedScheval)}
+            onClick={() => setExpandedNdr(!expandedNdr)}
             className="w-full flex items-center justify-between p-4 hover:bg-gray-50"
           >
             <div className="flex items-center">
-              {expandedScheval ? (
+              {expandedNdr ? (
                 <ChevronDownIcon className="h-5 w-5 text-gray-400 mr-2" />
               ) : (
                 <ChevronRightIcon className="h-5 w-5 text-gray-400 mr-2" />
               )}
               <span className="text-sm font-medium text-gray-900">
-                NIEM NDR Violations by File ({schevalReport.errors.length + schevalReport.warnings.length})
+                NIEM NDR Violations by File ({ndrValidation.errors.length + ndrValidation.warnings.length})
               </span>
             </div>
           </button>
-          {expandedScheval && (
+          {expandedNdr && (
             <div className="px-4 pb-4 space-y-2">
-              {Object.entries(schevalIssuesByFile).map(([filename, issues]) => (
+              {Object.entries(ndrIssuesByFile).map(([filename, issues]) => (
                 <div key={filename} className="border border-gray-200 rounded">
                   <button
-                    onClick={() => toggleFile(`scheval-${filename}`)}
+                    onClick={() => toggleFile(`ndr-${filename}`)}
                     className="w-full flex items-center justify-between p-3 hover:bg-gray-50"
                   >
                     <div className="flex items-center">
-                      {expandedFiles[`scheval-${filename}`] ? (
+                      {expandedFiles[`ndr-${filename}`] ? (
                         <ChevronDownIcon className="h-4 w-4 text-gray-400 mr-2" />
                       ) : (
                         <ChevronRightIcon className="h-4 w-4 text-gray-400 mr-2" />
@@ -204,7 +204,7 @@ export default function ValidationResults({ importReport, schevalReport }: Valid
                       </span>
                     </div>
                   </button>
-                  {expandedFiles[`scheval-${filename}`] && (
+                  {expandedFiles[`ndr-${filename}`] && (
                     <div className="px-3 pb-3 space-y-2">
                       {issues.map((issue, idx) => (
                         <div key={`${issue.file}-${issue.line}-${issue.column}-${idx}`} className="text-xs border-l-2 pl-3 py-2"
