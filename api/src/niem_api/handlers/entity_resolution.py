@@ -25,9 +25,15 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
-    """Extract Person and CrashDriver entities from Neo4j for resolution.
+    """Extract person entities from Neo4j for resolution.
 
-    Extracts entities with connected name and birth date information.
+    Supports multiple entity types:
+    - j:CrashDriver (direct connection to PersonName)
+    - cyfs:Child (NEICE child entities, nested via RoleOfPerson)
+
+    Supports multiple name formats:
+    - PersonGivenName + PersonSurName (CrashDriver)
+    - PersonFullName (Child entities from NEICE documents)
 
     Args:
         neo4j_client: Neo4j client instance
@@ -35,20 +41,25 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
     Returns:
         List of entity dictionaries with properties
     """
-    # Query to get CrashDriver nodes with connected PersonName data
+    # Query to get both CrashDriver and Child entities
+    # Use variable-length path to handle both:
+    #   - Direct: CrashDriver -> PersonName (1 hop)
+    #   - Nested: Child -> RoleOfPerson -> PersonName (2 hops)
     query = """
-    MATCH (d:j_CrashDriver)-[:HAS_PERSONNAME]->(pn:nc_PersonName)
-    OPTIONAL MATCH (d)-[:HAS_PERSONBIRTHDATE]->(pbd:nc_PersonBirthDate)
+    MATCH (entity)-[*1..2]->(pn:nc_PersonName)
+    WHERE entity.qname IN ['j:CrashDriver', 'cyfs:Child']
     RETURN
-        id(d) as neo4j_id,
-        d.id as entity_id,
-        d.qname as qname,
-        labels(d) as labels,
-        d as driver_node,
+        id(entity) as neo4j_id,
+        entity.id as entity_id,
+        entity.qname as qname,
+        entity.sourceDoc as sourceDoc,
+        entity._source_file as source_file,
+        labels(entity) as labels,
+        entity as entity_node,
+        pn.nc_PersonFullName as PersonFullName,
         pn.nc_PersonGivenName as PersonGivenName,
         pn.nc_PersonSurName as PersonSurName,
-        pn.nc_PersonMiddleName as PersonMiddleName,
-        pbd.id as birth_date_id
+        pn.nc_PersonMiddleName as PersonMiddleName
     """
 
     # Use query() instead of query_graph() for scalar results
@@ -56,19 +67,49 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
     entities = []
 
     for record in results:
-        driver_props = dict(record['driver_node'].items()) if record.get('driver_node') else {}
+        entity_props = dict(record['entity_node'].items()) if record.get('entity_node') else {}
+
+        # Extract name components - support multiple formats
+        full_name = str(record.get('PersonFullName') or '')
+        given_name = str(record.get('PersonGivenName') or '')
+        surname = str(record.get('PersonSurName') or '')
+        middle_name = str(record.get('PersonMiddleName') or '')
+
+        # Get source and entity type info
+        source = record.get('sourceDoc') or record.get('source_file') or 'unknown'
+        entity_type = record.get('qname') or 'Unknown'
+
+        # Log extraction details for debugging
+        if full_name:
+            logger.info(
+                f"✓ Extracted {entity_type} entity: PersonFullName='{full_name}' "
+                f"from {source} (node {record.get('entity_id')})"
+            )
+        elif given_name and surname:
+            logger.info(
+                f"✓ Extracted {entity_type} entity: GivenName='{given_name}', SurName='{surname}' "
+                f"from {source} (node {record.get('entity_id')})"
+            )
+        else:
+            logger.warning(
+                f"✗ Failed to extract name from {entity_type} in {source} (node {record.get('entity_id')}). "
+                f"PersonFullName='{full_name}', GivenName='{given_name}', SurName='{surname}'"
+            )
+            continue  # Skip entities without sufficient name data
 
         entities.append({
             'neo4j_id': record['neo4j_id'],
             'entity_id': record.get('entity_id'),
+            'entity_type': entity_type,
             'qname': record.get('qname'),
             'labels': record.get('labels', []),
+            'source': source,
             'properties': {
-                **driver_props,
-                'PersonGivenName': record.get('PersonGivenName', ''),
-                'PersonSurName': record.get('PersonSurName', ''),
-                'PersonMiddleName': record.get('PersonMiddleName', ''),
-                'PersonBirthDate': record.get('birth_date_id', '')  # Use birth date node ID as proxy
+                **entity_props,
+                'PersonFullName': full_name,
+                'PersonGivenName': given_name,
+                'PersonSurName': surname,
+                'PersonMiddleName': middle_name
             }
         })
 
@@ -79,7 +120,10 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient) -> List[Dict]:
 def _create_entity_key(entity: Dict) -> str:
     """Create a matching key for entity resolution.
 
-    Uses PersonGivenName and PersonSurName to create a deterministic key for matching.
+    Supports multiple name formats:
+    - PersonFullName (e.g., "Jason Ohlendorf" -> "jason_ohlendorf")
+    - PersonGivenName + PersonSurName (e.g., "Peter" + "Wimsey" -> "peter_wimsey")
+
     In a real system, this would include birth date, SSN, or other identifiers.
 
     Args:
@@ -90,17 +134,24 @@ def _create_entity_key(entity: Dict) -> str:
     """
     props = entity.get('properties', {})
 
-    # Extract name components
+    # Try PersonFullName first (for Child entities from NEICE documents)
+    full_name = props.get('PersonFullName', '').strip().lower()
+    if full_name:
+        # Normalize: "Jason Ohlendorf" -> "jason_ohlendorf"
+        key = full_name.replace(' ', '_')
+        return key
+
+    # Fall back to GivenName + SurName (for CrashDriver entities)
     given_name = props.get('PersonGivenName', '').strip().lower()
     surname = props.get('PersonSurName', '').strip().lower()
 
-    # Need at least given name and surname for matching
-    if not given_name or not surname:
-        return ''
+    if given_name and surname:
+        # Create normalized key: "peter" + "wimsey" -> "peter_wimsey"
+        key = f"{given_name}_{surname}"
+        return key
 
-    # Create normalized key (using full name for matching)
-    key = f"{given_name}_{surname}"
-    return key
+    # Insufficient data for matching
+    return ''
 
 
 def _group_entities_by_key(entities: List[Dict]) -> Dict[str, List[Dict]]:
@@ -129,7 +180,12 @@ def _group_entities_by_key(entities: List[Dict]) -> Dict[str, List[Dict]]:
     # Filter to only groups with duplicates (2+ entities)
     duplicate_groups = {k: v for k, v in groups.items() if len(v) >= 2}
 
-    logger.info(f"Found {len(duplicate_groups)} duplicate entity groups")
+    # Log detailed grouping information
+    logger.info(f"Found {len(duplicate_groups)} duplicate entity groups from {len(entities)} total entities")
+    for key, group in duplicate_groups.items():
+        sources = [e.get('source', 'unknown') for e in group]
+        logger.info(f"  Match key '{key}': {len(group)} entities from sources: {sources}")
+
     return duplicate_groups
 
 
@@ -159,17 +215,23 @@ def _create_resolved_entity_nodes(
         first_entity = entities[0]
         props = first_entity['properties']
 
-        given_name = props.get('PersonGivenName', '')
-        middle_names = props.get('PersonMiddleName', [])
-        surname = props.get('PersonSurName', '')
+        # Use PersonFullName if available (Child entity format)
+        full_name = props.get('PersonFullName', '').strip()
 
-        # Handle middle names (can be list or string)
-        if isinstance(middle_names, list):
-            middle_str = ' '.join(middle_names)
-        else:
-            middle_str = str(middle_names) if middle_names else ''
+        # Otherwise construct from name parts (CrashDriver format)
+        if not full_name:
+            given_name = props.get('PersonGivenName', '')
+            middle_names = props.get('PersonMiddleName', [])
+            surname = props.get('PersonSurName', '')
 
-        full_name = f"{given_name} {middle_str} {surname}".strip()
+            # Handle middle names (can be list or string)
+            if isinstance(middle_names, list):
+                middle_str = ' '.join(str(m) for m in middle_names if m)
+            else:
+                middle_str = str(middle_names) if middle_names else ''
+
+            full_name = f"{given_name} {middle_str} {surname}".strip()
+
         birth_date = props.get('PersonBirthDate', '')
 
         # Create ResolvedEntity node
