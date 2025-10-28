@@ -13,7 +13,7 @@ from neo4j import GraphDatabase
 from .core.auth import verify_token
 from .core.dependencies import get_s3_client
 from .core.logging import setup_logging
-from .models.models import ResetRequest, SchemaResponse
+from .models.models import EntityResolutionRequest, ResetRequest, SchemaResponse
 
 logger = logging.getLogger(__name__)
 
@@ -383,6 +383,7 @@ async def get_full_graph(
 
 @app.post("/api/entity-resolution/run")
 async def run_entity_resolution(
+    request: EntityResolutionRequest | None = None,
     token: str = Depends(verify_token)
 ):
     """Run mock entity resolution on the current graph.
@@ -390,9 +391,26 @@ async def run_entity_resolution(
     Identifies duplicate entities based on name and birth date,
     creates ResolvedEntity nodes to show which entities represent
     the same real-world person.
+
+    Args:
+        request: Optional request body with selected node types to resolve
     """
     from .handlers.entity_resolution import handle_run_entity_resolution
-    return handle_run_entity_resolution()
+    selected_types = request.selectedNodeTypes if request else None
+    return handle_run_entity_resolution(selected_types)
+
+
+@app.get("/api/entity-resolution/node-types")
+async def get_available_node_types(
+    token: str = Depends(verify_token)
+):
+    """Get all available node types that can be resolved.
+
+    Returns node types that have name properties and can be
+    used for entity resolution.
+    """
+    from .handlers.entity_resolution import handle_get_available_node_types
+    return handle_get_available_node_types()
 
 
 @app.get("/api/entity-resolution/status")
