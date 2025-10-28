@@ -10,15 +10,19 @@ def test_generate_for_json_content_uses_sha1_hash():
     """Test that generate_for_json_content uses SHA1 hash for file prefix."""
     # This test ensures coverage of the usedforsecurity=False parameter (line 237)
 
-    # Minimal mapping
+    # Minimal mapping (properties must be a list of dicts, not a dict)
     mapping_dict = {
         "objects": [
             {
                 "qname": "nc:Person",
                 "label": "Person",
-                "properties": {
-                    "nc:PersonName": "{{text}}"
-                }
+                "properties": [
+                    {
+                        "neo4j_key": "nc_PersonName",
+                        "json_path": "nc:PersonName",
+                        "xml_path": "nc:PersonName"
+                    }
+                ]
             }
         ],
         "associations": [],
