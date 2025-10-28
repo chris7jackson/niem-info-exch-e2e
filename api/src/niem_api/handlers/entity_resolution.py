@@ -80,7 +80,7 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
     """
 
     # Use query() instead of query_graph() for scalar results
-    results = neo4j_client.query(query, {'node_types': node_types})
+    results = neo4j_client.query(query, {'node_types': selected_node_types})
     entities = []
 
     for record in results:
