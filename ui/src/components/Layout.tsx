@@ -55,8 +55,10 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </nav>
 
-        <main className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8 flex-1">
-          <div className="px-4 py-6 sm:px-0">{children}</div>
+        <main className="flex-1 w-full">
+          <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+            <div className="px-4 py-6 sm:px-0">{children}</div>
+          </div>
         </main>
 
         <footer className="bg-white border-t border-gray-200 mt-auto">
