@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from niem_api.clients.niemtran_client import run_niemtran_tool, NIEMTranError
+from niem_api.clients.niemtran_client import run_niemtran_command, NIEMTranError
 
 
 class TestNIEMTranSecurityValidation:
@@ -25,9 +25,9 @@ class TestNIEMTranSecurityValidation:
             mock_result.stderr = ""
             mock_run.return_value = mock_result
 
-            # Call run_niemtran_tool with custom working_dir in /tmp
+            # Call run_niemtran_command with custom working_dir in /tmp
             # This should trigger the security validation code at line 300
-            run_niemtran_tool(["--version"], working_dir=tmpdir)
+            run_niemtran_command(["--version"], working_dir=tmpdir)
 
             # Verify subprocess was called with the working directory
             mock_run.assert_called_once()
@@ -39,7 +39,7 @@ class TestNIEMTranSecurityValidation:
         """Test that working_dir validation rejects paths outside allowed locations."""
         # Try to use /etc as working dir (should be rejected)
         with pytest.raises(NIEMTranError) as exc_info:
-            run_niemtran_tool(["--version"], working_dir="/etc")
+            run_niemtran_command(["--version"], working_dir="/etc")
 
         assert "not in allowed locations" in str(exc_info.value)
         # Subprocess should never be called
@@ -50,7 +50,7 @@ class TestNIEMTranSecurityValidation:
     def test_working_dir_validation_rejects_nonexistent_path(self, mock_run):
         """Test that working_dir validation rejects non-existent directories."""
         with pytest.raises(NIEMTranError) as exc_info:
-            run_niemtran_tool(["--version"], working_dir="/tmp/nonexistent_dir_12345")
+            run_niemtran_command(["--version"], working_dir="/tmp/nonexistent_dir_12345")
 
         assert "does not exist" in str(exc_info.value)
         mock_run.assert_not_called()
