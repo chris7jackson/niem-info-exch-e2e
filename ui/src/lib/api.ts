@@ -135,6 +135,7 @@ export interface EntityResolutionResponse {
   relationshipsCreated: number;
   entitiesResolved: number;
   nodeTypesProcessed?: string[];
+  resolution_method?: string;
 }
 
 export interface EntityResolutionStatusResponse {

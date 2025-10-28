@@ -73,10 +73,21 @@ async def startup_tasks():
         # Setup Senzing license (auto-decode if needed)
         from .core.config import senzing_config
         senzing_available = senzing_config.ensure_license()
+
+        # Initialize Senzing configuration if available
         if senzing_available:
-            logger.info("Senzing entity resolution is available")
+            try:
+                from .startup.initialize_senzing import initialize_senzing
+                senzing_configured = initialize_senzing()
+                if senzing_configured:
+                    logger.info("✓ Senzing entity resolution is available and configured")
+                else:
+                    logger.info("✓ Senzing license found but configuration failed - using fallback")
+            except ImportError:
+                logger.info("Senzing initialization module not found - using defaults")
+                senzing_configured = senzing_available
         else:
-            logger.info("Senzing entity resolution is not available (license not found)")
+            logger.info("✗ Senzing entity resolution not available (no license) - using mock resolution")
 
         logger.info("Startup tasks completed successfully")
 

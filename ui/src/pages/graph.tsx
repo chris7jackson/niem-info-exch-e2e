@@ -155,7 +155,6 @@ export default function GraphPage() {
   const [selectedLayout, setSelectedLayout] = useState('cose');
   const [showNodeLabels, setShowNodeLabels] = useState(true);
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
-  const [resolutionMessage, setResolutionMessage] = useState<string | null>(null);
   const [resultLimit, setResultLimit] = useState(10000);
 
   useEffect(() => {
@@ -549,11 +548,9 @@ export default function GraphPage() {
           if (lastQueryRef.current) {
             runQuery(lastQueryRef.current);
           }
-          // Show success message
-          setResolutionMessage(response.message);
         }}
         onError={(error) => {
-          setResolutionMessage(`Error: ${error}`);
+          console.error('Entity resolution error:', error);
         }}
       />
 

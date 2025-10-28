@@ -147,32 +147,35 @@ class SenzingClient:
         Returns:
             JSON string of initialization parameters
         """
-        # Read g2.ini file if it exists
-        if os.path.exists(self.config_path):
-            with open(self.config_path, 'r') as f:
-                ini_content = f.read()
-            # Convert INI to JSON format expected by Senzing
-            # This is simplified - real implementation would parse INI properly
+        try:
+            # Use simplified configuration
+            import sys
+            from pathlib import Path
+
+            # Add config directory to path
+            config_dir = Path(__file__).parent.parent.parent / "config"
+            if str(config_dir) not in sys.path:
+                sys.path.insert(0, str(config_dir))
+
+            from senzing_simple_config import get_ini_json_params
+            ini_params = get_ini_json_params()
+
+            logger.info(f"Loaded Senzing configuration with SQLite at {ini_params['SQL']['CONNECTION']}")
+            return json.dumps(ini_params)
+
+        except ImportError as e:
+            logger.warning(f"Could not import simple config: {e}")
+
+            # Fallback to minimal in-memory configuration
+            logger.info("Using fallback minimal configuration")
             return json.dumps({
                 "PIPELINE": {
-                    "CONFIGPATH": "/app/config/",
+                    "CONFIGPATH": "/tmp/senzing/config/",
                     "RESOURCEPATH": "/opt/senzing/g2/resources/",
-                    "SUPPORTPATH": "/opt/senzing/data/"
+                    "SUPPORTPATH": "/tmp/senzing/"
                 },
                 "SQL": {
-                    "CONNECTION": "sqlite3://na:na@/data/senzing/g2.db"
-                }
-            })
-        else:
-            # Use default configuration
-            return json.dumps({
-                "PIPELINE": {
-                    "CONFIGPATH": "/app/config/",
-                    "RESOURCEPATH": "/opt/senzing/g2/resources/",
-                    "SUPPORTPATH": "/data/senzing/"
-                },
-                "SQL": {
-                    "CONNECTION": "sqlite3://na:na@/data/senzing/g2.db"
+                    "CONNECTION": "sqlite3://na:na@/tmp/senzing/g2.db"
                 }
             })
 

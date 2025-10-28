@@ -23,9 +23,53 @@ def get_senzing_config_path() -> Path:
         return Path(os.getenv("SENZING_DATA_DIR", "./data/senzing"))
 
 
+def get_database_connection() -> str:
+    """
+    Get database connection string from environment or use default SQLite.
+
+    Supports:
+    - PostgreSQL: SENZING_DATABASE_URL or individual components
+    - MySQL: SENZING_DATABASE_URL or individual components
+    - SQLite: Default fallback
+    """
+    # Check for full database URL first (best practice)
+    db_url = os.getenv("SENZING_DATABASE_URL")
+    if db_url:
+        return db_url
+
+    # Check for database type
+    db_type = os.getenv("SENZING_DB_TYPE", "sqlite").lower()
+
+    if db_type == "postgresql" or db_type == "postgres":
+        # PostgreSQL connection from environment variables
+        host = os.getenv("SENZING_DB_HOST", "postgres")
+        port = os.getenv("SENZING_DB_PORT", "5432")
+        database = os.getenv("SENZING_DB_NAME", "g2")
+        user = os.getenv("SENZING_DB_USER", "senzing")
+        password = os.getenv("SENZING_DB_PASSWORD", "senzing")
+        return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+
+    elif db_type == "mysql":
+        # MySQL connection from environment variables
+        host = os.getenv("SENZING_DB_HOST", "mysql")
+        port = os.getenv("SENZING_DB_PORT", "3306")
+        database = os.getenv("SENZING_DB_NAME", "g2")
+        user = os.getenv("SENZING_DB_USER", "senzing")
+        password = os.getenv("SENZING_DB_PASSWORD", "senzing")
+        return f"mysql://{user}:{password}@{host}:{port}/{database}"
+
+    else:
+        # Default to SQLite for development/testing
+        base_dir = get_senzing_config_path()
+        db_dir = base_dir / "sqlite"
+        db_dir.mkdir(parents=True, exist_ok=True)
+        db_path = db_dir / "g2.db"
+        return f"sqlite3://na:na@{db_path}"
+
+
 def ensure_sqlite_setup() -> dict:
     """
-    Ensure SQLite database and minimal configuration for Senzing.
+    Ensure database and minimal configuration for Senzing.
 
     Returns:
         Dictionary with configuration paths
@@ -44,23 +88,37 @@ def ensure_sqlite_setup() -> dict:
         path.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Ensured {name} directory: {path}")
 
-    # SQLite database path
-    db_path = directories["db"] / "g2.db"
+    # Get database connection string
+    connection_string = get_database_connection()
+
+    # Extract database path if using SQLite
+    db_path = None
+    if "sqlite3://" in connection_string:
+        if "@" in connection_string:
+            db_path = connection_string.split("@")[1]
 
     # Create minimal g2.ini if it doesn't exist
     ini_path = directories["config"] / "g2.ini"
     if not ini_path.exists():
-        ini_content = f"""# Minimal Senzing Configuration
+        # Get resource path from environment or use default
+        resource_path = os.getenv("SENZING_RESOURCE_PATH", str(directories["resources"]))
+
+        ini_content = f"""# Senzing Configuration
+# All sensitive values should be set via environment variables
+
 [PIPELINE]
 CONFIGPATH={directories["config"]}/
-RESOURCEPATH={directories["resources"]}/
+RESOURCEPATH={resource_path}/
 SUPPORTPATH={base_dir}/
 
 [SQL]
-CONNECTION=sqlite3://na:na@{db_path}
+# Connection string from environment: SENZING_DATABASE_URL
+# Or individual components: SENZING_DB_TYPE, SENZING_DB_HOST, etc.
+CONNECTION={connection_string}
 """
         ini_path.write_text(ini_content)
-        logger.info(f"Created minimal g2.ini at {ini_path}")
+        logger.info(f"Created g2.ini at {ini_path}")
+        logger.info(f"Using database: {connection_string.split('@')[0] if '@' in connection_string else connection_string}")
 
     return {
         "g2_ini": str(ini_path),
@@ -79,14 +137,20 @@ def get_ini_json_params() -> dict:
     config = ensure_sqlite_setup()
     base_dir = Path(config["data_dir"])
 
+    # Get database connection from environment
+    connection_string = get_database_connection()
+
+    # Get resource path from environment
+    resource_path = os.getenv("SENZING_RESOURCE_PATH", str(base_dir / "resources"))
+
     return {
         "PIPELINE": {
             "CONFIGPATH": str(base_dir / "config") + "/",
-            "RESOURCEPATH": str(base_dir / "resources") + "/",
+            "RESOURCEPATH": resource_path + "/",
             "SUPPORTPATH": str(base_dir) + "/"
         },
         "SQL": {
-            "CONNECTION": f"sqlite3://na:na@{config['db_path']}"
+            "CONNECTION": connection_string
         }
     }
 
