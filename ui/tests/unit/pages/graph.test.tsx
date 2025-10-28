@@ -132,7 +132,8 @@ describe('Graph Page', () => {
 
     // Component auto-loads on mount, so error should appear
     await waitFor(() => {
-      expect(screen.getByText(/query error/i)).toBeInTheDocument()
+      // Look for the specific HTTP error message (not just "error")
+      expect(screen.getByText(/HTTP error! status: 500/i)).toBeInTheDocument()
     }, { timeout: 3000 })
   })
 
@@ -147,7 +148,8 @@ describe('Graph Page', () => {
 
     // Wait for initial error from bad query
     await waitFor(() => {
-      expect(screen.getByText(/query error/i)).toBeInTheDocument()
+      // Look for the specific HTTP error message (not just "error")
+      expect(screen.getByText(/HTTP error! status: 400/i)).toBeInTheDocument()
     }, { timeout: 3000 })
   })
 })
