@@ -348,6 +348,55 @@ class SenzingClient:
 
         return results
 
+    def delete_record(self, data_source: str, record_id: str, load_id: Optional[str] = None) -> bool:
+        """
+        Delete a record from Senzing.
+
+        Args:
+            data_source: Data source code (e.g., "NIEM_GRAPH")
+            record_id: Unique record identifier
+            load_id: Optional load batch identifier
+
+        Returns:
+            True if record deleted successfully, False otherwise
+        """
+        if not self.initialized:
+            logger.error("Senzing engine not initialized")
+            return False
+
+        try:
+            if load_id:
+                self.engine.deleteRecordWithInfo(data_source, record_id, load_id)
+            else:
+                self.engine.deleteRecord(data_source, record_id)
+            logger.debug(f"Deleted record {record_id} from {data_source}")
+            return True
+
+        except G2Exception as e:
+            logger.error(f"Failed to delete record {record_id}: {e}")
+            return False
+
+    def purge_repository(self) -> bool:
+        """
+        Purge all data from the Senzing repository.
+        WARNING: This deletes ALL data from the Senzing database.
+
+        Returns:
+            True if purge successful, False otherwise
+        """
+        if not self.initialized:
+            logger.error("Senzing engine not initialized")
+            return False
+
+        try:
+            self.engine.purgeRepository()
+            logger.info("Purged all data from Senzing repository")
+            return True
+
+        except G2Exception as e:
+            logger.error(f"Failed to purge repository: {e}")
+            return False
+
     def get_stats(self) -> Optional[Dict]:
         """
         Get Senzing engine statistics.

@@ -451,7 +451,7 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
 
 
 def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
-    """Remove all entity resolution data from Neo4j.
+    """Remove all entity resolution data from Neo4j and Senzing.
 
     Args:
         neo4j_client: Neo4j client instance
@@ -485,8 +485,20 @@ def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
 
     logger.info(
         f"Reset entity resolution: deleted {node_count} nodes "
-        f"and {rel_count} relationships"
+        f"and {rel_count} relationships from Neo4j"
     )
+
+    # Also clear Senzing repository if available
+    if SENZING_AVAILABLE:
+        try:
+            senzing_client = get_senzing_client()
+            if senzing_client.is_available() and senzing_client.initialized:
+                if senzing_client.purge_repository():
+                    logger.info("Purged all records from Senzing repository")
+                else:
+                    logger.warning("Failed to purge Senzing repository")
+        except Exception as e:
+            logger.warning(f"Could not purge Senzing repository: {e}")
 
     return {
         'resolved_entities_deleted': node_count,
