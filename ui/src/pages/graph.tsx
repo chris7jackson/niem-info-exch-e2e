@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import cytoscape from 'cytoscape';
+import EntityResolutionPanel from '../components/EntityResolutionPanel';
 
 interface GraphNode {
   id: string;
@@ -154,7 +155,6 @@ export default function GraphPage() {
   const [selectedLayout, setSelectedLayout] = useState('cose');
   const [showNodeLabels, setShowNodeLabels] = useState(true);
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
-  const [resolutionRunning, setResolutionRunning] = useState(false);
   const [resolutionMessage, setResolutionMessage] = useState<string | null>(null);
   const [resultLimit, setResultLimit] = useState(10000);
 
@@ -203,48 +203,6 @@ export default function GraphPage() {
     }
   };
 
-  const resetEntityResolution = async () => {
-    if (!confirm('This will remove all resolved entity nodes. Continue?')) {
-      return;
-    }
-
-    setResolutionRunning(true);
-    setResolutionMessage(null);
-
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/entity-resolution/reset`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.status === 'success') {
-        setResolutionMessage('Entity resolution reset successfully');
-        // Refresh graph only if currently viewing
-        if (graphData) {
-          setTimeout(() => {
-            executeQuery(cypherQuery);
-          }, 500);
-        }
-      } else {
-        throw new Error(result.message || 'Reset failed');
-      }
-
-    } catch (err: any) {
-      console.error('Reset failed:', err);
-      setResolutionMessage(`Error: ${err.message || 'Failed to reset entity resolution'}`);
-    } finally {
-      setResolutionRunning(false);
-    }
-  };
 
   const renderGraph = (data: GraphData) => {
     if (!cyRef.current) return;
@@ -546,44 +504,6 @@ export default function GraphPage() {
     executeQuery(cypherQuery);
   };
 
-  const runEntityResolution = async () => {
-    setResolutionRunning(true);
-    setResolutionMessage(null);
-
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/entity-resolution/run`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'devtoken'}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.status === 'success') {
-        setResolutionMessage(result.message);
-        // Refresh graph only if currently viewing the full graph
-        if (graphData) {
-          setTimeout(() => {
-            executeQuery(cypherQuery);
-          }, 500);
-        }
-      } else {
-        throw new Error(result.message || 'Entity resolution failed');
-      }
-
-    } catch (err: any) {
-      console.error('Entity resolution failed:', err);
-      setResolutionMessage(`Error: ${err.message || 'Failed to run entity resolution'}`);
-    } finally {
-      setResolutionRunning(false);
-    }
-  };
 
   // Simplified query options - default shows everything
   const explorationQueries = [
@@ -623,49 +543,19 @@ export default function GraphPage() {
       </div>
 
       {/* Entity Resolution Section */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Entity Resolution</h3>
-          <p className="mt-1 text-sm text-gray-600">
-            Find and link duplicate entities based on name matching. Creates ResolvedEntity nodes showing which entities represent the same real-world person.
-          </p>
-        </div>
-        <div className="p-6">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={runEntityResolution}
-              disabled={resolutionRunning}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Find and link duplicate entities based on name matching"
-            >
-              {resolutionRunning ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Running...
-                </>
-              ) : (
-                'Run Entity Resolution'
-              )}
-            </button>
-            <button
-              onClick={resetEntityResolution}
-              disabled={resolutionRunning}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Remove all resolved entity nodes"
-            >
-              Reset
-            </button>
-          </div>
-          {resolutionMessage && (
-            <div className={`mt-4 p-3 rounded-md ${resolutionMessage.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-              {resolutionMessage}
-            </div>
-          )}
-        </div>
-      </div>
+      <EntityResolutionPanel
+        onResolutionComplete={(response) => {
+          // Refresh the graph to show resolved entities
+          if (lastQueryRef.current) {
+            runQuery(lastQueryRef.current);
+          }
+          // Show success message
+          setResolutionMessage(response.message);
+        }}
+        onError={(error) => {
+          setResolutionMessage(`Error: ${error}`);
+        }}
+      />
 
       {/* Query Input Section */}
       <div className="bg-white shadow rounded-lg">
