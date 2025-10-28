@@ -106,6 +106,44 @@ export interface HealthResponse {
   niem_version: string;
 }
 
+// Entity Resolution Types
+export interface NodeTypeInfo {
+  qname: string;
+  label: string;
+  count: number;
+  nameFields: string[];
+  category?: 'person' | 'organization' | 'location' | 'address' | 'vehicle' | 'other';
+  recommended?: boolean;
+}
+
+export interface EntityResolutionNodeTypesResponse {
+  status: string;
+  nodeTypes: NodeTypeInfo[];
+  totalTypes: number;
+}
+
+export interface EntityResolutionRequest {
+  selectedNodeTypes: string[];
+}
+
+export interface EntityResolutionResponse {
+  status: string;
+  message: string;
+  entitiesExtracted: number;
+  duplicateGroupsFound: number;
+  resolvedEntitiesCreated: number;
+  relationshipsCreated: number;
+  entitiesResolved: number;
+  nodeTypesProcessed?: string[];
+}
+
+export interface EntityResolutionStatusResponse {
+  status: string;
+  resolved_entity_clusters: number;
+  entities_resolved: number;
+  is_active: boolean;
+}
+
 class ApiClient {
   private client: AxiosInstance;
 
@@ -238,6 +276,31 @@ class ApiClient {
   // Health check and version info
   async getHealth(): Promise<HealthResponse> {
     const response = await this.client.get('/healthz');
+    return response.data;
+  }
+
+  // Entity Resolution
+  async getEntityResolutionNodeTypes(): Promise<EntityResolutionNodeTypesResponse> {
+    const response = await this.client.get('/api/entity-resolution/node-types');
+    return response.data;
+  }
+
+  async runEntityResolution(selectedNodeTypes?: string[]): Promise<EntityResolutionResponse> {
+    const request: EntityResolutionRequest | undefined = selectedNodeTypes
+      ? { selectedNodeTypes }
+      : undefined;
+
+    const response = await this.client.post('/api/entity-resolution/run', request);
+    return response.data;
+  }
+
+  async getEntityResolutionStatus(): Promise<EntityResolutionStatusResponse> {
+    const response = await this.client.get('/api/entity-resolution/status');
+    return response.data;
+  }
+
+  async resetEntityResolution(): Promise<any> {
+    const response = await this.client.delete('/api/entity-resolution/reset');
     return response.data;
   }
 }

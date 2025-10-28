@@ -125,7 +125,8 @@ class NodeTypeInfo(BaseModel):
     label: str  # Neo4j label (e.g., 'j_CrashDriver')
     count: int  # Number of entities of this type
     nameFields: list[str]  # Available name fields for matching
-    sampleData: dict[str, Any] = {}  # Sample name data from an entity
+    category: str | None = None  # Entity category: person, organization, location, address, vehicle, other
+    recommended: bool = False  # Whether this type is recommended for entity resolution
 
 
 class EntityResolutionRequest(BaseModel):
