@@ -87,7 +87,7 @@ async def startup_tasks():
                 logger.info("Senzing initialization module not found - using defaults")
                 senzing_configured = senzing_available
         else:
-            logger.info("✗ Senzing entity resolution not available (no license) - using mock resolution")
+            logger.info("✗ Senzing entity resolution not available (no license) - using text-based entity matching")
 
         logger.info("Startup tasks completed successfully")
 

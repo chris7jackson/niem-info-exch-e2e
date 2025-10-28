@@ -7,7 +7,7 @@ This client handles the initialization, record management, and entity resolution
 operations using the Senzing engine.
 
 Note: This implementation requires Senzing to be installed and licensed.
-If Senzing is not available, the system will fall back to mock entity resolution.
+If Senzing is not available, the system will fall back to text-based entity matching.
 """
 
 import json
@@ -24,7 +24,7 @@ try:
     SENZING_AVAILABLE = True
     logger.info("Senzing SDK modules imported successfully")
 except ImportError:
-    logger.warning("Senzing SDK not available - will use mock entity resolution")
+    logger.warning("Senzing SDK not available - will use text-based entity matching")
     # Define mock classes for type hints
     class G2Engine:
         pass

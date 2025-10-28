@@ -6,7 +6,7 @@ This document describes the Senzing SDK integration for dynamic entity resolutio
 
 The system supports two modes of entity resolution:
 1. **Senzing SDK** - ML-based entity resolution using the Senzing engine (requires license)
-2. **Mock Resolution** - Simple name-matching fallback when Senzing is not available
+2. **Text-Based Entity Matching** - Simple name-matching fallback when Senzing is not available
 
 ## Configuration
 
@@ -61,8 +61,8 @@ Response will indicate if Senzing SDK is available:
 ```json
 {
   "senzing_available": false,
-  "mode": "mock",
-  "message": "Using mock entity resolution (Senzing not available)"
+  "mode": "text_based",
+  "message": "Using text-based entity matching (Senzing not available)"
 }
 ```
 
@@ -139,9 +139,9 @@ If entities are not matching correctly:
 2. Verify entity fields in Neo4j match mapping configuration
 3. Check logs for mapping warnings
 
-## Mock Resolution Mode
+## Text-Based Entity Matching Mode
 
-When Senzing is not available, the system uses mock resolution that:
+When Senzing is not available, the system uses text-based entity matching that:
 - Matches entities by exact name comparison
 - Supports basic fuzzy matching (case-insensitive, punctuation removal)
 - Creates ResolvedEntity nodes similar to Senzing output

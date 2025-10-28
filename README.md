@@ -11,7 +11,7 @@ This system provides end-to-end NIEM information exchange capabilities:
 1. **Schema Management** - Upload and validate NIEM XSD schemas using CMF (Common Model Format) tools
 2. **Data Ingestion** - Validate and ingest XML/JSON files against NIEM schemas
 3. **Graph Storage** - Neo4j for storing and querying interconnected NIEM data
-4. **Entity Resolution** - ML-based duplicate detection using Senzing SDK (with license) or name matching (without)
+4. **Entity Resolution** - ML-based duplicate detection using Senzing SDK (with license) or text-based entity matching (without)
 5. **Web Interface** - React/Next.js UI for management and monitoring
 6. **Graph Visualization** - Interactive graph exploration and querying interface
 
@@ -66,7 +66,7 @@ The API provides automatic interactive documentation via FastAPI:
 - **Data Ingestion**: Upload and validate XML/JSON files against schemas
 - **NDR Validation**: Type-aware NIEM NDR validation (reference/extension/subset schemas)
 - **Graph Operations**: Query and manage Neo4j graph data
-- **Entity Resolution**: Detect and merge duplicate entities using ML or name matching
+- **Entity Resolution**: Detect and merge duplicate entities using ML or text-based entity matching
 - **System Admin**: Health checks, statistics, reset operations
 
 ## Quick Start
@@ -371,13 +371,13 @@ Navigate to the **"Graph"** tab to explore the ingested data:
 
 Navigate to the **"Graph"** tab and use the **Entity Resolution** panel:
 
-#### 5.1 Without Senzing License (Mock Resolution)
+#### 5.1 Without Senzing License (Text-Based Entity Matching)
 
-If no Senzing license is installed, the system uses simple name matching:
+If no Senzing license is installed, the system uses text-based entity matching:
 
 1. **Open Entity Resolution Panel**:
    - Click "Entity Resolution" in the sidebar
-   - Shows "Method: Mock (Name Matching)" at the top
+   - Shows "Method: Text-Based Entity Matching" at the top
 
 2. **Select Node Types**:
    - Available types are discovered from your graph
@@ -523,7 +523,7 @@ This walkthrough demonstrates:
 
 5. **Entity Resolution**:
    - Dynamic node type selection from graph
-   - Dual-mode operation: Senzing SDK (with license) or mock resolution
+   - Dual-mode operation: Senzing SDK (with license) or text-based entity matching
    - Creates ResolvedEntity nodes for duplicates
    - Confidence scoring and relationship tracking
 

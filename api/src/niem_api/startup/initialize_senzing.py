@@ -31,7 +31,7 @@ def initialize_senzing():
     if license_path.exists():
         logger.info(f"✓ Senzing license found at {license_path}")
     else:
-        logger.info("✗ No Senzing license - using mock entity resolution")
+        logger.info("✗ No Senzing license - using text-based entity matching")
         return False
 
     # Setup SQLite configuration
@@ -46,7 +46,7 @@ def initialize_senzing():
 
     except Exception as e:
         logger.warning(f"Failed to setup Senzing configuration: {e}")
-        logger.info("Will use mock entity resolution as fallback")
+        logger.info("Will use text-based entity matching as fallback")
         return False
 
 
