@@ -251,6 +251,46 @@ async def download_schema_file(
     )
 
 
+@app.get("/api/schema/{schema_id}/element-tree")
+async def get_element_tree(
+    schema_id: str,
+    token: str = Depends(verify_token),
+    s3=Depends(get_s3_client)
+):
+    """Get element tree structure for graph schema design.
+
+    Args:
+        schema_id: ID of the schema
+
+    Returns:
+        Element tree with hierarchical structure and metadata
+    """
+    from .handlers.schema import handle_get_element_tree
+
+    return await handle_get_element_tree(schema_id, s3)
+
+
+@app.post("/api/schema/{schema_id}/apply-design")
+async def apply_schema_design(
+    schema_id: str,
+    selections: dict[str, bool],
+    token: str = Depends(verify_token),
+    s3=Depends(get_s3_client)
+):
+    """Apply user schema design selections and regenerate mapping.yaml.
+
+    Args:
+        schema_id: ID of the schema
+        selections: Dictionary mapping qnames to selection state
+
+    Returns:
+        Success message and updated schema metadata
+    """
+    from .handlers.schema import handle_apply_schema_design
+
+    return await handle_apply_schema_design(schema_id, selections, s3)
+
+
 # Data Ingestion Routes
 
 @app.post("/api/ingest/xml")

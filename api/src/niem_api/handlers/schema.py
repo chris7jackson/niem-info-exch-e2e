@@ -1145,3 +1145,175 @@ async def handle_schema_file_download(schema_id: str, file_type: str, s3: Minio)
             status_code=404,
             detail=f"{file_type.upper()} file not found in storage"
         ) from e
+
+
+async def handle_get_element_tree(schema_id: str, s3: Minio):
+    """Get element tree structure for graph schema design.
+
+    Retrieves the CMF file for a schema and builds a hierarchical tree
+    structure with metadata for the graph schema designer UI.
+
+    Args:
+        schema_id: Schema ID
+        s3: MinIO client
+
+    Returns:
+        Dictionary containing element tree data with nodes, metadata, and warnings
+
+    Raises:
+        HTTPException: If schema not found or CMF not available
+    """
+    # Get schema metadata
+    metadata = get_schema_metadata(s3, schema_id)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Schema not found")
+
+    cmf_filename = metadata.get('cmf_filename')
+    if not cmf_filename:
+        raise HTTPException(
+            status_code=404,
+            detail="No CMF file found for this schema. Upload may still be processing."
+        )
+
+    # Download CMF file from MinIO
+    from ..clients.s3_client import download_file
+    try:
+        object_path = f"{schema_id}/{cmf_filename}"
+        cmf_content = await download_file(s3, "niem-schemas", object_path)
+        cmf_str = cmf_content.decode('utf-8')
+    except S3Error as e:
+        logger.error(f"Failed to download CMF file for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=404,
+            detail="CMF file not found in storage"
+        ) from e
+
+    # Build element tree
+    from ..services.domain.schema.element_tree import build_element_tree, flatten_tree_to_list
+    try:
+        tree_nodes = build_element_tree(cmf_str)
+        flattened = flatten_tree_to_list(tree_nodes)
+
+        return {
+            "schema_id": schema_id,
+            "nodes": flattened,
+            "total_nodes": len(flattened),
+            "metadata": {
+                "schema_name": metadata.get('schema_name'),
+                "created_at": metadata.get('uploaded_at')
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to build element tree for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to build element tree: {str(e)}"
+        ) from e
+
+
+async def handle_apply_schema_design(
+    schema_id: str,
+    selections: dict[str, bool],
+    s3: Minio
+):
+    """Apply user schema design selections and regenerate mapping.yaml.
+
+    Takes user node selections and applies the flattening strategy to generate
+    a customized mapping.yaml file.
+
+    Args:
+        schema_id: Schema ID
+        selections: Dictionary mapping qnames to selection state (True = create node)
+        s3: MinIO client
+
+    Returns:
+        Dictionary containing success message and updated schema metadata
+
+    Raises:
+        HTTPException: If schema not found, CMF not available, or design application fails
+    """
+    # Get schema metadata
+    metadata = get_schema_metadata(s3, schema_id)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Schema not found")
+
+    cmf_filename = metadata.get('cmf_filename')
+    if not cmf_filename:
+        raise HTTPException(
+            status_code=404,
+            detail="No CMF file found for this schema. Upload may still be processing."
+        )
+
+    # Download CMF file from MinIO
+    from ..clients.s3_client import download_file
+    try:
+        object_path = f"{schema_id}/{cmf_filename}"
+        cmf_content = await download_file(s3, "niem-schemas", object_path)
+        cmf_str = cmf_content.decode('utf-8')
+    except S3Error as e:
+        logger.error(f"Failed to download CMF file for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=404,
+            detail="CMF file not found in storage"
+        ) from e
+
+    # Apply schema design
+    from ..services.domain.schema.schema_designer import apply_schema_design
+    try:
+        custom_mapping = apply_schema_design(cmf_str, selections)
+    except Exception as e:
+        logger.error(f"Failed to apply schema design for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to apply schema design: {str(e)}"
+        ) from e
+
+    # Convert mapping to YAML and upload to MinIO
+    try:
+        mapping_yaml = yaml.dump(custom_mapping, sort_keys=False, default_flow_style=False)
+
+        # Upload new mapping.yaml
+        mapping_filename = "mapping.yaml"
+        object_path = f"{schema_id}/{mapping_filename}"
+
+        await upload_file(
+            client=s3,
+            bucket="niem-schemas",
+            object_name=object_path,
+            data=mapping_yaml.encode('utf-8'),
+            content_type="application/x-yaml"
+        )
+
+        logger.info(f"Regenerated mapping.yaml for schema {schema_id} with custom design")
+
+        # Update metadata to indicate custom design was applied
+        metadata['design_applied'] = True
+        metadata['design_applied_at'] = datetime.now(UTC).isoformat()
+        metadata['selected_node_count'] = sum(1 for v in selections.values() if v)
+
+        # Store updated metadata by uploading the modified metadata.json
+        metadata_json = json.dumps(metadata, indent=2)
+        metadata_path = f"{schema_id}/metadata.json"
+
+        await upload_file(
+            client=s3,
+            bucket="niem-schemas",
+            object_name=metadata_path,
+            data=metadata_json.encode('utf-8'),
+            content_type="application/json"
+        )
+
+        return {
+            "success": True,
+            "message": "Schema design applied successfully",
+            "schema_id": schema_id,
+            "selected_nodes": metadata['selected_node_count'],
+            "mapping_filename": mapping_filename
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to store regenerated mapping for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to store regenerated mapping: {str(e)}"
+        ) from e
