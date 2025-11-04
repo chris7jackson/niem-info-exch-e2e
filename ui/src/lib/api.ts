@@ -77,6 +77,42 @@ export interface ConversionFileResult {
   validation_details?: ValidationResult;
 }
 
+export interface ElementTreeNode {
+  qname: string;
+  label: string;
+  node_type: 'object' | 'association' | 'reference';
+  depth: number;
+  property_count: number;
+  relationship_count: number;
+  parent_qname: string | null;
+  warnings: string[];
+  suggestions: string[];
+  selected: boolean;
+  cardinality: string | null;
+  description: string | null;
+  namespace: string | null;
+  is_nested_association: boolean;
+  children: string[];
+}
+
+export interface ElementTreeResponse {
+  schema_id: string;
+  nodes: ElementTreeNode[];
+  total_nodes: number;
+  metadata: {
+    schema_name?: string;
+    created_at?: string;
+  };
+}
+
+export interface ApplyDesignResponse {
+  success: boolean;
+  message: string;
+  schema_id: string;
+  selected_nodes: number;
+  mapping_filename: string;
+}
+
 export interface BatchConversionResult {
   files_processed: number;
   successful: number;
@@ -193,6 +229,16 @@ class ApiClient {
     const response = await this.client.get(`/api/schema/${schemaId}/file/${fileType}`, {
       responseType: 'blob',
     });
+    return response.data;
+  }
+
+  async getElementTree(schemaId: string): Promise<ElementTreeResponse> {
+    const response = await this.client.get(`/api/schema/${schemaId}/element-tree`);
+    return response.data;
+  }
+
+  async applySchemaDesign(schemaId: string, selections: Record<string, boolean>): Promise<ApplyDesignResponse> {
+    const response = await this.client.post(`/api/schema/${schemaId}/apply-design`, selections);
     return response.data;
   }
 
