@@ -1150,7 +1150,7 @@ async def handle_schema_file_download(schema_id: str, file_type: str, s3: Minio)
 async def handle_get_element_tree(schema_id: str, s3: Minio):
     """Get element tree structure for graph schema design.
 
-    Retrieves the CMF file for a schema and builds a hierarchical tree
+    Retrieves the source XSD files for a schema and builds a hierarchical tree
     structure with metadata for the graph schema designer UI.
 
     Args:
@@ -1161,37 +1161,42 @@ async def handle_get_element_tree(schema_id: str, s3: Minio):
         Dictionary containing element tree data with nodes, metadata, and warnings
 
     Raises:
-        HTTPException: If schema not found or CMF not available
+        HTTPException: If schema not found or XSD files not available
     """
     # Get schema metadata
     metadata = get_schema_metadata(s3, schema_id)
     if not metadata:
         raise HTTPException(status_code=404, detail="Schema not found")
 
-    cmf_filename = metadata.get('cmf_filename')
-    if not cmf_filename:
+    primary_filename = metadata.get('primary_filename')
+    all_filenames = metadata.get('all_filenames', [])
+
+    if not primary_filename or not all_filenames:
         raise HTTPException(
             status_code=404,
-            detail="No CMF file found for this schema. Upload may still be processing."
+            detail="No source XSD files found for this schema. Upload may still be processing."
         )
 
-    # Download CMF file from MinIO
+    # Download all source XSD files from MinIO
     from ..clients.s3_client import download_file
+    xsd_files = {}
     try:
-        object_path = f"{schema_id}/{cmf_filename}"
-        cmf_content = await download_file(s3, "niem-schemas", object_path)
-        cmf_str = cmf_content.decode('utf-8')
+        for filename in all_filenames:
+            object_path = f"{schema_id}/source/{filename}"
+            content = await download_file(s3, "niem-schemas", object_path)
+            xsd_files[filename] = content
     except S3Error as e:
-        logger.error(f"Failed to download CMF file for schema {schema_id}: {e}")
+        logger.error(f"Failed to download XSD files for schema {schema_id}: {e}")
         raise HTTPException(
             status_code=404,
-            detail="CMF file not found in storage"
+            detail="XSD files not found in storage"
         ) from e
 
-    # Build element tree
-    from ..services.domain.schema.element_tree import build_element_tree, flatten_tree_to_list
+    # Build element tree from XSD
+    from ..services.domain.schema.xsd_element_tree import build_element_tree_from_xsd
+    from ..services.domain.schema.element_tree import flatten_tree_to_list
     try:
-        tree_nodes = build_element_tree(cmf_str)
+        tree_nodes = build_element_tree_from_xsd(primary_filename, xsd_files)
         flattened = flatten_tree_to_list(tree_nodes)
 
         return {
@@ -1199,7 +1204,7 @@ async def handle_get_element_tree(schema_id: str, s3: Minio):
             "nodes": flattened,
             "total_nodes": len(flattened),
             "metadata": {
-                "schema_name": metadata.get('schema_name'),
+                "schema_name": metadata.get('primary_filename'),
                 "created_at": metadata.get('uploaded_at')
             }
         }
