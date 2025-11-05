@@ -287,7 +287,7 @@ def _build_tree_recursive(
             children=[],  # No children for references
             warnings=[],
             suggestions=[],
-            selected=True,
+            selected=False,
             cardinality=f"{elem_decl.min_occurs}..{elem_decl.max_occurs}",
             description=elem_decl.documentation,
             namespace=element_qname.split(':')[0] if ':' in element_qname else None,
@@ -327,7 +327,7 @@ def _build_tree_recursive(
         children=[],
         warnings=[],
         suggestions=[],
-        selected=True,
+        selected=False,
         cardinality=f"{elem_decl.min_occurs}..{elem_decl.max_occurs}",
         description=elem_decl.documentation,
         namespace=element_qname.split(':')[0] if ':' in element_qname else None,

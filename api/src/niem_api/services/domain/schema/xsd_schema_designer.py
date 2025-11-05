@@ -169,6 +169,19 @@ def apply_schema_design_from_xsd(
         else:
             object_elements[elem_qname] = (elem_decl, type_def)
 
+    # Auto-select association endpoints for selected associations
+    # This ensures associations can become edges even if endpoints weren't explicitly selected
+    for assoc_qname in list(selected_set):  # Use list() to avoid modifying set during iteration
+        if assoc_qname not in association_elements:
+            continue
+
+        _, type_def = association_elements[assoc_qname]
+        for child_elem in type_def.elements:
+            child_ref = child_elem.get('ref')
+            if child_ref and child_ref in object_elements:
+                # Auto-add endpoint to selected set
+                selected_set.add(child_ref)
+
     # Build objects mapping - preserves all data
     objects_mapping = []
     for elem_qname in selected_set:
