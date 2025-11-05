@@ -462,7 +462,25 @@ def generate_cypher_from_structures(
         props_parts = []
         all_props = {**props, **aug_props, "qname": qname}  # Add qname to properties
         for key, value in all_props.items():
-            props_parts.append(f"{key}: '{value}'")
+            # Handle different value types properly
+            if isinstance(value, (list, tuple)):
+                # Convert list to JSON string for safe storage
+                json_value = json.dumps(value).replace("'", "\\'")
+                props_parts.append(f"{key}: '{json_value}'")
+            elif isinstance(value, str):
+                # Escape single quotes in strings
+                escaped_value = value.replace("'", "\\'")
+                props_parts.append(f"{key}: '{escaped_value}'")
+            elif isinstance(value, (int, float, bool)):
+                # Numbers and booleans don't need quotes
+                props_parts.append(f"{key}: {value}")
+            elif value is None:
+                # Skip null values
+                continue
+            else:
+                # Convert other types to string
+                escaped_value = str(value).replace("'", "\\'")
+                props_parts.append(f"{key}: '{escaped_value}'")
 
         props_str = ", ".join(props_parts)
         cypher_lines.append(f"MERGE (n:{label} {{id: '{node_id}', {props_str}}});")
