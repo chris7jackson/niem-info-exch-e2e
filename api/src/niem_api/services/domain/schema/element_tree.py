@@ -49,8 +49,8 @@ class ElementTreeNode:
     label: str                              # Neo4j label (e.g., "j_CrashDriver")
     node_type: NodeType                     # object, association, or reference
     depth: int                              # Distance from root (0-indexed)
-    property_count: int                     # Number of scalar properties
-    relationship_count: int                 # Number of object references
+    property_count: int                     # Number of simple/scalar properties
+    nested_object_count: int                # Number of nested complex objects
     parent_qname: Optional[str] = None      # Parent in hierarchy
     children: list['ElementTreeNode'] = field(default_factory=list)
     warnings: list[WarningType] = field(default_factory=list)
@@ -60,6 +60,7 @@ class ElementTreeNode:
     description: Optional[str] = None       # Element documentation
     namespace: Optional[str] = None         # Namespace prefix
     is_nested_association: bool = False     # True if nested under another object
+    can_have_id: bool = False               # True if type extends structures:ObjectType (instances can have id/ref/uri)
 
 
 def _text_of(element: Element, tag: str) -> Optional[str]:
@@ -126,10 +127,6 @@ def _detect_warnings(node: ElementTreeNode) -> list[WarningType]:
     if node.depth > DEEP_NESTING_THRESHOLD:
         warnings.append(WarningType.DEEP_NESTING)
 
-    # Insufficient association endpoints
-    if node.node_type == NodeType.ASSOCIATION and node.relationship_count < 2:
-        warnings.append(WarningType.INSUFFICIENT_ENDPOINTS)
-
     return warnings
 
 
@@ -137,16 +134,10 @@ def _detect_suggestions(node: ElementTreeNode) -> list[SuggestionType]:
     """Detect best practice suggestions for a node."""
     suggestions = []
 
-    # Association candidate detection
-    if (node.node_type == NodeType.OBJECT and
-        node.relationship_count >= 2 and
-        "association" in node.qname.lower()):
-        suggestions.append(SuggestionType.ASSOCIATION_CANDIDATE)
-
-    # Flatten wrapper suggestion (only 1-2 scalar properties, no relationships)
+    # Flatten wrapper suggestion (only 1-2 simple properties, no nested objects)
     if (node.node_type == NodeType.OBJECT and
         node.property_count <= 2 and
-        node.relationship_count == 0 and
+        node.nested_object_count == 0 and
         node.depth > 1):
         suggestions.append(SuggestionType.FLATTEN_WRAPPER)
 
@@ -187,7 +178,7 @@ def _build_node_from_class(
         node_type=node_type,
         depth=depth,
         property_count=scalar_count,
-        relationship_count=object_count,
+        nested_object_count=object_count,
         parent_qname=parent_qname,
         namespace=namespace_ref,
         is_nested_association=is_nested
@@ -334,7 +325,7 @@ def flatten_tree_to_list(nodes: list[ElementTreeNode]) -> list[dict]:
             "node_type": node.node_type.value,
             "depth": node.depth,
             "property_count": node.property_count,
-            "relationship_count": node.relationship_count,
+            "nested_object_count": node.nested_object_count,
             "parent_qname": node.parent_qname,
             "warnings": [w.value for w in node.warnings],
             "suggestions": [s.value for s in node.suggestions],

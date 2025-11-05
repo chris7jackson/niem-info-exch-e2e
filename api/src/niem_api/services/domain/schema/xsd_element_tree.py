@@ -9,6 +9,7 @@ representation of the source schema structure.
 from dataclasses import dataclass
 from typing import Optional
 import re
+import logging
 import defusedxml.ElementTree as ET
 from xml.etree.ElementTree import Element
 
@@ -27,6 +28,8 @@ XS = f"{{{XS_NS}}}"
 # NIEM structures namespace
 STRUCTURES_NS = "https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/"
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class TypeDefinition:
@@ -37,6 +40,7 @@ class TypeDefinition:
     base_type: Optional[str]
     elements: list[dict]  # Element references in xs:sequence
     is_association: bool
+    extends_object_type: bool = False  # Can have structures:id/ref/uri
 
 
 @dataclass
@@ -225,25 +229,39 @@ def _count_properties_and_relationships(
     type_def: TypeDefinition,
     type_definitions: dict[str, TypeDefinition]
 ) -> tuple[int, int]:
-    """Count scalar properties vs object relationships in a type."""
+    """Count simple properties vs nested objects in a type.
+
+    Returns:
+        tuple[int, int]: (property_count, nested_object_count)
+    """
     property_count = 0
-    relationship_count = 0
+    nested_object_count = 0
+
+    logger.info(f"DEBUG: Counting for type {type_def.name}, has {len(type_def.elements)} elements")
+    logger.info(f"DEBUG: Available type_definitions keys (first 10): {list(type_definitions.keys())[:10]}")
 
     for elem in type_def.elements:
         elem_type = elem.get('type')
+        elem_name = elem.get('name')
+
+        logger.info(f"DEBUG:   Element '{elem_name}' has type '{elem_type}'")
 
         if not elem_type:
+            logger.info(f"DEBUG:     -> Skipping (no type)")
             continue
 
         # Check if it's a reference to another complex type
         if elem_type in type_definitions:
-            relationship_count += 1
+            nested_object_count += 1
+            logger.info(f"DEBUG:     -> NESTED OBJECT (found in type_definitions)")
         else:
-            # Assume scalar if not found in type definitions
+            # Assume simple/scalar if not found in type definitions
             # (could be xs:string, xs:int, etc.)
             property_count += 1
+            logger.info(f"DEBUG:     -> PROPERTY (not found in type_definitions)")
 
-    return property_count, relationship_count
+    logger.info(f"DEBUG: Result: {property_count} properties, {nested_object_count} nested objects")
+    return property_count, nested_object_count
 
 
 def _build_tree_recursive(
@@ -272,29 +290,14 @@ def _build_tree_recursive(
     if not elem_decl:
         return None
 
-    # Check if already visited - create reference node instead of full subtree
+    # Check if already visited to prevent infinite recursion in circular schemas
+    # NOTE: This is NOT about NIEM references - just preventing stack overflow
     if element_qname in visited:
-        # Create lightweight reference node pointing to first occurrence
-        label = element_qname.replace(':', '_')
-        return ElementTreeNode(
-            qname=element_qname,
-            label=label,
-            node_type=NodeType.REFERENCE,  # Mark as reference
-            depth=depth,
-            property_count=0,
-            relationship_count=0,
-            parent_qname=parent_qname,
-            children=[],  # No children for references
-            warnings=[],
-            suggestions=[],
-            selected=False,
-            cardinality=f"{elem_decl.min_occurs}..{elem_decl.max_occurs}",
-            description=elem_decl.documentation,
-            namespace=element_qname.split(':')[0] if ':' in element_qname else None,
-            is_nested_association=False
-        )
+        # Skip this branch to prevent infinite recursion
+        # Each occurrence of an element type is independent unless it has structures:ref
+        return None
 
-    # Mark as visited for future references
+    # Mark as visited for cycle detection
     visited.add(element_qname)
 
     # Find type definition
@@ -309,8 +312,8 @@ def _build_tree_recursive(
     # Determine node type
     node_type = NodeType.ASSOCIATION if type_def.is_association else NodeType.OBJECT
 
-    # Count properties and relationships
-    property_count, relationship_count = _count_properties_and_relationships(
+    # Count properties vs nested objects
+    property_count, nested_object_count = _count_properties_and_relationships(
         type_def, type_definitions
     )
 
@@ -322,7 +325,7 @@ def _build_tree_recursive(
         node_type=node_type,
         depth=depth,
         property_count=property_count,
-        relationship_count=relationship_count,
+        nested_object_count=nested_object_count,
         parent_qname=parent_qname,
         children=[],
         warnings=[],
@@ -368,19 +371,11 @@ def _build_tree_recursive(
     if depth > DEEP_NESTING_THRESHOLD:
         node.warnings.append(WarningType.DEEP_NESTING)
 
-    if node.node_type == NodeType.ASSOCIATION and relationship_count < 2:
-        node.warnings.append(WarningType.INSUFFICIENT_ENDPOINTS)
-
     if (node.node_type == NodeType.OBJECT and
         property_count <= 2 and
-        relationship_count == 0 and
+        nested_object_count == 0 and
         depth > 1):
         node.suggestions.append(SuggestionType.FLATTEN_WRAPPER)
-
-    if (node.node_type == NodeType.OBJECT and
-        relationship_count >= 2 and
-        'association' in element_qname.lower()):
-        node.suggestions.append(SuggestionType.ASSOCIATION_CANDIDATE)
 
     return node
 
