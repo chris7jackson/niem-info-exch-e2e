@@ -93,14 +93,15 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
     });
   };
 
-  const getWarningIcon = (warnings: string[]) => {
-    if (warnings.length === 0) return null;
-    return (
-      <span className="text-yellow-500 text-xs" title={warnings.join(', ')}>
-        ⚠️
-      </span>
-    );
-  };
+  // Warnings disabled - deep nesting warnings removed for NIEM schemas
+  // const getWarningIcon = (warnings: string[]) => {
+  //   if (warnings.length === 0) return null;
+  //   return (
+  //     <span className="text-yellow-500 text-xs" title={warnings.join(', ')}>
+  //       ⚠️
+  //     </span>
+  //   );
+  // };
 
   const getAssociationBadge = (node: ElementTreeNode) => {
     if (node.node_type !== 'association') return null;
@@ -129,14 +130,15 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
     );
   };
 
-  const getSuggestionBadge = (suggestions: string[]) => {
-    if (suggestions.length === 0) return null;
-    return (
-      <span className="text-blue-500 text-xs" title={suggestions.join(', ')}>
-        💡
-      </span>
-    );
-  };
+  // Suggestions disabled - removed for NIEM schemas
+  // const getSuggestionBadge = (suggestions: string[]) => {
+  //   if (suggestions.length === 0) return null;
+  //   return (
+  //     <span className="text-blue-500 text-xs" title={suggestions.join(', ')}>
+  //       💡
+  //     </span>
+  //   );
+  // };
 
   const TreeNode: React.FC<{ node: ElementTreeNode; depth: number }> = ({ node, depth }) => {
     const children = childrenMap.get(node.qname) || [];
@@ -212,11 +214,11 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
             {/* Association Badge */}
             {getAssociationBadge(node)}
 
-            {/* Warnings */}
-            {getWarningIcon(node.warnings)}
+            {/* Warnings - Disabled since deep nesting warnings are removed */}
+            {/* {getWarningIcon(node.warnings)} */}
 
-            {/* Suggestions */}
-            {getSuggestionBadge(node.suggestions)}
+            {/* Suggestions - Disabled since suggestions are removed */}
+            {/* {getSuggestionBadge(node.suggestions)} */}
 
             {/* Counts */}
             <span className="text-xs text-gray-500 flex-shrink-0">
@@ -288,12 +290,10 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
 
         {/* Legend */}
         <div className="text-xs text-gray-600 space-y-1">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             <span className="font-semibold">Legend:</span>
-            <span>⚠️ Warning</span>
-            <span>💡 Suggestion</span>
-            <span>p=properties</span>
-            <span>n=nested objects</span>
+            <span>p = properties</span>
+            <span>n = nested objects</span>
           </div>
         </div>
       </div>
