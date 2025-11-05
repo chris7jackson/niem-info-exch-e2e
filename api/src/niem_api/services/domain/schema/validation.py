@@ -102,6 +102,127 @@ class SchemaDesignValidator:
                 impact="high"
             ))
 
+    def detect_sparse_connectivity(
+        self,
+        selections: dict[str, bool],
+        element_tree: list[dict],
+        result: ValidationResult
+    ) -> None:
+        """Detect sparse connectivity warnings.
+
+        Warns when a reference source is deselected, meaning relationships
+        will be sparse (not every instance will have the relationship).
+        Per ADR-002, this is allowed but should be flagged.
+
+        Args:
+            selections: Dictionary mapping qnames to selection state
+            element_tree: Flattened element tree structure
+            result: ValidationResult to add warnings to
+        """
+        element_map = {elem["qname"]: elem for elem in element_tree}
+
+        for element in element_tree:
+            qname = element["qname"]
+
+            # Check if this element has children (references) but is NOT selected
+            if not selections.get(qname, False) and element.get("children"):
+                # This element is deselected but has references to other elements
+                # Check if any of its children are selected (would create sparse relationships)
+                for child_qname in element.get("children", []):
+                    if selections.get(child_qname, False):
+                        # Child is selected but parent is not - sparse connectivity
+                        result.warnings.append(ValidationMessage(
+                            severity=ValidationSeverity.WARNING,
+                            type=ValidationWarningType.SPARSE_CONNECTIVITY.value,
+                            message=f"Element '{qname}' is deselected but references selected element '{child_qname}'",
+                            element=qname,
+                            recommendation=f"Consider selecting '{qname}' to create consistent relationships to '{child_qname}' for better relationship analysis",
+                            impact="moderate",
+                            details={
+                                "source": qname,
+                                "target": child_qname
+                            }
+                        ))
+
+    def detect_deep_flattening(
+        self,
+        selections: dict[str, bool],
+        element_tree: list[dict],
+        result: ValidationResult
+    ) -> None:
+        """Detect deep flattening warnings.
+
+        Warns when elements at deep nesting levels (>3) are deselected,
+        resulting in complex property paths that may be hard to query.
+
+        Args:
+            selections: Dictionary mapping qnames to selection state
+            element_tree: Flattened element tree structure
+            result: ValidationResult to add warnings to
+        """
+        DEEP_NESTING_THRESHOLD = 3
+
+        for element in element_tree:
+            qname = element["qname"]
+            depth = element.get("depth", 0)
+
+            # Warn if element is deep and deselected (will create complex property paths)
+            if not selections.get(qname, False) and depth > DEEP_NESTING_THRESHOLD:
+                result.warnings.append(ValidationMessage(
+                    severity=ValidationSeverity.WARNING,
+                    type=ValidationWarningType.DEEP_FLATTENING.value,
+                    message=f"Element '{qname}' at depth {depth} will be flattened, creating complex property names",
+                    element=qname,
+                    recommendation=f"Consider selecting '{qname}' as a node to simplify property paths and improve query readability",
+                    impact="low",
+                    details={"depth": depth}
+                ))
+
+    def detect_insufficient_endpoints(
+        self,
+        selections: dict[str, bool],
+        element_tree: list[dict],
+        result: ValidationResult
+    ) -> None:
+        """Detect insufficient endpoint warnings for associations.
+
+        Warns when associations have fewer than 2 endpoints after filtering
+        by selection state, making them less useful for relationship analysis.
+
+        Args:
+            selections: Dictionary mapping qnames to selection state
+            element_tree: Flattened element tree structure
+            result: ValidationResult to add warnings to
+        """
+        for element in element_tree:
+            qname = element["qname"]
+            node_type = element.get("node_type")
+
+            # Only check associations
+            if node_type != "association":
+                continue
+
+            # Skip if not selected
+            if not selections.get(qname, False):
+                continue
+
+            # Count selected children (endpoints)
+            selected_endpoint_count = sum(
+                1 for child_qname in element.get("children", [])
+                if selections.get(child_qname, False)
+            )
+
+            if selected_endpoint_count < 2:
+                result.warnings.append(ValidationMessage(
+                    severity=ValidationSeverity.WARNING,
+                    type=ValidationWarningType.INSUFFICIENT_ENDPOINTS.value,
+                    message=f"Association '{qname}' has only {selected_endpoint_count} selected endpoint(s)",
+                    element=qname,
+                    recommendation="Consider selecting more endpoints for this association to enable meaningful relationship analysis",
+                    impact="moderate",
+                    details={"endpoint_count": selected_endpoint_count}
+                ))
+
     def validate(
         self,
         selections: dict[str, bool],
@@ -118,13 +239,13 @@ class SchemaDesignValidator:
         """
         result = ValidationResult(valid=True, can_proceed=True)
 
-        # Run validation methods
+        # Run hard validations (errors block application)
         self.validate_has_selections(selections, result)
-        # TODO: More validation methods
-        # - validate_neo4j_identifiers()
-        # - detect_sparse_connectivity()
-        # - detect_deep_flattening()
-        # - detect_insufficient_endpoints()
+
+        # Run warning detectors (non-blocking)
+        self.detect_sparse_connectivity(selections, element_tree, result)
+        self.detect_deep_flattening(selections, element_tree, result)
+        self.detect_insufficient_endpoints(selections, element_tree, result)
 
         # Set validation result flags
         result.valid = len(result.errors) == 0
