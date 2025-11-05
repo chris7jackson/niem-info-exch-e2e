@@ -177,10 +177,14 @@ def extract_unmapped_properties(
     ns_map: dict[str, str],
     cmf_element_index: set
 ) -> dict[str, Any]:
-    """Extract properties from unmapped/augmentation elements and attributes.
+    """Extract augmentation properties to be added to edges (associations).
+
+    This function specifically handles augmentation elements/attributes that should
+    be added as properties on association edges, not as separate nodes.
+    For flattening unselected complex elements into nodes, see _recursively_flatten_element.
 
     Args:
-        elem: XML element to process
+        elem: XML element to process (typically an association)
         ns_map: Namespace mapping
         cmf_element_index: Set of known CMF element QNames
 
@@ -225,82 +229,9 @@ def extract_unmapped_properties(
     return unmapped
 
 
-def handle_complex_augmentation(
-    elem: Element,
-    ns_map: dict[str, str],
-    parent_node_id: str,
-    file_prefix: str,
-    nodes: dict[str, list],
-    contains: list[tuple]
-) -> str:
-    """Create separate augmentation node for complex nested structures.
-
-    Args:
-        elem: XML element (augmentation)
-        ns_map: Namespace mapping
-        parent_node_id: ID of parent node
-        file_prefix: File-specific prefix for ID generation
-        nodes: Nodes dictionary to update
-        contains: Containment edges list to update
-
-    Returns:
-        Augmentation node ID
-    """
-    elem_qn = qname_from_tag(elem.tag, ns_map)
-
-    # Generate synthetic ID for augmentation node
-    aug_node_id = synth_id(parent_node_id, elem_qn, f"aug_{elem_qn}", file_prefix)
-
-    # Recursively extract all properties
-    properties = _extract_all_properties_recursive(elem, ns_map)
-
-    # Create node with special 'Augmentation' label
-    nodes[aug_node_id] = ["Augmentation", elem_qn, properties]
-
-    # Link back to parent with special relationship
-    parent_label = nodes[parent_node_id][0] if parent_node_id in nodes else "Unknown"
-    contains.append((parent_node_id, parent_label, aug_node_id, "Augmentation", "AugmentedBy"))
-
-    return aug_node_id
-
-
-def _extract_all_properties_recursive(elem: Element, ns_map: dict[str, str]) -> dict[str, Any]:
-    """Recursively extract all properties from complex augmentation element.
-
-    Args:
-        elem: XML element
-        ns_map: Namespace mapping
-
-    Returns:
-        Dictionary of flattened properties with dot notation
-    """
-    properties = {}
-
-    # Extract attributes
-    for attr, value in elem.attrib.items():
-        # Skip structural attributes
-        if attr.startswith(f"{{{STRUCT_NS}}}") or attr.startswith(f"{{{XSI_NS}}}"):
-            continue
-
-        qn = qname_from_tag(attr, ns_map)
-        prop_name = qn.replace(':', '_').replace('.', '_')
-        properties[prop_name] = value
-
-    # Extract child elements
-    for child in elem:
-        child_qn = qname_from_tag(child.tag, ns_map)
-        prop_name = child_qn.replace(':', '_').replace('.', '_')
-
-        # If child has text content and no nested elements, store it
-        if child.text and child.text.strip() and len(list(child)) == 0:
-            properties[prop_name] = child.text.strip()
-        elif len(list(child)) > 0:
-            # If child has nested elements, recurse with dot notation
-            nested_props = _extract_all_properties_recursive(child, ns_map)
-            for nested_key, nested_value in nested_props.items():
-                properties[f"{prop_name}.{nested_key}"] = nested_value
-
-    return properties
+# Note: Removed unused handle_complex_augmentation and _extract_all_properties_recursive functions
+# These were replaced by the new _recursively_flatten_element function which handles
+# recursive flattening of unselected elements during ingestion
 
 
 def _recursively_flatten_element(
