@@ -152,31 +152,32 @@ class SchemaDesignValidator:
     ) -> None:
         """Detect deep flattening warnings.
 
-        Warns when elements at deep nesting levels (>3) are deselected,
-        resulting in complex property paths that may be hard to query.
+        DISABLED: Deep nesting is common in NIEM schemas and creates too many warnings.
+        The warnings were cluttering the UI and making the modal unusable.
 
         Args:
             selections: Dictionary mapping qnames to selection state
             element_tree: Flattened element tree structure
             result: ValidationResult to add warnings to
         """
-        DEEP_NESTING_THRESHOLD = 3
-
-        for element in element_tree:
-            qname = element["qname"]
-            depth = element.get("depth", 0)
-
-            # Warn if element is deep and deselected (will create complex property paths)
-            if not selections.get(qname, False) and depth > DEEP_NESTING_THRESHOLD:
-                result.warnings.append(ValidationMessage(
-                    severity=ValidationSeverity.WARNING,
-                    type=ValidationWarningType.DEEP_FLATTENING.value,
-                    message=f"Element '{qname}' at depth {depth} will be flattened, creating complex property names",
-                    element=qname,
-                    recommendation=f"Consider selecting '{qname}' as a node to simplify property paths and improve query readability",
-                    impact="low",
-                    details={"depth": depth}
-                ))
+        # DEEP_NESTING_THRESHOLD = 3
+        #
+        # for element in element_tree:
+        #     qname = element["qname"]
+        #     depth = element.get("depth", 0)
+        #
+        #     # Warn if element is deep and deselected (will create complex property paths)
+        #     if not selections.get(qname, False) and depth > DEEP_NESTING_THRESHOLD:
+        #         result.warnings.append(ValidationMessage(
+        #             severity=ValidationSeverity.WARNING,
+        #             type=ValidationWarningType.DEEP_FLATTENING.value,
+        #             message=f"Element '{qname}' at depth {depth} will be flattened, creating complex property names",
+        #             element=qname,
+        #             recommendation=f"Consider selecting '{qname}' as a node to simplify property paths and improve query readability",
+        #             impact="low",
+        #             details={"depth": depth}
+        #         ))
+        pass  # Method disabled to avoid warning clutter
 
     def detect_insufficient_endpoints(
         self,

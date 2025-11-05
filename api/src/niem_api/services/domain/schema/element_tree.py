@@ -123,9 +123,10 @@ def _detect_warnings(node: ElementTreeNode) -> list[WarningType]:
     """Detect best practice warnings for a node."""
     warnings = []
 
-    # Deep nesting warning
-    if node.depth > DEEP_NESTING_THRESHOLD:
-        warnings.append(WarningType.DEEP_NESTING)
+    # Deep nesting warning - DISABLED to avoid UI clutter
+    # Deep nesting is common in NIEM schemas and not necessarily a problem
+    # if node.depth > DEEP_NESTING_THRESHOLD:
+    #     warnings.append(WarningType.DEEP_NESTING)
 
     return warnings
 

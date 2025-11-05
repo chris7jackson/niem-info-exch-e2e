@@ -25,6 +25,9 @@ from .element_tree import (
 XS_NS = "http://www.w3.org/2001/XMLSchema"
 XS = f"{{{XS_NS}}}"
 
+# Maximum tree depth to prevent infinite recursion (configurable)
+MAX_TREE_DEPTH = 100
+
 # NIEM structures namespace
 STRUCTURES_NS = "https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/"
 
@@ -168,6 +171,7 @@ def _parse_complex_type(type_elem: Element, schema_ns_map: dict[str, str]) -> Ty
         for seq in type_elem.findall(path):
             for elem in seq.findall(f'./{XS}element'):
                 elem_decl = _parse_element_declaration(elem, schema_ns_map)
+                logger.info(f"DEBUG: _parse_complex_type found element '{elem_decl.name}' in type '{name}'")
                 elements.append({
                     'name': elem_decl.name,
                     'type': elem_decl.type_ref,
@@ -215,6 +219,12 @@ def _build_indices(xsd_files: dict[str, bytes]) -> tuple[dict, dict, dict]:
                     namespace_prefixes[target_ns] = p
                     break
 
+            if not prefix:
+                logger.warning(f"No prefix found for target namespace '{target_ns}' in {filename}")
+                logger.info(f"Available namespace mappings: {list(schema_ns_map.items())[:5]}")
+            else:
+                logger.info(f"Found prefix '{prefix}' for namespace '{target_ns}' in {filename}")
+
             # Parse complexType definitions
             for type_elem in root.findall(f'./{XS}complexType'):
                 type_def = _parse_complex_type(type_elem, schema_ns_map)
@@ -228,10 +238,18 @@ def _build_indices(xsd_files: dict[str, bytes]) -> tuple[dict, dict, dict]:
                 if elem_decl.name and prefix:
                     qname = f"{prefix}:{elem_decl.name}" if ':' not in elem_decl.name else elem_decl.name
                     element_declarations[qname] = elem_decl
+                    logger.info(f"DEBUG: Indexed element declaration '{qname}' from {filename}")
 
         except ET.ParseError as e:
             print(f"Warning: Failed to parse {filename}: {e}")
             continue
+
+    logger.info(f"DEBUG: Total element declarations indexed: {len(element_declarations)}")
+    logger.info(f"DEBUG: Sample element declarations: {list(element_declarations.keys())[:20]}")
+    if 'j:Charge' in element_declarations:
+        logger.info("DEBUG: ✅ j:Charge IS in element_declarations")
+    else:
+        logger.info("DEBUG: ❌ j:Charge NOT in element_declarations")
 
     return type_definitions, element_declarations, namespace_prefixes
 
@@ -289,7 +307,8 @@ def _build_tree_recursive(
     parent_qname: Optional[str],
     element_declarations: dict[str, ElementDeclaration],
     type_definitions: dict[str, TypeDefinition],
-    visited: set[str]
+    max_depth: int = MAX_TREE_DEPTH,
+    path_visited: Optional[set[str]] = None
 ) -> Optional[ElementTreeNode]:
     """Recursively build element tree from XSD structure.
 
@@ -299,25 +318,36 @@ def _build_tree_recursive(
         parent_qname: Parent element qname
         element_declarations: Index of all element declarations
         type_definitions: Index of all type definitions
-        visited: Set of visited qnames (prevent cycles)
+        max_depth: Maximum allowed depth (prevents infinite recursion)
+        path_visited: Set of elements visited in current path (prevents cycles in same branch)
 
     Returns:
-        ElementTreeNode or None if element not found
+        ElementTreeNode or None if element not found or depth exceeded
     """
+    # Initialize path_visited for root calls
+    if path_visited is None:
+        path_visited = set()
+
+    # Safety check: prevent infinite recursion
+    if depth > max_depth:
+        logger.warning(f"Max depth {max_depth} exceeded for element '{element_qname}' - stopping recursion")
+        return None
+
+    # Check if this element is already in the current path (circular reference)
+    if element_qname in path_visited:
+        logger.debug(f"Circular reference detected: '{element_qname}' already in path at depth {depth}")
+        return None
     # Find element declaration
     elem_decl = element_declarations.get(element_qname)
     if not elem_decl:
+        # Element declaration not found - this shouldn't happen for well-formed schemas
+        # Log it but return None to skip this branch
+        logger.debug(f"Element declaration not found for '{element_qname}' at depth {depth}")
         return None
 
-    # Check if already visited to prevent infinite recursion in circular schemas
-    # NOTE: This is NOT about NIEM references - just preventing stack overflow
-    if element_qname in visited:
-        # Skip this branch to prevent infinite recursion
-        # Each occurrence of an element type is independent unless it has structures:ref
-        return None
 
-    # Mark as visited for cycle detection
-    visited.add(element_qname)
+    # Add current element to path (prevents circular references in same branch)
+    current_path = path_visited | {element_qname}
 
     # Find type definition
     type_def = None
@@ -369,26 +399,34 @@ def _build_tree_recursive(
             parent_prefix = element_qname.split(':')[0] if ':' in element_qname else ''
             child_qname = f"{parent_prefix}:{child_name}" if parent_prefix else child_name
 
-        # Verify child exists before building
-        if child_qname not in element_declarations:
-            # Child can't be resolved, skip it
-            continue
-
+        # Try to build child node recursively
+        # Pass current_path to allow same element in different branches but prevent cycles
         child_node = _build_tree_recursive(
             child_qname,
             depth + 1,
             element_qname,
             element_declarations,
             type_definitions,
-            visited  # Use shared visited set (not copied)
+            max_depth,
+            current_path  # Pass copy of path to this child
         )
 
         if child_node:
-            node.children.append(child_node)
+            # Check for duplicate children with same qname
+            existing_qnames = [c.qname for c in node.children]
+            if child_node.qname in existing_qnames:
+                logger.warning(f"Duplicate child detected: '{child_node.qname}' already exists under '{element_qname}'")
+            else:
+                node.children.append(child_node)
+        else:
+            # If we couldn't build the child node, log it but don't skip
+            logger.debug(f"Could not build child node for '{child_qname}' (parent: {element_qname})")
 
     # Apply best practice detection
-    if depth > DEEP_NESTING_THRESHOLD:
-        node.warnings.append(WarningType.DEEP_NESTING)
+    # Deep nesting warning - DISABLED to avoid UI clutter
+    # Deep nesting is common in NIEM schemas and not necessarily a problem
+    # if depth > DEEP_NESTING_THRESHOLD:
+    #     node.warnings.append(WarningType.DEEP_NESTING)
 
     if (node.node_type == NodeType.OBJECT and
         property_count <= 2 and
@@ -431,8 +469,6 @@ def build_element_tree_from_xsd(
     primary_prefix = namespace_prefixes.get(primary_target_ns)
 
     # Find TRUE root elements (only from primary namespace, not referenced as children)
-    # Use shared visited set to prevent duplicates across all root trees
-    shared_visited = set()
     root_nodes = []
 
     for element_qname, elem_decl in element_declarations.items():
@@ -445,13 +481,15 @@ def build_element_tree_from_xsd(
             continue
 
         # Build tree starting from this true root
+        # Each root gets its own path_visited (allows same element in different roots)
         tree_node = _build_tree_recursive(
             element_qname,
             depth=0,
             parent_qname=None,
             element_declarations=element_declarations,
             type_definitions=type_definitions,
-            visited=shared_visited  # Shared across all roots
+            max_depth=MAX_TREE_DEPTH,
+            path_visited=set()  # Fresh path for each root
         )
 
         if tree_node:
