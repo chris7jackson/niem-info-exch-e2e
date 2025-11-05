@@ -82,6 +82,28 @@ class SchemaDesignValidator:
         """Initialize the validator."""
         pass
 
+    def validate_has_selections(
+        self,
+        selections: dict[str, bool],
+        result: ValidationResult
+    ) -> None:
+        """Validate that at least one node is selected.
+
+        Args:
+            selections: Dictionary mapping qnames to selection state
+            result: ValidationResult to add errors to
+        """
+        selected_count = sum(1 for is_selected in selections.values() if is_selected)
+
+        if selected_count == 0:
+            result.errors.append(ValidationMessage(
+                severity=ValidationSeverity.ERROR,
+                type=ValidationErrorType.NO_SELECTIONS.value,
+                message="Must select at least one element to create graph nodes",
+                recommendation="Select at least one element from the tree to proceed with schema design",
+                impact="high"
+            ))
+
     def validate(
         self,
         selections: dict[str, bool],
@@ -98,8 +120,9 @@ class SchemaDesignValidator:
         """
         result = ValidationResult(valid=True, can_proceed=True)
 
-        # TODO: Run validation methods
-        # - validate_has_selections()
+        # Run validation methods
+        self.validate_has_selections(selections, result)
+        # TODO: More validation methods
         # - validate_reference_endpoints()
         # - validate_property_conflicts()
         # - validate_neo4j_identifiers()
