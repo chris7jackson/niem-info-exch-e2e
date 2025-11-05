@@ -83,7 +83,7 @@ export interface ElementTreeNode {
   node_type: 'object' | 'association';
   depth: number;
   property_count: number;
-  relationship_count: number;
+  nested_object_count: number;
   parent_qname: string | null;
   warnings: string[];
   suggestions: string[];

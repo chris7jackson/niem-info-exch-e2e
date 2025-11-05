@@ -238,7 +238,8 @@ def _build_indices(xsd_files: dict[str, bytes]) -> tuple[dict, dict, dict]:
 
 def _count_properties_and_relationships(
     type_def: TypeDefinition,
-    type_definitions: dict[str, TypeDefinition]
+    type_definitions: dict[str, TypeDefinition],
+    element_declarations: dict[str, ElementDeclaration]
 ) -> tuple[int, int]:
     """Count simple properties vs nested objects in a type.
 
@@ -256,6 +257,13 @@ def _count_properties_and_relationships(
         elem_name = elem.get('name')
 
         logger.info(f"DEBUG:   Element '{elem_name}' has type '{elem_type}'")
+
+        # If no direct type, try to resolve via element declaration (handles refs)
+        if not elem_type and elem_name:
+            elem_decl = element_declarations.get(elem_name)
+            if elem_decl:
+                elem_type = elem_decl.type_ref
+                logger.info(f"DEBUG:     -> Resolved type from element declaration: '{elem_type}'")
 
         if not elem_type:
             logger.info(f"DEBUG:     -> Skipping (no type)")
@@ -325,7 +333,7 @@ def _build_tree_recursive(
 
     # Count properties vs nested objects
     property_count, nested_object_count = _count_properties_and_relationships(
-        type_def, type_definitions
+        type_def, type_definitions, element_declarations
     )
 
     # Create node

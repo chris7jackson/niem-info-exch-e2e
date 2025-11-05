@@ -102,8 +102,8 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode 
               <span className="text-gray-900">{selectedNode.property_count}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Relationships:</span>
-              <span className="text-gray-900">{selectedNode.relationship_count}</span>
+              <span className="text-gray-600">Nested Objects:</span>
+              <span className="text-gray-900">{selectedNode.nested_object_count}</span>
             </div>
             {selectedNode.cardinality && (
               <div className="flex justify-between">
@@ -130,7 +130,7 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode 
                 <p className="text-xs">
                   This element will become a node with label <span className="font-mono">{selectedNode.label}</span>.
                   {selectedNode.property_count > 0 && ` It will have ${selectedNode.property_count} scalar properties.`}
-                  {selectedNode.relationship_count > 0 && ` It will have ${selectedNode.relationship_count} relationships to other selected nodes.`}
+                  {selectedNode.nested_object_count > 0 && ` It will have ${selectedNode.nested_object_count} nested objects.`}
                 </p>
                 {selectedNode.children.length > 0 && !selectedNode.selected && (
                   <p className="text-xs text-amber-700">

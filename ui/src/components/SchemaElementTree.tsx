@@ -108,10 +108,10 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
     let color = 'bg-gray-100 text-gray-600';
     let icon = '🔗';
 
-    if (node.relationship_count >= 2) {
+    if (node.nested_object_count >= 2) {
       color = 'bg-green-100 text-green-700';
       icon = '🔗';
-    } else if (node.relationship_count === 1) {
+    } else if (node.nested_object_count === 1) {
       color = 'bg-yellow-100 text-yellow-700';
       icon = '⚠️';
     } else {
@@ -221,8 +221,8 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
             {/* Counts */}
             <span className="text-xs text-gray-500 flex-shrink-0">
               {node.property_count > 0 && `${node.property_count}p`}
-              {node.property_count > 0 && node.relationship_count > 0 && ' • '}
-              {node.relationship_count > 0 && `${node.relationship_count}r`}
+              {node.property_count > 0 && node.nested_object_count > 0 && ' • '}
+              {node.nested_object_count > 0 && `${node.nested_object_count}n`}
             </span>
           </div>
         </div>
@@ -293,7 +293,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
             <span>⚠️ Warning</span>
             <span>💡 Suggestion</span>
             <span>p=properties</span>
-            <span>r=relationships</span>
+            <span>n=nested objects</span>
           </div>
         </div>
       </div>
