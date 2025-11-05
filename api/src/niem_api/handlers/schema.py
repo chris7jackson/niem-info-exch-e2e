@@ -1262,6 +1262,68 @@ async def handle_apply_schema_design(
             detail="CMF file not found in storage"
         ) from e
 
+    # Get element tree for validation
+    primary_filename = metadata.get('primary_filename')
+    all_filenames = metadata.get('all_filenames', [])
+
+    if not primary_filename or not all_filenames:
+        raise HTTPException(
+            status_code=404,
+            detail="No source XSD files found for validation"
+        )
+
+    # Download XSD files for element tree
+    xsd_files = {}
+    try:
+        for filename in all_filenames:
+            object_path = f"{schema_id}/source/{filename}"
+            content = await download_file(s3, "niem-schemas", object_path)
+            xsd_files[filename] = content
+    except S3Error as e:
+        logger.error(f"Failed to download XSD files for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=404,
+            detail="XSD files not found in storage"
+        ) from e
+
+    # Build element tree and validate
+    from ..services.domain.schema.xsd_element_tree import build_element_tree_from_xsd
+    from ..services.domain.schema.element_tree import flatten_tree_to_list
+    from ..services.domain.schema.validation import SchemaDesignValidator
+
+    try:
+        tree_nodes = build_element_tree_from_xsd(primary_filename, xsd_files)
+        flattened = flatten_tree_to_list(tree_nodes)
+
+        # Validate selections
+        validator = SchemaDesignValidator()
+        validation_result = validator.validate(selections, flattened)
+
+        # If validation errors exist, return 400 with errors
+        if not validation_result.can_proceed:
+            return {
+                "success": False,
+                "valid": False,
+                "can_proceed": False,
+                "errors": [
+                    {
+                        "severity": err.severity.value,
+                        "type": err.type,
+                        "message": err.message,
+                        "element": err.element,
+                        "recommendation": err.recommendation,
+                        "impact": err.impact
+                    }
+                    for err in validation_result.errors
+                ]
+            }
+    except Exception as e:
+        logger.error(f"Failed to validate schema design for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to validate schema design: {str(e)}"
+        ) from e
+
     # Apply schema design
     from ..services.domain.schema.schema_designer import apply_schema_design
     try:
@@ -1310,10 +1372,23 @@ async def handle_apply_schema_design(
 
         return {
             "success": True,
+            "valid": True,
+            "can_proceed": True,
             "message": "Schema design applied successfully",
             "schema_id": schema_id,
             "selected_nodes": metadata['selected_node_count'],
-            "mapping_filename": mapping_filename
+            "mapping_filename": mapping_filename,
+            "warnings": [
+                {
+                    "severity": warn.severity.value,
+                    "type": warn.type,
+                    "message": warn.message,
+                    "element": warn.element,
+                    "recommendation": warn.recommendation,
+                    "impact": warn.impact
+                }
+                for warn in validation_result.warnings
+            ]
         }
 
     except Exception as e:
