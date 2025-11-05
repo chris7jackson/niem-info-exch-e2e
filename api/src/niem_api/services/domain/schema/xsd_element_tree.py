@@ -382,3 +382,147 @@ def build_element_tree_from_xsd(
             root_nodes.append(tree_node)
 
     return root_nodes
+
+
+def classify_xsd_type(type_ref: str, type_definitions: dict[str, TypeDefinition]) -> str:
+    """Classify XSD type into simple type category for Neo4j.
+
+    Args:
+        type_ref: Qualified type reference (e.g., "xs:string", "nc:TextType")
+        type_definitions: Index of all type definitions
+
+    Returns:
+        Simple type category: "string", "integer", "date", "boolean", "decimal"
+    """
+    # Direct XSD simple types
+    xsd_type_map = {
+        'xs:string': 'string',
+        'xs:normalizedString': 'string',
+        'xs:token': 'string',
+        'xs:int': 'integer',
+        'xs:integer': 'integer',
+        'xs:long': 'integer',
+        'xs:short': 'integer',
+        'xs:byte': 'integer',
+        'xs:positiveInteger': 'integer',
+        'xs:nonNegativeInteger': 'integer',
+        'xs:decimal': 'decimal',
+        'xs:float': 'decimal',
+        'xs:double': 'decimal',
+        'xs:boolean': 'boolean',
+        'xs:date': 'date',
+        'xs:dateTime': 'date',
+        'xs:time': 'date',
+        'xs:gYear': 'date',
+        'xs:gYearMonth': 'date',
+    }
+
+    # Check if it's a direct XSD type
+    if type_ref in xsd_type_map:
+        return xsd_type_map[type_ref]
+
+    # Check if it's a custom type with a restriction/extension base
+    type_def = type_definitions.get(type_ref)
+    if type_def and type_def.base_type:
+        # Recursively check base type
+        return classify_xsd_type(type_def.base_type, type_definitions)
+
+    # Default to string if unknown
+    return 'string'
+
+
+def extract_scalar_properties_from_type(
+    type_def: TypeDefinition,
+    type_definitions: dict[str, TypeDefinition]
+) -> list[dict]:
+    """Extract scalar properties from a type definition.
+
+    Args:
+        type_def: Type definition to extract properties from
+        type_definitions: Index of all type definitions
+
+    Returns:
+        List of scalar property dictionaries with name, type, cardinality
+    """
+    scalar_props = []
+
+    for elem in type_def.elements:
+        elem_name = elem.get('name')
+        elem_type = elem.get('type')
+        min_occurs = elem.get('min_occurs', '1')
+        max_occurs = elem.get('max_occurs', '1')
+
+        if not elem_name or not elem_type:
+            continue
+
+        # Check if this element's type is a scalar or complex type
+        if elem_type in type_definitions:
+            target_type_def = type_definitions[elem_type]
+            # If it's a simple type or has no child elements, it's scalar
+            if target_type_def.is_simple or len(target_type_def.elements) == 0:
+                scalar_type = classify_xsd_type(elem_type, type_definitions)
+                scalar_props.append({
+                    'name': elem_name,
+                    'type': scalar_type,
+                    'min_occurs': min_occurs,
+                    'max_occurs': max_occurs,
+                    'cardinality': f"{min_occurs}..{max_occurs}"
+                })
+        else:
+            # Assume scalar if not in type definitions (likely XSD built-in type)
+            scalar_type = classify_xsd_type(elem_type, type_definitions)
+            scalar_props.append({
+                'name': elem_name,
+                'type': scalar_type,
+                'min_occurs': min_occurs,
+                'max_occurs': max_occurs,
+                'cardinality': f"{min_occurs}..{max_occurs}"
+            })
+
+    return scalar_props
+
+
+def build_element_hierarchy(
+    type_definitions: dict[str, TypeDefinition],
+    element_declarations: dict[str, ElementDeclaration]
+) -> dict[str, str]:
+    """Build element hierarchy mapping from type definitions.
+
+    Maps child element qname to parent element qname based on
+    which types contain references to other elements.
+
+    Args:
+        type_definitions: Index of all type definitions
+        element_declarations: Index of all element declarations
+
+    Returns:
+        Dictionary mapping child_qname → parent_qname
+    """
+    hierarchy = {}
+
+    # For each element declaration, find its type and check children
+    for parent_qname, parent_decl in element_declarations.items():
+        if not parent_decl.type_ref:
+            continue
+
+        # Get the type definition for this element
+        type_def = type_definitions.get(parent_decl.type_ref)
+        if not type_def:
+            continue
+
+        # Check each child element in this type
+        for child_elem in type_def.elements:
+            child_name = child_elem.get('name')
+            child_ref = child_elem.get('ref')
+
+            # If it references another element, establish parent-child relationship
+            if child_ref and child_ref in element_declarations:
+                hierarchy[child_ref] = parent_qname
+            elif child_name:
+                # Construct child qname from parent namespace + child name
+                parent_ns = parent_qname.split(':')[0] if ':' in parent_qname else ''
+                child_qname = f"{parent_ns}:{child_name}" if parent_ns else child_name
+                if child_qname in element_declarations:
+                    hierarchy[child_qname] = parent_qname
+
+    return hierarchy

@@ -1224,7 +1224,7 @@ async def handle_apply_schema_design(
     """Apply user schema design selections and regenerate mapping.yaml.
 
     Takes user node selections and applies the flattening strategy to generate
-    a customized mapping.yaml file.
+    a customized mapping.yaml file directly from XSD schema files.
 
     Args:
         schema_id: Schema ID
@@ -1235,34 +1235,14 @@ async def handle_apply_schema_design(
         Dictionary containing success message and updated schema metadata
 
     Raises:
-        HTTPException: If schema not found, CMF not available, or design application fails
+        HTTPException: If schema not found, XSD files not available, or design application fails
     """
     # Get schema metadata
     metadata = get_schema_metadata(s3, schema_id)
     if not metadata:
         raise HTTPException(status_code=404, detail="Schema not found")
 
-    cmf_filename = metadata.get('cmf_filename')
-    if not cmf_filename:
-        raise HTTPException(
-            status_code=404,
-            detail="No CMF file found for this schema. Upload may still be processing."
-        )
-
-    # Download CMF file from MinIO
-    from ..clients.s3_client import download_file
-    try:
-        object_path = f"{schema_id}/{cmf_filename}"
-        cmf_content = await download_file(s3, "niem-schemas", object_path)
-        cmf_str = cmf_content.decode('utf-8')
-    except S3Error as e:
-        logger.error(f"Failed to download CMF file for schema {schema_id}: {e}")
-        raise HTTPException(
-            status_code=404,
-            detail="CMF file not found in storage"
-        ) from e
-
-    # Get element tree for validation
+    # Get XSD files for validation and schema design
     primary_filename = metadata.get('primary_filename')
     all_filenames = metadata.get('all_filenames', [])
 
@@ -1324,10 +1304,10 @@ async def handle_apply_schema_design(
             detail=f"Failed to validate schema design: {str(e)}"
         ) from e
 
-    # Apply schema design
-    from ..services.domain.schema.schema_designer import apply_schema_design
+    # Apply schema design using XSD
+    from ..services.domain.schema.xsd_schema_designer import apply_schema_design_from_xsd
     try:
-        custom_mapping = apply_schema_design(cmf_str, selections)
+        custom_mapping = apply_schema_design_from_xsd(xsd_files, primary_filename, selections)
     except Exception as e:
         logger.error(f"Failed to apply schema design for schema {schema_id}: {e}")
         raise HTTPException(
