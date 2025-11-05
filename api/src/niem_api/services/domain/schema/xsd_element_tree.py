@@ -364,34 +364,21 @@ def build_element_tree_from_xsd(
     # Build indices from all XSD files
     type_definitions, element_declarations, namespace_prefixes = _build_indices(xsd_files)
 
-    # Parse primary schema to find root elements
-    primary_content = xsd_files.get(primary_filename)
-    if not primary_content:
-        raise ValueError(f"Primary schema file not found: {primary_filename}")
-
-    primary_root = ET.fromstring(primary_content)
-    primary_ns_map = _extract_namespace_map(primary_root)
-    target_ns = primary_root.attrib.get('targetNamespace', '')
-    prefix = namespace_prefixes.get(target_ns, '')
-
-    # Find root elements in primary schema
+    # Find root elements across all XSD files (not just primary)
+    # This is needed because NIEM schemas often spread elements across multiple files
     root_nodes = []
-    for elem in primary_root.findall(f'./{XS}element'):
-        name = elem.attrib.get('name')
-        if name and prefix:
-            element_qname = f"{prefix}:{name}"
+    for element_qname in element_declarations.keys():
+        # Build tree starting from this element
+        tree_node = _build_tree_recursive(
+            element_qname,
+            depth=0,
+            parent_qname=None,
+            element_declarations=element_declarations,
+            type_definitions=type_definitions,
+            visited=set()
+        )
 
-            # Build tree starting from this root element
-            tree_node = _build_tree_recursive(
-                element_qname,
-                depth=0,
-                parent_qname=None,
-                element_declarations=element_declarations,
-                type_definitions=type_definitions,
-                visited=set()
-            )
-
-            if tree_node:
-                root_nodes.append(tree_node)
+        if tree_node:
+            root_nodes.append(tree_node)
 
     return root_nodes
