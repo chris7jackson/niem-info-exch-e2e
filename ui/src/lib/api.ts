@@ -105,12 +105,26 @@ export interface ElementTreeResponse {
   };
 }
 
+export interface SchemaValidationMessage {
+  severity: 'error' | 'warning' | 'suggestion';
+  type: string;
+  message: string;
+  element?: string | null;
+  recommendation?: string | null;
+  impact?: string | null;
+  details?: Record<string, any> | null;
+}
+
 export interface ApplyDesignResponse {
   success: boolean;
-  message: string;
-  schema_id: string;
-  selected_nodes: number;
-  mapping_filename: string;
+  valid: boolean;
+  can_proceed: boolean;
+  message?: string;
+  schema_id?: string;
+  selected_nodes?: number;
+  mapping_filename?: string;
+  errors?: SchemaValidationMessage[];
+  warnings?: SchemaValidationMessage[];
 }
 
 export interface BatchConversionResult {
