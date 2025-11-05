@@ -291,6 +291,24 @@ async def apply_schema_design(
     return await handle_apply_schema_design(schema_id, selections, s3)
 
 
+@app.get("/api/schema/{schema_id}/selections")
+async def get_schema_selections(
+    schema_id: str,
+    s3=Depends(get_s3_client)
+):
+    """Get saved design selections for a schema.
+
+    Args:
+        schema_id: ID of the schema
+
+    Returns:
+        Selections data or null if no custom design exists
+    """
+    from .handlers.schema import handle_get_selections
+
+    return await handle_get_selections(schema_id, s3)
+
+
 # Data Ingestion Routes
 
 @app.post("/api/ingest/xml")

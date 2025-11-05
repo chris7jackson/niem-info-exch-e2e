@@ -1350,6 +1350,29 @@ async def handle_apply_schema_design(
             content_type="application/json"
         )
 
+        # Store the selections for future editing
+        selections_data = {
+            "version": "1.0",
+            "schema_id": schema_id,
+            "applied_at": metadata['design_applied_at'],
+            "selections": selections,
+            "metadata": {
+                "total_elements": len(selections),
+                "selected_count": metadata['selected_node_count'],
+                "unselected_count": len(selections) - metadata['selected_node_count']
+            }
+        }
+        selections_json = json.dumps(selections_data, indent=2)
+        selections_path = f"{schema_id}/selections.json"
+
+        await upload_file(
+            client=s3,
+            bucket="niem-schemas",
+            object_name=selections_path,
+            data=selections_json.encode('utf-8'),
+            content_type="application/json"
+        )
+
         return {
             "success": True,
             "valid": True,
@@ -1376,4 +1399,59 @@ async def handle_apply_schema_design(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to store regenerated mapping: {str(e)}"
+        ) from e
+
+
+async def handle_get_selections(
+    schema_id: str,
+    s3: Minio
+) -> dict | None:
+    """
+    Retrieve saved design selections for a schema.
+
+    Args:
+        schema_id: The schema ID to retrieve selections for
+        s3: MinIO client instance
+
+    Returns:
+        Dict containing selections data or None if no custom design exists
+    """
+    try:
+        selections_path = f"{schema_id}/selections.json"
+
+        # Download the selections file
+        content = await download_file(
+            client=s3,
+            bucket="niem-schemas",
+            object_name=selections_path
+        )
+
+        # Parse and return the selections data
+        selections_data = json.loads(content.decode('utf-8'))
+        return selections_data
+
+    except S3Error as e:
+        # File doesn't exist - no custom design has been applied yet
+        if e.code == "NoSuchKey":
+            logger.info(f"No selections file found for schema {schema_id}")
+            return None
+        # Other S3 errors
+        logger.error(f"S3 error retrieving selections for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve selections: {str(e)}"
+        ) from e
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in selections file for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Selections file is corrupted"
+        ) from e
+
+    except Exception as e:
+        logger.error(f"Failed to retrieve selections for schema {schema_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve selections: {str(e)}"
         ) from e

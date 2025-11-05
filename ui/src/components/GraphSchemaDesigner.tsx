@@ -39,6 +39,23 @@ const GraphSchemaDesigner: React.FC<GraphSchemaDesignerProps> = ({ schemaId, ope
       response.nodes.forEach((node) => {
         initialSelections[node.qname] = node.selected;
       });
+
+      // Try to load saved selections and merge them
+      try {
+        const savedSelections = await apiClient.getSchemaSelections(schemaId);
+        if (savedSelections) {
+          // Merge saved selections with initial selections
+          // Saved selections take precedence
+          Object.keys(savedSelections).forEach((qname) => {
+            if (qname in initialSelections) {
+              initialSelections[qname] = savedSelections[qname];
+            }
+          });
+        }
+      } catch (err) {
+        console.log('No saved selections found, using defaults');
+      }
+
       setSelections(initialSelections);
     } catch (err: any) {
       console.error('Failed to fetch element tree:', err);

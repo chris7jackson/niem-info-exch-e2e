@@ -660,6 +660,15 @@ export default function SchemaManager() {
                     </div>
 
                     <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => {
+                          setUploadedSchemaId(schema.schema_id);
+                          setShowDesigner(true);
+                        }}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        Graph Designer
+                      </button>
                       {schema.active ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           Active

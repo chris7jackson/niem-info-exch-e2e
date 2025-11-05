@@ -256,6 +256,17 @@ class ApiClient {
     return response.data;
   }
 
+  async getSchemaSelections(schemaId: string): Promise<Record<string, boolean> | null> {
+    try {
+      const response = await this.client.get(`/api/schema/${schemaId}/selections`);
+      // Return just the selections object from the response
+      return response.data?.selections || null;
+    } catch (error) {
+      // Return null if selections don't exist (404 or other errors)
+      return null;
+    }
+  }
+
   // Data Ingestion - Direct to Neo4j
   async ingestXml(files: File[]): Promise<IngestResult> {
     const formData = new FormData();
