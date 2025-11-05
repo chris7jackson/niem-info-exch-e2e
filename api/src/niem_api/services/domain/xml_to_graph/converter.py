@@ -610,17 +610,15 @@ def generate_for_xml_content(
                 traverse(ch, parent_info, path_stack)
             return
 
-        # Check if element has metadata references (also makes it a node)
+        # Check if element has metadata references
         metadata_ref_list = get_metadata_refs(elem, xml_ns_map)
         has_metadata_refs = bool(metadata_ref_list)
 
-        if obj_rule or sid or has_metadata_refs:
-            # Generate label from mapping or from element name
-            if obj_rule:
-                node_label = obj_rule["label"]
-            else:
-                # No mapping rule, but has structures:id - create node with qname-based label
-                node_label = elem_qn.replace(":", "_")
+        # IMPORTANT: Only create nodes for elements that were explicitly selected in the designer
+        # Having structures:id or metadata refs alone does NOT make an element a node
+        if obj_rule:
+            # Generate label from mapping
+            node_label = obj_rule["label"]
 
             if sid:
                 # Prefix structures:id with file_prefix to ensure uniqueness across files
@@ -683,17 +681,13 @@ def generate_for_xml_content(
                     continue
 
                 # Check if child should become its own node
-                # Children become nodes if they're in obj_rules, have structures:id,
-                # or have metadata refs
-                child_sid = child.attrib.get(f"{{{STRUCT_NS}}}id")
-                child_uri = child.attrib.get(f"{{{STRUCT_NS}}}uri")
-                child_metadata_refs = get_metadata_refs(child, xml_ns_map)
+                # Children become nodes ONLY if they're explicitly selected in obj_rules
+                # or if they're associations (which are handled separately)
+                # NOTE: Having structures:id or metadata refs does NOT make an element a node
+                # unless it was selected in the designer
                 child_is_node = (
-                    child_qn in obj_rules or
-                    child_sid is not None or
-                    child_uri is not None or
-                    bool(child_metadata_refs) or
-                    child_qn in assoc_by_qn  # Associations also shouldn't be flattened
+                    child_qn in obj_rules or  # Explicitly selected in designer
+                    child_qn in assoc_by_qn    # Associations (handled separately)
                 )
 
                 if child_is_node:
@@ -756,7 +750,32 @@ def generate_for_xml_content(
 
             parent_ctx = (node_id, node_label)
         else:
+            # Element is NOT selected as a node - flatten it into parent if there is one
             parent_ctx = parent_info
+
+            # If we have a parent node, flatten this element's data into it
+            if parent_info:
+                parent_id, parent_label = parent_info
+
+                # Recursively extract all properties from this unselected element
+                flattened = _recursively_flatten_element(
+                    elem, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index,
+                    path_prefix=elem_qn  # Use element qname as prefix
+                )
+
+                # Add flattened properties to parent node
+                if parent_id in nodes and flattened:
+                    # Determine if this is augmentation data
+                    is_aug = cmf_element_index and is_augmentation(elem_qn, cmf_element_index)
+
+                    if is_aug:
+                        # Add to parent's augmentation properties
+                        for prop_path, prop_value in flattened.items():
+                            nodes[parent_id][3][prop_path] = prop_value
+                            nodes[parent_id][3][f"{prop_path}_isAugmentation"] = True
+                    else:
+                        # Add to parent's regular properties
+                        nodes[parent_id][2].update(flattened)
 
         # Handle reference edges from mapping.references
         if elem_qn in refs_by_owner:
