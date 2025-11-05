@@ -8,6 +8,7 @@ representation of the source schema structure.
 
 from dataclasses import dataclass
 from typing import Optional
+import re
 import defusedxml.ElementTree as ET
 from xml.etree.ElementTree import Element
 
@@ -68,16 +69,26 @@ def _get_qname(element: Element, attr: str, namespaces: dict[str, str]) -> Optio
     return value
 
 
-def _extract_namespace_map(root: Element) -> dict[str, str]:
-    """Extract namespace prefix mappings from schema root."""
+def _extract_namespace_map_from_xml(xml_content: bytes) -> dict[str, str]:
+    """Extract namespace prefix mappings from raw XML content.
+
+    ElementTree doesn't preserve xmlns attributes, so we parse them from raw XML.
+    """
     namespaces = {}
 
-    for key, value in root.attrib.items():
-        if key.startswith('{http://www.w3.org/2000/xmlns/}'):
-            prefix = key.split('}')[1]
-            namespaces[prefix] = value
-        elif key == 'xmlns':
-            namespaces[''] = value
+    # Decode bytes to string
+    xml_str = xml_content.decode('utf-8')
+
+    # Find all xmlns declarations using regex
+    # Match xmlns:prefix="uri" or xmlns="uri"
+    xmlns_pattern = r'xmlns(?::([a-zA-Z0-9_-]+))?="([^"]+)"'
+    matches = re.findall(xmlns_pattern, xml_str)
+
+    for prefix, uri in matches:
+        if prefix:
+            namespaces[prefix] = uri
+        else:
+            namespaces[''] = uri
 
     return namespaces
 
@@ -177,8 +188,8 @@ def _build_indices(xsd_files: dict[str, bytes]) -> tuple[dict, dict, dict]:
             if root.tag != f'{XS}schema':
                 continue
 
-            # Extract namespace mappings
-            schema_ns_map = _extract_namespace_map(root)
+            # Extract namespace mappings from raw XML content
+            schema_ns_map = _extract_namespace_map_from_xml(content)
             target_ns = root.attrib.get('targetNamespace', '')
 
             # Get prefix for this target namespace
