@@ -539,28 +539,9 @@ def generate_for_xml_content(
         ref = elem.attrib.get(f"{{{STRUCT_NS}}}ref")
         is_nil = elem.attrib.get(f"{{{XSI_NS}}}nil") == "true"
 
-        # Check if element is just a reference (ref or uri with nil)
-        # These elements are pure references - they don't create containment relationships
-        # The actual semantic relationships are handled by association processing
+        # Skip pure reference elements (ref or uri with nil) - they don't create nodes
         if (ref or uri_ref) and is_nil:
-            # Extract the target ID
-            target_id = None
-            if ref:
-                target_id = f"{file_prefix}_{ref}"
-            elif uri_ref:
-                target_id = f"{file_prefix}_{uri_ref[1:]}" if uri_ref.startswith("#") else f"{file_prefix}_{uri_ref}"
-
-            # Validate reference exists in ID registry
-            if target_id and target_id not in id_registry:
-                pending_refs.append((elem_qn, target_id, f"structures:ref/uri in {elem_qn}"))
-
-            # Create or register entity node if not already exists (for forward references)
-            # Use element QName to determine entity type (e.g., <nc:Person> creates nc:Person entity)
-            if target_id and target_id not in nodes:
-                entity_label = elem_qn.replace(":", "_")
-                nodes[target_id] = [entity_label, elem_qn, {}, {}]
-
-            # Skip containment for pure reference elements - traverse children only
+            # Just traverse children without creating any nodes
             for ch in elem:
                 traverse(ch, parent_info, path_stack)
             return
