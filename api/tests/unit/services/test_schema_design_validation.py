@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """Unit tests for schema design validation."""
 
-import pytest
-
 from niem_api.services.domain.schema.validation import (
     SchemaDesignValidator,
-    ValidationResult,
     ValidationSeverity,
     ValidationErrorType,
 )

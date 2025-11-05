@@ -25,7 +25,6 @@ class ValidationSeverity(str, Enum):
 class ValidationErrorType(str, Enum):
     """Types of validation errors that block design application."""
     NO_SELECTIONS = "no_selections"
-    INVALID_REFERENCE = "invalid_reference"
     PROPERTY_CONFLICT = "property_conflict"
     INVALID_IDENTIFIER = "invalid_identifier"
 
@@ -123,7 +122,6 @@ class SchemaDesignValidator:
         # Run validation methods
         self.validate_has_selections(selections, result)
         # TODO: More validation methods
-        # - validate_reference_endpoints()
         # - validate_property_conflicts()
         # - validate_neo4j_identifiers()
         # - detect_sparse_connectivity()
