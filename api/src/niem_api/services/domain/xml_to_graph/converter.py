@@ -7,7 +7,6 @@ reference relationships.
 """
 import argparse
 import hashlib
-import json
 import re
 # Use defusedxml for secure XML parsing (prevents XXE attacks)
 import defusedxml.ElementTree as ET
@@ -362,7 +361,7 @@ def collect_scalar_setters(
                 if cur is not None:
                     # Find first child with matching qname
                     found = None
-                    for ch in list(cur):
+                    for ch in cur:
                         if qname_from_tag(ch.tag, ns_map) == seg:
                             found = ch
                             break
@@ -465,33 +464,6 @@ def generate_for_xml_content(
         for child in elem:
             collect_ids_pass1(child)
 
-    def get_metadata_refs(elem: Element, xml_ns_map: dict[str, str]) -> list[str]:
-        """Extract metadata reference IDs from nc:metadataRef or priv:privacyMetadataRef attributes.
-
-        Args:
-            elem: XML element
-            xml_ns_map: Namespace mapping
-
-        Returns:
-            List of metadata reference IDs
-        """
-        metadata_refs = []
-
-        # Check for nc:metadataRef
-        for _, uri in xml_ns_map.items():
-            if 'niem-core' in uri:
-                nc_metadata_ref = elem.attrib.get(f"{{{uri}}}metadataRef")
-                if nc_metadata_ref:
-                    # Can be space-separated list of IDs
-                    metadata_refs.extend(nc_metadata_ref.strip().split())
-            elif 'PrivacyMetadata' in uri or '/priv' in uri:
-                priv_metadata_ref = elem.attrib.get(f"{{{uri}}}privacyMetadataRef")
-                if priv_metadata_ref:
-                    # Can be space-separated list of IDs
-                    metadata_refs.extend(priv_metadata_ref.strip().split())
-
-        return metadata_refs
-
     def traverse(elem, parent_info=None, path_stack=None):
         """Traverse XML tree and generate nodes and relationships."""
         if path_stack is None:
@@ -507,7 +479,7 @@ def generate_for_xml_content(
             endpoints = assoc_rule.get("endpoints", [])
             for ep in endpoints:
                 to_id = None
-                for ch in list(elem):
+                for ch in elem:
                     if qname_from_tag(ch.tag, xml_ns_map) == ep["role_qname"]:
                         to_id = ch.attrib.get(f"{{{STRUCT_NS}}}ref")
                         break
@@ -534,7 +506,7 @@ def generate_for_xml_content(
                 # and add them to the relationship properties (for simple associations)
                 # This follows NIEM best practice of using rich edges when possible
                 edge_props = {}
-                for child in list(elem):
+                for child in elem:
                     child_qn = qname_from_tag(child.tag, xml_ns_map)
                     # Skip role elements (already processed)
                     is_role = any(child_qn == ep["role_qname"] for ep in endpoints)
@@ -550,20 +522,10 @@ def generate_for_xml_content(
 
                 edges.append((id_a_prefixed, label_a, id_b_prefixed, label_b, rel, edge_props))
 
-            # Check if association should also be created as a node
-            # (if it has metadata refs, structures:id, or explicit mapping that creates nodes)
-            sid = elem.attrib.get(f"{{{STRUCT_NS}}}id")
-            metadata_ref_list = get_metadata_refs(elem, xml_ns_map)
-            has_metadata_refs = bool(metadata_ref_list)
-
-            # If association has metadata or structures:id, continue processing as a node
-            # Otherwise, traverse children and return
-            if not (sid or has_metadata_refs):
-                for ch in list(elem):
-                    traverse(ch, parent_info, path_stack)
-                return
-
-            # Fall through to process association as a node (for metadata, etc.)
+            # Associations are edges, not nodes - just traverse children
+            for ch in elem:
+                traverse(ch, parent_info, path_stack)
+            return
 
         # Handle Object elements (nodes)
         obj_rule = obj_rules.get(elem_qn)
@@ -598,71 +560,35 @@ def generate_for_xml_content(
                 entity_label = elem_qn.replace(":", "_")
                 nodes[target_id] = [entity_label, elem_qn, {}, {}]
 
-            # NOTE: Do NOT create containment relationships for reference elements
-            # Reference elements (xsi:nil="true" with structures:ref/uri) are pure references
-            # used in associations. Creating containment edges here would duplicate the
-            # semantic relationships already created by association processing.
-            # The association rules (lines 434-458) already handle creating the proper
-            # relationship edges between association nodes and their endpoints.
-
-            # Traverse children (though ref/nil elements typically have none)
-            for ch in list(elem):
+            # Skip containment for pure reference elements - traverse children only
+            for ch in elem:
                 traverse(ch, parent_info, path_stack)
             return
 
-        # Check if element has metadata references
-        metadata_ref_list = get_metadata_refs(elem, xml_ns_map)
-        has_metadata_refs = bool(metadata_ref_list)
 
-        # IMPORTANT: Only create nodes for elements that were explicitly selected in the designer
-        # Having structures:id or metadata refs alone does NOT make an element a node
+        # Only create nodes for elements explicitly selected in the designer
         if obj_rule:
             # Generate label from mapping
             node_label = obj_rule["label"]
 
+            # Generate node ID - use structures:id if present, otherwise synthetic
             if sid:
-                # Prefix structures:id with file_prefix to ensure uniqueness across files
                 node_id = f"{file_prefix}_{sid}"
-            elif uri_ref:
-                # Handle structures:uri="#P01" -> create role node + entity reference
-                # Entity type is determined by actual entity element in document
-                if uri_ref.startswith("#"):
-                    entity_id = f"{file_prefix}_{uri_ref[1:]}"  # Remove the "#" prefix and add file_prefix
-                else:
-                    entity_id = f"{file_prefix}_{uri_ref}"
-
-                # Validate reference exists in ID registry
-                if entity_id not in id_registry:
-                    pending_refs.append((elem_qn, entity_id, f"structures:uri role reference in {elem_qn}"))
-
-                # Create the role node with synthetic ID
-                parent_id = parent_info[0] if parent_info else "root"
-                chain = [qname_from_tag(e.tag, xml_ns_map) for e in path_stack] + [elem_qn]
-                ordinal_path = "/".join(chain)
-                node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
-
-                # DON'T create entity node here - defer to actual entity element in document
-                # This allows the pattern to work with any entity type (Person, Organization, etc.)
-
-                # Create role-to-entity relationship with deferred label resolution
-                # Label will be resolved when entity node is encountered/created
-                edges.append((node_id, node_label, entity_id, None, "REPRESENTS", {}))
             else:
+                # Generate synthetic ID based on element position
                 parent_id = parent_info[0] if parent_info else "root"
                 chain = [qname_from_tag(e.tag, xml_ns_map) for e in path_stack] + [elem_qn]
                 ordinal_path = "/".join(chain)
                 node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
 
-            # Step 1: Extract explicitly mapped scalar properties (schema-driven flattening)
-            # Tracks which direct children are already handled by scalar_props to avoid duplication
+            # Extract explicitly mapped scalar properties
             mapped_child_qnames = set()
             if obj_rule:
                 setters = collect_scalar_setters(obj_rule, elem, xml_ns_map)
                 for key, value in setters:
                     props[key] = value
 
-                # Track which direct children were already processed by scalar_props
-                # This prevents duplicate extraction in the auto-extraction phase
+                # Track which children were already processed by scalar_props
                 for prop_config in obj_rule.get("scalar_props", []) or []:
                     path = prop_config["path"]
                     if not path.startswith("@"):
@@ -670,8 +596,7 @@ def generate_for_xml_content(
                         first_segment = path.split("/")[0]
                         mapped_child_qnames.add(first_segment)
 
-            # Step 2: Recursively flatten ALL unselected children (automatic flattening)
-            # This ensures no data loss and handles arbitrary nesting depth
+            # Recursively flatten unselected children
             aug_props = {}
             for child in elem:
                 child_qn = qname_from_tag(child.tag, xml_ns_map)
@@ -681,10 +606,6 @@ def generate_for_xml_content(
                     continue
 
                 # Check if child should become its own node
-                # Children become nodes ONLY if they're explicitly selected in obj_rules
-                # or if they're associations (which are handled separately)
-                # NOTE: Having structures:id or metadata refs does NOT make an element a node
-                # unless it was selected in the designer
                 child_is_node = (
                     child_qn in obj_rules or  # Explicitly selected in designer
                     child_qn in assoc_by_qn    # Associations (handled separately)
@@ -739,15 +660,6 @@ def generate_for_xml_content(
                 rel = "HAS_" + re.sub(r'[^A-Za-z0-9]', '_', local_from_qname(elem_qn)).upper()
                 contains.append((p_id, p_label, node_id, node_label, rel))
 
-            # Handle metadata references for CROSS-REFERENCES only
-            # Metadata references (nc:metadataRef, priv:privacyMetadataRef) create semantic links
-            # BUT we don't need them if the metadata is a direct structural child (already has containment edge)
-            # For now, skip metadata reference edges entirely - containment edges are sufficient
-            # The HAS_METADATA, HAS_PRIVACYMETADATA containment edges already capture the relationships
-            # Note: We're intentionally not creating metadata reference edges here
-            # The structural containment edges (HAS_METADATA, HAS_PRIVACYMETADATA, etc.)
-            # already capture the relationships between elements and their metadata
-
             parent_ctx = (node_id, node_label)
         else:
             # Element is NOT selected as a node - flatten it into parent if there is one
@@ -781,7 +693,7 @@ def generate_for_xml_content(
         if elem_qn in refs_by_owner:
             for rule in refs_by_owner[elem_qn]:
                 # Search children with matching field_qname and @structures:ref OR @structures:id
-                for ch in list(elem):
+                for ch in elem:
                     if qname_from_tag(ch.tag, xml_ns_map) == rule["field_qname"]:
                         # Check for structures:ref first (traditional NIEM pattern)
                         to_id = ch.attrib.get(f"{{{STRUCT_NS}}}ref")
@@ -806,24 +718,9 @@ def generate_for_xml_content(
 
         # Recurse to children
         path_stack.append(elem)
-        for ch in list(elem):
+        for ch in elem:
             traverse(ch, parent_ctx, path_stack)
         path_stack.pop()
-
-    # ALWAYS process root element for document provenance
-    # Root element provides critical context: what document, when ingested, etc.
-    # Even if unmapped, it serves as anchor preventing orphaned nodes
-    root_qn = qname_from_tag(root.tag, xml_ns_map)
-    root_has_id = root.attrib.get(f"{{{STRUCT_NS}}}id")
-
-    # Ensure root gets an ID (explicit or synthetic)
-    if not root_has_id:
-        # Generate synthetic ID for root
-        root_synthetic_id = f"{file_prefix}_root"
-        root.attrib[f"{{{STRUCT_NS}}}id"] = root_synthetic_id
-
-        # Add provenance metadata to root if it becomes a node
-        # This will be picked up during traversal if root creates a node
 
     # TWO-PASS TRAVERSAL for forward reference resolution
     # Pass 1: Collect all IDs to enable forward/backward reference resolution
