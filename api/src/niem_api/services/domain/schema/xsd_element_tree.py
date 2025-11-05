@@ -153,16 +153,27 @@ def _parse_complex_type(type_elem: Element, schema_ns_map: dict[str, str]) -> Ty
     )
 
     # Extract element children from xs:sequence or xs:choice
+    # Look for sequences in specific places (not recursively to avoid duplicates)
     elements = []
-    for seq in type_elem.findall(f'.//{XS}sequence'):
-        for elem in seq.findall(f'./{XS}element'):
-            elem_decl = _parse_element_declaration(elem, schema_ns_map)
-            elements.append({
-                'name': elem_decl.name,
-                'type': elem_decl.type_ref,
-                'min_occurs': elem_decl.min_occurs,
-                'max_occurs': elem_decl.max_occurs,
-            })
+    sequence_paths = [
+        f'./{XS}sequence',                                           # Direct child
+        f'./{XS}complexContent/{XS}extension/{XS}sequence',        # Extension
+        f'./{XS}complexContent/{XS}restriction/{XS}sequence',      # Restriction
+        f'./{XS}choice',                                             # Direct choice
+        f'./{XS}complexContent/{XS}extension/{XS}choice',          # Extension choice
+        f'./{XS}complexContent/{XS}restriction/{XS}choice',        # Restriction choice
+    ]
+
+    for path in sequence_paths:
+        for seq in type_elem.findall(path):
+            for elem in seq.findall(f'./{XS}element'):
+                elem_decl = _parse_element_declaration(elem, schema_ns_map)
+                elements.append({
+                    'name': elem_decl.name,
+                    'type': elem_decl.type_ref,
+                    'min_occurs': elem_decl.min_occurs,
+                    'max_occurs': elem_decl.max_occurs,
+                })
 
     return TypeDefinition(
         name=name,

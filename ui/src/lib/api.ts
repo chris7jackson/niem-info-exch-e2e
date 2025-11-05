@@ -80,7 +80,7 @@ export interface ConversionFileResult {
 export interface ElementTreeNode {
   qname: string;
   label: string;
-  node_type: 'object' | 'association' | 'reference';
+  node_type: 'object' | 'association';
   depth: number;
   property_count: number;
   relationship_count: number;
@@ -92,6 +92,7 @@ export interface ElementTreeNode {
   description: string | null;
   namespace: string | null;
   is_nested_association: boolean;
+  can_have_id?: boolean;  // True if type extends structures:ObjectType
   children: string[];
 }
 
