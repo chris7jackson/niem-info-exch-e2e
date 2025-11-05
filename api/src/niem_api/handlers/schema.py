@@ -16,7 +16,7 @@ from minio.error import S3Error
 # Use defusedxml for secure XML parsing (prevents XXE attacks)
 import defusedxml.ElementTree as ET
 
-from ..clients.s3_client import upload_file
+from ..clients.s3_client import download_file, upload_file
 from ..clients.scheval_client import is_scheval_available
 from ..models.models import SchevalIssue, SchevalReport, SchemaResponse
 from ..services.cmf_tool import (
