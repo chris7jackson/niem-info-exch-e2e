@@ -303,6 +303,90 @@ def _extract_all_properties_recursive(elem: Element, ns_map: dict[str, str]) -> 
     return properties
 
 
+def _recursively_flatten_element(
+    elem: Element,
+    ns_map: dict[str, str],
+    obj_rules: dict[str, Any],
+    assoc_by_qn: dict[str, Any],
+    cmf_element_index: set,
+    path_prefix: str = ""
+) -> dict[str, Any]:
+    """Recursively flatten an unselected element and all its descendants.
+
+    This function extracts ALL data from an unselected element tree,
+    building hierarchical property names like PersonName.PersonGivenName.
+
+    Args:
+        elem: XML element to flatten
+        ns_map: Namespace mapping
+        obj_rules: Dictionary of elements that should become nodes
+        assoc_by_qn: Dictionary of association elements
+        cmf_element_index: Set of known CMF elements for augmentation detection
+        path_prefix: Accumulated property path prefix
+
+    Returns:
+        Dictionary of flattened properties with dot-notation paths
+    """
+    properties = {}
+    elem_qn = qname_from_tag(elem.tag, ns_map)
+
+    # Build property prefix for this level
+    current_prefix = f"{path_prefix}.{elem_qn.replace(':', '_')}" if path_prefix else elem_qn.replace(':', '_')
+
+    # Extract attributes (skip structural ones)
+    for attr, value in elem.attrib.items():
+        # Skip NIEM structural attributes
+        if (f"{{{STRUCT_NS}}}" in attr or
+            f"{{{XSI_NS}}}" in attr or
+            attr.startswith("xmlns")):
+            continue
+        # Convert attribute to qname
+        if "{" in attr:
+            attr_qn = qname_from_tag(attr, ns_map)
+        else:
+            attr_qn = attr
+        prop_name = f"{current_prefix}.@{attr_qn.replace(':', '_')}"
+        properties[prop_name] = value
+
+    # If element has simple text content and no children, capture it
+    if elem.text and elem.text.strip() and len(list(elem)) == 0:
+        # Store the text value directly at current_prefix
+        properties[current_prefix] = elem.text.strip()
+        return properties
+
+    # Process children
+    for child in elem:
+        child_qn = qname_from_tag(child.tag, ns_map)
+
+        # Skip if child should be a node (selected in designer)
+        if child_qn in obj_rules:
+            continue
+
+        # Skip if child is an association (creates relationships, not properties)
+        if child_qn in assoc_by_qn:
+            continue
+
+        # Check if child has structures:id or uri (makes it a node)
+        child_sid = child.attrib.get(f"{{{STRUCT_NS}}}id")
+        child_uri = child.attrib.get(f"{{{STRUCT_NS}}}uri")
+        if child_sid or child_uri:
+            continue
+
+        # If child has simple text and no nested elements, store it
+        if child.text and child.text.strip() and len(list(child)) == 0:
+            prop_name = f"{current_prefix}.{child_qn.replace(':', '_')}"
+            properties[prop_name] = child.text.strip()
+
+        # If child has nested elements, recurse
+        elif len(list(child)) > 0:
+            nested_props = _recursively_flatten_element(
+                child, ns_map, obj_rules, assoc_by_qn, cmf_element_index, current_prefix
+            )
+            properties.update(nested_props)
+
+    return properties
+
+
 def collect_scalar_setters(
     obj_rule: dict[str, Any], elem: Element, ns_map: dict[str, str]
 ) -> list[tuple[str, str]]:
@@ -657,9 +741,8 @@ def generate_for_xml_content(
                         first_segment = path.split("/")[0]
                         mapped_child_qnames.add(first_segment)
 
-            # Step 2: Auto-extract ALL remaining simple-text children (hybrid approach)
-            # This ensures no data loss for CMF elements not in scalar_props mapping
-            # and captures augmentation data in a single unified pass
+            # Step 2: Recursively flatten ALL unselected children (automatic flattening)
+            # This ensures no data loss and handles arbitrary nesting depth
             aug_props = {}
             for child in elem:
                 child_qn = qname_from_tag(child.tag, xml_ns_map)
@@ -668,33 +751,52 @@ def generate_for_xml_content(
                 if child_qn in mapped_child_qnames:
                     continue
 
-                # Check if child has simple text content (no nested elements)
-                if child.text and child.text.strip() and len(list(child)) == 0:
-                    # Use exact property name (preserve semantic meaning)
-                    prop_name = child_qn.replace(':', '_')
+                # Check if child should become its own node
+                # Children become nodes if they're in obj_rules, have structures:id,
+                # or have metadata refs
+                child_sid = child.attrib.get(f"{{{STRUCT_NS}}}id")
+                child_uri = child.attrib.get(f"{{{STRUCT_NS}}}uri")
+                child_metadata_refs = get_metadata_refs(child, xml_ns_map)
+                child_is_node = (
+                    child_qn in obj_rules or
+                    child_sid is not None or
+                    child_uri is not None or
+                    bool(child_metadata_refs) or
+                    child_qn in assoc_by_qn  # Associations also shouldn't be flattened
+                )
 
-                    # Check if this is an augmentation (extension data not in CMF schema)
+                if child_is_node:
+                    # This child will be processed as a separate node in recursion
+                    # Skip flattening - it will create a containment relationship instead
+                    continue
+
+                # Child is NOT a node - flatten it and all its descendants
+                if child.text and child.text.strip() and len(list(child)) == 0:
+                    # Simple text child - flatten directly
+                    prop_name = child_qn.replace(':', '_')
                     is_aug = cmf_element_index and is_augmentation(child_qn, cmf_element_index)
 
                     if is_aug:
-                        # Store as augmentation property with metadata flag
                         aug_props[prop_name] = child.text.strip()
                         aug_props[f"{prop_name}_isAugmentation"] = True
                     else:
-                        # Store as regular property (CMF element not in mapping)
                         props[prop_name] = child.text.strip()
 
-                # Step 3: Handle complex augmentation children (nested structures)
-                # Attach properties directly to parent node (no orphan Augmentation nodes)
-                elif cmf_element_index and is_augmentation(child_qn, cmf_element_index) and len(list(child)) > 0:
-                    # Extract nested properties with dot notation
-                    nested_props = _extract_all_properties_recursive(child, xml_ns_map)
-                    for key, value in nested_props.items():
-                        # Flatten with exact property names (NO aug_ prefix for semantic clarity)
-                        prop_name = f"{child_qn.replace(':', '_').replace('.', '_')}.{key}"
-                        aug_props[prop_name] = value
-                        # Add augmentation metadata flag for identification
-                        aug_props[f"{prop_name}_isAugmentation"] = True
+                elif len(list(child)) > 0:
+                    # Complex child with nested elements - recursively flatten
+                    flattened = _recursively_flatten_element(
+                        child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, path_prefix=""
+                    )
+
+                    # Determine if this is augmentation data
+                    is_aug = cmf_element_index and is_augmentation(child_qn, cmf_element_index)
+
+                    for prop_path, prop_value in flattened.items():
+                        if is_aug:
+                            aug_props[prop_path] = prop_value
+                            aug_props[f"{prop_path}_isAugmentation"] = True
+                        else:
+                            props[prop_path] = prop_value
 
             # Register node
             if node_id in nodes:
