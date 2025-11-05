@@ -196,6 +196,74 @@ def extract_properties(
     return setters
 
 
+def _recursively_flatten_json_object(
+    obj: dict[str, Any],
+    obj_rules: dict[str, Any],
+    assoc_by_qn: dict[str, Any],
+    path_prefix: str = ""
+) -> dict[str, Any]:
+    """Recursively flatten an unselected JSON object and all its descendants.
+
+    Args:
+        obj: JSON object to flatten
+        obj_rules: Object rules from mapping
+        assoc_by_qn: Association rules index
+        path_prefix: Prefix for property paths
+
+    Returns:
+        Dictionary of flattened properties with hierarchical names
+    """
+    flattened = {}
+
+    for key, value in obj.items():
+        # Skip JSON-LD keywords
+        if key.startswith("@"):
+            continue
+
+        # Build property path
+        prop_path = f"{path_prefix}_{key}" if path_prefix else key
+        prop_path = prop_path.replace(":", "_")
+
+        if isinstance(value, (str, int, float, bool)):
+            # Simple value - add directly
+            flattened[prop_path] = value
+
+        elif isinstance(value, list):
+            # Handle arrays
+            simple_values = []
+            for item in value:
+                if isinstance(item, (str, int, float, bool)):
+                    simple_values.append(item)
+                elif isinstance(item, dict):
+                    # Check if this dict should be a node
+                    item_type = item.get("@type") or key
+                    if item_type not in obj_rules and item_type not in assoc_by_qn:
+                        # Recursively flatten nested object
+                        nested_props = _recursively_flatten_json_object(
+                            item, obj_rules, assoc_by_qn, prop_path
+                        )
+                        flattened.update(nested_props)
+            if simple_values:
+                flattened[prop_path] = simple_values
+
+        elif isinstance(value, dict):
+            # Check if this is a reference
+            if is_reference(value):
+                # Store reference ID
+                flattened[f"{prop_path}_ref"] = value["@id"]
+            else:
+                # Check if nested object should be a node
+                nested_type = value.get("@type") or key
+                if nested_type not in obj_rules and nested_type not in assoc_by_qn:
+                    # Recursively flatten nested object
+                    nested_props = _recursively_flatten_json_object(
+                        value, obj_rules, assoc_by_qn, prop_path
+                    )
+                    flattened.update(nested_props)
+
+    return flattened
+
+
 def generate_for_json_content(
     json_content: str,
     mapping_dict: dict[str, Any],
@@ -224,7 +292,10 @@ def generate_for_json_content(
     context = data.get("@context", {})
 
     # Load mapping
-    _, obj_rules, _, _, _ = load_mapping_from_dict(mapping_dict)
+    _, obj_rules, associations, references, _ = load_mapping_from_dict(mapping_dict)
+
+    # Build association index for quick lookup
+    assoc_by_qn = build_assoc_index(associations)
 
     # Extract CMF element index from mapping metadata if not provided
     if cmf_element_index is None:
@@ -269,10 +340,10 @@ def generate_for_json_content(
 
         # Find matching object rule
         obj_rule = obj_rules.get(qname) if qname else None
-        in_mapping = obj_rule is not None
 
-        # Decision: Create node only if has @id OR in mapping
-        should_create_node = has_id or in_mapping
+        # IMPORTANT: Only create nodes for elements explicitly selected in the designer
+        # Having @id alone does NOT make an element a node
+        should_create_node = obj_rule is not None
 
         if not should_create_node:
             # Flatten properties onto parent node (if parent exists)
@@ -280,19 +351,21 @@ def generate_for_json_content(
                 parent_node = nodes[parent_id]
                 parent_props = parent_node[2]  # props_dict is at index 2
 
-                # Flatten simple properties with property_name prefix
+                # Recursively flatten all properties from this unselected object
+                prefix = property_name.replace(":", "_") if property_name else ""
+                flattened = _recursively_flatten_json_object(obj, obj_rules, assoc_by_qn, prefix)
+                parent_props.update(flattened)
+            else:
+                # Process children even if no parent to create nodes for
                 for key, value in obj.items():
                     if key.startswith("@"):
                         continue
-                    if isinstance(value, (str, int, float, bool)):
-                        safe_key = key.replace(":", "_")
-                        parent_props[safe_key] = value
+                    if isinstance(value, dict):
+                        process_jsonld_object(value, parent_id, parent_label, key)
                     elif isinstance(value, list):
-                        # Flatten list values
-                        safe_key = key.replace(":", "_")
-                        simple_values = [v for v in value if isinstance(v, (str, int, float, bool))]
-                        if simple_values:
-                            parent_props[safe_key] = simple_values
+                        for item in value:
+                            if isinstance(item, dict):
+                                process_jsonld_object(item, parent_id, parent_label, key)
 
             # Don't create a node, return None
             return None
