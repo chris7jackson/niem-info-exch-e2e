@@ -29,8 +29,8 @@ class SchevalIssue(BaseModel):
     """Schematron validation issue with precise line/column information."""
 
     file: str  # File being validated
-    line: int  # Line number where issue occurs
-    column: int  # Column number where issue occurs
+    line: int | None = None  # Line number where issue occurs (None for tool-level errors)
+    column: int | None = None  # Column number where issue occurs (None for tool-level errors)
     message: str  # Error message
     severity: str  # 'error', 'warning', 'info'
     rule: str | None = None  # Validation rule identifier (e.g., "Rule 7-10")
