@@ -267,16 +267,35 @@ def _build_tree_recursive(
     Returns:
         ElementTreeNode or None if element not found
     """
-    # Prevent infinite recursion
-    if element_qname in visited:
-        return None
-
-    visited.add(element_qname)
-
     # Find element declaration
     elem_decl = element_declarations.get(element_qname)
     if not elem_decl:
         return None
+
+    # Check if already visited - create reference node instead of full subtree
+    if element_qname in visited:
+        # Create lightweight reference node pointing to first occurrence
+        label = element_qname.replace(':', '_')
+        return ElementTreeNode(
+            qname=element_qname,
+            label=label,
+            node_type=NodeType.REFERENCE,  # Mark as reference
+            depth=depth,
+            property_count=0,
+            relationship_count=0,
+            parent_qname=parent_qname,
+            children=[],  # No children for references
+            warnings=[],
+            suggestions=[],
+            selected=True,
+            cardinality=f"{elem_decl.min_occurs}..{elem_decl.max_occurs}",
+            description=elem_decl.documentation,
+            namespace=element_qname.split(':')[0] if ':' in element_qname else None,
+            is_nested_association=False
+        )
+
+    # Mark as visited for future references
+    visited.add(element_qname)
 
     # Find type definition
     type_def = None
@@ -318,7 +337,20 @@ def _build_tree_recursive(
     # Recursively build children
     for elem_info in type_def.elements:
         child_name = elem_info['name']
-        child_qname = child_name if ':' in child_name else child_name
+
+        # Properly qualify child qname
+        if ':' in child_name:
+            # Already qualified (e.g., "j:Crash")
+            child_qname = child_name
+        else:
+            # Local name - qualify using parent's namespace
+            parent_prefix = element_qname.split(':')[0] if ':' in element_qname else ''
+            child_qname = f"{parent_prefix}:{child_name}" if parent_prefix else child_name
+
+        # Verify child exists before building
+        if child_qname not in element_declarations:
+            # Child can't be resolved, skip it
+            continue
 
         child_node = _build_tree_recursive(
             child_qname,
@@ -326,7 +358,7 @@ def _build_tree_recursive(
             element_qname,
             element_declarations,
             type_definitions,
-            visited.copy()  # Copy to allow same element in different branches
+            visited  # Use shared visited set (not copied)
         )
 
         if child_node:
@@ -375,18 +407,37 @@ def build_element_tree_from_xsd(
     # Build indices from all XSD files
     type_definitions, element_declarations, namespace_prefixes = _build_indices(xsd_files)
 
-    # Find root elements across all XSD files (not just primary)
-    # This is needed because NIEM schemas often spread elements across multiple files
+    # Build hierarchy to identify which elements are children
+    hierarchy = build_element_hierarchy(type_definitions, element_declarations)
+
+    # Get primary file's target namespace
+    primary_content = xsd_files[primary_filename]
+    primary_root = ET.fromstring(primary_content)
+    primary_target_ns = primary_root.attrib.get('targetNamespace', '')
+    primary_prefix = namespace_prefixes.get(primary_target_ns)
+
+    # Find TRUE root elements (only from primary namespace, not referenced as children)
+    # Use shared visited set to prevent duplicates across all root trees
+    shared_visited = set()
     root_nodes = []
-    for element_qname in element_declarations.keys():
-        # Build tree starting from this element
+
+    for element_qname, elem_decl in element_declarations.items():
+        # Only consider elements from the primary namespace
+        if primary_prefix and not element_qname.startswith(f"{primary_prefix}:"):
+            continue
+
+        # Skip elements that are children of other elements
+        if element_qname in hierarchy:
+            continue
+
+        # Build tree starting from this true root
         tree_node = _build_tree_recursive(
             element_qname,
             depth=0,
             parent_qname=None,
             element_declarations=element_declarations,
             type_definitions=type_definitions,
-            visited=set()
+            visited=shared_visited  # Shared across all roots
         )
 
         if tree_node:
