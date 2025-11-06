@@ -13,13 +13,50 @@ import logging
 import defusedxml.ElementTree as ET
 from xml.etree.ElementTree import Element
 
-from .element_tree import (
-    ElementTreeNode,
-    NodeType,
-    WarningType,
-    SuggestionType,
-    DEEP_NESTING_THRESHOLD,
-)
+# Note: Types moved here from element_tree.py to make this module self-contained
+from dataclasses import dataclass, field
+from enum import Enum
+
+# Constants
+ASSOCIATION_TYPE = "nc.AssociationType"
+DEEP_NESTING_THRESHOLD = 3
+
+class NodeType(str, Enum):
+    """Type of node in the element tree."""
+    OBJECT = "object"
+    ASSOCIATION = "association"
+    REFERENCE = "reference"
+
+class WarningType(str, Enum):
+    """Type of warning for best practice detection."""
+    DEEP_NESTING = "deep_nesting"
+    SPARSE_CONNECTIVITY = "sparse_connectivity"
+    INSUFFICIENT_ENDPOINTS = "insufficient_endpoints"
+
+class SuggestionType(str, Enum):
+    """Type of suggestion for best practice guidance."""
+    ASSOCIATION_CANDIDATE = "association_candidate"
+    FLATTEN_WRAPPER = "flatten_wrapper"
+
+@dataclass
+class ElementTreeNode:
+    """Node in the element tree hierarchy."""
+    qname: str                              # Qualified name (e.g., "j:CrashDriver")
+    label: str                              # Neo4j label (e.g., "j_CrashDriver")
+    node_type: NodeType                     # object, association, or reference
+    depth: int                              # Distance from root (0-indexed)
+    property_count: int                     # Number of simple/scalar properties
+    nested_object_count: int                # Number of nested complex objects
+    parent_qname: Optional[str] = None      # Parent in hierarchy
+    children: list['ElementTreeNode'] = field(default_factory=list)
+    warnings: list[WarningType] = field(default_factory=list)
+    suggestions: list[SuggestionType] = field(default_factory=list)
+    selected: bool = True                   # Default selected (from auto-generated mapping)
+    cardinality: Optional[str] = None       # Min..Max occurrence
+    description: Optional[str] = None       # Element documentation
+    namespace: Optional[str] = None         # Namespace prefix
+    is_nested_association: bool = False     # True if nested under another object
+    can_have_id: bool = False               # True if type extends structures:ObjectType (instances can have id/ref/uri)
 
 # XSD namespace
 XS_NS = "http://www.w3.org/2001/XMLSchema"
@@ -659,3 +696,42 @@ def build_element_hierarchy(
                     hierarchy[child_qname] = parent_qname
 
     return hierarchy
+
+
+def flatten_tree_to_list(nodes: list[ElementTreeNode]) -> list[dict]:
+    """Flatten tree structure to a flat list for API response.
+
+    Args:
+        nodes: List of root ElementTreeNode objects
+
+    Returns:
+        List of dictionaries representing nodes in flattened form
+    """
+    result = []
+
+    def flatten_recursive(node: ElementTreeNode):
+        result.append({
+            "qname": node.qname,
+            "label": node.label,
+            "node_type": node.node_type.value,
+            "depth": node.depth,
+            "property_count": node.property_count,
+            "nested_object_count": node.nested_object_count,
+            "parent_qname": node.parent_qname,
+            "warnings": [w.value for w in node.warnings],
+            "suggestions": [s.value for s in node.suggestions],
+            "selected": node.selected,
+            "cardinality": node.cardinality,
+            "description": node.description,
+            "namespace": node.namespace,
+            "is_nested_association": node.is_nested_association,
+            "can_have_id": node.can_have_id,
+        })
+
+        for child in node.children:
+            flatten_recursive(child)
+
+    for root in nodes:
+        flatten_recursive(root)
+
+    return result
