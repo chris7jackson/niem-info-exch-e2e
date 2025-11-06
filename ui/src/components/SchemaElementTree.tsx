@@ -29,6 +29,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   // Build parent-child relationship map
   const nodeMap = useMemo(() => {
     const map = new Map<string, ElementTreeNode>();
+    if (!nodes || !Array.isArray(nodes)) return map;
     nodes.forEach((node) => map.set(node.qname, node));
     return map;
   }, [nodes]);
@@ -36,6 +37,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   // Build children map
   const childrenMap = useMemo(() => {
     const map = new Map<string, ElementTreeNode[]>();
+    if (!nodes || !Array.isArray(nodes)) return map;
     nodes.forEach((node) => {
       if (node.parent_qname) {
         const children = map.get(node.parent_qname) || [];
@@ -51,11 +53,13 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
 
   // Get root nodes (no parent)
   const rootNodes = useMemo(() => {
+    if (!nodes || !Array.isArray(nodes)) return [];
     return nodes.filter((node) => !node.parent_qname);
   }, [nodes]);
 
   // Filter nodes by search query - include matching nodes and their ancestors
   const filteredNodes = useMemo(() => {
+    if (!nodes || !Array.isArray(nodes)) return [];
     if (!searchQuery.trim()) return nodes;
 
     const query = searchQuery.toLowerCase();
@@ -127,6 +131,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   };
 
   const handleSelectAll = () => {
+    if (!filteredNodes) return;
     filteredNodes.forEach((node) => {
       if (!selections[node.qname]) {
         onSelectionChange(node.qname, true);
@@ -135,6 +140,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   };
 
   const handleClearAll = () => {
+    if (!filteredNodes) return;
     filteredNodes.forEach((node) => {
       if (selections[node.qname]) {
         onSelectionChange(node.qname, false);
@@ -329,7 +335,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
             Clear All
           </button>
           <div className="flex-1 text-right text-xs text-gray-500">
-            {filteredNodes.filter((n) => selections[n.qname] !== false).length} / {filteredNodes.length} selected
+            {(filteredNodes || []).filter((n) => selections[n.qname] !== false).length} / {(filteredNodes || []).length} selected
           </div>
         </div>
 

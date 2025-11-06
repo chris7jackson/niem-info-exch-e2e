@@ -111,7 +111,7 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode 
                 <span className="font-mono text-gray-900">{selectedNode.cardinality}</span>
               </div>
             )}
-            {selectedNode.children.length > 0 && (
+            {selectedNode.children && selectedNode.children.length > 0 && (
               <div className="flex justify-between">
                 <span className="text-gray-600">Child Nodes:</span>
                 <span className="text-gray-900">{selectedNode.children.length}</span>
@@ -132,7 +132,7 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode 
                   {selectedNode.property_count > 0 && ` It will have ${selectedNode.property_count} scalar properties.`}
                   {selectedNode.nested_object_count > 0 && ` It will have ${selectedNode.nested_object_count} nested objects.`}
                 </p>
-                {selectedNode.children.length > 0 && !selectedNode.selected && (
+                {selectedNode.children && selectedNode.children.length > 0 && !selectedNode.selected && (
                   <p className="text-xs text-amber-700">
                     Unselected child nodes will be flattened into this node as properties.
                   </p>
@@ -150,7 +150,7 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode 
         </div>
 
         {/* Warnings */}
-        {selectedNode.warnings.length > 0 && (
+        {selectedNode.warnings && selectedNode.warnings.length > 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <h4 className="text-sm font-semibold text-yellow-900 mb-2 flex items-center">
               <span className="mr-2">⚠️</span> Warnings
@@ -167,7 +167,7 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode 
         )}
 
         {/* Suggestions */}
-        {selectedNode.suggestions.length > 0 && (
+        {selectedNode.suggestions && selectedNode.suggestions.length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
               <span className="mr-2">💡</span> Suggestions
