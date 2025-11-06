@@ -201,10 +201,33 @@ class SchemaValidator:
                     # Also check if any uploaded schema path ends with this import path
                     for uploaded_name in uploaded_schemas.keys():
                         normalized_uploaded = uploaded_name.replace('\\', '/')
-                        if (normalized_uploaded.endswith(normalized_location)
-                                or normalized_uploaded.endswith(import_filename)):
+
+                        # Check various matching patterns
+                        if normalized_uploaded.endswith(normalized_location):
                             found = True
                             break
+                        elif normalized_uploaded.endswith(import_filename):
+                            found = True
+                            break
+
+                        # Special handling: If the uploaded path contains .xsd in folder names,
+                        # try to match by comparing the final path components
+                        # Example: "model.xsd/niem/domains/justice.xsd" should match import "../niem/domains/justice.xsd"
+                        if '.xsd/' in normalized_uploaded:
+                            # Extract the path after any folder containing .xsd
+                            # This handles cases like "model.xsd/niem/domains/justice.xsd"
+                            parts = normalized_uploaded.split('.xsd/')
+                            if len(parts) > 1:
+                                # Get everything after the .xsd/ folder
+                                path_after_xsd_folder = parts[-1]
+                                # Check if this matches our import location
+                                if path_after_xsd_folder == normalized_location.lstrip('../'):
+                                    found = True
+                                    break
+                                # Also check if import path ends with this
+                                if normalized_location.endswith(path_after_xsd_folder):
+                                    found = True
+                                    break
 
                 # Get namespace for this import
                 import_namespace = ""
