@@ -38,21 +38,8 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
     return map;
   }, [nodes]);
 
-  // Initialize all parent nodes as expanded
+  // Initialize with all nodes collapsed for better performance with large schemas
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-
-  // Update expanded nodes when nodes change (expand all by default)
-  useEffect(() => {
-    const allParentNodes = new Set<string>();
-    nodes.forEach((node) => {
-      // If node has children, expand it by default
-      const hasChildren = childrenMap.has(node.qname);
-      if (hasChildren) {
-        allParentNodes.add(node.qname);
-      }
-    });
-    setExpandedNodes(allParentNodes);
-  }, [nodes, childrenMap]);
 
   // Get root nodes (no parent)
   const rootNodes = useMemo(() => {
