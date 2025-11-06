@@ -9,6 +9,13 @@ interface SchemaElementTreeProps {
   selectedNodeQname: string | null;
 }
 
+interface TreeRow {
+  node: ElementTreeNode;
+  depth: number;
+  hasChildren: boolean;
+  isExpanded: boolean;
+}
+
 const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   nodes,
   selections,
@@ -70,6 +77,38 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
 
     return nodes.filter((node) => matchingQnames.has(node.qname));
   }, [nodes, searchQuery, nodeMap]);
+
+  // Flatten tree into array of visible rows for virtualization
+  const visibleRows = useMemo(() => {
+    const rows: TreeRow[] = [];
+    const filteredQnames = new Set(filteredNodes.map(n => n.qname));
+
+    const addNodeAndChildren = (node: ElementTreeNode, depth: number) => {
+      const allChildren = childrenMap.get(node.qname) || [];
+      const children = allChildren.filter(child => filteredQnames.has(child.qname));
+      const hasChildren = children.length > 0;
+      const isExpanded = expandedNodes.has(node.qname);
+
+      rows.push({
+        node,
+        depth,
+        hasChildren,
+        isExpanded,
+      });
+
+      // Only add children if node is expanded
+      if (isExpanded && hasChildren) {
+        children.forEach(child => addNodeAndChildren(child, depth + 1));
+      }
+    };
+
+    // Start with root nodes
+    rootNodes
+      .filter(node => filteredQnames.has(node.qname))
+      .forEach(node => addNodeAndChildren(node, 0));
+
+    return rows;
+  }, [filteredNodes, rootNodes, childrenMap, expandedNodes]);
 
   const toggleExpand = (qname: string) => {
     const newExpanded = new Set(expandedNodes);
