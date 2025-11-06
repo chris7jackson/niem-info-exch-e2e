@@ -890,7 +890,8 @@ async def handle_schema_upload(
         primary_content = file_contents[primary_file.filename]
         timestamp = datetime.now(UTC).isoformat()
 
-        # Step 2: Validate NIEM NDR conformance using scheval (unless skipped)
+        # Step 2: Validate NIEM Naming & Design Rules conformance using scheval (unless skipped)
+        # Note: scheval runs the NIEM NDR schematron rules and provides detailed error reporting
         scheval_report = None
         if not skip_niem_ndr:
             scheval_report = await _validate_all_scheval(file_contents)

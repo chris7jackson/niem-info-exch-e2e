@@ -78,7 +78,7 @@ This document explains how NIEM XML Schemas (XSD) and instance documents (XML an
 
 **Key Files:**
 - `api/src/niem_api/handlers/schema.py` - Upload handler
-- `api/src/niem_api/services/domain/schema/validator.py` - NDR validation
+- `api/src/niem_api/services/domain/schema/scheval_validator.py` - NIEM NDR validation using scheval
 
 ### Step 2: XSD → CMF Conversion
 
@@ -910,7 +910,7 @@ CREATE (inj)-[:`HAS_PRIVACYMETADATA`]->(pmd)  # Containment edge captures relati
 | Ingest Handler | `api/src/niem_api/handlers/ingest.py` |
 | XML→Graph Converter | `api/src/niem_api/services/domain/xml_to_graph/converter.py` |
 | JSON→Graph Converter | `api/src/niem_api/services/domain/json_to_graph/converter.py` |
-| Schema Validator | `api/src/niem_api/services/domain/schema/validator.py` |
+| Scheval Validator | `api/src/niem_api/services/domain/schema/scheval_validator.py` |
 | Schema Resolver | `api/src/niem_api/services/domain/schema/resolver.py` |
 | Neo4j Client | `api/src/niem_api/clients/neo4j_client.py` |
 

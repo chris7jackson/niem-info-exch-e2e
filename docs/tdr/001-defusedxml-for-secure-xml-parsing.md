@@ -42,8 +42,9 @@ Static analysis with Bandit flagged 12 instances of `xml.etree.ElementTree` usag
 - `src/niem_api/handlers/schema.py` (2 occurrences)
 - `src/niem_api/services/domain/schema/mapping.py` (2 occurrences)
 - `src/niem_api/services/domain/schema/resolver.py` (4 occurrences)
-- `src/niem_api/services/domain/schema/validator.py` (2 occurrences)
 - `src/niem_api/services/domain/xml_to_graph/converter.py` (1 occurrence)
+
+**Note:** The original `validator.py` file has been removed and consolidated into `scheval_validator.py`.
 
 ### Current Risk
 
@@ -213,7 +214,7 @@ if "<!ENTITY" in xml_content or "<!DOCTYPE" in xml_content:
 - ✅ Replaced imports in handlers/schema.py
 - ✅ Replaced imports in services/domain/schema/mapping.py
 - ✅ Replaced imports in services/domain/schema/resolver.py
-- ✅ Replaced imports in services/domain/schema/validator.py
+- ✅ Replaced imports in services/domain/schema/validator.py (now removed - consolidated into scheval_validator.py)
 - ✅ Replaced imports in services/domain/xml_to_graph/converter.py
 - ✅ All Bandit B314 warnings resolved
 - ✅ All existing tests pass without modification
@@ -223,7 +224,7 @@ if "<!ENTITY" in xml_content or "<!DOCTYPE" in xml_content:
 - `fix(security): use defusedxml in handlers/schema.py` (6b60dae)
 - `fix(security): use defusedxml in schema/mapping.py` (afc63e8)
 - `fix(security): use defusedxml in schema/resolver.py` (d75eeb1)
-- `fix(security): use defusedxml in schema/validator.py` (6cfc2b7)
+- `fix(security): use defusedxml in schema/validator.py` (6cfc2b7) - Note: validator.py has since been removed
 - `fix(security): use defusedxml in xml_to_graph/converter.py` (b3aad7c)
 
 ## References
