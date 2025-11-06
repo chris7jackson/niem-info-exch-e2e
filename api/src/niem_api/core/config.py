@@ -46,6 +46,11 @@ class BatchConfig:
     # Useful for development or when working with known-good data
     SKIP_JSON_VALIDATION = os.getenv('SKIP_JSON_VALIDATION', 'false').lower() == 'true'
 
+    # Schema dependency validation feature flag
+    # Set to 'true' to skip schema dependency validation during upload
+    # Useful when uploading partial schemas or for testing
+    SKIP_SCHEMA_DEPENDENCY_VALIDATION = os.getenv('SKIP_SCHEMA_DEPENDENCY_VALIDATION', 'false').lower() == 'true'
+
     @classmethod
     def get_batch_limit(cls, operation_type: str) -> int:
         """Get batch size limit for specific operation type.

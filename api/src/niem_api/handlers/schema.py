@@ -629,17 +629,31 @@ async def _convert_to_cmf(
                 f.write(content.decode())
             logger.info(f"Created temporary schema file: {relative_path}")
 
-        # Validate dependencies within uploaded files
-        logger.info("Validating schema dependencies")
-        # Get primary file's relative path
-        primary_file_path = file_path_map.get(primary_file.filename, primary_file.filename)
-        dependency_report = _validate_schema_dependencies(
-            temp_path, primary_file_path, primary_content.decode()
-        )
-        logger.info(f"Dependency validation: {dependency_report['summary']}")
+        # Check if dependency validation should be skipped
+        from ..core.config import batch_config
 
-        # Get the resolved directory path for cleanup
-        resolved_temp_path = dependency_report.get("temp_path", temp_path)
+        if batch_config.SKIP_SCHEMA_DEPENDENCY_VALIDATION:
+            logger.warning("⚠️ Skipping schema dependency validation (SKIP_SCHEMA_DEPENDENCY_VALIDATION=true)")
+            dependency_report = {
+                "can_convert": True,
+                "summary": "Dependency validation skipped by configuration",
+                "blocking_issues": [],
+                "warnings": ["Schema dependency validation was skipped - some schema features may not work correctly"],
+                "temp_path": temp_path
+            }
+            resolved_temp_path = temp_path
+        else:
+            # Validate dependencies within uploaded files
+            logger.info("Validating schema dependencies")
+            # Get primary file's relative path
+            primary_file_path = file_path_map.get(primary_file.filename, primary_file.filename)
+            dependency_report = _validate_schema_dependencies(
+                temp_path, primary_file_path, primary_content.decode()
+            )
+            logger.info(f"Dependency validation: {dependency_report['summary']}")
+
+            # Get the resolved directory path for cleanup
+            resolved_temp_path = dependency_report.get("temp_path", temp_path)
 
         try:
             # Check if all dependencies are satisfied
@@ -929,14 +943,22 @@ async def handle_schema_upload(
             if import_has_errors:
                 cmf_status = cmf_conversion_result.get("status")
                 if cmf_status == "dependency_failed":
-                    blocking_issues = (
-                        cmf_conversion_result.get("dependency_report", {}).get(
-                            "blocking_issues", []
+                    dependency_report = cmf_conversion_result.get("dependency_report", {})
+                    blocking_issues = dependency_report.get("blocking_issues", [])
+
+                    # Create detailed error message with specific missing dependencies
+                    if blocking_issues:
+                        missing_deps_details = ", ".join(blocking_issues[:5])  # Show first 5
+                        if len(blocking_issues) > 5:
+                            missing_deps_details += f", and {len(blocking_issues) - 5} more"
+                        error_parts.append(
+                            f"Missing {len(blocking_issues)} required schema dependencies: {missing_deps_details}"
                         )
-                    )
-                    error_parts.append(
-                        f"Missing {len(blocking_issues)} required schema dependencies"
-                    )
+                    else:
+                        # Fallback if no specific issues listed
+                        error_parts.append(
+                            f"Schema dependency validation failed: {dependency_report.get('summary', 'Unknown dependency issue')}"
+                        )
                 else:
                     error_parts.append(
                         f"CMF conversion failed: "
@@ -1194,8 +1216,7 @@ async def handle_get_element_tree(schema_id: str, s3: Minio):
         ) from e
 
     # Build element tree from XSD
-    from ..services.domain.schema.xsd_element_tree import build_element_tree_from_xsd
-    from ..services.domain.schema.element_tree import flatten_tree_to_list
+    from ..services.domain.schema.xsd_element_tree import build_element_tree_from_xsd, flatten_tree_to_list
     try:
         tree_nodes = build_element_tree_from_xsd(primary_filename, xsd_files)
         flattened = flatten_tree_to_list(tree_nodes)
@@ -1268,8 +1289,7 @@ async def handle_apply_schema_design(
         ) from e
 
     # Build element tree and validate
-    from ..services.domain.schema.xsd_element_tree import build_element_tree_from_xsd
-    from ..services.domain.schema.element_tree import flatten_tree_to_list
+    from ..services.domain.schema.xsd_element_tree import build_element_tree_from_xsd, flatten_tree_to_list
     from ..services.domain.schema.validation import SchemaDesignValidator
 
     try:
