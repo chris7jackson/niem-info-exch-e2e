@@ -82,6 +82,9 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   // Flatten tree into array of visible rows for virtualization
   const visibleRows = useMemo(() => {
     const rows: TreeRow[] = [];
+    if (!filteredNodes || filteredNodes.length === 0) {
+      return rows;
+    }
     const filteredQnames = new Set(filteredNodes.map(n => n.qname));
 
     const addNodeAndChildren = (node: ElementTreeNode, depth: number) => {
@@ -104,9 +107,11 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
     };
 
     // Start with root nodes
-    rootNodes
-      .filter(node => filteredQnames.has(node.qname))
-      .forEach(node => addNodeAndChildren(node, 0));
+    if (rootNodes && rootNodes.length > 0) {
+      rootNodes
+        .filter(node => filteredQnames.has(node.qname))
+        .forEach(node => addNodeAndChildren(node, 0));
+    }
 
     return rows;
   }, [filteredNodes, rootNodes, childrenMap, expandedNodes]);
