@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { VariableSizeList as List } from 'react-window';
 import { ElementTreeNode } from '../lib/api';
 
 interface SchemaElementTreeProps {
@@ -47,6 +48,9 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
 
   // Initialize with all nodes collapsed for better performance with large schemas
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+
+  // Ref for virtual list to reset cache when rows change
+  const listRef = useRef<List>(null);
 
   // Get root nodes (no parent)
   const rootNodes = useMemo(() => {
@@ -120,6 +124,19 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
     setExpandedNodes(newExpanded);
   };
 
+  // Reset list cache when visible rows change
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.resetAfterIndex(0);
+    }
+  }, [visibleRows]);
+
+  // Item size function for VariableSizeList
+  const getItemSize = (index: number) => {
+    // Fixed row height of 48px
+    return 48;
+  };
+
   const handleSelectAll = () => {
     filteredNodes.forEach((node) => {
       if (!selections[node.qname]) {
@@ -183,26 +200,24 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   //   );
   // };
 
-  const TreeNode: React.FC<{ node: ElementTreeNode; depth: number }> = ({ node, depth }) => {
-    const allChildren = childrenMap.get(node.qname) || [];
-
-    // Filter children to only show those in the filtered set
-    const filteredQnames = new Set(filteredNodes.map(n => n.qname));
-    const children = allChildren.filter(child => filteredQnames.has(child.qname));
-
-    const hasChildren = children.length > 0;
-    const isExpanded = expandedNodes.has(node.qname);
+  // Row renderer for virtual list
+  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+    const row = visibleRows[index];
+    const { node, depth, hasChildren, isExpanded } = row;
     const isSelected = selections[node.qname] !== false; // Default true
     const isHighlighted = selectedNodeQname === node.qname;
 
     return (
-      <div>
+      <div
+        style={style}
+        className={`flex items-center py-2 px-2 hover:bg-gray-50 cursor-pointer ${
+          isHighlighted ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+        }`}
+        onClick={() => onNodeClick(node)}
+      >
         <div
-          className={`flex items-center py-2 px-2 hover:bg-gray-50 cursor-pointer ${
-            isHighlighted ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-          }`}
+          className="flex items-center w-full"
           style={{ paddingLeft: `${depth * 1.5 + 0.5}rem` }}
-          onClick={() => onNodeClick(node)}
         >
           {/* Expand/Collapse Icon */}
           {hasChildren ? (
@@ -272,15 +287,6 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
             </span>
           </div>
         </div>
-
-        {/* Children */}
-        {hasChildren && isExpanded && (
-          <div>
-            {children.map((child) => (
-              <TreeNode key={child.qname} node={child} depth={depth + 1} />
-            ))}
-          </div>
-        )}
       </div>
     );
   };
@@ -342,16 +348,22 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
         </div>
       </div>
 
-      {/* Tree */}
-      <div className="flex-1 overflow-y-auto">
-        {filteredNodes.length === 0 ? (
+      {/* Tree - Virtualized */}
+      <div className="flex-1 overflow-hidden">
+        {visibleRows.length === 0 ? (
           <div className="py-8 text-center text-gray-500">No nodes match your search</div>
         ) : (
-          <div className="divide-y divide-gray-100">
-            {rootNodes.map((node) => (
-              <TreeNode key={node.qname} node={node} depth={0} />
-            ))}
-          </div>
+          <List
+            ref={listRef}
+            height={600} // Will be overridden by CSS height: 100%
+            itemCount={visibleRows.length}
+            itemSize={getItemSize}
+            width="100%"
+            className="scrollbar-thin"
+            style={{ height: '100%' }}
+          >
+            {Row}
+          </List>
         )}
       </div>
     </div>
