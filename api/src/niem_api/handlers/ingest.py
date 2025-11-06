@@ -683,12 +683,17 @@ async def _process_single_json_file(
     Returns:
         Tuple of (result_dict, statements_executed)
     """
+    from ..core.config import batch_config
+
     try:
         content = await file.read()
         json_content = content.decode('utf-8')
 
-        # Validate NIEM JSON against JSON Schema
-        _validate_json_content(json_content, json_schema, file.filename)
+        # Validate NIEM JSON against JSON Schema (unless skipped via feature flag)
+        if not batch_config.SKIP_JSON_VALIDATION:
+            _validate_json_content(json_content, json_schema, file.filename)
+        else:
+            logger.info(f"Skipping JSON validation for {file.filename} (SKIP_JSON_VALIDATION=true)")
 
         # Generate Cypher from NIEM JSON
         cypher_statements, stats = _generate_cypher_from_json(

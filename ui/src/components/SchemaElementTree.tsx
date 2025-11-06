@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { VariableSizeList as List } from 'react-window';
+import { VariableSizeList } from 'react-window';
 import { ElementTreeNode } from '../lib/api';
 
 interface SchemaElementTreeProps {
@@ -50,7 +50,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   // Ref for virtual list to reset cache when rows change
-  const listRef = useRef<List>(null);
+  const listRef = useRef<VariableSizeList>(null);
 
   // Get root nodes (no parent)
   const rootNodes = useMemo(() => {
@@ -353,7 +353,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
         {visibleRows.length === 0 ? (
           <div className="py-8 text-center text-gray-500">No nodes match your search</div>
         ) : (
-          <List
+          <VariableSizeList
             ref={listRef}
             height={600} // Will be overridden by CSS height: 100%
             itemCount={visibleRows.length}
@@ -363,7 +363,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
             style={{ height: '100%' }}
           >
             {Row}
-          </List>
+          </VariableSizeList>
         )}
       </div>
     </div>

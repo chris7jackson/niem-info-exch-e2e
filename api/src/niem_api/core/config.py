@@ -41,6 +41,11 @@ class BatchConfig:
     # XML/JSON ingestion to Neo4j
     MAX_INGEST_FILES = int(os.getenv('BATCH_MAX_INGEST_FILES', '20'))
 
+    # JSON validation feature flag
+    # Set to 'true' to skip JSON schema validation during ingestion
+    # Useful for development or when working with known-good data
+    SKIP_JSON_VALIDATION = os.getenv('SKIP_JSON_VALIDATION', 'false').lower() == 'true'
+
     @classmethod
     def get_batch_limit(cls, operation_type: str) -> int:
         """Get batch size limit for specific operation type.
