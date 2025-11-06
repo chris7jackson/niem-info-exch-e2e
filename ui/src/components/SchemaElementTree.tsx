@@ -193,6 +193,12 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   // Row component for virtual list
   const RowComponent = ({ index, ariaAttributes }: { index: number; ariaAttributes?: any }) => {
     const row = visibleRows[index];
+
+    // Safety check - if row doesn't exist, return empty div
+    if (!row) {
+      return <div style={{ height: 48 }} />;
+    }
+
     const { node, depth, hasChildren, isExpanded } = row;
     const isSelected = selections[node.qname] !== false; // Default true
     const isHighlighted = selectedNodeQname === node.qname;
@@ -343,6 +349,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
           <div className="py-8 text-center text-gray-500">No nodes match your search</div>
         ) : (
           <List<Record<string, never>>
+            key={visibleRows.length} // Force re-render when rows change
             listRef={setListRef}
             defaultHeight={600}
             rowCount={visibleRows.length}
