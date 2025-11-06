@@ -6,6 +6,7 @@ import time
 from contextlib import asynccontextmanager
 from typing import List
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from neo4j import GraphDatabase
@@ -14,6 +15,9 @@ from .core.auth import verify_token
 from .core.dependencies import get_s3_client
 from .core.logging import setup_logging
 from .models.models import EntityResolutionRequest, ResetRequest, SchemaResponse
+
+# Load environment variables from .env file
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 

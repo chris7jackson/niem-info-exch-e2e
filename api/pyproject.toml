@@ -166,6 +166,7 @@ directory = "htmlcov"
 
 [tool.poetry.dependencies]
 defusedxml = "^0.7.1"
+python-dotenv = "^1.2.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"

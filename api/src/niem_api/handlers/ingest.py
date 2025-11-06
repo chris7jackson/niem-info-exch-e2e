@@ -689,11 +689,15 @@ async def _process_single_json_file(
         content = await file.read()
         json_content = content.decode('utf-8')
 
+        # Log the current state of the flag for debugging
+        logger.info(f"SKIP_JSON_VALIDATION flag is: {batch_config.SKIP_JSON_VALIDATION}")
+
         # Validate NIEM JSON against JSON Schema (unless skipped via feature flag)
         if not batch_config.SKIP_JSON_VALIDATION:
+            logger.info(f"Validating JSON for {file.filename}")
             _validate_json_content(json_content, json_schema, file.filename)
         else:
-            logger.info(f"Skipping JSON validation for {file.filename} (SKIP_JSON_VALIDATION=true)")
+            logger.warning(f"⚠️ Skipping JSON validation for {file.filename} (SKIP_JSON_VALIDATION=true)")
 
         # Generate Cypher from NIEM JSON
         cypher_statements, stats = _generate_cypher_from_json(
