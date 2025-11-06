@@ -59,13 +59,30 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
     return nodes.filter((node) => !node.parent_qname);
   }, [nodes]);
 
-  // Filter nodes by search query
+  // Filter nodes by search query - include matching nodes and their ancestors
   const filteredNodes = useMemo(() => {
     if (!searchQuery.trim()) return nodes;
 
     const query = searchQuery.toLowerCase();
-    return nodes.filter((node) => node.qname.toLowerCase().includes(query));
-  }, [nodes, searchQuery]);
+    const matchingQnames = new Set<string>();
+
+    // Find all nodes that match the search
+    nodes.forEach((node) => {
+      if (node.qname.toLowerCase().includes(query)) {
+        matchingQnames.add(node.qname);
+
+        // Add all ancestors to show the path to root
+        let currentParent = node.parent_qname;
+        while (currentParent) {
+          matchingQnames.add(currentParent);
+          const parentNode = nodeMap.get(currentParent);
+          currentParent = parentNode?.parent_qname || null;
+        }
+      }
+    });
+
+    return nodes.filter((node) => matchingQnames.has(node.qname));
+  }, [nodes, searchQuery, nodeMap]);
 
   const toggleExpand = (qname: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -141,15 +158,16 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   // };
 
   const TreeNode: React.FC<{ node: ElementTreeNode; depth: number }> = ({ node, depth }) => {
-    const children = childrenMap.get(node.qname) || [];
+    const allChildren = childrenMap.get(node.qname) || [];
+
+    // Filter children to only show those in the filtered set
+    const filteredQnames = new Set(filteredNodes.map(n => n.qname));
+    const children = allChildren.filter(child => filteredQnames.has(child.qname));
+
     const hasChildren = children.length > 0;
     const isExpanded = expandedNodes.has(node.qname);
     const isSelected = selections[node.qname] !== false; // Default true
     const isHighlighted = selectedNodeQname === node.qname;
-
-    // Check if node matches search
-    const matchesSearch = !searchQuery.trim() || node.qname.toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch && !hasChildren) return null;
 
     return (
       <div>

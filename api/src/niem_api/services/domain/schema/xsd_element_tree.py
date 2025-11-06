@@ -167,11 +167,30 @@ def _parse_complex_type(type_elem: Element, schema_ns_map: dict[str, str]) -> Ty
         f'./{XS}complexContent/{XS}restriction/{XS}choice',        # Restriction choice
     ]
 
+    # Track seen sequences by their id() to avoid processing the same sequence twice
+    seen_sequences = set()
+    # Track seen element names to avoid duplicates
+    seen_elements = set()
+
     for path in sequence_paths:
         for seq in type_elem.findall(path):
+            # Check if we've already processed this exact sequence object
+            seq_id = id(seq)
+            if seq_id in seen_sequences:
+                continue
+
+            seen_sequences.add(seq_id)
+
             for elem in seq.findall(f'./{XS}element'):
                 elem_decl = _parse_element_declaration(elem, schema_ns_map)
-                logger.info(f"DEBUG: _parse_complex_type found element '{elem_decl.name}' in type '{name}'")
+
+                # Check for duplicates - use name only as key since same element can appear with different attributes
+                elem_key = elem_decl.name
+                if elem_key in seen_elements:
+                    logger.debug(f"Skipping duplicate element '{elem_decl.name}' in type '{name}'")
+                    continue
+
+                seen_elements.add(elem_key)
                 elements.append({
                     'name': elem_decl.name,
                     'type': elem_decl.type_ref,
@@ -415,7 +434,7 @@ def _build_tree_recursive(
             # Check for duplicate children with same qname
             existing_qnames = [c.qname for c in node.children]
             if child_node.qname in existing_qnames:
-                logger.warning(f"Duplicate child detected: '{child_node.qname}' already exists under '{element_qname}'")
+                logger.debug(f"Duplicate child '{child_node.qname}' already exists under '{element_qname}'")
             else:
                 node.children.append(child_node)
         else:
