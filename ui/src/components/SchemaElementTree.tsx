@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { List, ListImperativeAPI } from 'react-window';
+import { List } from 'react-window';
 import { ElementTreeNode } from '../lib/api';
 
 interface SchemaElementTreeProps {
@@ -48,9 +48,6 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
 
   // Initialize with all nodes collapsed for better performance with large schemas
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-
-  // Ref for virtual list
-  const [listRef, setListRef] = useState<ListImperativeAPI | null>(null);
 
   // Get root nodes (no parent)
   const rootNodes = useMemo(() => {
@@ -124,9 +121,6 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
     setExpandedNodes(newExpanded);
   };
 
-  // Row height function - fixed 48px per row
-  const rowHeight = () => 48;
-
   const handleSelectAll = () => {
     filteredNodes.forEach((node) => {
       if (!selections[node.qname]) {
@@ -191,12 +185,12 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   // };
 
   // Row component for virtual list
-  const RowComponent = ({ index, ariaAttributes }: { index: number; ariaAttributes?: any }) => {
+  const RowComponent = ({ index, style }: { index: number; style: React.CSSProperties }) => {
     const row = visibleRows[index];
 
     // Safety check - if row doesn't exist, return empty div
     if (!row) {
-      return <div style={{ height: 48 }} />;
+      return <div style={{ ...style, height: 48 }} />;
     }
 
     const { node, depth, hasChildren, isExpanded } = row;
@@ -205,6 +199,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
 
     return (
       <div
+        style={style}
         className={`flex items-center py-2 px-2 hover:bg-gray-50 cursor-pointer ${
           isHighlighted ? 'bg-blue-50 border-l-4 border-blue-500' : ''
         }`}
@@ -349,11 +344,9 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
           <div className="py-8 text-center text-gray-500">No nodes match your search</div>
         ) : (
           <List<Record<string, never>>
-            key={visibleRows.length} // Force re-render when rows change
-            listRef={setListRef}
             defaultHeight={600}
             rowCount={visibleRows.length}
-            rowHeight={rowHeight}
+            rowHeight={() => 48}
             rowComponent={RowComponent}
             rowProps={{}}
             className="scrollbar-thin"
