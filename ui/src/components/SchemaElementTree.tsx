@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { VariableSizeList } from 'react-window';
+import React, { useState, useMemo } from 'react';
+import { List, ListImperativeAPI } from 'react-window';
 import { ElementTreeNode } from '../lib/api';
 
 interface SchemaElementTreeProps {
@@ -49,8 +49,8 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   // Initialize with all nodes collapsed for better performance with large schemas
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  // Ref for virtual list to reset cache when rows change
-  const listRef = useRef<VariableSizeList>(null);
+  // Ref for virtual list
+  const [listRef, setListRef] = useState<ListImperativeAPI | null>(null);
 
   // Get root nodes (no parent)
   const rootNodes = useMemo(() => {
@@ -124,18 +124,8 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
     setExpandedNodes(newExpanded);
   };
 
-  // Reset list cache when visible rows change
-  useEffect(() => {
-    if (listRef.current) {
-      listRef.current.resetAfterIndex(0);
-    }
-  }, [visibleRows]);
-
-  // Item size function for VariableSizeList
-  const getItemSize = (index: number) => {
-    // Fixed row height of 48px
-    return 48;
-  };
+  // Row height function - fixed 48px per row
+  const rowHeight = () => 48;
 
   const handleSelectAll = () => {
     filteredNodes.forEach((node) => {
@@ -200,8 +190,8 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   //   );
   // };
 
-  // Row renderer for virtual list
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+  // Row component for virtual list
+  const RowComponent = ({ index, ariaAttributes }: { index: number; ariaAttributes?: any }) => {
     const row = visibleRows[index];
     const { node, depth, hasChildren, isExpanded } = row;
     const isSelected = selections[node.qname] !== false; // Default true
@@ -209,7 +199,6 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
 
     return (
       <div
-        style={style}
         className={`flex items-center py-2 px-2 hover:bg-gray-50 cursor-pointer ${
           isHighlighted ? 'bg-blue-50 border-l-4 border-blue-500' : ''
         }`}
@@ -353,17 +342,16 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
         {visibleRows.length === 0 ? (
           <div className="py-8 text-center text-gray-500">No nodes match your search</div>
         ) : (
-          <VariableSizeList
-            ref={listRef}
-            height={600} // Will be overridden by CSS height: 100%
-            itemCount={visibleRows.length}
-            itemSize={getItemSize}
-            width="100%"
+          <List<Record<string, never>>
+            listRef={setListRef}
+            defaultHeight={600}
+            rowCount={visibleRows.length}
+            rowHeight={rowHeight}
+            rowComponent={RowComponent}
+            rowProps={{}}
             className="scrollbar-thin"
-            style={{ height: '100%' }}
-          >
-            {Row}
-          </VariableSizeList>
+            style={{ width: '100%', height: '100%' }}
+          />
         )}
       </div>
     </div>
