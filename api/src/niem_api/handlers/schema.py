@@ -159,6 +159,11 @@ def _setup_resolved_directory(source_dir: Path, schema_filename: str, xsd_conten
     if source_dir and source_dir.exists():
         # Copy all XSD files, preserving directory structure
         for schema_file in source_dir.rglob("*.xsd"):
+            # Skip directories that end with .xsd (like model.xsd folder)
+            if not schema_file.is_file():
+                logger.debug(f"Skipping directory with .xsd extension: {schema_file}")
+                continue
+
             rel_path = schema_file.relative_to(source_dir)
             target_path = resolved_dir / rel_path
 
@@ -227,6 +232,11 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
         uploaded_schemas = {}
         if source_dir and source_dir.exists():
             for xsd_file in source_dir.rglob("*.xsd"):
+                # Skip directories that end with .xsd (like model.xsd folder)
+                if not xsd_file.is_file():
+                    logger.debug(f"Skipping directory with .xsd extension: {xsd_file}")
+                    continue
+
                 try:
                     # Use relative path as key to match import schemaLocation references
                     rel_path = str(xsd_file.relative_to(source_dir))
@@ -620,6 +630,8 @@ async def _convert_to_cmf(
         for filename, content in file_contents.items():
             # Get the relative path for this file (preserves directory structure)
             relative_path = file_path_map.get(filename, filename)
+
+            # Use original paths for file writing - no cleaning needed here
             schema_file_path = temp_path / relative_path
 
             # Create parent directories if needed
@@ -629,31 +641,19 @@ async def _convert_to_cmf(
                 f.write(content.decode())
             logger.info(f"Created temporary schema file: {relative_path}")
 
-        # Check if dependency validation should be skipped
-        from ..core.config import batch_config
+        # Validate dependencies within uploaded files
+        logger.info("Validating schema dependencies")
+        # Get primary file's relative path
+        primary_file_path = file_path_map.get(primary_file.filename, primary_file.filename)
 
-        if batch_config.SKIP_SCHEMA_DEPENDENCY_VALIDATION:
-            logger.warning("⚠️ Skipping schema dependency validation (SKIP_SCHEMA_DEPENDENCY_VALIDATION=true)")
-            dependency_report = {
-                "can_convert": True,
-                "summary": "Dependency validation skipped by configuration",
-                "blocking_issues": [],
-                "warnings": ["Schema dependency validation was skipped - some schema features may not work correctly"],
-                "temp_path": temp_path
-            }
-            resolved_temp_path = temp_path
-        else:
-            # Validate dependencies within uploaded files
-            logger.info("Validating schema dependencies")
-            # Get primary file's relative path
-            primary_file_path = file_path_map.get(primary_file.filename, primary_file.filename)
-            dependency_report = _validate_schema_dependencies(
-                temp_path, primary_file_path, primary_content.decode()
-            )
-            logger.info(f"Dependency validation: {dependency_report['summary']}")
+        # The path has already been cleaned up above where we replace .xsd in folder names
+        dependency_report = _validate_schema_dependencies(
+            temp_path, primary_file_path, primary_content.decode()
+        )
+        logger.info(f"Dependency validation: {dependency_report['summary']}")
 
-            # Get the resolved directory path for cleanup
-            resolved_temp_path = dependency_report.get("temp_path", temp_path)
+        # Get the resolved directory path for cleanup
+        resolved_temp_path = dependency_report.get("temp_path", temp_path)
 
         try:
             # Check if all dependencies are satisfied
