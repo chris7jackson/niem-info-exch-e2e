@@ -122,19 +122,13 @@ class Neo4jClient:
             nodes = {}
             relationships = {}
 
-            record_count = 0
             for record in result:
-                record_count += 1
                 for value in record.values():
                     self._extract_graph_elements(value, nodes, relationships)
-
-            logger.info(f"Processed {record_count} records from Neo4j")
 
             # Convert to lists and add metadata
             nodes_list = list(nodes.values())
             relationships_list = list(relationships.values())
-
-            logger.info(f"Extracted {len(nodes_list)} unique nodes and {len(relationships_list)} unique relationships")
 
             # Get metadata
             all_labels = set()

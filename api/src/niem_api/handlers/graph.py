@@ -32,12 +32,9 @@ def execute_cypher_query(cypher_query: str = None, limit: int = None) -> dict[st
     if "LIMIT" not in cypher_query.upper() and limit:
         cypher_query += f" LIMIT {limit}"
 
-    logger.info(f"Executing query with limit {limit}: {cypher_query}")
-
     client = get_neo4j_client()
     try:
         result = client.query_graph(cypher_query)
-        logger.info(f"Query returned {len(result.get('nodes', []))} nodes, {len(result.get('relationships', []))} relationships")
         return {
             "status": "success",
             "data": result
