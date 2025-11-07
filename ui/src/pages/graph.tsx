@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import cytoscape from 'cytoscape';
 import EntityResolutionPanel from '../components/EntityResolutionPanel';
 
@@ -171,6 +171,19 @@ export default function GraphPage() {
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(false); // Off by default for dense graphs
   const [resultLimit, setResultLimit] = useState(10000);
   const [filenameFilter, setFilenameFilter] = useState('');
+
+  // Extract unique source filenames from graph data
+  const availableFiles = useMemo(() => {
+    if (!graphData) return [];
+    const files = new Set<string>();
+    graphData.nodes.forEach(node => {
+      const sourceFile = node.properties?._source_file || node.properties?.sourceDoc;
+      if (sourceFile) {
+        files.add(sourceFile);
+      }
+    });
+    return Array.from(files).sort();
+  }, [graphData]);
 
   useEffect(() => {
     // Set mounted state
@@ -353,11 +366,11 @@ export default function GraphPage() {
       };
     });
 
-    // Filter nodes by filename if filter is active
+    // Filter nodes by filename if filter is active (exact match)
     const filteredNodes = filenameFilter
       ? cyNodes.filter(node => {
           const sourceFile = node.data.properties?._source_file || node.data.properties?.sourceDoc;
-          return sourceFile && sourceFile.toLowerCase().includes(filenameFilter.toLowerCase());
+          return sourceFile === filenameFilter;
         })
       : cyNodes;
 
@@ -913,23 +926,22 @@ export default function GraphPage() {
               >
                 Filter by Source File
               </label>
-              <input
+              <select
                 id="filename-filter"
-                type="text"
-                placeholder="Enter filename to filter..."
                 value={filenameFilter}
                 onChange={(e) => setFilenameFilter(e.target.value)}
                 className="w-full px-3 py-2 border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500"
-              />
+              >
+                <option value="">All files ({availableFiles.length} total)</option>
+                {availableFiles.map((filename) => (
+                  <option key={filename} value={filename}>
+                    {filename}
+                  </option>
+                ))}
+              </select>
               {filenameFilter && (
                 <div className="mt-1 text-xs text-gray-600">
-                  Filtering by: "{filenameFilter}"
-                  <button
-                    onClick={() => setFilenameFilter('')}
-                    className="ml-2 text-blue-600 hover:text-blue-700"
-                  >
-                    Clear
-                  </button>
+                  Showing nodes from: <span className="font-medium">{filenameFilter}</span>
                 </div>
               )}
             </div>
