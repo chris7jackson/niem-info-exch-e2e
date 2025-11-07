@@ -382,7 +382,7 @@ def collect_scalar_setters(
 
 
 def generate_for_xml_content(
-    xml_content: str, mapping_dict: dict[str, Any], filename: str = "memory", cmf_element_index: set = None
+    xml_content: str, mapping_dict: dict[str, Any], filename: str = "memory", upload_id: str = None, schema_id: str = None, cmf_element_index: set = None
 ) -> tuple[str, dict[str, Any], list[tuple], list[tuple]]:
     """Generate Cypher statements from XML content and mapping dictionary.
 
@@ -390,6 +390,8 @@ def generate_for_xml_content(
         xml_content: XML content as string
         mapping_dict: Mapping dictionary
         filename: Source filename for provenance
+        upload_id: Unique identifier for this upload batch (for graph isolation)
+        schema_id: Schema identifier (for graph isolation)
         cmf_element_index: Set of known CMF element QNames for augmentation detection
 
     Returns:
@@ -957,6 +959,11 @@ def generate_for_xml_content(
 
         lines.append(f"MERGE (n:`{label}` {{id:'{nid}'}})")
         setbits = [f"n.qname='{qn}'", f"n.sourceDoc='{filename}'", f"n.ingestDate='{ingest_timestamp}'"]
+        # Add isolation properties for graph separation
+        if upload_id:
+            setbits.append(f"n._upload_id='{upload_id}'")
+        if schema_id:
+            setbits.append(f"n._schema_id='{schema_id}'")
 
         # Add core mapped properties
         for key, value in sorted(props.items()):
@@ -995,12 +1002,26 @@ def generate_for_xml_content(
 
         lines.append("  ON CREATE SET " + ", ".join(setbits) + ";")
 
+    # Build match properties for graph isolation
+    def build_match_props(node_id):
+        props = f"id:'{node_id}'"
+        if upload_id:
+            props += f", _upload_id:'{upload_id}'"
+        if filename:
+            props += f", sourceDoc:'{filename}'"
+        return props
+
     # MERGE containment edges
     for pid, plabel, cid, clabel, rel in contains:
-        lines.append(f"MATCH (p:`{plabel}` {{id:'{pid}'}}), (c:`{clabel}` {{id:'{cid}'}}) MERGE (p)-[:`{rel}`]->(c);")
+        parent_match = build_match_props(pid)
+        child_match = build_match_props(cid)
+        lines.append(f"MATCH (p:`{plabel}` {{{parent_match}}}), (c:`{clabel}` {{{child_match}}}) MERGE (p)-[:`{rel}`]->(c);")
 
     # MERGE reference/association edges
     for fid, flabel, tid, tlabel, rel, rprops in edges:
+        from_match = build_match_props(fid)
+        to_match = build_match_props(tid)
+
         # Build relationship properties if any
         if rprops:
             # Build property setters for rich edges
@@ -1030,12 +1051,12 @@ def generate_for_xml_content(
             # MERGE with properties on relationship (rich edge pattern)
             props_clause = ", ".join(prop_setters)
             lines.append(
-                f"MATCH (a:`{flabel}` {{id:'{fid}'}}), (b:`{tlabel}` {{id:'{tid}'}}) "
+                f"MATCH (a:`{flabel}` {{{from_match}}}), (b:`{tlabel}` {{{to_match}}}) "
                 f"MERGE (a)-[r:`{rel}`]->(b) ON CREATE SET {props_clause};"
             )
         else:
             # Simple edge without properties
-            lines.append(f"MATCH (a:`{flabel}` {{id:'{fid}'}}), (b:`{tlabel}` {{id:'{tid}'}}) MERGE (a)-[:`{rel}`]->(b);")
+            lines.append(f"MATCH (a:`{flabel}` {{{from_match}}}), (b:`{tlabel}` {{{to_match}}}) MERGE (a)-[:`{rel}`]->(b);")
 
     return "\n".join(lines), nodes, contains, edges
 

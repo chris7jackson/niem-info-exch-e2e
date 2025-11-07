@@ -527,7 +527,9 @@ async def _process_single_file(
     mapping: dict[str, Any],
     neo4j_client,
     s3: Minio,
-    schema_dir: str
+    schema_dir: str,
+    upload_id: str,
+    schema_id: str
 ) -> tuple[dict[str, Any], int]:
     """Process a single XML file.
 
@@ -537,6 +539,8 @@ async def _process_single_file(
         neo4j_client: Neo4j client
         s3: MinIO client
         schema_dir: Directory containing XSD schema files
+        upload_id: Unique identifier for this upload batch
+        schema_id: Schema identifier
 
     Returns:
         Tuple of (result_dict, statements_executed)
@@ -550,7 +554,7 @@ async def _process_single_file(
 
         # Use import_xml_to_cypher service to generate Cypher
         cypher_statements, stats = _generate_cypher_from_xml(
-            xml_content, mapping, file.filename
+            xml_content, mapping, file.filename, upload_id, schema_id
         )
 
         if not cypher_statements:
@@ -606,16 +610,22 @@ async def handle_xml_ingest(
 
     schema_dir = None
     try:
-        # Step 1: Get schema ID (use provided or get active)
+        # Step 1: Generate unique upload ID for this ingestion batch
+        import time
+        import hashlib
+        upload_id = f"upload_{int(time.time())}_{hashlib.sha1(str(time.time()).encode()).hexdigest()[:8]}"
+        logger.info(f"Generated upload_id: {upload_id}")
+
+        # Step 2: Get schema ID (use provided or get active)
         schema_id = _get_schema_id(s3, schema_id)
 
-        # Step 2: Load mapping specification
+        # Step 3: Load mapping specification
         mapping = _load_mapping_from_s3(s3, schema_id)
 
-        # Step 3: Download schema files for validation
+        # Step 4: Download schema files for validation
         schema_dir = await _download_schema_files(s3, schema_id)
 
-        # Step 4: Process files
+        # Step 5: Process files
         results = []
         total_statements_executed = 0
         total_nodes = 0
@@ -627,7 +637,7 @@ async def handle_xml_ingest(
         try:
             for file in files:
                 result, statements_executed = await _process_single_file(
-                    file, mapping, neo4j_client, s3, schema_dir
+                    file, mapping, neo4j_client, s3, schema_dir, upload_id, schema_id
                 )
                 results.append(result)
                 total_statements_executed += statements_executed
@@ -836,7 +846,7 @@ async def handle_json_ingest(
             raise
         raise HTTPException(status_code=500, detail=f"NIEM JSON ingestion failed: {str(e)}") from e
 
-def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filename: str) -> tuple[str, dict[str, Any]]:
+def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filename: str, upload_id: str, schema_id: str) -> tuple[str, dict[str, Any]]:
     """
     Generate Cypher statements from XML content using the import_xml_to_cypher service.
 
@@ -844,6 +854,8 @@ def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filenam
         xml_content: Raw XML content as string
         mapping: Mapping dictionary (YAML format)
         filename: Source filename for provenance
+        upload_id: Unique identifier for this upload batch
+        schema_id: Schema identifier
 
     Returns:
         Tuple of (cypher_statements, stats)
@@ -852,7 +864,7 @@ def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filenam
         from ..services.domain.xml_to_graph import generate_for_xml_content
 
         # Generate Cypher statements using in-memory processing (no temporary files needed)
-        cypher_statements, nodes, contains, edges = generate_for_xml_content(xml_content, mapping, filename)
+        cypher_statements, nodes, contains, edges = generate_for_xml_content(xml_content, mapping, filename, upload_id, schema_id)
 
         # Create stats dictionary from the returned data
         stats = {
