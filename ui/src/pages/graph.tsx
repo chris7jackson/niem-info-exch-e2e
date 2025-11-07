@@ -157,6 +157,7 @@ const buildEdgeTooltip = (rel: GraphRelationship): string => {
 export default function GraphPage() {
   const cyRef = useRef<HTMLDivElement>(null);
   const cyInstance = useRef<cytoscape.Core | null>(null);
+  const isMounted = useRef(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cypherQuery, setCypherQuery] = useState(
@@ -178,8 +179,15 @@ export default function GraphPage() {
 
     // Cleanup on unmount
     return () => {
+      isMounted.current = false;
       if (cyInstance.current) {
-        cyInstance.current.destroy();
+        try {
+          // Stop any running layouts before destroying
+          cyInstance.current.stop();
+          cyInstance.current.destroy();
+        } catch (err) {
+          console.warn('Error cleaning up Cytoscape instance:', err);
+        }
         cyInstance.current = null;
       }
     };
@@ -221,7 +229,7 @@ export default function GraphPage() {
   };
 
   const renderGraph = (data: GraphData) => {
-    if (!cyRef.current) return;
+    if (!cyRef.current || !isMounted.current) return;
 
     // Generate universal colors for ALL node labels
     const nodeColors = generateDistinguishableColors(data.metadata.nodeLabels.length);
@@ -286,6 +294,8 @@ export default function GraphPage() {
     // Destroy existing instance
     if (cyInstance.current) {
       try {
+        // Stop any running animations/layouts first
+        cyInstance.current.stop();
         cyInstance.current.destroy();
       } catch (err) {
         console.warn('Error destroying Cytoscape instance:', err);
@@ -367,9 +377,15 @@ export default function GraphPage() {
           ? selectedLayout
           : 'cose',
         animate: true,
-        animationDuration: 1000,
+        animationDuration: 500,
         fit: true,
         padding: 50,
+        stop: function() {
+          // Ensure fit happens after layout completes
+          if (cyInstance.current && isMounted.current) {
+            cyInstance.current.fit();
+          }
+        },
         // Generic layout options that work for any data
         ...(selectedLayout === 'cose' && {
           nodeOverlap: 20,
@@ -461,7 +477,7 @@ export default function GraphPage() {
   };
 
   const applyLayout = (layoutName: string) => {
-    if (cyInstance.current && graphData) {
+    if (cyInstance.current && graphData && isMounted.current) {
       // Validate layout name against available options
       const validLayouts = ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'];
       const safeLayoutName = validLayouts.includes(layoutName) ? layoutName : 'cose';
@@ -469,9 +485,14 @@ export default function GraphPage() {
       const layout = cyInstance.current.layout({
         name: safeLayoutName,
         animate: true,
-        animationDuration: 1000,
+        animationDuration: 500,
         fit: true,
         padding: 50,
+        stop: function() {
+          if (cyInstance.current && isMounted.current) {
+            cyInstance.current.fit();
+          }
+        },
         // Generic layout configurations
         ...(safeLayoutName === 'cose' && {
           nodeOverlap: 20,
