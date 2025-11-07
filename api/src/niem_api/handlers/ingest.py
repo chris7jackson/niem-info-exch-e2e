@@ -669,7 +669,9 @@ async def _process_single_json_file(
     mapping: dict[str, Any],
     json_schema: dict[str, Any],
     neo4j_client,
-    s3: Minio
+    s3: Minio,
+    upload_id: str,
+    schema_id: str
 ) -> tuple[dict[str, Any], int]:
     """Process a single NIEM JSON file.
 
@@ -679,6 +681,8 @@ async def _process_single_json_file(
         json_schema: JSON Schema for validation
         neo4j_client: Neo4j client
         s3: MinIO client
+        upload_id: Unique identifier for this upload batch
+        schema_id: Schema identifier
 
     Returns:
         Tuple of (result_dict, statements_executed)
@@ -701,7 +705,7 @@ async def _process_single_json_file(
 
         # Generate Cypher from NIEM JSON
         cypher_statements, stats = _generate_cypher_from_json(
-            json_content, mapping, file.filename
+            json_content, mapping, file.filename, upload_id, schema_id
         )
 
         if not cypher_statements:
@@ -764,10 +768,16 @@ async def handle_json_ingest(
     logger.info(f"Starting NIEM JSON ingestion for {len(files)} files using json_to_graph service")
 
     try:
-        # Step 1: Get schema ID (use provided or get active)
+        # Step 1: Generate unique upload ID for this ingestion batch
+        import time
+        import hashlib
+        upload_id = f"upload_{int(time.time())}_{hashlib.sha1(str(time.time()).encode()).hexdigest()[:8]}"
+        logger.info(f"Generated upload_id: {upload_id}")
+
+        # Step 2: Get schema ID (use provided or get active)
         schema_id = _get_schema_id(s3, schema_id)
 
-        # Step 2: Validate JSON Schema exists for this schema
+        # Step 3: Validate JSON Schema exists for this schema
         from .schema import get_schema_metadata
         metadata = get_schema_metadata(s3, schema_id)
         if not metadata or not metadata.get("json_schema_filename"):
@@ -781,13 +791,13 @@ async def handle_json_ingest(
                 )
             )
 
-        # Step 3: Load mapping specification
+        # Step 4: Load mapping specification
         mapping = _load_mapping_from_s3(s3, schema_id)
 
-        # Step 4: Download JSON Schema for validation
+        # Step 5: Download JSON Schema for validation
         json_schema = _download_json_schema_from_s3(s3, schema_id)
 
-        # Step 5: Process files
+        # Step 6: Process files
         results = []
         total_statements_executed = 0
         total_nodes = 0
@@ -799,7 +809,7 @@ async def handle_json_ingest(
         try:
             for file in files:
                 result, statements_executed = await _process_single_json_file(
-                    file, mapping, json_schema, neo4j_client, s3
+                    file, mapping, json_schema, neo4j_client, s3, upload_id, schema_id
                 )
                 results.append(result)
                 total_statements_executed += statements_executed
@@ -867,7 +877,7 @@ def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filenam
         raise
 
 
-def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filename: str) -> tuple[str, dict[str, Any]]:
+def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filename: str, upload_id: str, schema_id: str) -> tuple[str, dict[str, Any]]:
     """
     Generate Cypher statements from NIEM JSON content using the json_to_graph service.
 
@@ -878,6 +888,8 @@ def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filen
         json_content: Raw NIEM JSON content as string
         mapping: Mapping dictionary (YAML format, same as XML)
         filename: Source filename for provenance
+        upload_id: Unique identifier for this upload batch
+        schema_id: Schema identifier
 
     Returns:
         Tuple of (cypher_statements, stats)
@@ -886,7 +898,7 @@ def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filen
         from ..services.domain.json_to_graph import generate_for_json_content
 
         # Generate Cypher statements from NIEM JSON
-        cypher_statements, nodes, contains, edges = generate_for_json_content(json_content, mapping, filename)
+        cypher_statements, nodes, contains, edges = generate_for_json_content(json_content, mapping, filename, upload_id, schema_id)
 
         # Create stats dictionary from the returned data
         stats = {

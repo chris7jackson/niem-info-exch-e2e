@@ -264,6 +264,8 @@ def generate_for_json_content(
     json_content: str,
     mapping_dict: dict[str, Any],
     filename: str = "memory",
+    upload_id: str = None,
+    schema_id: str = None,
     cmf_element_index: set = None
 ) -> tuple[str, dict[str, Any], list[tuple], list[tuple]]:
     """Generate Cypher statements from NIEM JSON content and mapping dictionary.
@@ -276,6 +278,8 @@ def generate_for_json_content(
         json_content: NIEM JSON content as string
         mapping_dict: Mapping dictionary (same as used for XML)
         filename: Source filename for provenance
+        upload_id: Unique identifier for this upload batch (for graph isolation)
+        schema_id: Schema identifier (for graph isolation)
         cmf_element_index: Set of known CMF element QNames
 
     Returns:
@@ -525,8 +529,12 @@ def generate_for_json_content(
             props = extract_properties(obj, obj_rule, context)
             props_dict = dict(props)
 
-            # Add source provenance
+            # Add source provenance and isolation properties
             props_dict["_source_file"] = filename
+            if upload_id:
+                props_dict["_upload_id"] = upload_id
+            if schema_id:
+                props_dict["_schema_id"] = schema_id
 
             # Capture NIEM structures attributes as metadata
             if obj_id and has_id:
@@ -600,7 +608,7 @@ def generate_for_json_content(
             process_jsonld_object(obj)
 
     # Generate Cypher statements
-    cypher_statements = generate_cypher_from_structures(nodes, edges, contains)
+    cypher_statements = generate_cypher_from_structures(nodes, edges, contains, upload_id, filename)
 
     return cypher_statements, nodes, contains, edges
 
@@ -608,7 +616,9 @@ def generate_for_json_content(
 def generate_cypher_from_structures(
     nodes: dict[str, tuple],
     edges: list[tuple],
-    contains: list[tuple]
+    contains: list[tuple],
+    upload_id: str = None,
+    filename: str = None
 ) -> str:
     """Generate Cypher statements from node and edge structures.
 
@@ -616,6 +626,8 @@ def generate_cypher_from_structures(
         nodes: Dictionary of node structures
         edges: List of edge tuples
         contains: List of containment edge tuples
+        upload_id: Unique identifier for this upload batch (for graph isolation)
+        filename: Source filename (for graph isolation)
 
     Returns:
         Cypher statements as string
@@ -662,8 +674,15 @@ def generate_cypher_from_structures(
 
     # Generate MERGE statements for containment relationships
     for parent_id, parent_label, child_id, child_label, rel_type in contains:
+        # Build match properties for graph isolation
+        match_props = f"id: '{parent_id}'"
+        if upload_id:
+            match_props += f", _upload_id: '{upload_id}'"
+        if filename:
+            match_props += f", _source_file: '{filename}'"
+
         cypher_lines.append(
-            f"MATCH (parent:{parent_label} {{id: '{parent_id}'}}), (child:{child_label} {{id: '{child_id}'}}) "
+            f"MATCH (parent:{parent_label} {{{match_props}}}), (child:{child_label} {{{match_props.replace(parent_id, child_id)}}}) "
             f"MERGE (parent)-[:{rel_type}]->(child);"
         )
 
@@ -671,6 +690,18 @@ def generate_cypher_from_structures(
     for from_id, from_label, to_id, to_label, rel_type, edge_props in edges:
         # Clean relationship type
         clean_rel_type = rel_type.replace(":", "_").upper()
+
+        # Build match properties for graph isolation
+        def build_match_props(node_id):
+            props = f"id: '{node_id}'"
+            if upload_id:
+                props += f", _upload_id: '{upload_id}'"
+            if filename:
+                props += f", _source_file: '{filename}'"
+            return props
+
+        from_match = build_match_props(from_id)
+        to_match = build_match_props(to_id)
 
         # Build relationship properties if any
         if edge_props:
@@ -703,26 +734,26 @@ def generate_cypher_from_structures(
 
             if to_label:
                 cypher_lines.append(
-                    f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to:{to_label} {{id: '{to_id}'}}) "
+                    f"MATCH (from:{from_label} {{{from_match}}}), (to:{to_label} {{{to_match}}}) "
                     f"MERGE (from)-[r:{clean_rel_type}]->(to) ON CREATE SET {props_clause};"
                 )
             else:
                 # Find target by ID only
                 cypher_lines.append(
-                    f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to {{id: '{to_id}'}}) "
+                    f"MATCH (from:{from_label} {{{from_match}}}), (to {{{to_match}}}) "
                     f"MERGE (from)-[r:{clean_rel_type}]->(to) ON CREATE SET {props_clause};"
                 )
         else:
             # Simple edge without properties
             if to_label:
                 cypher_lines.append(
-                    f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to:{to_label} {{id: '{to_id}'}}) "
+                    f"MATCH (from:{from_label} {{{from_match}}}), (to:{to_label} {{{to_match}}}) "
                     f"MERGE (from)-[:{clean_rel_type}]->(to);"
                 )
             else:
                 # Find target by ID only
                 cypher_lines.append(
-                    f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to {{id: '{to_id}'}}) "
+                    f"MATCH (from:{from_label} {{{from_match}}}), (to {{{to_match}}}) "
                     f"MERGE (from)-[:{clean_rel_type}]->(to);"
                 )
 
