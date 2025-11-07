@@ -50,10 +50,10 @@ const getRelationshipStyle = (
   colorMap: Record<string, string>
 ) => {
   return {
-    color: colorMap[relationshipType] || '#888888',
-    width: 2, // Consistent width for all relationships
+    color: colorMap[relationshipType] || '#888888', // Dark gray default
+    width: 2, // Balanced width (not too thick)
     style: 'solid', // Consistent style for all relationships
-    opacity: 0.8, // Consistent opacity for all relationships
+    opacity: 0.7, // Slightly transparent so overlapping edges are visible
   };
 };
 
@@ -63,8 +63,9 @@ const getNodeSize = (node: GraphNode, relationships: GraphRelationship[]): numbe
     (rel) => rel.startNode === node.id || rel.endNode === node.id
   ).length;
 
-  // Base size + scaling factor for connections
-  return Math.max(30, Math.min(80, 30 + connections * 3));
+  // Smaller, consistent sizing to reduce overlap
+  // Base: 20, scales minimally with connections, max 40
+  return Math.max(20, Math.min(40, 20 + connections * 1));
 };
 
 // Universal label display - prioritizes semantic information
@@ -157,6 +158,7 @@ const buildEdgeTooltip = (rel: GraphRelationship): string => {
 export default function GraphPage() {
   const cyRef = useRef<HTMLDivElement>(null);
   const cyInstance = useRef<cytoscape.Core | null>(null);
+  const [isMountedState, setIsMountedState] = useState(false);
   const isMounted = useRef(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,20 +168,44 @@ export default function GraphPage() {
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [selectedLayout, setSelectedLayout] = useState('cose');
   const [showNodeLabels, setShowNodeLabels] = useState(true);
-  const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
+  const [showRelationshipLabels, setShowRelationshipLabels] = useState(false); // Off by default for dense graphs
   const [resultLimit, setResultLimit] = useState(10000);
+  const [filenameFilter, setFilenameFilter] = useState('');
 
   useEffect(() => {
+    // Set mounted state
+    isMounted.current = true;
+    setIsMountedState(true);
+
     const validLayouts = ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'];
     if (!validLayouts.includes(selectedLayout)) {
       setSelectedLayout('cose');
     }
-    // Auto-load complete graph on mount
-    executeQuery('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m');
+
+    // Wait a bit for DOM to be ready, then auto-load graph
+    const timer = setTimeout(() => {
+      console.log('Component mounted, checking refs...');
+      console.log('cyRef.current on mount:', cyRef.current);
+      console.log('isMounted.current:', isMounted.current);
+
+      if (!cyRef.current) {
+        const element = document.getElementById('graph-viz');
+        if (element) {
+          console.log('Found graph-viz element, assigning to ref');
+          cyRef.current = element as HTMLDivElement;
+        }
+      }
+
+      console.log('Executing initial query...');
+      // Get all nodes and relationships (includes isolated nodes)
+      executeQuery('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m');
+    }, 500); // Wait 500ms for DOM to be ready
 
     // Cleanup on unmount
     return () => {
+      clearTimeout(timer);
       isMounted.current = false;
+      setIsMountedState(false);
       if (cyInstance.current) {
         try {
           // Stop any running layouts before destroying
@@ -192,6 +218,14 @@ export default function GraphPage() {
       }
     };
   }, []);
+
+  // Re-render graph when filename filter changes
+  useEffect(() => {
+    if (graphData && isMounted.current) {
+      console.log('Filename filter changed, re-rendering graph:', filenameFilter);
+      renderGraph(graphData);
+    }
+  }, [filenameFilter]);
 
   const executeQuery = async (query: string) => {
     setLoading(true);
@@ -213,8 +247,14 @@ export default function GraphPage() {
       }
 
       const result = await response.json();
+      console.log('API Response:', result);
 
       if (result.status === 'success') {
+        console.log('Graph data received:', {
+          nodeCount: result.data.nodes?.length || 0,
+          relationshipCount: result.data.relationships?.length || 0,
+          metadata: result.data.metadata
+        });
         setGraphData(result.data);
         renderGraph(result.data);
       } else {
@@ -229,7 +269,55 @@ export default function GraphPage() {
   };
 
   const renderGraph = (data: GraphData) => {
-    if (!cyRef.current || !isMounted.current) return;
+    console.log('renderGraph called with:', {
+      cyRef: cyRef.current,
+      cyRefExists: !!cyRef.current,
+      isMounted: isMounted.current,
+      dataNodes: data?.nodes?.length || 0,
+      dataRelationships: data?.relationships?.length || 0
+    });
+
+    // Try to get the ref by ID if ref is null
+    if (!cyRef.current) {
+      console.log('cyRef is null, trying to find element by ID...');
+      const element = document.getElementById('graph-viz');
+      if (element) {
+        console.log('Found element by ID, assigning to ref');
+        cyRef.current = element as HTMLDivElement;
+      }
+    }
+
+    if (!cyRef.current) {
+      console.error('Cannot render graph: cyRef not available');
+      console.error('cyRef.current:', cyRef.current);
+
+      // Try again after a short delay
+      setTimeout(() => {
+        console.log('Retrying render after delay...');
+        const element = document.getElementById('graph-viz');
+        if (element) {
+          cyRef.current = element as HTMLDivElement;
+          renderGraph(data);
+        }
+      }, 100);
+      return;
+    }
+
+    // Don't block on isMounted for manual renders
+    console.log('Proceeding with render, isMounted:', isMounted.current);
+
+    // Check container dimensions
+    const containerWidth = cyRef.current.offsetWidth;
+    const containerHeight = cyRef.current.offsetHeight;
+    console.log('Container dimensions:', { width: containerWidth, height: containerHeight });
+
+    if (containerWidth === 0 || containerHeight === 0) {
+      console.error('Container has no dimensions! Width:', containerWidth, 'Height:', containerHeight);
+      // Try to set dimensions explicitly
+      cyRef.current.style.width = '100%';
+      cyRef.current.style.height = '600px';
+      cyRef.current.style.position = 'relative';
+    }
 
     // Generate universal colors for ALL node labels
     const nodeColors = generateDistinguishableColors(data.metadata.nodeLabels.length);
@@ -265,13 +353,41 @@ export default function GraphPage() {
       };
     });
 
+    // Filter nodes by filename if filter is active
+    const filteredNodes = filenameFilter
+      ? cyNodes.filter(node => {
+          const sourceFile = node.data.properties?._source_file || node.data.properties?.sourceDoc;
+          return sourceFile && sourceFile.toLowerCase().includes(filenameFilter.toLowerCase());
+        })
+      : cyNodes;
+
+    // Filter edges to only include those between filtered nodes
+    const filteredNodeIds = new Set(filteredNodes.map(n => n.data.id));
+
     // Convert relationships to Cytoscape format with universal styling
+    console.log('Processing relationships:', data.relationships);
     const cyEdges = data.relationships.map((rel) => {
+      console.log(`Creating edge: ${rel.id} from ${rel.startNode} to ${rel.endNode}`);
+
+      // Check if source and target nodes exist
+      const sourceExists = cyNodes.some(n => n.data.id === rel.startNode);
+      const targetExists = cyNodes.some(n => n.data.id === rel.endNode);
+
+      if (!sourceExists) {
+        console.error(`Source node ${rel.startNode} not found for edge ${rel.id}`);
+      }
+      if (!targetExists) {
+        console.error(`Target node ${rel.endNode} not found for edge ${rel.id}`);
+      }
+
       const relStyle = getRelationshipStyle(
         rel.type,
         data.metadata.relationshipTypes,
         relTypeColorMap
       );
+
+      console.log(`Edge ${rel.id} style:`, relStyle);
+
       const tooltip = buildEdgeTooltip(rel);
 
       return {
@@ -291,6 +407,38 @@ export default function GraphPage() {
       };
     });
 
+    // Filter edges to only show edges between filtered nodes
+    const filteredEdges = cyEdges.filter(edge =>
+      filteredNodeIds.has(edge.data.source) && filteredNodeIds.has(edge.data.target)
+    );
+
+    console.log('Created Cytoscape elements:', {
+      totalNodes: cyNodes.length,
+      filteredNodes: filteredNodes.length,
+      totalEdges: cyEdges.length,
+      filteredEdges: filteredEdges.length,
+      sampleNode: filteredNodes[0],
+      sampleEdge: filteredEdges[0]
+    });
+
+    // Verify nodes have required properties
+    if (filteredNodes.length > 0 && !filteredNodes[0].data.id) {
+      console.error('ERROR: Nodes missing required id property!');
+    }
+
+    // If no nodes, create a test node to verify Cytoscape is working
+    if (filteredNodes.length === 0) {
+      console.warn('No nodes to display! Creating test node...');
+      filteredNodes.push({
+        data: {
+          id: 'test-node',
+          label: 'Test Node (No Data)',
+          color: '#FF0000',
+          size: 80
+        }
+      });
+    }
+
     // Destroy existing instance
     if (cyInstance.current) {
       try {
@@ -304,10 +452,19 @@ export default function GraphPage() {
     }
 
     // Create new Cytoscape instance with data-agnostic styles
-    cyInstance.current = cytoscape({
+    console.log('Initializing Cytoscape with container:', cyRef.current);
+    console.log('Total elements to render:', [...cyNodes, ...cyEdges].length);
+
+    try {
+      cyInstance.current = cytoscape({
       container: cyRef.current,
 
-      elements: [...cyNodes, ...cyEdges],
+      elements: [...filteredNodes, ...filteredEdges],
+
+      // Viewport and zoom settings for better visibility
+      minZoom: 0.1,
+      maxZoom: 10,
+      wheelSensitivity: 0.2,
 
       style: [
         {
@@ -318,16 +475,17 @@ export default function GraphPage() {
             'text-valign': 'center',
             'text-halign': 'center',
             color: '#000000',
-            'text-outline-width': 2,
+            'text-outline-width': 1.5,
             'text-outline-color': '#ffffff',
-            'font-size': '9px',
-            'font-weight': 'bold',
+            'font-size': '7px',
+            'font-weight': 'normal',
             width: 'data(size)',
             height: 'data(size)',
             'border-width': 1,
             'border-color': '#333333',
-            'text-wrap': 'wrap',
-            'text-max-width': '60px',
+            'text-wrap': 'ellipsis',
+            'text-max-width': '50px',
+            'min-zoomed-font-size': 4,
           },
         },
         {
@@ -347,12 +505,15 @@ export default function GraphPage() {
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
             label: 'data(label)',
-            'font-size': '8px',
+            'font-size': '7px',
             color: '#444444',
             'text-outline-width': 1,
             'text-outline-color': '#ffffff',
+            'text-rotation': 'autorotate',
+            'text-margin-y': -8,
             opacity: 'data(opacity)' as any,
             'line-style': 'data(lineStyle)' as any,
+            'min-zoomed-font-size': 4,
           },
         },
         {
@@ -361,13 +522,6 @@ export default function GraphPage() {
             width: 3,
             'line-color': '#FFA500',
             'target-arrow-color': '#FFA500',
-          },
-        },
-        {
-          selector: 'edge:hover',
-          style: {
-            width: 3,
-            opacity: 1,
           },
         },
       ],
@@ -472,8 +626,74 @@ export default function GraphPage() {
       });
     });
 
+    console.log('Cytoscape instance created successfully');
+
+    // Check if any nodes and edges were actually added
+    const nodeCount = cyInstance.current.nodes().length;
+    const edgeCount = cyInstance.current.edges().length;
+    console.log('Nodes in Cytoscape after init:', nodeCount);
+    console.log('Edges in Cytoscape after init:', edgeCount);
+
+    if (nodeCount === 0) {
+      console.error('WARNING: No nodes in Cytoscape instance!');
+    }
+    if (edgeCount === 0 && cyEdges.length > 0) {
+      console.error('WARNING: Expected', cyEdges.length, 'edges but Cytoscape has 0!');
+      console.error('Sample edge data:', cyEdges[0]);
+    }
+
+    } catch (error) {
+      console.error('Failed to initialize Cytoscape:', error);
+      return;
+    }
+
     // Fit to viewport
     cyInstance.current.fit();
+
+    // Apply initial layout after creation
+    // Use circle layout for small graphs (< 20 nodes) for better visibility
+    const layoutName = filteredNodes.length < 20 ? 'circle' : (selectedLayout || 'cose');
+    console.log('Applying initial layout:', layoutName, 'for', filteredNodes.length, 'nodes');
+
+    const layout = cyInstance.current.layout({
+      name: layoutName,
+      animate: true,
+      animationDuration: 800,
+      fit: true,
+      padding: 50,
+      // Additional options for better initial view
+      boundingBox: { x1: 0, y1: 0, w: cyRef.current.offsetWidth, h: cyRef.current.offsetHeight },
+      avoidOverlap: true,
+      spacingFactor: 1.5, // More spacing between nodes
+    });
+
+    layout.run();
+
+    // Also ensure we fit and center after layout completes
+    layout.on('layoutstop', () => {
+      console.log('Layout complete, fitting to viewport');
+      cyInstance.current.fit();
+      cyInstance.current.center();
+
+      // Debug: Log node positions to verify they're visible
+      console.log('Node positions after layout:');
+      cyInstance.current.nodes().forEach((node: any) => {
+        const pos = node.position();
+        const bb = node.boundingBox();
+        console.log(`Node ${node.id()}: position (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}), ` +
+                    `bbox: (${bb.x1.toFixed(2)}, ${bb.y1.toFixed(2)}) to (${bb.x2.toFixed(2)}, ${bb.y2.toFixed(2)})`);
+      });
+
+      const extent = cyInstance.current.extent();
+      console.log('Viewport extent:', {
+        x1: extent.x1.toFixed(2),
+        y1: extent.y1.toFixed(2),
+        x2: extent.x2.toFixed(2),
+        y2: extent.y2.toFixed(2)
+      });
+    });
+
+    console.log('Graph rendering complete. Filtered Nodes:', filteredNodes.length, 'Filtered Edges:', filteredEdges.length);
   };
 
   const applyLayout = (layoutName: string) => {
@@ -685,6 +905,35 @@ export default function GraphPage() {
               </div>
             </div>
 
+            {/* Filename Filter */}
+            <div>
+              <label
+                htmlFor="filename-filter"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Filter by Source File
+              </label>
+              <input
+                id="filename-filter"
+                type="text"
+                placeholder="Enter filename to filter..."
+                value={filenameFilter}
+                onChange={(e) => setFilenameFilter(e.target.value)}
+                className="w-full px-3 py-2 border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+              {filenameFilter && (
+                <div className="mt-1 text-xs text-gray-600">
+                  Filtering by: "{filenameFilter}"
+                  <button
+                    onClick={() => setFilenameFilter('')}
+                    className="ml-2 text-blue-600 hover:text-blue-700"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <select
@@ -713,6 +962,98 @@ export default function GraphPage() {
                     className={`px-2 py-1 text-xs rounded ${showRelationshipLabels ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
                   >
                     Edge Labels
+                  </button>
+                </div>
+
+                {/* Zoom Controls */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (cyInstance.current) {
+                        cyInstance.current.zoom(cyInstance.current.zoom() * 1.25);
+                        cyInstance.current.center();
+                      }
+                    }}
+                    className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    title="Zoom In"
+                  >
+                    Zoom +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (cyInstance.current) {
+                        cyInstance.current.zoom(cyInstance.current.zoom() * 0.75);
+                        cyInstance.current.center();
+                      }
+                    }}
+                    className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    title="Zoom Out"
+                  >
+                    Zoom -
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (cyInstance.current) {
+                        console.log('Fitting graph to viewport');
+                        cyInstance.current.fit();
+                        cyInstance.current.center();
+                        console.log('Current zoom:', cyInstance.current.zoom());
+                        console.log('Viewport:', cyInstance.current.extent());
+                      }
+                    }}
+                    className="px-2 py-1 text-xs rounded bg-green-100 hover:bg-green-200 text-green-700 font-medium"
+                    title="Fit all nodes to screen"
+                  >
+                    Fit to Screen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log('Manual debug render triggered');
+                      if (graphData) {
+                        console.log('Re-rendering with current data:', graphData);
+                        renderGraph(graphData);
+                      } else {
+                        console.log('No graph data available');
+                      }
+                    }}
+                    className="px-2 py-1 text-xs rounded bg-red-100 hover:bg-red-200 text-red-700 font-medium"
+                    title="Force re-render graph"
+                  >
+                    Debug Render
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log('Creating test graph...');
+                      const testData: GraphData = {
+                        nodes: [
+                          { id: 'test1', internal_id: '1', label: 'TestNode1', labels: ['TestNode'], properties: { name: 'Test 1' } },
+                          { id: 'test2', internal_id: '2', label: 'TestNode2', labels: ['TestNode'], properties: { name: 'Test 2' } },
+                          { id: 'test3', internal_id: '3', label: 'TestNode3', labels: ['TestNode'], properties: { name: 'Test 3' } }
+                        ],
+                        relationships: [
+                          { id: 'rel1', type: 'CONNECTED', startNode: 'test1', endNode: 'test2', properties: {} },
+                          { id: 'rel2', type: 'CONNECTED', startNode: 'test2', endNode: 'test3', properties: {} }
+                        ],
+                        metadata: {
+                          nodeLabels: ['TestNode'],
+                          relationshipTypes: ['CONNECTED'],
+                          nodeCount: 3,
+                          relationshipCount: 2
+                        }
+                      };
+                      console.log('Test data:', testData);
+                      setGraphData(testData);
+                      renderGraph(testData);
+                    }}
+                    className="px-2 py-1 text-xs rounded bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium"
+                    title="Create test graph with dummy data"
+                  >
+                    Test Graph
                   </button>
                 </div>
               </div>
