@@ -124,8 +124,8 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
         with open(xml_file, 'w', encoding='utf-8') as f:
             f.write(xml_content)
 
-        # Find all XSD files in schema directory
-        xsd_files = list(schema_path.rglob("*.xsd"))
+        # Find all XSD files in schema directory (skip directories with .xsd extension)
+        xsd_files = [f for f in schema_path.rglob("*.xsd") if f.is_file()]
 
         if not xsd_files:
             logger.warning(f"No XSD files found in {schema_dir}, skipping validation")
