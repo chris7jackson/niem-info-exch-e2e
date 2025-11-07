@@ -524,6 +524,8 @@ export default function GraphPage() {
             label: 'data(label)',
             'text-valign': 'center',
             'text-halign': 'center',
+            'text-rotation': 'none', // Force horizontal (no rotation)
+            'text-justification': 'center',
             color: '#000000',
             'text-outline-width': 1.5,
             'text-outline-color': '#ffffff',
@@ -533,8 +535,7 @@ export default function GraphPage() {
             height: 'data(size)',
             'border-width': 1,
             'border-color': '#333333',
-            'text-wrap': 'ellipsis',
-            'text-max-width': '50px',
+            'text-wrap': 'wrap', // Wrap text instead of truncating
             'min-zoomed-font-size': 4,
           },
         },
