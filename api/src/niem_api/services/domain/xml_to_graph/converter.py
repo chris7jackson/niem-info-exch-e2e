@@ -260,8 +260,10 @@ def _recursively_flatten_element(
     properties = {}
     elem_qn = qname_from_tag(elem.tag, ns_map)
 
-    # Build property prefix for this level
-    current_prefix = f"{path_prefix}.{elem_qn.replace(':', '_')}" if path_prefix else elem_qn.replace(':', '_')
+    # Build property prefix for this level with double underscore delimiter
+    # Single underscore for namespace colons, double underscore for hierarchy
+    elem_normalized = elem_qn.replace(':', '_')
+    current_prefix = f"{path_prefix}__{elem_normalized}" if path_prefix else elem_normalized
 
     # Extract attributes (skip structural ones)
     for attr, value in elem.attrib.items():
@@ -275,7 +277,7 @@ def _recursively_flatten_element(
             attr_qn = qname_from_tag(attr, ns_map)
         else:
             attr_qn = attr
-        prop_name = f"{current_prefix}.@{attr_qn.replace(':', '_')}"
+        prop_name = f"{current_prefix}__@{attr_qn.replace(':', '_')}"
         properties[prop_name] = value
 
     # If element has simple text content and no children, capture it
@@ -304,7 +306,7 @@ def _recursively_flatten_element(
 
         # If child has simple text and no nested elements, store it
         if child.text and child.text.strip() and len(list(child)) == 0:
-            prop_name = f"{current_prefix}.{child_qn.replace(':', '_')}"
+            prop_name = f"{current_prefix}__{child_qn.replace(':', '_')}"
             properties[prop_name] = child.text.strip()
 
         # If child has nested elements, recurse
@@ -563,28 +565,18 @@ def generate_for_xml_content(
                 node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
 
             # Extract explicitly mapped scalar properties
-            mapped_child_qnames = set()
             if obj_rule:
                 setters = collect_scalar_setters(obj_rule, elem, xml_ns_map)
                 for key, value in setters:
                     props[key] = value
 
-                # Track which children were already processed by scalar_props
-                for prop_config in obj_rule.get("scalar_props", []) or []:
-                    path = prop_config["path"]
-                    if not path.startswith("@"):
-                        # Extract first path segment (direct child element)
-                        first_segment = path.split("/")[0]
-                        mapped_child_qnames.add(first_segment)
-
             # Recursively flatten unselected children
+            # Note: This may create some duplicate properties with different names
+            # (e.g., "firstName" from scalar_props AND "nc_PersonName__nc_PersonGivenName" from flattening)
+            # but ensures complete data capture. Last write wins for same property name.
             aug_props = {}
             for child in elem:
                 child_qn = qname_from_tag(child.tag, xml_ns_map)
-
-                # Skip if already extracted via scalar_props (avoid duplication)
-                if child_qn in mapped_child_qnames:
-                    continue
 
                 # Check if child should become its own node
                 child_is_node = (
@@ -807,10 +799,18 @@ def generate_for_xml_content(
                 # Write boolean flags directly (for _isAugmentation metadata)
                 setbits.append(f"n.{prop_key}={str(value).lower()}")
             elif isinstance(value, list):
-                # Store as JSON array for multiple values
-                # json.dumps already escapes backslashes and quotes properly
-                json_value = json.dumps(value).replace("'", "\\'")
-                setbits.append(f"n.{prop_key}='{json_value}'")
+                # Use Neo4j native array syntax
+                array_items = []
+                for item in value:
+                    if isinstance(item, str):
+                        escaped_item = item.replace("\\", "\\\\").replace("'", "\\'")
+                        array_items.append(f"'{escaped_item}'")
+                    elif isinstance(item, (int, float, bool)):
+                        array_items.append(str(item).lower() if isinstance(item, bool) else str(item))
+                    else:
+                        escaped_item = str(item).replace("\\", "\\\\").replace("'", "\\'")
+                        array_items.append(f"'{escaped_item}'")
+                setbits.append(f"n.{prop_key}=[{', '.join(array_items)}]")
             else:
                 # Escape backslashes first, then single quotes
                 escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
@@ -833,9 +833,18 @@ def generate_for_xml_content(
                 # Only alphanumeric and underscore are safe without backticks in Cypher
                 prop_key = f"`{key}`" if not re.match(CYPHER_SAFE_PROPERTY_NAME, key) else key
                 if isinstance(value, list):
-                    # json.dumps already escapes backslashes and quotes properly
-                    json_value = json.dumps(value).replace("'", "\\'")
-                    prop_setters.append(f"r.{prop_key}='{json_value}'")
+                    # Use Neo4j native array syntax
+                    array_items = []
+                    for item in value:
+                        if isinstance(item, str):
+                            escaped_item = item.replace("\\", "\\\\").replace("'", "\\'")
+                            array_items.append(f"'{escaped_item}'")
+                        elif isinstance(item, (int, float, bool)):
+                            array_items.append(str(item).lower() if isinstance(item, bool) else str(item))
+                        else:
+                            escaped_item = str(item).replace("\\", "\\\\").replace("'", "\\'")
+                            array_items.append(f"'{escaped_item}'")
+                    prop_setters.append(f"r.{prop_key}=[{', '.join(array_items)}]")
                 else:
                     # Escape backslashes first, then single quotes
                     escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")

@@ -129,7 +129,7 @@ def extract_properties(
     obj: dict[str, Any],
     obj_rule: dict[str, Any],
     context: dict[str, Any]
-) -> list[tuple[str, str]]:
+) -> list[tuple[str, Any]]:
     """Extract properties from JSON-LD object based on mapping rules.
 
     Args:
@@ -138,60 +138,55 @@ def extract_properties(
         context: JSON-LD @context
 
     Returns:
-        List of (property_name, value) tuples
+        List of (property_name, value) tuples (value can be string or list)
     """
     setters = []
-    properties = obj_rule.get("properties", [])
+    scalar_props = obj_rule.get("scalar_props", [])
 
-    for prop_def in properties:
-        key = prop_def["neo4j_key"]
-        json_path = prop_def.get("json_path") or prop_def.get("xml_path", "")
+    for prop_def in scalar_props:
+        # Use correct field names from mapping structure
+        path = prop_def.get("path", "")
+        key = prop_def.get("neo4j_property") or prop_def.get("prop", path.replace(":", "_").replace("/", "__"))
 
         value = None
 
-        if "/" in json_path:
+        if "/" in path:
             # Nested path like "nc:PersonName/nc:PersonGivenName"
-            parts = json_path.split("/")
+            parts = path.split("/")
             current = obj
             for part in parts:
                 if isinstance(current, dict):
                     current = current.get(part)
                     if current is None:
                         break
+                elif isinstance(current, list):
+                    # For arrays, try to extract from all items
+                    results = []
+                    for item in current:
+                        if isinstance(item, dict):
+                            val = item.get(part)
+                            if val is not None:
+                                results.append(val)
+                    current = results if results else None
+                    break
                 else:
                     current = None
                     break
-            if current:
-                if isinstance(current, str):
-                    value = current
-                elif isinstance(current, list) and len(current) > 0:
-                    # Handle array values - take first element if single item, join if multiple
-                    if len(current) == 1:
-                        value = current[0] if isinstance(current[0], str) else str(current[0])
-                    else:
-                        # Multiple values - join with space (e.g., middle names)
-                        value = ' '.join(str(item) for item in current if item)
+
+            if current is not None:
+                value = current
         else:
             # Direct property
-            if json_path.startswith("@"):
+            if path.startswith("@"):
                 # JSON-LD keyword
-                value = obj.get(json_path)
+                value = obj.get(path)
             else:
                 # Regular property
-                value = obj.get(json_path)
-
-            # Handle array values for direct properties too
-            if isinstance(value, list) and len(value) > 0:
-                if len(value) == 1:
-                    value = value[0] if isinstance(value[0], str) else str(value[0])
-                else:
-                    # Multiple values - join with space
-                    value = ' '.join(str(item) for item in value if item)
+                value = obj.get(path)
 
         if value is not None:
-            # Escape single quotes for Cypher
-            escaped_value = str(value).replace("'", "\\'")
-            setters.append((key, escaped_value))
+            # Store raw value (string or list) - handle arrays natively
+            setters.append((key, value))
 
     return setters
 
@@ -220,9 +215,10 @@ def _recursively_flatten_json_object(
         if key.startswith("@"):
             continue
 
-        # Build property path
-        prop_path = f"{path_prefix}_{key}" if path_prefix else key
-        prop_path = prop_path.replace(":", "_")
+        # Build property path with double underscore delimiter for hierarchy
+        # Single underscore for namespace colons, double underscore for nesting
+        key_normalized = key.replace(":", "_")
+        prop_path = f"{path_prefix}__{key_normalized}" if path_prefix else key_normalized
 
         if isinstance(value, (str, int, float, bool)):
             # Simple value - add directly
@@ -464,16 +460,25 @@ def generate_cypher_from_structures(
         for key, value in all_props.items():
             # Handle different value types properly
             if isinstance(value, (list, tuple)):
-                # Convert list to JSON string for safe storage
-                json_value = json.dumps(value).replace("'", "\\'")
-                props_parts.append(f"{key}: '{json_value}'")
+                # Use Neo4j native array syntax
+                array_items = []
+                for item in value:
+                    if isinstance(item, str):
+                        escaped_item = item.replace("'", "\\'")
+                        array_items.append(f"'{escaped_item}'")
+                    elif isinstance(item, (int, float, bool)):
+                        array_items.append(str(item).lower() if isinstance(item, bool) else str(item))
+                    else:
+                        escaped_item = str(item).replace("'", "\\'")
+                        array_items.append(f"'{escaped_item}'")
+                props_parts.append(f"{key}: [{', '.join(array_items)}]")
             elif isinstance(value, str):
                 # Escape single quotes in strings
                 escaped_value = value.replace("'", "\\'")
                 props_parts.append(f"{key}: '{escaped_value}'")
             elif isinstance(value, (int, float, bool)):
                 # Numbers and booleans don't need quotes
-                props_parts.append(f"{key}: {value}")
+                props_parts.append(f"{key}: {str(value).lower() if isinstance(value, bool) else value}")
             elif value is None:
                 # Skip null values
                 continue
