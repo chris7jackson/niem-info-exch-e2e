@@ -384,9 +384,16 @@ def generate_for_json_content(
         if not isinstance(obj, dict):
             return None
 
-        # Extract @id (if present)
-        obj_id = obj.get("@id")
-        has_id = obj_id is not None
+        # Extract @id (if present) and prefix with file_prefix for isolation
+        raw_id = obj.get("@id")
+        has_id = raw_id is not None
+
+        # Prefix @id with file_prefix to ensure file-level isolation
+        # (prevents nodes from different files with same @id from being merged)
+        if raw_id:
+            obj_id = f"{file_prefix}_{raw_id}"
+        else:
+            obj_id = None
 
         # Extract @type to determine object type
         obj_type = obj.get("@type")
@@ -454,9 +461,9 @@ def generate_for_json_content(
             assoc_props["_isAssociation"] = True
             assoc_props["_source_file"] = filename
 
-            # Capture NIEM structures attributes as metadata
-            if obj_id and has_id:
-                assoc_props["structures_id"] = obj_id
+            # Capture NIEM structures attributes as metadata (original @id before prefixing)
+            if has_id:
+                assoc_props["structures_id"] = raw_id
 
             # Check for structures:uri in the object (support multiple prefix variants)
             struct_uri = obj.get("structures:uri") or obj.get("s:uri")
@@ -506,13 +513,17 @@ def generate_for_json_content(
                     # Get endpoint label from mapping
                     endpoint_label = ep["maps_to_label"]
 
-                    edges.append((obj_id, assoc_label, endpoint_ref, endpoint_label, rel_type, edge_props))
+                    # Prefix endpoint reference for file-level isolation
+                    prefixed_endpoint_ref = f"{file_prefix}_{endpoint_ref}"
+
+                    edges.append((obj_id, assoc_label, prefixed_endpoint_ref, endpoint_label, rel_type, edge_props))
 
             # Create REFERS_TO edges for structures:ref and structures:uri on the association itself
             # Note: struct_ref and struct_uri already checked for both prefixes above
             if struct_ref:
-                # structures:ref - direct reference to an ID
-                edges.append((obj_id, assoc_label, struct_ref, None, "REFERS_TO", {}))
+                # structures:ref - direct reference to an ID (prefix for file-level isolation)
+                prefixed_struct_ref = f"{file_prefix}_{struct_ref}"
+                edges.append((obj_id, assoc_label, prefixed_struct_ref, None, "REFERS_TO", {}))
             elif struct_uri:
                 # structures:uri - resolve to target ID
                 target_ref = None
@@ -524,7 +535,9 @@ def generate_for_json_content(
                     if uri_parts:
                         target_ref = uri_parts[-1].replace(':', '_')
                 if target_ref:
-                    edges.append((obj_id, assoc_label, target_ref, None, "REFERS_TO", {}))
+                    # Prefix target reference for file-level isolation
+                    prefixed_target_ref = f"{file_prefix}_{target_ref}"
+                    edges.append((obj_id, assoc_label, prefixed_target_ref, None, "REFERS_TO", {}))
 
             # Recursively process children (for nested objects within association)
             for key, value in obj.items():
@@ -607,9 +620,9 @@ def generate_for_json_content(
         if schema_id:
             props_dict["_schema_id"] = schema_id
 
-        # Capture NIEM structures attributes as metadata
-        if obj_id and has_id:
-            props_dict["structures_id"] = obj_id
+        # Capture NIEM structures attributes as metadata (original @id before prefixing)
+        if has_id:
+            props_dict["structures_id"] = raw_id
 
         # Check for structures:uri in the object (support multiple prefix variants)
         struct_uri = obj.get("structures:uri") or obj.get("s:uri")
@@ -635,8 +648,9 @@ def generate_for_json_content(
         # Create REFERS_TO edges for structures:ref and structures:uri on the object itself
         # Note: struct_ref and struct_uri already checked for both prefixes above
         if struct_ref:
-            # structures:ref - direct reference to an ID
-            edges.append((obj_id, label, struct_ref, None, "REFERS_TO", {}))
+            # structures:ref - direct reference to an ID (prefix for file-level isolation)
+            prefixed_struct_ref = f"{file_prefix}_{struct_ref}"
+            edges.append((obj_id, label, prefixed_struct_ref, None, "REFERS_TO", {}))
         elif struct_uri:
             # structures:uri - resolve to target ID
             target_ref = None
@@ -648,7 +662,9 @@ def generate_for_json_content(
                 if uri_parts:
                     target_ref = uri_parts[-1].replace(':', '_')
             if target_ref:
-                edges.append((obj_id, label, target_ref, None, "REFERS_TO", {}))
+                # Prefix target reference for file-level isolation
+                prefixed_target_ref = f"{file_prefix}_{target_ref}"
+                edges.append((obj_id, label, prefixed_target_ref, None, "REFERS_TO", {}))
 
         # Process nested properties
         for key, value in obj.items():
@@ -656,8 +672,8 @@ def generate_for_json_content(
                 continue  # Skip JSON-LD keywords
 
             if is_reference(value):
-                # Reference edge
-                target_id = value["@id"]
+                # Reference edge (prefix target for file-level isolation)
+                target_id = f"{file_prefix}_{value['@id']}"
                 edges.append((obj_id, label, target_id, None, key, {}))
 
             elif isinstance(value, dict):
@@ -669,7 +685,8 @@ def generate_for_json_content(
                 for item in value:
                     if isinstance(item, dict):
                         if is_reference(item):
-                            target_id = item["@id"]
+                            # Prefix target for file-level isolation
+                            target_id = f"{file_prefix}_{item['@id']}"
                             edges.append((obj_id, label, target_id, None, key, {}))
                         else:
                             process_jsonld_object(item, obj_id, label, key)
