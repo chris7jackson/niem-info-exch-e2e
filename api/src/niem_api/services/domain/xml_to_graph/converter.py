@@ -66,6 +66,36 @@ def detect_structures_namespace(root: Element) -> str:
     return KNOWN_STRUCT_NAMESPACES[0]
 
 
+def get_structures_attr(elem: Element, attr_local_name: str, struct_ns: str = None) -> str | None:
+    """
+    Get structures attribute value by local name, trying known namespaces.
+
+    Supports any NIEM structures namespace (3.0, 4.0, 5.0, 6.0) by checking
+    the detected namespace first, then falling back to all known namespaces.
+
+    Args:
+        elem: XML element
+        attr_local_name: Local attribute name (e.g., "id", "ref", "uri")
+        struct_ns: Detected structures namespace URI (optional)
+
+    Returns:
+        Attribute value or None if not found
+    """
+    # Try detected namespace first (fastest path)
+    if struct_ns:
+        val = elem.attrib.get(f"{{{struct_ns}}}{attr_local_name}")
+        if val:
+            return val
+
+    # Fallback: try all known structures namespaces
+    for ns in KNOWN_STRUCT_NAMESPACES:
+        val = elem.attrib.get(f"{{{ns}}}{attr_local_name}")
+        if val:
+            return val
+
+    return None
+
+
 def build_standard_reference_registry(struct_ns: str, nc_ns: str) -> dict:
     """
     Build registry of known NIEM reference attributes.
@@ -630,8 +660,8 @@ def generate_for_xml_content(
         Args:
             elem: XML element to process
         """
-        sid = elem.attrib.get(f"{{{struct_ns}}}id")
-        uri_ref = elem.attrib.get(f"{{{struct_ns}}}uri")
+        sid = get_structures_attr(elem, "id", struct_ns)
+        uri_ref = get_structures_attr(elem, "uri", struct_ns)
 
         # Process structures:id
         if sid:
@@ -704,7 +734,7 @@ def generate_for_xml_content(
         assoc_rule = assoc_by_qn.get(elem_qn)
         if assoc_rule:
             # Generate association node ID - use structures:id if present, otherwise synthetic
-            sid = elem.attrib.get(f"{{{struct_ns}}}id")
+            sid = get_structures_attr(elem, "id", struct_ns)
             if sid:
                 assoc_node_id = f"{file_prefix}_{sid}"
             else:
@@ -752,10 +782,10 @@ def generate_for_xml_content(
             # Capture NIEM structures attributes as metadata
             if sid:
                 assoc_props["structures_id"] = sid
-            struct_uri = elem.attrib.get(f"{{{struct_ns}}}uri")
+            struct_uri = get_structures_attr(elem, "uri", struct_ns)
             if struct_uri:
                 assoc_props["structures_uri"] = struct_uri
-            struct_ref = elem.attrib.get(f"{{{struct_ns}}}ref")
+            struct_ref = get_structures_attr(elem, "ref", struct_ns)
             if struct_ref:
                 assoc_props["structures_ref"] = struct_ref
 
@@ -779,12 +809,12 @@ def generate_for_xml_content(
                     if qname_from_tag(ch.tag, xml_ns_map) == ep["role_qname"]:
                         endpoint_elem = ch
                         # Check for reference (structures:ref)
-                        endpoint_ref = ch.attrib.get(f"{{{struct_ns}}}ref")
+                        endpoint_ref = get_structures_attr(ch, "ref", struct_ns)
                         if endpoint_ref:
                             endpoint_id = f"{file_prefix}_{endpoint_ref}"
                         else:
                             # Check for URI reference (structures:uri)
-                            endpoint_uri = ch.attrib.get(f"{{{struct_ns}}}uri")
+                            endpoint_uri = get_structures_attr(ch, "uri", struct_ns)
                             if endpoint_uri:
                                 # Extract ID from URI - always use the fragment if present
                                 # This ensures different URI formats pointing to same ID resolve to same node
@@ -803,7 +833,7 @@ def generate_for_xml_content(
                                         endpoint_id = f"{file_prefix}_{endpoint_uri.replace('/', '_').replace(':', '_')}"
                             else:
                                 # Check for inline definition with structures:id
-                                endpoint_sid = ch.attrib.get(f"{{{struct_ns}}}id")
+                                endpoint_sid = get_structures_attr(ch, "id", struct_ns)
                                 if endpoint_sid:
                                     endpoint_id = f"{file_prefix}_{endpoint_sid}"
                         break
@@ -813,7 +843,7 @@ def generate_for_xml_content(
                     if endpoint_id not in id_registry:
                         # Check if this is an inline element with structures:id
                         if endpoint_elem is not None:
-                            sid = endpoint_elem.attrib.get(f"{{{struct_ns}}}id")
+                            sid = get_structures_attr(endpoint_elem, "id", struct_ns)
                             if sid:
                                 # Inline element with ID - register it now
                                 id_registry[endpoint_id] = {
@@ -858,9 +888,9 @@ def generate_for_xml_content(
         props = {}
 
         # Check if element has structures:id (makes it a node regardless of mapping)
-        sid = elem.attrib.get(f"{{{struct_ns}}}id")
-        uri_ref = elem.attrib.get(f"{{{struct_ns}}}uri")
-        ref = elem.attrib.get(f"{{{struct_ns}}}ref")
+        sid = get_structures_attr(elem, "id", struct_ns)
+        uri_ref = get_structures_attr(elem, "uri", struct_ns)
+        ref = get_structures_attr(elem, "ref", struct_ns)
         is_nil = elem.attrib.get(f"{{{XSI_NS}}}nil") == "true"
 
         # Skip pure reference elements (ref or uri with nil) - they don't create nodes
@@ -876,9 +906,30 @@ def generate_for_xml_content(
             # Generate label from mapping
             node_label = obj_rule["label"]
 
-            # Generate node ID - use structures:id if present, otherwise synthetic
+            # Generate node ID - use structures:id if present, otherwise structures:uri, otherwise synthetic
             if sid:
                 node_id = f"{file_prefix}_{sid}"
+            elif uri_ref:
+                # Extract fragment for co-referencing: "#P01" -> "P01"
+                entity_id = uri_ref.lstrip('#')
+                node_id = f"{file_prefix}_{entity_id}"
+
+                # Track URI entity for co-referencing
+                if entity_id in uri_entity_registry:
+                    # This entity already exists - create SAME_ENTITY edge
+                    first_node_id = uri_entity_registry[entity_id]
+                    edges.append((
+                        node_id,
+                        node_label,
+                        first_node_id,
+                        nodes[first_node_id][0],  # First node's label
+                        "SAME_ENTITY",
+                        {"uri": uri_ref, "source": "uri_co_reference"}
+                    ))
+                    print(f"[DEBUG] URI co-reference: {node_id} --SAME_ENTITY--> {first_node_id} (via {uri_ref})")
+                else:
+                    # First occurrence of this URI
+                    uri_entity_registry[entity_id] = node_id
             else:
                 # Generate synthetic ID based on element position
                 parent_id = parent_info[0] if parent_info else "root"
@@ -957,6 +1008,19 @@ def generate_for_xml_content(
             else:
                 nodes[node_id] = [node_label, elem_qn, props, aug_props]
 
+            # Process dynamic reference attributes (nc:metadataRef, priv:privacyMetadataRef, etc.)
+            # This handles IDREFS splitting and creates edges for custom reference attributes
+            reference_edges = process_reference_attributes(
+                elem=elem,
+                node_id=node_id,
+                node_label=node_label,
+                file_prefix=file_prefix,
+                ns_map=xml_ns_map,
+                reference_registry=reference_registry,
+                struct_ns=struct_ns
+            )
+            edges.extend(reference_edges)
+
             # Create containment edge
             if parent_info:
                 p_id, p_label = parent_info
@@ -1021,10 +1085,10 @@ def generate_for_xml_content(
                 for ch in elem:
                     if qname_from_tag(ch.tag, xml_ns_map) == rule["field_qname"]:
                         # Check for structures:ref first (traditional NIEM pattern)
-                        to_id = ch.attrib.get(f"{{{struct_ns}}}ref")
+                        to_id = get_structures_attr(ch, "ref", struct_ns)
                         if not to_id:
                             # If no structures:ref, check for structures:id (direct child pattern)
-                            to_id = ch.attrib.get(f"{{{struct_ns}}}id")
+                            to_id = get_structures_attr(ch, "id", struct_ns)
 
                         if to_id and node_id:
                             # Prefix referenced ID with file_prefix
