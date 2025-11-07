@@ -401,12 +401,15 @@ def generate_for_json_content(
             # Capture NIEM structures attributes as metadata
             if obj_id and has_id:
                 assoc_props["structures_id"] = obj_id
-            # Check for structures:uri in the object
-            struct_uri = obj.get("structures:uri")
+
+            # Check for structures:uri in the object (support multiple prefix variants)
+            struct_uri = obj.get("structures:uri") or obj.get("s:uri")
             if struct_uri:
                 assoc_props["structures_uri"] = struct_uri
+
             # Check for structures:ref in the object (though in JSON-LD this would be an @id reference)
-            struct_ref = obj.get("structures:ref")
+            # Support multiple prefix variants (structures:, s:)
+            struct_ref = obj.get("structures:ref") or obj.get("s:ref")
             if struct_ref:
                 assoc_props["structures_ref"] = struct_ref
 
@@ -450,6 +453,7 @@ def generate_for_json_content(
                     edges.append((obj_id, assoc_label, endpoint_ref, endpoint_label, rel_type, edge_props))
 
             # Create REFERS_TO edges for structures:ref and structures:uri on the association itself
+            # Note: struct_ref and struct_uri already checked for both prefixes above
             if struct_ref:
                 # structures:ref - direct reference to an ID
                 edges.append((obj_id, assoc_label, struct_ref, None, "REFERS_TO", {}))
@@ -539,12 +543,14 @@ def generate_for_json_content(
             # Capture NIEM structures attributes as metadata
             if obj_id and has_id:
                 props_dict["structures_id"] = obj_id
-            # Check for structures:uri in the object
-            struct_uri = obj.get("structures:uri")
+
+            # Check for structures:uri in the object (support multiple prefix variants)
+            struct_uri = obj.get("structures:uri") or obj.get("s:uri")
             if struct_uri:
                 props_dict["structures_uri"] = struct_uri
-            # Check for structures:ref in the object
-            struct_ref = obj.get("structures:ref")
+
+            # Check for structures:ref in the object (support multiple prefix variants)
+            struct_ref = obj.get("structures:ref") or obj.get("s:ref")
             if struct_ref:
                 props_dict["structures_ref"] = struct_ref
 
@@ -560,6 +566,7 @@ def generate_for_json_content(
                 contains.append((parent_id, parent_label, obj_id, label, rel_type))
 
             # Create REFERS_TO edges for structures:ref and structures:uri on the object itself
+            # Note: struct_ref and struct_uri already checked for both prefixes above
             if struct_ref:
                 # structures:ref - direct reference to an ID
                 edges.append((obj_id, label, struct_ref, None, "REFERS_TO", {}))
