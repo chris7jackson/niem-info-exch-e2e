@@ -432,12 +432,15 @@ def generate_for_xml_content(
     id_collisions = []  # List of ID collisions detected during Pass 1
 
     def collect_ids_pass1(elem: Element):
-        """Pass 1: Collect all elements with structures:id for forward reference resolution.
+        """Pass 1: Collect all elements with structures:id or structures:uri for forward reference resolution.
 
         Args:
             elem: XML element to process
         """
         sid = elem.attrib.get(f"{{{STRUCT_NS}}}id")
+        uri_ref = elem.attrib.get(f"{{{STRUCT_NS}}}uri")
+
+        # Process structures:id
         if sid:
             prefixed_id = f"{file_prefix}_{sid}"
             elem_qn = qname_from_tag(elem.tag, xml_ns_map)
@@ -462,6 +465,37 @@ def generate_for_xml_content(
                     'raw_id': sid
                 }
 
+        # Process structures:uri - these also define identifiable resources
+        # URI fragments (#P01) or full URIs can be used as identifiers
+        if uri_ref and not sid:  # Only if no structures:id (structures:id takes precedence)
+            # Extract fragment or basename from URI
+            uri_id = None
+            if '#' in uri_ref:
+                uri_id = uri_ref.split('#')[-1]
+            else:
+                # Use last path segment as ID
+                uri_parts = uri_ref.rstrip('/').split('/')
+                if uri_parts:
+                    uri_id = uri_parts[-1].replace(':', '_')
+
+            if uri_id:
+                prefixed_id = f"{file_prefix}_{uri_id}"
+                elem_qn = qname_from_tag(elem.tag, xml_ns_map)
+
+                # Check for ID collisions
+                if prefixed_id in id_registry:
+                    # Multiple elements with same URI - this is valid in NIEM (co-referencing)
+                    # Don't add to collisions, just skip registering duplicate
+                    pass
+                else:
+                    # Register new URI-based ID
+                    id_registry[prefixed_id] = {
+                        'element': elem,
+                        'qname': elem_qn,
+                        'raw_id': uri_id,
+                        'source': 'uri'
+                    }
+
         # Recurse to all children
         for child in elem:
             collect_ids_pass1(child)
@@ -473,60 +507,155 @@ def generate_for_xml_content(
 
         elem_qn = qname_from_tag(elem.tag, xml_ns_map)
 
-        # Handle Association elements
+        # Handle Association elements (create intermediate nodes with hypergraph pattern)
         assoc_rule = assoc_by_qn.get(elem_qn)
         if assoc_rule:
-            # Create the association edge between role endpoints
-            role_refs = []
+            # Generate association node ID - use structures:id if present, otherwise synthetic
+            sid = elem.attrib.get(f"{{{STRUCT_NS}}}id")
+            if sid:
+                assoc_node_id = f"{file_prefix}_{sid}"
+            else:
+                # Generate synthetic ID based on element position
+                parent_id = parent_info[0] if parent_info else "root"
+                chain = [qname_from_tag(e.tag, xml_ns_map) for e in path_stack] + [elem_qn]
+                ordinal_path = "/".join(chain)
+                assoc_node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
+
+            # Create label for association node (normalize qname)
+            assoc_label = elem_qn.replace(":", "_")
+
+            # Extract properties from association element and flatten them
+            assoc_props = {}
+            aug_props = {}
+
+            # Get role qnames to skip them during property extraction
             endpoints = assoc_rule.get("endpoints", [])
+            role_qnames = {ep["role_qname"] for ep in endpoints}
+
+            # Flatten all non-role children onto association node
+            for child in elem:
+                child_qn = qname_from_tag(child.tag, xml_ns_map)
+
+                # Skip role elements (these become edges, not properties)
+                if child_qn in role_qnames:
+                    continue
+
+                # Check if child is a selected object or association (becomes a node, not property)
+                if child_qn in obj_rules or child_qn in assoc_by_qn:
+                    # This will be processed recursively
+                    continue
+
+                # Flatten property
+                flattened = _recursively_flatten_element(
+                    child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, ""
+                )
+                aug_props.update(flattened)
+
+            # Add metadata
+            assoc_props["qname"] = elem_qn
+            assoc_props["_isAssociation"] = True
+            assoc_props["_source_file"] = filename
+
+            # Capture NIEM structures attributes as metadata
+            if sid:
+                assoc_props["structures_id"] = sid
+            struct_uri = elem.attrib.get(f"{{{STRUCT_NS}}}uri")
+            if struct_uri:
+                assoc_props["structures_uri"] = struct_uri
+            struct_ref = elem.attrib.get(f"{{{STRUCT_NS}}}ref")
+            if struct_ref:
+                assoc_props["structures_ref"] = struct_ref
+
+            # Register association node in id_registry for reference resolution
+            id_registry[assoc_node_id] = {
+                "qname": elem_qn,
+                "label": assoc_label,
+                "element": elem
+            }
+
+            # Create association node (nodes is a dict, not a list)
+            nodes[assoc_node_id] = [assoc_label, elem_qn, assoc_props, aug_props]
+
+            # Create edges from association node to each endpoint
             for ep in endpoints:
-                to_id = None
+                # Find the role element and extract its structures:ref, structures:id, or structures:uri
+                endpoint_id = None
+                endpoint_elem = None
+
                 for ch in elem:
                     if qname_from_tag(ch.tag, xml_ns_map) == ep["role_qname"]:
-                        to_id = ch.attrib.get(f"{{{STRUCT_NS}}}ref")
+                        endpoint_elem = ch
+                        # Check for reference (structures:ref)
+                        endpoint_ref = ch.attrib.get(f"{{{STRUCT_NS}}}ref")
+                        if endpoint_ref:
+                            endpoint_id = f"{file_prefix}_{endpoint_ref}"
+                        else:
+                            # Check for URI reference (structures:uri)
+                            endpoint_uri = ch.attrib.get(f"{{{STRUCT_NS}}}uri")
+                            if endpoint_uri:
+                                # Extract ID from URI - always use the fragment if present
+                                # This ensures different URI formats pointing to same ID resolve to same node
+                                if '#' in endpoint_uri:
+                                    # Fragment reference: "#P1" or "http://example.com#P1" -> "P1"
+                                    endpoint_id = f"{file_prefix}_{endpoint_uri.split('#')[-1]}"
+                                else:
+                                    # Full URI without fragment - use basename or full sanitized URI
+                                    # Try to extract a meaningful ID from the URI path
+                                    uri_parts = endpoint_uri.rstrip('/').split('/')
+                                    if uri_parts:
+                                        # Use last path segment as ID
+                                        endpoint_id = f"{file_prefix}_{uri_parts[-1].replace(':', '_')}"
+                                    else:
+                                        # Fallback: sanitize full URI
+                                        endpoint_id = f"{file_prefix}_{endpoint_uri.replace('/', '_').replace(':', '_')}"
+                            else:
+                                # Check for inline definition with structures:id
+                                endpoint_sid = ch.attrib.get(f"{{{STRUCT_NS}}}id")
+                                if endpoint_sid:
+                                    endpoint_id = f"{file_prefix}_{endpoint_sid}"
                         break
-                role_refs.append((ep, to_id))
 
-            # If both ends found, produce edge
-            if len(role_refs) >= 2 and all(rid for (_, rid) in role_refs[:2]):
-                ep_a, id_a = role_refs[0]
-                ep_b, id_b = role_refs[1]
-                label_a = ep_a["maps_to_label"]
-                label_b = ep_b["maps_to_label"]
-                rel = assoc_rule.get("rel_type")
-                # Prefix referenced IDs with file_prefix
-                id_a_prefixed = f"{file_prefix}_{id_a}"
-                id_b_prefixed = f"{file_prefix}_{id_b}"
+                if endpoint_id:
+                    # Validate reference exists in ID registry (or will be created)
+                    if endpoint_id not in id_registry:
+                        # Check if this is an inline element with structures:id
+                        if endpoint_elem is not None:
+                            sid = endpoint_elem.attrib.get(f"{{{STRUCT_NS}}}id")
+                            if sid:
+                                # Inline element with ID - register it now
+                                id_registry[endpoint_id] = {
+                                    "qname": qname_from_tag(endpoint_elem.tag, xml_ns_map),
+                                    "label": ep["maps_to_label"],
+                                    "element": endpoint_elem
+                                }
+                            else:
+                                # Inline element without ID - will be processed recursively
+                                # But track as pending in case it's not in the mapping
+                                pending_refs.append((elem_qn, endpoint_id, f"Association {elem_qn} endpoint {ep['role_qname']}"))
+                        else:
+                            # Pure reference (ref/uri) that doesn't exist yet - track it
+                            pending_refs.append((elem_qn, endpoint_id, f"Association {elem_qn} endpoint {ep['role_qname']}"))
 
-                # Validate references exist in ID registry
-                if id_a_prefixed not in id_registry:
-                    pending_refs.append((elem_qn, id_a_prefixed, f"Association {elem_qn} endpoint A"))
-                if id_b_prefixed not in id_registry:
-                    pending_refs.append((elem_qn, id_b_prefixed, f"Association {elem_qn} endpoint B"))
+                    # Create edge from association node to endpoint
+                    # Relationship type: HAS_{role_local_name}
+                    role_local = ep["role_qname"].split(":")[-1].upper()
+                    rel_type = f"HAS_{role_local}"
 
-                # RICH EDGE STRATEGY: Extract simple properties from association element
-                # and add them to the relationship properties (for simple associations)
-                # This follows NIEM best practice of using rich edges when possible
-                edge_props = {}
-                for child in elem:
-                    child_qn = qname_from_tag(child.tag, xml_ns_map)
-                    # Skip role elements (already processed)
-                    is_role = any(child_qn == ep["role_qname"] for ep in endpoints)
-                    if not is_role and child.text and child.text.strip() and len(list(child)) == 0:
-                        # Simple text property - add to edge
-                        prop_name = child_qn.replace(":", "_").replace(".", "_")
-                        edge_props[prop_name] = child.text.strip()
+                    # Edge properties include role metadata
+                    edge_props = {
+                        "role_qname": ep["role_qname"],
+                        "direction": ep.get("direction", "")
+                    }
 
-                # Extract augmentation properties for the edge
-                if cmf_element_index:
-                    aug_edge_props = extract_unmapped_properties(elem, xml_ns_map, cmf_element_index)
-                    edge_props.update(aug_edge_props)
+                    # Get endpoint label - use None to let resolution logic find actual node label
+                    # This handles NIEM substitution where role type (nc:Person) differs from actual type (j:CrashDriver)
+                    endpoint_label = None
 
-                edges.append((id_a_prefixed, label_a, id_b_prefixed, label_b, rel, edge_props))
+                    edges.append((assoc_node_id, assoc_label, endpoint_id, endpoint_label, rel_type, edge_props))
 
-            # Associations are edges, not nodes - just traverse children
+            # Recursively process children (for nested objects within association)
             for ch in elem:
-                traverse(ch, parent_info, path_stack)
+                traverse(ch, (assoc_node_id, assoc_label), path_stack + [elem])
             return
 
         # Handle Object elements (nodes)
@@ -563,6 +692,14 @@ def generate_for_xml_content(
                 chain = [qname_from_tag(e.tag, xml_ns_map) for e in path_stack] + [elem_qn]
                 ordinal_path = "/".join(chain)
                 node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
+
+            # Capture NIEM structures attributes as metadata
+            if sid:
+                props["structures_id"] = sid
+            if uri_ref:
+                props["structures_uri"] = uri_ref
+            if ref:
+                props["structures_ref"] = ref
 
             # Extract explicitly mapped scalar properties
             if obj_rule:
@@ -632,6 +769,28 @@ def generate_for_xml_content(
                 p_id, p_label = parent_info
                 rel = "HAS_" + re.sub(r'[^A-Za-z0-9]', '_', local_from_qname(elem_qn)).upper()
                 contains.append((p_id, p_label, node_id, node_label, rel))
+
+            # Create REFERS_TO edges for structures:ref and structures:uri
+            target_id = None
+            if ref:
+                # structures:ref - direct reference to an ID
+                target_id = f"{file_prefix}_{ref}"
+                pending_refs.append((node_id, target_id, f"Object {elem_qn} structures:ref"))
+                # Create REFERS_TO edge (target label will be resolved later)
+                edges.append((node_id, node_label, target_id, None, "REFERS_TO", {}))
+            elif uri_ref:
+                # structures:uri - URI reference, extract fragment or basename
+                if '#' in uri_ref:
+                    target_id = f"{file_prefix}_{uri_ref.split('#')[-1]}"
+                else:
+                    # Use last path segment as ID
+                    uri_parts = uri_ref.rstrip('/').split('/')
+                    if uri_parts:
+                        target_id = f"{file_prefix}_{uri_parts[-1].replace(':', '_')}"
+                if target_id:
+                    pending_refs.append((node_id, target_id, f"Object {elem_qn} structures:uri"))
+                    # Create REFERS_TO edge (target label will be resolved later)
+                    edges.append((node_id, node_label, target_id, None, "REFERS_TO", {}))
 
             parent_ctx = (node_id, node_label)
         else:
@@ -721,22 +880,40 @@ def generate_for_xml_content(
     for source_qn, target_id, context in pending_refs:
         if target_id not in nodes:
             # Target ID doesn't exist - could be forward ref or missing element
-            # Create placeholder UnresolvedReference node to prevent orphaned edges
+            # Extract the element qname and label from context (format: "Association X endpoint Y")
+            # Parse context to get the role qname
+            role_qname = None
+            label = None
+
+            # Context format: "Association j:PersonChargeAssociation endpoint nc:Person"
+            if "endpoint" in context:
+                parts = context.split("endpoint")
+                if len(parts) > 1:
+                    role_qname = parts[1].strip()
+                    label = role_qname.replace(":", "_")
+
+            # Fallback if parsing failed
+            if not label:
+                label = "UnresolvedReference"
+                role_qname = "unresolved:Reference"
+
             unresolved_refs.append({
                 'target_id': target_id,
                 'context': context,
-                'source': source_qn
+                'source': source_qn,
+                'expected_type': role_qname
             })
 
-            # Create placeholder node so edges don't fail
+            # Create placeholder node with the correct type label
             # This allows the graph to be created while flagging data quality issues
             nodes[target_id] = [
-                "UnresolvedReference",
-                "unresolved:Reference",
+                label,
+                role_qname,
                 {
-                    'error': f'Referenced ID not found in document',
-                    'context': context,
-                    'raw_id': target_id
+                    '_unresolved': True,
+                    '_error': f'Referenced ID not found in document',
+                    '_context': context,
+                    '_raw_id': target_id
                 },
                 {}
             ]

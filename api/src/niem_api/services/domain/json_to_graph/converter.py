@@ -334,6 +334,147 @@ def generate_for_json_content(
         # Determine QName - prefer @type, fall back to property name
         qname = obj_type if obj_type else property_name
 
+        # Check if this is an association (process before checking for object rule)
+        assoc_rule = assoc_by_qn.get(qname) if qname else None
+
+        if assoc_rule:
+            # Handle Association objects (create intermediate nodes with hypergraph pattern)
+            # Generate association node ID - use @id if present, otherwise synthetic
+            if not obj_id:
+                object_counter += 1
+                obj_id = f"{file_prefix}_obj{object_counter}"
+
+            # Skip if already processed
+            if obj_id in nodes:
+                return obj_id
+
+            # Create label for association node (normalize qname)
+            assoc_label = qname.replace(":", "_")
+
+            # Extract properties from association object and flatten them
+            assoc_props = {}
+            aug_props = {}
+
+            # Get role qnames to skip them during property extraction
+            endpoints = assoc_rule.get("endpoints", [])
+            role_qnames = {ep["role_qname"] for ep in endpoints}
+
+            # Flatten all non-role children onto association node
+            for key, value in obj.items():
+                # Skip JSON-LD keywords
+                if key.startswith("@"):
+                    continue
+
+                # Skip role elements (these become edges, not properties)
+                if key in role_qnames:
+                    continue
+
+                # Check if value is a selected object or association (becomes a node, not property)
+                value_qname = None
+                if isinstance(value, dict):
+                    value_qname = value.get("@type") or key
+                if value_qname and (value_qname in obj_rules or value_qname in assoc_by_qn):
+                    # This will be processed recursively
+                    continue
+
+                # Flatten property
+                if isinstance(value, dict) and not is_reference(value):
+                    prefix = key.replace(":", "_")
+                    flattened = _recursively_flatten_json_object(value, obj_rules, assoc_by_qn, prefix)
+                    aug_props.update(flattened)
+                elif isinstance(value, (str, int, float, bool)):
+                    prop_key = key.replace(":", "_")
+                    aug_props[prop_key] = value
+                elif isinstance(value, list):
+                    prop_key = key.replace(":", "_")
+                    aug_props[prop_key] = value
+
+            # Add metadata
+            assoc_props["qname"] = qname
+            assoc_props["_isAssociation"] = True
+            assoc_props["_source_file"] = filename
+
+            # Capture NIEM structures attributes as metadata
+            if obj_id and has_id:
+                assoc_props["structures_id"] = obj_id
+            # Check for structures:uri in the object
+            struct_uri = obj.get("structures:uri")
+            if struct_uri:
+                assoc_props["structures_uri"] = struct_uri
+            # Check for structures:ref in the object (though in JSON-LD this would be an @id reference)
+            struct_ref = obj.get("structures:ref")
+            if struct_ref:
+                assoc_props["structures_ref"] = struct_ref
+
+            # Create association node
+            nodes[obj_id] = (assoc_label, qname, assoc_props, aug_props)
+
+            # Create edges from association node to each endpoint
+            for ep in endpoints:
+                # Find the role property and extract its @id reference
+                endpoint_ref = None
+                role_value = obj.get(ep["role_qname"])
+
+                if role_value:
+                    if is_reference(role_value):
+                        # Direct reference: {"@id": "P1"}
+                        endpoint_ref = role_value["@id"]
+                    elif isinstance(role_value, dict) and role_value.get("@id"):
+                        # Nested object with @id
+                        endpoint_ref = role_value["@id"]
+                    elif isinstance(role_value, list) and len(role_value) > 0:
+                        # Array of references - take first
+                        first_item = role_value[0]
+                        if isinstance(first_item, dict) and first_item.get("@id"):
+                            endpoint_ref = first_item["@id"]
+
+                if endpoint_ref:
+                    # Create edge from association node to endpoint
+                    # Relationship type: HAS_{role_local_name}
+                    role_local = ep["role_qname"].split(":")[-1].upper()
+                    rel_type = f"HAS_{role_local}"
+
+                    # Edge properties include role metadata
+                    edge_props = {
+                        "role_qname": ep["role_qname"],
+                        "direction": ep.get("direction", "")
+                    }
+
+                    # Get endpoint label from mapping
+                    endpoint_label = ep["maps_to_label"]
+
+                    edges.append((obj_id, assoc_label, endpoint_ref, endpoint_label, rel_type, edge_props))
+
+            # Create REFERS_TO edges for structures:ref and structures:uri on the association itself
+            if struct_ref:
+                # structures:ref - direct reference to an ID
+                edges.append((obj_id, assoc_label, struct_ref, None, "REFERS_TO", {}))
+            elif struct_uri:
+                # structures:uri - resolve to target ID
+                target_ref = None
+                if '#' in struct_uri:
+                    target_ref = struct_uri.split('#')[-1]
+                else:
+                    # Use last path segment as ID
+                    uri_parts = struct_uri.rstrip('/').split('/')
+                    if uri_parts:
+                        target_ref = uri_parts[-1].replace(':', '_')
+                if target_ref:
+                    edges.append((obj_id, assoc_label, target_ref, None, "REFERS_TO", {}))
+
+            # Recursively process children (for nested objects within association)
+            for key, value in obj.items():
+                if key.startswith("@") or key in role_qnames:
+                    continue
+                if isinstance(value, dict) and not is_reference(value):
+                    process_jsonld_object(value, obj_id, assoc_label, key)
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, dict) and not is_reference(item):
+                            process_jsonld_object(item, obj_id, assoc_label, key)
+
+            return obj_id
+
         # Find matching object rule
         obj_rule = obj_rules.get(qname) if qname else None
 
@@ -387,6 +528,18 @@ def generate_for_json_content(
             # Add source provenance
             props_dict["_source_file"] = filename
 
+            # Capture NIEM structures attributes as metadata
+            if obj_id and has_id:
+                props_dict["structures_id"] = obj_id
+            # Check for structures:uri in the object
+            struct_uri = obj.get("structures:uri")
+            if struct_uri:
+                props_dict["structures_uri"] = struct_uri
+            # Check for structures:ref in the object
+            struct_ref = obj.get("structures:ref")
+            if struct_ref:
+                props_dict["structures_ref"] = struct_ref
+
             # Create node
             nodes[obj_id] = (label, qname, props_dict, {})
 
@@ -397,6 +550,23 @@ def generate_for_json_content(
                     if property_name else 'HAS_CHILD'
                 )
                 contains.append((parent_id, parent_label, obj_id, label, rel_type))
+
+            # Create REFERS_TO edges for structures:ref and structures:uri on the object itself
+            if struct_ref:
+                # structures:ref - direct reference to an ID
+                edges.append((obj_id, label, struct_ref, None, "REFERS_TO", {}))
+            elif struct_uri:
+                # structures:uri - resolve to target ID
+                target_ref = None
+                if '#' in struct_uri:
+                    target_ref = struct_uri.split('#')[-1]
+                else:
+                    # Use last path segment as ID
+                    uri_parts = struct_uri.rstrip('/').split('/')
+                    if uri_parts:
+                        target_ref = uri_parts[-1].replace(':', '_')
+                if target_ref:
+                    edges.append((obj_id, label, target_ref, None, "REFERS_TO", {}))
 
             # Process nested properties
             for key, value in obj.items():
@@ -498,20 +668,62 @@ def generate_cypher_from_structures(
         )
 
     # Generate MERGE statements for reference/association edges
-    for from_id, from_label, to_id, to_label, rel_type, _ in edges:
+    for from_id, from_label, to_id, to_label, rel_type, edge_props in edges:
         # Clean relationship type
         clean_rel_type = rel_type.replace(":", "_").upper()
 
-        if to_label:
-            cypher_lines.append(
-                f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to:{to_label} {{id: '{to_id}'}}) "
-                f"MERGE (from)-[:{clean_rel_type}]->(to);"
-            )
+        # Build relationship properties if any
+        if edge_props:
+            # Build property setters for rich edges (e.g., association endpoint metadata)
+            prop_setters = []
+            for key, value in sorted(edge_props.items()):
+                if isinstance(value, str):
+                    escaped_value = value.replace("'", "\\'")
+                    prop_setters.append(f"r.{key}='{escaped_value}'")
+                elif isinstance(value, (int, float, bool)):
+                    prop_setters.append(f"r.{key}={str(value).lower() if isinstance(value, bool) else value}")
+                elif isinstance(value, list):
+                    # Handle array properties on edges
+                    array_items = []
+                    for item in value:
+                        if isinstance(item, str):
+                            escaped_item = item.replace("'", "\\'")
+                            array_items.append(f"'{escaped_item}'")
+                        elif isinstance(item, (int, float, bool)):
+                            array_items.append(str(item).lower() if isinstance(item, bool) else str(item))
+                        else:
+                            escaped_item = str(item).replace("'", "\\'")
+                            array_items.append(f"'{escaped_item}'")
+                    prop_setters.append(f"r.{key}=[{', '.join(array_items)}]")
+                else:
+                    escaped_value = str(value).replace("'", "\\'")
+                    prop_setters.append(f"r.{key}='{escaped_value}'")
+
+            props_clause = ", ".join(prop_setters)
+
+            if to_label:
+                cypher_lines.append(
+                    f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to:{to_label} {{id: '{to_id}'}}) "
+                    f"MERGE (from)-[r:{clean_rel_type}]->(to) ON CREATE SET {props_clause};"
+                )
+            else:
+                # Find target by ID only
+                cypher_lines.append(
+                    f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to {{id: '{to_id}'}}) "
+                    f"MERGE (from)-[r:{clean_rel_type}]->(to) ON CREATE SET {props_clause};"
+                )
         else:
-            # Find target by ID only
-            cypher_lines.append(
-                f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to {{id: '{to_id}'}}) "
-                f"MERGE (from)-[:{clean_rel_type}]->(to);"
-            )
+            # Simple edge without properties
+            if to_label:
+                cypher_lines.append(
+                    f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to:{to_label} {{id: '{to_id}'}}) "
+                    f"MERGE (from)-[:{clean_rel_type}]->(to);"
+                )
+            else:
+                # Find target by ID only
+                cypher_lines.append(
+                    f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to {{id: '{to_id}'}}) "
+                    f"MERGE (from)-[:{clean_rel_type}]->(to);"
+                )
 
     return "\n".join(cypher_lines)
