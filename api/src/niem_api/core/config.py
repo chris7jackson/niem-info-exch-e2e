@@ -33,13 +33,13 @@ class BatchConfig:
 
     # Operation-specific batch size limits
     # Schema uploads often have 25+ XSD files (NIEM references)
-    MAX_SCHEMA_FILES = int(os.getenv('BATCH_MAX_SCHEMA_FILES', '50'))
+    MAX_SCHEMA_FILES = int(os.getenv('BATCH_MAX_SCHEMA_FILES', '150'))
 
     # XML/JSON conversions typically smaller batches
-    MAX_CONVERSION_FILES = int(os.getenv('BATCH_MAX_CONVERSION_FILES', '20'))
+    MAX_CONVERSION_FILES = int(os.getenv('BATCH_MAX_CONVERSION_FILES', '150'))
 
     # XML/JSON ingestion to Neo4j
-    MAX_INGEST_FILES = int(os.getenv('BATCH_MAX_INGEST_FILES', '20'))
+    MAX_INGEST_FILES = int(os.getenv('BATCH_MAX_INGEST_FILES', '150'))
 
     @classmethod
     def get_batch_limit(cls, operation_type: str) -> int:

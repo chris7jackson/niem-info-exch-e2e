@@ -291,7 +291,9 @@ async def handle_xml_to_json_batch(
         if len(files) > max_files:
             raise HTTPException(
                 status_code=400,
-                detail=f"Batch size exceeds maximum of {max_files} files. Please reduce the number of files."
+                detail=f"Batch size exceeds maximum of {max_files} files. "
+                       f"Received {len(files)} files. "
+                       f"To increase this limit, set BATCH_MAX_CONVERSION_FILES in your .env file and restart the API service."
             )
 
         # Step 2: Check if NIEMTran tool is available

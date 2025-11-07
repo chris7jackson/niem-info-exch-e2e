@@ -83,6 +83,9 @@ class SchemaResponse(BaseModel):
     import_validation_report: ImportValidationReport | None = None
     is_active: bool
     warnings: list[str] = []
+    files_processed: int | None = None  # Batch processing: number of files in batch
+    successful: int | None = None  # Batch processing: always 0 (all-or-nothing) or files_processed (success)
+    failed: int | None = None  # Batch processing: always files_processed (failure) or 0 (success)
 
 
 class ResetRequest(BaseModel):
