@@ -17,13 +17,108 @@ from typing import Any
 
 import yaml
 
-# NIEM structures namespace
-STRUCT_NS = "https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/"
+# XSI namespace for xsi:nil and other schema instance attributes
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 
 # Cypher property name validation pattern - only alphanumeric and underscore are safe
 # Property names with dots, hyphens, or other special chars must be escaped with backticks
 CYPHER_SAFE_PROPERTY_NAME = r'^[a-zA-Z_][a-zA-Z0-9_]*$'
+
+# Known NIEM structures namespaces (for dynamic detection)
+KNOWN_STRUCT_NAMESPACES = [
+    "https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/",  # NIEM Open 6.0
+    "http://release.niem.gov/niem/structures/5.0/",                    # NIEM 5.0
+    "http://release.niem.gov/niem/structures/4.0/",                    # NIEM 4.0
+    "http://release.niem.gov/niem/structures/3.0/",                    # NIEM 3.0
+]
+
+
+def detect_structures_namespace(root: Element) -> str:
+    """
+    Detect NIEM structures namespace from XML document.
+
+    Checks namespace declarations on root element for known NIEM
+    structures namespace URIs. Supports NIEM 3.0, 4.0, 5.0, and 6.0.
+
+    Args:
+        root: Root element of XML document
+
+    Returns:
+        Structures namespace URI, or NIEM 6.0 default if not found
+    """
+    # Check declared namespaces
+    if hasattr(root, 'nsmap') and root.nsmap:
+        for ns_uri in root.nsmap.values():
+            if ns_uri and ns_uri in KNOWN_STRUCT_NAMESPACES:
+                print(f"[INFO] Detected NIEM structures namespace: {ns_uri}")
+                return ns_uri
+
+    # Fallback: check attributes for structures namespace
+    for attr_key in root.attrib.keys():
+        if '{' in attr_key:
+            ns_uri = attr_key[1:attr_key.index('}')]
+            if ns_uri in KNOWN_STRUCT_NAMESPACES:
+                print(f"[INFO] Detected structures namespace from attributes: {ns_uri}")
+                return ns_uri
+
+    # Default to NIEM 6.0
+    print("[WARNING] No structures namespace detected, defaulting to NIEM 6.0")
+    return KNOWN_STRUCT_NAMESPACES[0]
+
+
+def build_standard_reference_registry(struct_ns: str, nc_ns: str) -> dict:
+    """
+    Build registry of known NIEM reference attributes.
+
+    Args:
+        struct_ns: NIEM structures namespace URI
+        nc_ns: NIEM core namespace URI
+
+    Returns:
+        Dict mapping {attr_qname: {"cardinality": "single"|"multiple", "edge_type": str}}
+    """
+    return {
+        # Structures namespace (version-specific)
+        f"{{{struct_ns}}}ref": {"cardinality": "single", "edge_type": "REFERS_TO"},
+        f"{{{struct_ns}}}uri": {"cardinality": "single", "edge_type": "REFERS_TO"},
+
+        # NIEM Core metadata (standard)
+        f"{{{nc_ns}}}metadataRef": {"cardinality": "multiple", "edge_type": "HAS_METADATA"},
+        f"{{{nc_ns}}}metadata": {"cardinality": "multiple", "edge_type": "HAS_METADATA"},
+    }
+
+
+def detect_reference_by_heuristic(attr_qname: str, attr_value: str) -> dict | None:
+    """
+    Detect if attribute is likely a reference using heuristics.
+
+    Args:
+        attr_qname: Qualified attribute name (e.g., "priv:privacyMetadataRef")
+        attr_value: Attribute value
+
+    Returns:
+        {"cardinality": "single"|"multiple"|"auto", "edge_type": str, "confidence": str}
+        or None if not detected as reference
+    """
+    local_name = attr_qname.split(':')[-1] if ':' in attr_qname else attr_qname
+
+    # Pattern 1: Ends with "Ref" or "Reference"
+    if re.match(r'.*[Rr]ef(erence)?$', local_name):
+        # Auto-detect cardinality from value (space = multiple)
+        cardinality = "auto"
+        edge_type = f"HAS_{local_name.upper()}"
+        return {"cardinality": cardinality, "edge_type": edge_type, "confidence": "medium"}
+
+    # Pattern 2: Contains "metadata" + "ref" (case insensitive)
+    if "metadata" in local_name.lower() and "ref" in local_name.lower():
+        return {"cardinality": "multiple", "edge_type": "HAS_METADATA", "confidence": "medium"}
+
+    # Pattern 3: Value looks like ID(s) - alphanumeric with optional spaces
+    if attr_value and re.match(r'^[A-Za-z0-9_-]+(\s+[A-Za-z0-9_-]+)*$', attr_value):
+        # Very low confidence - only use as last resort
+        return {"cardinality": "auto", "edge_type": "REFERS_TO", "confidence": "low"}
+
+    return None
 
 
 def load_mapping_from_dict(mapping_dict: dict[str, Any]) -> tuple[
@@ -158,6 +253,92 @@ def build_assoc_index(associations: list[dict[str, Any]]) -> dict[str, dict[str,
     return by_qn
 
 
+def process_reference_attributes(
+    elem: Element,
+    node_id: str,
+    node_label: str,
+    file_prefix: str,
+    ns_map: dict,
+    reference_registry: dict,
+    struct_ns: str
+) -> list:
+    """
+    Detect and process all reference attributes on element.
+    Creates reference edges for each target ID (splitting IDREFS).
+
+    Args:
+        elem: XML element to process
+        node_id: ID of current node
+        node_label: Label of current node
+        file_prefix: File-specific prefix for IDs
+        ns_map: Namespace mapping
+        reference_registry: Registry of known reference attributes
+        struct_ns: Structures namespace URI
+
+    Returns:
+        List of edge tuples: (from_id, from_label, to_id, to_label, rel_type, props)
+    """
+    edges = []
+
+    for attr, value in elem.attrib.items():
+        # Skip nil and structural attributes
+        if not value or attr.startswith(f"{{{XSI_NS}}}"):
+            continue
+
+        # Skip if already handled (structures:id, structures:ref handled elsewhere)
+        if attr in [f"{{{struct_ns}}}id", f"{{{struct_ns}}}ref", f"{{{struct_ns}}}uri"]:
+            continue
+
+        # Get qualified name
+        attr_qname = qname_from_tag(attr, ns_map)
+
+        # Check if this is a reference attribute (4-tier strategy)
+        ref_info = None
+
+        # Tier 1: Standard registry
+        if attr in reference_registry:
+            ref_info = reference_registry[attr]
+
+        # Tier 2: XSD-based (future enhancement)
+        # elif attr in xsd_reference_attrs:
+        #     ref_info = xsd_reference_attrs[attr]
+
+        # Tier 3: Heuristic detection
+        else:
+            ref_info = detect_reference_by_heuristic(attr_qname, value)
+
+        if not ref_info:
+            continue
+
+        # Determine cardinality and split if needed
+        if ref_info["cardinality"] == "multiple":
+            target_ids = value.split()  # Split on whitespace
+        elif ref_info["cardinality"] == "auto":
+            target_ids = value.split() if ' ' in value else [value]
+        else:
+            target_ids = [value]
+
+        # Create edge for each target
+        for target_id in target_ids:
+            target_id_prefixed = f"{file_prefix}_{target_id}"
+
+            edges.append((
+                node_id,
+                node_label,
+                target_id_prefixed,
+                None,  # Target label unknown (resolved later)
+                ref_info["edge_type"],
+                {
+                    "source_attribute": attr_qname,
+                    "confidence": ref_info.get("confidence", "high")
+                }
+            ))
+
+            print(f"[DEBUG] Detected reference: {node_id} --{ref_info['edge_type']}--> {target_id_prefixed} (via {attr_qname})")
+
+    return edges
+
+
 def is_augmentation(element_qname: str, cmf_element_index: set) -> bool:
     """Check if an element QName is an augmentation (not in CMF index).
 
@@ -195,7 +376,7 @@ def extract_unmapped_properties(
     # Extract unmapped attributes
     for attr, value in elem.attrib.items():
         # Skip structural attributes
-        if attr.startswith(f"{{{STRUCT_NS}}}") or attr.startswith(f"{{{XSI_NS}}}"):
+        if attr.startswith(f"{{{struct_ns}}}") or attr.startswith(f"{{{XSI_NS}}}"):
             continue
 
         attr_qn = qname_from_tag(attr, ns_map)
@@ -268,7 +449,7 @@ def _recursively_flatten_element(
     # Extract attributes (skip structural ones)
     for attr, value in elem.attrib.items():
         # Skip NIEM structural attributes
-        if (f"{{{STRUCT_NS}}}" in attr or
+        if (f"{{{struct_ns}}}" in attr or
             f"{{{XSI_NS}}}" in attr or
             attr.startswith("xmlns")):
             continue
@@ -299,8 +480,8 @@ def _recursively_flatten_element(
             continue
 
         # Check if child has structures:id or uri (makes it a node)
-        child_sid = child.attrib.get(f"{{{STRUCT_NS}}}id")
-        child_uri = child.attrib.get(f"{{{STRUCT_NS}}}uri")
+        child_sid = child.attrib.get(f"{{{struct_ns}}}id")
+        child_uri = child.attrib.get(f"{{{struct_ns}}}uri")
         if child_sid or child_uri:
             continue
 
@@ -413,6 +594,15 @@ def generate_for_xml_content(
     root = ET.fromstring(xml_content)
     xml_ns_map = parse_ns(xml_content)
 
+    # Detect NIEM structures namespace dynamically
+    struct_ns = detect_structures_namespace(root)
+
+    # Detect NIEM core namespace (attempt to find from namespaces)
+    nc_ns = ns_map.get("nc", "https://docs.oasis-open.org/niemopen/ns/model/niem-core/6.0/")
+
+    # Build reference attribute registry
+    reference_registry = build_standard_reference_registry(struct_ns, nc_ns)
+
     # Generate file-specific prefix for node IDs to ensure uniqueness across files
     # Use timestamp + filename hash for uniqueness
     import json
@@ -430,6 +620,7 @@ def generate_for_xml_content(
     # ID registry for two-pass traversal
     # Collect all IDs in first pass to enable forward reference resolution
     id_registry = {}  # id -> element info for deferred processing
+    uri_entity_registry = {}  # Track URI-based entities for co-referencing
     pending_refs = []  # List of (source_id, target_id, context) for validation
     id_collisions = []  # List of ID collisions detected during Pass 1
 
@@ -439,8 +630,8 @@ def generate_for_xml_content(
         Args:
             elem: XML element to process
         """
-        sid = elem.attrib.get(f"{{{STRUCT_NS}}}id")
-        uri_ref = elem.attrib.get(f"{{{STRUCT_NS}}}uri")
+        sid = elem.attrib.get(f"{{{struct_ns}}}id")
+        uri_ref = elem.attrib.get(f"{{{struct_ns}}}uri")
 
         # Process structures:id
         if sid:
@@ -513,7 +704,7 @@ def generate_for_xml_content(
         assoc_rule = assoc_by_qn.get(elem_qn)
         if assoc_rule:
             # Generate association node ID - use structures:id if present, otherwise synthetic
-            sid = elem.attrib.get(f"{{{STRUCT_NS}}}id")
+            sid = elem.attrib.get(f"{{{struct_ns}}}id")
             if sid:
                 assoc_node_id = f"{file_prefix}_{sid}"
             else:
@@ -561,10 +752,10 @@ def generate_for_xml_content(
             # Capture NIEM structures attributes as metadata
             if sid:
                 assoc_props["structures_id"] = sid
-            struct_uri = elem.attrib.get(f"{{{STRUCT_NS}}}uri")
+            struct_uri = elem.attrib.get(f"{{{struct_ns}}}uri")
             if struct_uri:
                 assoc_props["structures_uri"] = struct_uri
-            struct_ref = elem.attrib.get(f"{{{STRUCT_NS}}}ref")
+            struct_ref = elem.attrib.get(f"{{{struct_ns}}}ref")
             if struct_ref:
                 assoc_props["structures_ref"] = struct_ref
 
@@ -588,12 +779,12 @@ def generate_for_xml_content(
                     if qname_from_tag(ch.tag, xml_ns_map) == ep["role_qname"]:
                         endpoint_elem = ch
                         # Check for reference (structures:ref)
-                        endpoint_ref = ch.attrib.get(f"{{{STRUCT_NS}}}ref")
+                        endpoint_ref = ch.attrib.get(f"{{{struct_ns}}}ref")
                         if endpoint_ref:
                             endpoint_id = f"{file_prefix}_{endpoint_ref}"
                         else:
                             # Check for URI reference (structures:uri)
-                            endpoint_uri = ch.attrib.get(f"{{{STRUCT_NS}}}uri")
+                            endpoint_uri = ch.attrib.get(f"{{{struct_ns}}}uri")
                             if endpoint_uri:
                                 # Extract ID from URI - always use the fragment if present
                                 # This ensures different URI formats pointing to same ID resolve to same node
@@ -612,7 +803,7 @@ def generate_for_xml_content(
                                         endpoint_id = f"{file_prefix}_{endpoint_uri.replace('/', '_').replace(':', '_')}"
                             else:
                                 # Check for inline definition with structures:id
-                                endpoint_sid = ch.attrib.get(f"{{{STRUCT_NS}}}id")
+                                endpoint_sid = ch.attrib.get(f"{{{struct_ns}}}id")
                                 if endpoint_sid:
                                     endpoint_id = f"{file_prefix}_{endpoint_sid}"
                         break
@@ -622,7 +813,7 @@ def generate_for_xml_content(
                     if endpoint_id not in id_registry:
                         # Check if this is an inline element with structures:id
                         if endpoint_elem is not None:
-                            sid = endpoint_elem.attrib.get(f"{{{STRUCT_NS}}}id")
+                            sid = endpoint_elem.attrib.get(f"{{{struct_ns}}}id")
                             if sid:
                                 # Inline element with ID - register it now
                                 id_registry[endpoint_id] = {
@@ -667,9 +858,9 @@ def generate_for_xml_content(
         props = {}
 
         # Check if element has structures:id (makes it a node regardless of mapping)
-        sid = elem.attrib.get(f"{{{STRUCT_NS}}}id")
-        uri_ref = elem.attrib.get(f"{{{STRUCT_NS}}}uri")
-        ref = elem.attrib.get(f"{{{STRUCT_NS}}}ref")
+        sid = elem.attrib.get(f"{{{struct_ns}}}id")
+        uri_ref = elem.attrib.get(f"{{{struct_ns}}}uri")
+        ref = elem.attrib.get(f"{{{struct_ns}}}ref")
         is_nil = elem.attrib.get(f"{{{XSI_NS}}}nil") == "true"
 
         # Skip pure reference elements (ref or uri with nil) - they don't create nodes
@@ -830,10 +1021,10 @@ def generate_for_xml_content(
                 for ch in elem:
                     if qname_from_tag(ch.tag, xml_ns_map) == rule["field_qname"]:
                         # Check for structures:ref first (traditional NIEM pattern)
-                        to_id = ch.attrib.get(f"{{{STRUCT_NS}}}ref")
+                        to_id = ch.attrib.get(f"{{{struct_ns}}}ref")
                         if not to_id:
                             # If no structures:ref, check for structures:id (direct child pattern)
-                            to_id = ch.attrib.get(f"{{{STRUCT_NS}}}id")
+                            to_id = ch.attrib.get(f"{{{struct_ns}}}id")
 
                         if to_id and node_id:
                             # Prefix referenced ID with file_prefix
