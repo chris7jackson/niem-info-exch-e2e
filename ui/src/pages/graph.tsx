@@ -156,8 +156,9 @@ const buildEdgeTooltip = (rel: GraphRelationship): string => {
 };
 
 export default function GraphPage() {
-  const cyRef = useRef<HTMLDivElement>(null);
+  const cyRef = useRef<HTMLDivElement | null>(null);
   const cyInstance = useRef<cytoscape.Core | null>(null);
+  const currentLayout = useRef<any>(null);
   const [isMountedState, setIsMountedState] = useState(false);
   const isMounted = useRef(true);
   const [loading, setLoading] = useState(false);
@@ -169,6 +170,7 @@ export default function GraphPage() {
   const [selectedLayout, setSelectedLayout] = useState('cose');
   const [showNodeLabels, setShowNodeLabels] = useState(true);
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(false); // Off by default for dense graphs
+  const [showResolvedEntities, setShowResolvedEntities] = useState(true); // Toggle for resolved entities - on by default
   const [resultLimit, setResultLimit] = useState(10000);
   const [filenameFilter, setFilenameFilter] = useState<string[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -215,9 +217,20 @@ export default function GraphPage() {
       clearTimeout(timer);
       isMounted.current = false;
       setIsMountedState(false);
+
+      // Stop any running layout first
+      if (currentLayout.current) {
+        try {
+          currentLayout.current.stop();
+        } catch (err) {
+          console.warn('Error stopping layout:', err);
+        }
+        currentLayout.current = null;
+      }
+
       if (cyInstance.current) {
         try {
-          // Stop any running layouts before destroying
+          // Stop any running animations/layouts before destroying
           cyInstance.current.stop();
           cyInstance.current.destroy();
         } catch (err) {
@@ -234,6 +247,14 @@ export default function GraphPage() {
       renderGraph(graphData);
     }
   }, [filenameFilter]);
+
+  // Reload graph when resolved entities toggle changes
+  useEffect(() => {
+    if (isMountedState && cyRef.current && graphData) {
+      // Re-execute the current query with the new toggle state
+      executeQuery(cypherQuery, showResolvedEntities);
+    }
+  }, [showResolvedEntities]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -252,11 +273,28 @@ export default function GraphPage() {
     };
   }, [isDropdownOpen]);
 
-  const executeQuery = async (query: string) => {
+  const executeQuery = async (query: string, includeResolved: boolean = showResolvedEntities) => {
     setLoading(true);
     setError(null);
 
     try {
+      // If not including resolved entities, wrap the query to filter them out
+      let finalQuery = query;
+      if (!includeResolved && query.includes('MATCH (n)')) {
+        // Add WHERE clause to exclude ResolvedEntity nodes
+        finalQuery = query.replace(
+          'MATCH (n)',
+          `MATCH (n) WHERE NOT 'ResolvedEntity' IN labels(n)`
+        );
+        // Also filter out RESOLVED_TO relationships
+        if (query.includes('MATCH (n)-[r]-')) {
+          finalQuery = finalQuery.replace(
+            'MATCH (n)-[r]-(m)',
+            `MATCH (n)-[r]-(m) WHERE NOT type(r) = 'RESOLVED_TO' AND NOT 'ResolvedEntity' IN labels(m)`
+          );
+        }
+      }
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const response = await fetch(`${apiUrl}/api/graph/query`, {
         method: 'POST',
@@ -264,7 +302,7 @@ export default function GraphPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token') || 'devtoken'}`,
         },
-        body: JSON.stringify({ query, limit: resultLimit }),
+        body: JSON.stringify({ query: finalQuery, limit: resultLimit }),
       });
 
       if (!response.ok) {
@@ -339,6 +377,11 @@ export default function GraphPage() {
       const nodeSize = getNodeSize(node, data.relationships);
       const tooltip = buildNodeTooltip(node);
 
+      // Special styling for ResolvedEntity nodes
+      const isResolvedEntity = node.labels.includes('ResolvedEntity');
+      const nodeColor = isResolvedEntity ? '#9333EA' : (labelColorMap[node.label] || '#95A5A6'); // Purple for resolved entities
+      const nodeShape = isResolvedEntity ? 'diamond' : 'ellipse';
+
       return {
         data: {
           id: node.id, // Use semantic ID for node identity
@@ -346,9 +389,11 @@ export default function GraphPage() {
           nodeType: node.label,
           nodeLabels: node.labels,
           properties: node.properties,
-          color: labelColorMap[node.label] || '#95A5A6',
+          color: nodeColor,
           size: nodeSize,
           tooltip: tooltip,
+          shape: nodeShape,
+          isResolvedEntity: isResolvedEntity,
         },
       };
     });
@@ -392,6 +437,12 @@ export default function GraphPage() {
 
       const tooltip = buildEdgeTooltip(rel);
 
+      // Special styling for RESOLVED_TO relationships
+      const isResolvedTo = rel.type === 'RESOLVED_TO';
+      const edgeColor = isResolvedTo ? '#9333EA' : relStyle.color; // Purple for resolved relationships
+      const edgeWidth = isResolvedTo ? 3 : relStyle.width; // Thicker for resolved relationships
+      const edgeStyle = isResolvedTo ? 'dashed' : relStyle.style; // Dashed for resolved relationships
+
       return {
         data: {
           id: rel.id,
@@ -400,11 +451,12 @@ export default function GraphPage() {
           label: showRelationshipLabels ? rel.type : '',
           type: rel.type,
           properties: rel.properties,
-          color: relStyle.color,
-          width: relStyle.width,
-          lineStyle: relStyle.style,
+          color: edgeColor,
+          width: edgeWidth,
+          lineStyle: edgeStyle,
           opacity: relStyle.opacity,
           tooltip: tooltip,
+          isResolvedTo: isResolvedTo,
         },
       };
     });
@@ -414,6 +466,16 @@ export default function GraphPage() {
       filteredNodeIds.has(edge.data.source) && filteredNodeIds.has(edge.data.target)
     );
 
+
+    // Stop any running layout first
+    if (currentLayout.current) {
+      try {
+        currentLayout.current.stop();
+      } catch (err) {
+        console.warn('Error stopping layout:', err);
+      }
+      currentLayout.current = null;
+    }
 
     // Destroy existing instance
     if (cyInstance.current) {
@@ -456,6 +518,7 @@ export default function GraphPage() {
             'font-weight': 'normal',
             width: 'data(size)',
             height: 'data(size)',
+            shape: 'data(shape)' as any, // Diamond for ResolvedEntity, ellipse for others
             'border-width': 1,
             'border-color': '#333333',
             'text-wrap': 'wrap', // Wrap text instead of truncating
@@ -606,40 +669,59 @@ export default function GraphPage() {
     }
 
     // Fit to viewport
-    cyInstance.current.fit();
+    if (cyInstance.current) {
+      cyInstance.current.fit();
+    }
 
     // Apply initial layout after creation
     // Use circle layout for small graphs (< 20 nodes) for better visibility
     const layoutName = filteredNodes.length < 20 ? 'circle' : (selectedLayout || 'cose');
 
-    const layout = cyInstance.current.layout({
-      name: layoutName,
-      animate: true,
-      animationDuration: 800,
-      fit: true,
-      padding: 50,
-      // Additional options for better initial view
-      boundingBox: { x1: 0, y1: 0, w: cyRef.current.offsetWidth, h: cyRef.current.offsetHeight },
-      avoidOverlap: true,
-      spacingFactor: 1.5, // More spacing between nodes
-    });
+    if (cyInstance.current) {
+      currentLayout.current = cyInstance.current.layout({
+        name: layoutName,
+        animate: true,
+        animationDuration: 800,
+        fit: true,
+        padding: 50,
+        // Additional options for better initial view
+        boundingBox: { x1: 0, y1: 0, w: cyRef.current.offsetWidth, h: cyRef.current.offsetHeight },
+        avoidOverlap: true,
+        spacingFactor: 1.5, // More spacing between nodes
+      } as any);
 
-    layout.run();
+      // Also ensure we fit and center after layout completes
+      currentLayout.current.on('layoutstop', () => {
+        if (cyInstance.current && isMounted.current) {
+          try {
+            cyInstance.current.fit();
+            cyInstance.current.center();
+          } catch (err) {
+            console.warn('Error fitting graph after layout:', err);
+          }
+        }
+      });
 
-    // Also ensure we fit and center after layout completes
-    layout.on('layoutstop', () => {
-      cyInstance.current.fit();
-      cyInstance.current.center();
-    });
+      currentLayout.current.run();
+    }
   };
 
   const applyLayout = (layoutName: string) => {
     if (cyInstance.current && graphData && isMounted.current) {
+      // Stop any running layout first
+      if (currentLayout.current) {
+        try {
+          currentLayout.current.stop();
+        } catch (err) {
+          console.warn('Error stopping previous layout:', err);
+        }
+      }
+
       // Validate layout name against available options
       const validLayouts = ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'];
       const safeLayoutName = validLayouts.includes(layoutName) ? layoutName : 'cose';
 
-      const layout = cyInstance.current.layout({
+      currentLayout.current = cyInstance.current.layout({
         name: safeLayoutName,
         animate: true,
         animationDuration: 500,
@@ -647,7 +729,11 @@ export default function GraphPage() {
         padding: 50,
         stop: function() {
           if (cyInstance.current && isMounted.current) {
-            cyInstance.current.fit();
+            try {
+              cyInstance.current.fit();
+            } catch (err) {
+              console.warn('Error fitting graph after layout stop:', err);
+            }
           }
         },
         // Generic layout configurations
@@ -678,7 +764,7 @@ export default function GraphPage() {
           },
         }),
       } as any);
-      layout.run();
+      currentLayout.current.run();
     }
     setSelectedLayout(layoutName);
   };
@@ -842,31 +928,104 @@ export default function GraphPage() {
               </div>
             </div>
 
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {loading ? 'Loading...' : 'Execute Query'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <p className="mt-2 text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Graph Visualization */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-6 py-4 border-b border-gray-200 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">Graph Visualization</h3>
+              {graphData && (
+                <p className="mt-1 text-sm text-gray-600">
+                  {graphData.metadata.nodeCount} nodes ({graphData.metadata.nodeLabels.length}{' '}
+                  types),
+                  {graphData.metadata.relationshipCount} relationships (
+                  {graphData.metadata.relationshipTypes.length} types)
+                </p>
+              )}
+            </div>
+            {loading && (
+              <div className="flex items-center text-sm text-gray-500">
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Loading graph...
+              </div>
+            )}
+          </div>
+
+          {/* Graph Controls */}
+          <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-gray-200">
             {/* Filename Filter */}
             <div className="relative" ref={dropdownRef}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by Source File {filenameFilter.length > 0 && `(${filenameFilter.length} selected)`}
-              </label>
-
-              {/* Dropdown Trigger */}
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full px-3 py-2 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex items-center justify-between"
+                className="px-3 py-1.5 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex items-center gap-2"
               >
                 <span className="text-gray-700">
                   {filenameFilter.length === 0
                     ? `All files (${availableFiles.length})`
                     : `${filenameFilter.length} file${filenameFilter.length > 1 ? 's' : ''} selected`}
                 </span>
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
 
               {/* Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                <div className="absolute z-10 mt-1 left-0 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto min-w-[300px]">
                   {/* Select All / Clear All */}
                   <div className="sticky top-0 bg-gray-50 border-b border-gray-200 px-3 py-2 flex justify-between items-center">
                     <button
@@ -910,172 +1069,92 @@ export default function GraphPage() {
                   </div>
                 </div>
               )}
-
-              {/* Selected Files Display */}
-              {filenameFilter.length > 0 && (
-                <div className="mt-2 text-xs text-gray-600">
-                  <div className="font-medium mb-1">Showing nodes from:</div>
-                  <div className="space-y-0.5">
-                    {filenameFilter.map((filename) => (
-                      <div key={filename} className="flex items-center">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                        <span className="truncate">{filename}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="text-gray-500 mt-1">+ related nodes from any file</div>
-                </div>
-              )}
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <select
-                  value={selectedLayout}
-                  onChange={(e) => applyLayout(e.target.value)}
-                  className="border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {layoutOptions.map((option) => (
-                    <option key={option.value} value={option.value} title={option.description}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+            {/* Layout Options */}
+            <select
+              value={selectedLayout}
+              onChange={(e) => applyLayout(e.target.value)}
+              className="border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 py-1.5"
+            >
+              {layoutOptions.map((option) => (
+                <option key={option.value} value={option.value} title={option.description}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleLabels('nodes')}
-                    className={`px-2 py-1 text-xs rounded ${showNodeLabels ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
-                  >
-                    Node Labels
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleLabels('relationships')}
-                    className={`px-2 py-1 text-xs rounded ${showRelationshipLabels ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
-                  >
-                    Edge Labels
-                  </button>
-                </div>
-
-                {/* Zoom Controls */}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (cyInstance.current) {
-                        cyInstance.current.zoom(cyInstance.current.zoom() * 1.25);
-                        cyInstance.current.center();
-                      }
-                    }}
-                    className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
-                    title="Zoom In"
-                  >
-                    Zoom +
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (cyInstance.current) {
-                        cyInstance.current.zoom(cyInstance.current.zoom() * 0.75);
-                        cyInstance.current.center();
-                      }
-                    }}
-                    className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
-                    title="Zoom Out"
-                  >
-                    Zoom -
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (cyInstance.current) {
-                        cyInstance.current.fit();
-                        cyInstance.current.center();
-                      }
-                    }}
-                    className="px-2 py-1 text-xs rounded bg-green-100 hover:bg-green-200 text-green-700 font-medium"
-                    title="Fit all nodes to screen"
-                  >
-                    Fit to Screen
-                  </button>
-                </div>
-              </div>
-
+            {/* Node/Edge Label Toggles */}
+            <div className="flex items-center gap-2">
               <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                type="button"
+                onClick={() => toggleLabels('nodes')}
+                className={`px-2 py-1 text-xs rounded ${showNodeLabels ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
               >
-                {loading ? 'Loading...' : 'Execute Query'}
+                Node Labels
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleLabels('relationships')}
+                className={`px-2 py-1 text-xs rounded ${showRelationshipLabels ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
+              >
+                Edge Labels
               </button>
             </div>
-          </form>
-        </div>
-      </div>
 
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (cyInstance.current) {
+                    cyInstance.current.zoom(cyInstance.current.zoom() * 1.25);
+                    cyInstance.current.center();
+                  }
+                }}
+                className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
+                title="Zoom In"
+              >
+                Zoom +
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (cyInstance.current) {
+                    cyInstance.current.zoom(cyInstance.current.zoom() * 0.75);
+                    cyInstance.current.center();
+                  }
+                }}
+                className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
+                title="Zoom Out"
+              >
+                Zoom -
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (cyInstance.current) {
+                    cyInstance.current.fit();
+                    cyInstance.current.center();
+                  }
+                }}
+                className="px-2 py-1 text-xs rounded bg-green-100 hover:bg-green-200 text-green-700 font-medium"
+                title="Fit all nodes to screen"
+              >
+                Fit to Screen
+              </button>
             </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Error</h3>
-              <p className="mt-2 text-sm text-red-700">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Graph Visualization */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900">Graph Visualization</h3>
-              {graphData && (
-                <p className="mt-1 text-sm text-gray-600">
-                  {graphData.metadata.nodeCount} nodes ({graphData.metadata.nodeLabels.length}{' '}
-                  types),
-                  {graphData.metadata.relationshipCount} relationships (
-                  {graphData.metadata.relationshipTypes.length} types)
-                </p>
-              )}
-            </div>
-            {loading && (
-              <div className="flex items-center text-sm text-gray-500">
-                <svg
-                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Loading graph...
-              </div>
-            )}
+            {/* Show Resolved Entities Toggle - Far Right */}
+            <label className="flex items-center space-x-2 cursor-pointer ml-auto">
+              <input
+                type="checkbox"
+                checked={showResolvedEntities}
+                onChange={(e) => setShowResolvedEntities(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <span className="text-sm font-medium text-gray-700">Show Resolved Entities</span>
+            </label>
           </div>
         </div>
 
