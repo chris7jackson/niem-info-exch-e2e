@@ -260,13 +260,63 @@ def _recursively_flatten_json_object(
     return flattened
 
 
+def _is_complex_json_element(obj: dict[str, Any]) -> bool:
+    """Determine if JSON object is complex (should become a node in dynamic mode).
+
+    Complex objects have:
+    1. @id attribute (explicitly identifiable), OR
+    2. Nested object properties (not just simple values), OR
+    3. Multiple properties (beyond @type and simple text)
+
+    Simple objects with only text values → flattened as properties
+
+    Args:
+        obj: JSON object to check
+
+    Returns:
+        True if object should become a node
+    """
+    if not isinstance(obj, dict):
+        return False
+
+    # Has @id? → Complex (explicitly identifiable)
+    if "@id" in obj:
+        return True
+
+    # Count non-metadata properties
+    non_metadata_keys = [k for k in obj.keys() if not k.startswith("@")]
+
+    # No properties beyond metadata → Not complex
+    if len(non_metadata_keys) == 0:
+        return False
+
+    # Check if has nested objects or arrays
+    for key in non_metadata_keys:
+        value = obj[key]
+        if isinstance(value, dict):
+            # Nested object (not just a reference)
+            if not is_reference(value):
+                return True
+        elif isinstance(value, list):
+            # Array property
+            return True
+
+    # Multiple simple properties → Complex
+    if len(non_metadata_keys) > 1:
+        return True
+
+    # Single simple property → Not complex (will be flattened)
+    return False
+
+
 def generate_for_json_content(
     json_content: str,
     mapping_dict: dict[str, Any],
     filename: str = "memory",
     upload_id: str = None,
     schema_id: str = None,
-    cmf_element_index: set = None
+    cmf_element_index: set = None,
+    mode: str = "dynamic"
 ) -> tuple[str, dict[str, Any], list[tuple], list[tuple]]:
     """Generate Cypher statements from NIEM JSON content and mapping dictionary.
 
@@ -281,6 +331,7 @@ def generate_for_json_content(
         upload_id: Unique identifier for this upload batch (for graph isolation)
         schema_id: Schema identifier (for graph isolation)
         cmf_element_index: Set of known CMF element QNames
+        mode: Converter mode - "mapping" (use selections) or "dynamic" (all complex elements)
 
     Returns:
         Tuple of (cypher_statements, nodes_dict, contains_list, edges_list)
@@ -302,6 +353,11 @@ def generate_for_json_content(
         metadata = mapping_dict.get("metadata", {})
         cmf_elements_list = metadata.get("cmf_element_index", [])
         cmf_element_index = set(cmf_elements_list) if cmf_elements_list else set()
+
+    # In dynamic mode, disable augmentation detection (all properties are standard)
+    if mode == "dynamic":
+        cmf_element_index = set()
+        logger.info("Dynamic mode: Augmentation detection disabled")
 
     # Generate file-specific prefix for node IDs
     # SHA1 used for ID generation only, not cryptographic security
@@ -486,9 +542,15 @@ def generate_for_json_content(
         # Find matching object rule
         obj_rule = obj_rules.get(qname) if qname else None
 
-        # IMPORTANT: Only create nodes for elements explicitly selected in the designer
-        # Having @id alone does NOT make an element a node
-        should_create_node = obj_rule is not None
+        # Determine if object should become a node based on mode
+        should_create_node = False
+
+        if mode == "mapping":
+            # Mapping mode: Only create nodes for elements explicitly selected in designer
+            should_create_node = obj_rule is not None
+        elif mode == "dynamic":
+            # Dynamic mode: Create nodes for all complex objects
+            should_create_node = _is_complex_json_element(obj)
 
         if not should_create_node:
             # Flatten properties onto parent node (if parent exists)
@@ -527,87 +589,92 @@ def generate_for_json_content(
                 edges.append((parent_id, parent_label, obj_id, qname, property_name, {}))
             return obj_id
 
+        # Generate label and properties
         if obj_rule:
-            # Extract label and properties
+            # Mapping mode: Use label from mapping
             label = obj_rule.get("label", local_from_qname(qname))
             props = extract_properties(obj, obj_rule, context)
             props_dict = dict(props)
+        else:
+            # Dynamic mode: Generate label from qname
+            label = qname.replace(":", "_") if qname else "Unknown"
+            props_dict = {}
 
-            # Add source provenance and isolation properties
-            props_dict["_source_file"] = filename
-            if upload_id:
-                props_dict["_upload_id"] = upload_id
-            if schema_id:
-                props_dict["_schema_id"] = schema_id
+        # Add source provenance and isolation properties
+        props_dict["_source_file"] = filename
+        if upload_id:
+            props_dict["_upload_id"] = upload_id
+        if schema_id:
+            props_dict["_schema_id"] = schema_id
 
-            # Capture NIEM structures attributes as metadata
-            if obj_id and has_id:
-                props_dict["structures_id"] = obj_id
+        # Capture NIEM structures attributes as metadata
+        if obj_id and has_id:
+            props_dict["structures_id"] = obj_id
 
-            # Check for structures:uri in the object (support multiple prefix variants)
-            struct_uri = obj.get("structures:uri") or obj.get("s:uri")
-            if struct_uri:
-                props_dict["structures_uri"] = struct_uri
+        # Check for structures:uri in the object (support multiple prefix variants)
+        struct_uri = obj.get("structures:uri") or obj.get("s:uri")
+        if struct_uri:
+            props_dict["structures_uri"] = struct_uri
 
-            # Check for structures:ref in the object (support multiple prefix variants)
-            struct_ref = obj.get("structures:ref") or obj.get("s:ref")
-            if struct_ref:
-                props_dict["structures_ref"] = struct_ref
+        # Check for structures:ref in the object (support multiple prefix variants)
+        struct_ref = obj.get("structures:ref") or obj.get("s:ref")
+        if struct_ref:
+            props_dict["structures_ref"] = struct_ref
 
-            # Create node
-            nodes[obj_id] = (label, qname, props_dict, {})
+        # Create node
+        nodes[obj_id] = (label, qname, props_dict, {})
 
-            # Create containment edge if nested
-            if parent_id:
-                rel_type = (
-                    f"HAS_{local_from_qname(property_name)}"
-                    if property_name else 'HAS_CHILD'
-                )
-                contains.append((parent_id, parent_label, obj_id, label, rel_type))
+        # Create containment edge if nested
+        if parent_id:
+            rel_type = (
+                f"HAS_{local_from_qname(property_name)}"
+                if property_name else 'HAS_CHILD'
+            )
+            contains.append((parent_id, parent_label, obj_id, label, rel_type))
 
-            # Create REFERS_TO edges for structures:ref and structures:uri on the object itself
-            # Note: struct_ref and struct_uri already checked for both prefixes above
-            if struct_ref:
-                # structures:ref - direct reference to an ID
-                edges.append((obj_id, label, struct_ref, None, "REFERS_TO", {}))
-            elif struct_uri:
-                # structures:uri - resolve to target ID
-                target_ref = None
-                if '#' in struct_uri:
-                    target_ref = struct_uri.split('#')[-1]
-                else:
-                    # Use last path segment as ID
-                    uri_parts = struct_uri.rstrip('/').split('/')
-                    if uri_parts:
-                        target_ref = uri_parts[-1].replace(':', '_')
-                if target_ref:
-                    edges.append((obj_id, label, target_ref, None, "REFERS_TO", {}))
+        # Create REFERS_TO edges for structures:ref and structures:uri on the object itself
+        # Note: struct_ref and struct_uri already checked for both prefixes above
+        if struct_ref:
+            # structures:ref - direct reference to an ID
+            edges.append((obj_id, label, struct_ref, None, "REFERS_TO", {}))
+        elif struct_uri:
+            # structures:uri - resolve to target ID
+            target_ref = None
+            if '#' in struct_uri:
+                target_ref = struct_uri.split('#')[-1]
+            else:
+                # Use last path segment as ID
+                uri_parts = struct_uri.rstrip('/').split('/')
+                if uri_parts:
+                    target_ref = uri_parts[-1].replace(':', '_')
+            if target_ref:
+                edges.append((obj_id, label, target_ref, None, "REFERS_TO", {}))
 
-            # Process nested properties
-            for key, value in obj.items():
-                if key.startswith("@"):
-                    continue  # Skip JSON-LD keywords
+        # Process nested properties
+        for key, value in obj.items():
+            if key.startswith("@"):
+                continue  # Skip JSON-LD keywords
 
-                if is_reference(value):
-                    # Reference edge
-                    target_id = value["@id"]
-                    edges.append((obj_id, label, target_id, None, key, {}))
+            if is_reference(value):
+                # Reference edge
+                target_id = value["@id"]
+                edges.append((obj_id, label, target_id, None, key, {}))
 
-                elif isinstance(value, dict):
-                    # Nested object (containment edge created automatically)
-                    process_jsonld_object(value, obj_id, label, key)
+            elif isinstance(value, dict):
+                # Nested object (containment edge created automatically)
+                process_jsonld_object(value, obj_id, label, key)
 
-                elif isinstance(value, list):
-                    # Array of objects or references
-                    for item in value:
-                        if isinstance(item, dict):
-                            if is_reference(item):
-                                target_id = item["@id"]
-                                edges.append((obj_id, label, target_id, None, key, {}))
-                            else:
-                                process_jsonld_object(item, obj_id, label, key)
+            elif isinstance(value, list):
+                # Array of objects or references
+                for item in value:
+                    if isinstance(item, dict):
+                        if is_reference(item):
+                            target_id = item["@id"]
+                            edges.append((obj_id, label, target_id, None, key, {}))
+                        else:
+                            process_jsonld_object(item, obj_id, label, key)
 
-            return obj_id
+        return obj_id
 
     # Process all top-level objects
     for obj in objects:
@@ -679,17 +746,23 @@ def generate_cypher_from_structures(
         props_str = ", ".join(props_parts)
         cypher_lines.append(f"MERGE (n:{label} {{id: '{node_id}', {props_str}}});")
 
+    # Helper function to build match properties for a specific node ID
+    def build_node_match_props(node_id: str) -> str:
+        """Build match properties for graph isolation."""
+        props = f"id: '{node_id}'"
+        if upload_id:
+            props += f", _upload_id: '{upload_id}'"
+        if filename:
+            props += f", _source_file: '{filename}'"
+        return props
+
     # Generate MERGE statements for containment relationships
     for parent_id, parent_label, child_id, child_label, rel_type in contains:
-        # Build match properties for graph isolation
-        match_props = f"id: '{parent_id}'"
-        if upload_id:
-            match_props += f", _upload_id: '{upload_id}'"
-        if filename:
-            match_props += f", _source_file: '{filename}'"
+        parent_match = build_node_match_props(parent_id)
+        child_match = build_node_match_props(child_id)
 
         cypher_lines.append(
-            f"MATCH (parent:{parent_label} {{{match_props}}}), (child:{child_label} {{{match_props.replace(parent_id, child_id)}}}) "
+            f"MATCH (parent:{parent_label} {{{parent_match}}}), (child:{child_label} {{{child_match}}}) "
             f"MERGE (parent)-[:{rel_type}]->(child);"
         )
 
@@ -699,16 +772,8 @@ def generate_cypher_from_structures(
         clean_rel_type = rel_type.replace(":", "_").upper()
 
         # Build match properties for graph isolation
-        def build_match_props(node_id):
-            props = f"id: '{node_id}'"
-            if upload_id:
-                props += f", _upload_id: '{upload_id}'"
-            if filename:
-                props += f", _source_file: '{filename}'"
-            return props
-
-        from_match = build_match_props(from_id)
-        to_match = build_match_props(to_id)
+        from_match = build_node_match_props(from_id)
+        to_match = build_node_match_props(to_id)
 
         # Build relationship properties if any
         if edge_props:
