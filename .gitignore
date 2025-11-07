@@ -97,7 +97,6 @@ data/redis/
 
 # Development overrides
 .env.override
-docker-compose.override.yml
 
 # Temporary directories
 tmp/
@@ -112,3 +111,5 @@ ui/coverage/
 ui/test-results/
 ui/playwright-report/
 ui/screenshots/
+
+/samples/

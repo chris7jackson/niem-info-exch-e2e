@@ -135,9 +135,111 @@ docker compose ps
 
 Open http://localhost:3000 in your browser
 
-### 3. Rebuilding After Code Changes
+### 3. Development Workflow with Hot Reloading
 
-When new code is pushed or you make local changes, you need to rebuild and restart the affected services.
+For local development, the project includes a `docker-compose.override.yml` file that enables hot reloading for both API and UI services. This file is **automatically applied** when you run `docker compose up`.
+
+#### What Gets Hot Reloaded
+
+- **API Changes**: Any Python file changes in `./api/src` trigger automatic reload via uvicorn
+- **UI Changes**: Any code changes in `./ui/src`, `./ui/app`, components, styles, etc. trigger Next.js Fast Refresh
+
+#### Development Commands
+
+```bash
+# Start with hot reloading (override is auto-applied)
+docker compose up
+
+# Or in detached mode
+docker compose up -d
+
+# View live logs
+docker compose logs -f api
+docker compose logs -f ui
+```
+
+#### When You Still Need to Rebuild
+
+Hot reloading works for code changes, but you need to rebuild for:
+
+| Change Type | Command | Reason |
+|-------------|---------|--------|
+| Python dependencies (`requirements.txt`) | `docker compose up -d --build api` | New packages need installation |
+| Node dependencies (`package.json`) | `docker compose up -d --build ui` | npm packages need installation |
+| Dockerfile changes | `docker compose up -d --build` | Container configuration changed |
+| Environment variables (`.env`) | `docker compose restart` | No rebuild needed, just restart |
+
+#### Testing Hot Reload
+
+To verify hot reloading is working, you can test both API and UI changes:
+
+**Method 1: Watch Logs (Recommended)**
+
+Open separate terminals to watch logs:
+
+```bash
+# Terminal 1: Watch API logs
+docker compose logs -f api
+
+# Terminal 2: Watch UI logs
+docker compose logs -f ui
+```
+
+**Method 2: Test API Hot Reload**
+
+1. Make a change to any Python file in `./api/src/`:
+   ```bash
+   # Example: Edit api/src/niem_api/main.py
+   # Add a message to the readyz endpoint return value
+   ```
+
+2. Watch the API logs - you'll see:
+   ```
+   WARNING:  WatchFiles detected changes in 'src/niem_api/main.py'. Reloading...
+   INFO:     Application startup complete.
+   ```
+
+3. Test the change:
+   ```bash
+   curl http://localhost:8000/readyz
+   ```
+
+**Method 3: Test UI Hot Reload**
+
+1. Open http://localhost:3000 in your browser
+
+2. Make a change to any file in `./ui/src/`:
+   ```bash
+   # Example: Edit ui/src/pages/index.tsx
+   # Change the Dashboard heading text
+   ```
+
+3. Watch your browser - it should automatically refresh (Fast Refresh)
+
+4. Check UI logs for compilation:
+   ```
+   ✓ Compiled /pages/index in XXXms
+   ```
+
+**Method 4: Test from Browser Console**
+
+Open your browser's developer console (F12) and watch the Network tab while making UI changes. You'll see Hot Module Replacement (HMR) websocket messages.
+
+#### Production Deployment
+
+For production, **ignore or remove** the `docker-compose.override.yml` file:
+
+```bash
+# Option 1: Explicitly use only base config
+docker compose -f docker-compose.yml up -d
+
+# Option 2: Add to .gitignore or .dockerignore for production builds
+echo "docker-compose.override.yml" >> .gitignore
+```
+
+### 4. Rebuilding After Code Changes (Production)
+
+When deploying to production or when hot reloading isn't available:
 
 #### Rebuild All Services (API + UI)
 
