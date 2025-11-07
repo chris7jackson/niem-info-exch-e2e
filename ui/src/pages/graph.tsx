@@ -170,7 +170,9 @@ export default function GraphPage() {
   const [showNodeLabels, setShowNodeLabels] = useState(true);
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(false); // Off by default for dense graphs
   const [resultLimit, setResultLimit] = useState(10000);
-  const [filenameFilter, setFilenameFilter] = useState('');
+  const [filenameFilter, setFilenameFilter] = useState<string[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Extract unique source filenames from graph data
   const availableFiles = useMemo(() => {
@@ -239,6 +241,23 @@ export default function GraphPage() {
       renderGraph(graphData);
     }
   }, [filenameFilter]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   const executeQuery = async (query: string) => {
     setLoading(true);
@@ -367,15 +386,33 @@ export default function GraphPage() {
     });
 
     // Filter nodes by filename if filter is active (exact match)
-    const filteredNodes = filenameFilter
-      ? cyNodes.filter(node => {
-          const sourceFile = node.data.properties?._source_file || node.data.properties?.sourceDoc;
-          return sourceFile === filenameFilter;
-        })
-      : cyNodes;
+    let filteredNodes = cyNodes;
+    let filteredNodeIds = new Set(cyNodes.map(n => n.data.id));
 
-    // Filter edges to only include those between filtered nodes
-    const filteredNodeIds = new Set(filteredNodes.map(n => n.data.id));
+    if (filenameFilter.length > 0) {
+      // Step 1: Get nodes from selected files
+      const primaryNodes = cyNodes.filter(node => {
+        const sourceFile = node.data.properties?._source_file || node.data.properties?.sourceDoc;
+        return sourceFile && filenameFilter.includes(sourceFile);
+      });
+      const primaryNodeIds = new Set(primaryNodes.map(n => n.data.id));
+
+      // Step 2: Find all edges connected to primary nodes
+      const connectedEdges = data.relationships.filter(rel =>
+        primaryNodeIds.has(rel.startNode) || primaryNodeIds.has(rel.endNode)
+      );
+
+      // Step 3: Include all nodes that are connected to primary nodes
+      const relatedNodeIds = new Set<string>();
+      connectedEdges.forEach(edge => {
+        relatedNodeIds.add(edge.startNode);
+        relatedNodeIds.add(edge.endNode);
+      });
+
+      // Filter to include both primary and related nodes
+      filteredNodes = cyNodes.filter(node => relatedNodeIds.has(node.data.id));
+      filteredNodeIds = relatedNodeIds;
+    }
 
     // Convert relationships to Cytoscape format with universal styling
     console.log('Processing relationships:', data.relationships);
@@ -919,29 +956,87 @@ export default function GraphPage() {
             </div>
 
             {/* Filename Filter */}
-            <div>
-              <label
-                htmlFor="filename-filter"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Filter by Source File
+            <div className="relative" ref={dropdownRef}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Source File {filenameFilter.length > 0 && `(${filenameFilter.length} selected)`}
               </label>
-              <select
-                id="filename-filter"
-                value={filenameFilter}
-                onChange={(e) => setFilenameFilter(e.target.value)}
-                className="w-full px-3 py-2 border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500"
+
+              {/* Dropdown Trigger */}
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="w-full px-3 py-2 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex items-center justify-between"
               >
-                <option value="">All files ({availableFiles.length} total)</option>
-                {availableFiles.map((filename) => (
-                  <option key={filename} value={filename}>
-                    {filename}
-                  </option>
-                ))}
-              </select>
-              {filenameFilter && (
-                <div className="mt-1 text-xs text-gray-600">
-                  Showing nodes from: <span className="font-medium">{filenameFilter}</span>
+                <span className="text-gray-700">
+                  {filenameFilter.length === 0
+                    ? `All files (${availableFiles.length})`
+                    : `${filenameFilter.length} file${filenameFilter.length > 1 ? 's' : ''} selected`}
+                </span>
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                  {/* Select All / Clear All */}
+                  <div className="sticky top-0 bg-gray-50 border-b border-gray-200 px-3 py-2 flex justify-between items-center">
+                    <button
+                      type="button"
+                      onClick={() => setFilenameFilter(availableFiles)}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilenameFilter([])}
+                      className="text-xs text-gray-600 hover:text-gray-700 font-medium"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  {/* File Options */}
+                  <div className="py-1">
+                    {availableFiles.map((filename) => (
+                      <label
+                        key={filename}
+                        className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={filenameFilter.includes(filename)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFilenameFilter([...filenameFilter, filename]);
+                            } else {
+                              setFilenameFilter(filenameFilter.filter(f => f !== filename));
+                            }
+                          }}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm text-gray-700 truncate">{filename}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Selected Files Display */}
+              {filenameFilter.length > 0 && (
+                <div className="mt-2 text-xs text-gray-600">
+                  <div className="font-medium mb-1">Showing nodes from:</div>
+                  <div className="space-y-0.5">
+                    {filenameFilter.map((filename) => (
+                      <div key={filename} className="flex items-center">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                        <span className="truncate">{filename}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-gray-500 mt-1">+ related nodes from any file</div>
                 </div>
               )}
             </div>
