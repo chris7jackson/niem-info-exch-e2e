@@ -25,6 +25,7 @@ class NodeType(str, Enum):
     """Type of node in the element tree."""
     OBJECT = "object"
     ASSOCIATION = "association"
+    PROPERTY = "property"  # Wrapper types that are always flattened
     REFERENCE = "reference"
 
 class WarningType(str, Enum):
@@ -111,6 +112,114 @@ def _get_qname(element: Element, attr: str, namespaces: dict[str, str]) -> Optio
             return f"{prefix}:{local}"
 
     return value
+
+
+def is_wrapper_type(type_name: Optional[str], type_def: Optional['TypeDefinition'] = None) -> bool:
+    """Determine if a type is a wrapper for scalar values vs a real entity.
+
+    Wrapper types should be flattened into properties, not become nodes.
+    Entity types should become nodes when selected.
+
+    This uses XSD structure analysis as the primary method:
+    - If base_type is a simple XSD type (xs:string, xs:boolean, etc.), it's a wrapper
+    - If is_simple = True, it's a wrapper
+    - Fallback to known NIEM wrapper types and naming patterns
+
+    Args:
+        type_name: Qualified name of the type (e.g., "nc:DateType")
+        type_def: TypeDefinition object if available
+
+    Returns:
+        True if this is a wrapper type that should be flattened
+    """
+    if not type_name:
+        return False
+
+    # Primary check: Use XSD structure if type definition is available
+    if type_def:
+        # SimpleTypes are always wrappers
+        if type_def.is_simple:
+            return True
+
+        # ComplexTypes that extend simple types are wrappers
+        # (e.g., nc:TextType extends xs:string)
+        if type_def.base_type:
+            base = type_def.base_type
+            simple_base_types = {
+                'xs:string', 'xs:boolean', 'xs:integer', 'xs:decimal', 'xs:double', 'xs:float',
+                'xs:date', 'xs:dateTime', 'xs:time', 'xs:gYear', 'xs:gYearMonth', 'xs:gMonthDay',
+                'xs:duration', 'xs:anyURI', 'xs:token', 'xs:normalizedString',
+                'niem-xs:string', 'niem-xs:boolean', 'niem-xs:integer', 'niem-xs:decimal',
+                'niem-xs:date', 'niem-xs:dateTime', 'niem-xs:time', 'niem-xs:gYear',
+                'xsd:string', 'xsd:boolean', 'xsd:integer', 'xsd:decimal', 'xsd:date'
+            }
+            if base in simple_base_types:
+                return True
+
+        # ComplexTypes with no elements that have a base_type are likely wrappers
+        # (they're just adding metadata to a scalar)
+        if type_def.base_type and len(type_def.elements) == 0:
+            return True
+
+    # Fallback: Check type name patterns that suggest wrappers
+    local_name = type_name.split(':')[-1]
+
+    # If it ends with these suffixes AND has certain keywords, likely a wrapper
+    wrapper_suffixes = ['Type', 'CodeType', 'CategoryType']
+    if any(local_name.endswith(suffix) for suffix in wrapper_suffixes):
+        wrapper_keywords = [
+            'Date', 'Time', 'Text', 'Indicator', 'Boolean', 'Code',
+            'Category', 'Amount', 'Quantity', 'Measure', 'Numeric',
+            'ID', 'Identification', 'Value', 'Description', 'Count',
+            'Percent', 'Rate', 'Duration', 'Abstract'
+        ]
+        if any(keyword in local_name for keyword in wrapper_keywords):
+            return True
+
+    return False
+
+
+def is_entity_type(elem_name: Optional[str], type_name: Optional[str], type_def: Optional['TypeDefinition'] = None) -> bool:
+    """Determine if an element represents a real entity vs a property.
+
+    Entity elements should be association endpoints.
+    Property elements should be flattened.
+
+    Args:
+        elem_name: Qualified name of the element (e.g., "nc:Person")
+        type_name: Qualified name of the type (e.g., "nc:PersonType")
+        type_def: TypeDefinition object if available
+
+    Returns:
+        True if this should be an association endpoint
+    """
+    # First check if it's a wrapper - if so, NOT an entity
+    if is_wrapper_type(type_name, type_def):
+        return False
+
+    # Check element name patterns that suggest entities
+    elem_local = elem_name.split(':')[-1] if elem_name else ''
+
+    entity_patterns = [
+        'Person', 'Organization', 'Entity', 'Location', 'Address',
+        'Activity', 'Item', 'Object', 'Vehicle', 'Facility',
+        'Role', 'Case', 'Incident', 'Event', 'Document',
+        'Subject', 'Target', 'Source', 'Defendant', 'Victim',
+        'Charge', 'Arrest', 'Offense', 'Crash', 'Driver',
+        'Property', 'Evidence', 'Weapon', 'Substance', 'Injury',
+        'Contact', 'Metadata', 'Image', 'Binary', 'Biometric'
+    ]
+
+    if any(pattern in elem_local for pattern in entity_patterns):
+        return True
+
+    # Check if type has substantial structure (many child elements)
+    # Entities typically have 3+ properties
+    if type_def and hasattr(type_def, 'elements'):
+        if len(type_def.elements) >= 3:
+            return True
+
+    return False
 
 
 def _extract_namespace_map_from_xml(xml_content: bytes) -> dict[str, str]:
@@ -317,6 +426,9 @@ def _count_properties_and_relationships(
 ) -> tuple[int, int]:
     """Count simple properties vs nested objects in a type.
 
+    Wrapper types (nc:TextType, nc:IndicatorType, etc.) are counted as properties,
+    not nested objects, since they're flattened.
+
     Returns:
         tuple[int, int]: (property_count, nested_object_count)
     """
@@ -345,13 +457,18 @@ def _count_properties_and_relationships(
 
         # Check if it's a reference to another complex type
         if elem_type in type_definitions:
-            nested_object_count += 1
-            logger.info(f"DEBUG:     -> NESTED OBJECT (found in type_definitions)")
+            target_type_def = type_definitions[elem_type]
+            # Wrapper types are properties (they get flattened), not nested objects
+            if is_wrapper_type(elem_type, target_type_def):
+                property_count += 1
+                logger.info(f"DEBUG:     -> PROPERTY (wrapper type: {elem_type})")
+            else:
+                nested_object_count += 1
+                logger.info(f"DEBUG:     -> NESTED OBJECT (entity type: {elem_type})")
         else:
-            # Assume simple/scalar if not found in type definitions
-            # (could be xs:string, xs:int, etc.)
+            # Simple/scalar type (xs:string, xs:int, etc.)
             property_count += 1
-            logger.info(f"DEBUG:     -> PROPERTY (not found in type_definitions)")
+            logger.info(f"DEBUG:     -> PROPERTY (simple type: {elem_type})")
 
     logger.info(f"DEBUG: Result: {property_count} properties, {nested_object_count} nested objects")
     return property_count, nested_object_count
@@ -415,7 +532,12 @@ def _build_tree_recursive(
         return None
 
     # Determine node type
-    node_type = NodeType.ASSOCIATION if type_def.is_association else NodeType.OBJECT
+    if type_def.is_association:
+        node_type = NodeType.ASSOCIATION
+    elif is_wrapper_type(elem_decl.type_ref, type_def):
+        node_type = NodeType.PROPERTY
+    else:
+        node_type = NodeType.OBJECT
 
     # Count properties vs nested objects
     property_count, nested_object_count = _count_properties_and_relationships(
@@ -710,7 +832,7 @@ def flatten_tree_to_list(nodes: list[ElementTreeNode]) -> list[dict]:
     result = []
 
     def flatten_recursive(node: ElementTreeNode):
-        result.append({
+        node_dict = {
             "qname": node.qname,
             "label": node.label,
             "node_type": node.node_type.value,
@@ -726,7 +848,18 @@ def flatten_tree_to_list(nodes: list[ElementTreeNode]) -> list[dict]:
             "namespace": node.namespace,
             "is_nested_association": node.is_nested_association,
             "can_have_id": node.can_have_id,
-        })
+            "children": [child.qname for child in node.children],
+        }
+
+        # For associations, add endpoints field with only entity children (exclude property wrappers)
+        if node.node_type == NodeType.ASSOCIATION:
+            endpoints = [
+                child.qname for child in node.children
+                if child.node_type != NodeType.PROPERTY
+            ]
+            node_dict["endpoints"] = endpoints
+
+        result.append(node_dict)
 
         for child in node.children:
             flatten_recursive(child)

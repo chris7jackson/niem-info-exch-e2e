@@ -38,13 +38,36 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   const childrenMap = useMemo(() => {
     const map = new Map<string, ElementTreeNode[]>();
     if (!nodes || !Array.isArray(nodes)) return map;
+
+    // Create a lookup map for nodes by qname
+    const nodesByQname = new Map<string, ElementTreeNode>();
+    nodes.forEach(node => nodesByQname.set(node.qname, node));
+
+    // Build children map using the children field from API (if available)
+    // This preserves the backend's deduplication logic
     nodes.forEach((node) => {
-      if (node.parent_qname) {
-        const children = map.get(node.parent_qname) || [];
-        children.push(node);
-        map.set(node.parent_qname, children);
+      if (node.children && node.children.length > 0) {
+        const children = node.children
+          .map(qname => nodesByQname.get(qname))
+          .filter((child): child is ElementTreeNode => child !== undefined);
+        if (children.length > 0) {
+          map.set(node.qname, children);
+        }
       }
     });
+
+    // Fallback: if no children fields are populated, rebuild from parent_qname
+    // (for backwards compatibility with older API responses)
+    if (map.size === 0) {
+      nodes.forEach((node) => {
+        if (node.parent_qname) {
+          const children = map.get(node.parent_qname) || [];
+          children.push(node);
+          map.set(node.parent_qname, children);
+        }
+      });
+    }
+
     return map;
   }, [nodes]);
 
@@ -252,6 +275,7 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
               onSelectionChange(node.qname, e.target.checked);
             }}
             className="mr-3"
+            title={node.node_type === 'property' ? 'Property wrapper - will be flattened' : ''}
           />
 
           {/* Node Info */}
@@ -265,6 +289,8 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
                   ? 'bg-blue-100 text-blue-700'
                   : node.node_type === 'association'
                   ? 'bg-purple-100 text-purple-700'
+                  : node.node_type === 'property'
+                  ? 'bg-gray-100 text-gray-500'
                   : 'bg-green-100 text-green-700'
               }`}
             >
