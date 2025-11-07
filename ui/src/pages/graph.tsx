@@ -175,6 +175,14 @@ export default function GraphPage() {
     }
     // Auto-load complete graph on mount
     executeQuery('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m');
+
+    // Cleanup on unmount
+    return () => {
+      if (cyInstance.current) {
+        cyInstance.current.destroy();
+        cyInstance.current = null;
+      }
+    };
   }, []);
 
   const executeQuery = async (query: string) => {
@@ -277,7 +285,12 @@ export default function GraphPage() {
 
     // Destroy existing instance
     if (cyInstance.current) {
-      cyInstance.current.destroy();
+      try {
+        cyInstance.current.destroy();
+      } catch (err) {
+        console.warn('Error destroying Cytoscape instance:', err);
+      }
+      cyInstance.current = null;
     }
 
     // Create new Cytoscape instance with data-agnostic styles
