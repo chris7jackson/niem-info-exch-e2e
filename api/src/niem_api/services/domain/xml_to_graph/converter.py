@@ -385,7 +385,8 @@ def is_augmentation(element_qname: str, cmf_element_index: set) -> bool:
 def extract_unmapped_properties(
     elem: Element,
     ns_map: dict[str, str],
-    cmf_element_index: set
+    cmf_element_index: set,
+    struct_ns: str
 ) -> dict[str, Any]:
     """Extract augmentation properties to be added to edges (associations).
 
@@ -397,6 +398,7 @@ def extract_unmapped_properties(
         elem: XML element to process (typically an association)
         ns_map: Namespace mapping
         cmf_element_index: Set of known CMF element QNames
+        struct_ns: NIEM structures namespace URI
 
     Returns:
         Dictionary of augmentation properties with 'aug_' prefix
@@ -405,8 +407,17 @@ def extract_unmapped_properties(
 
     # Extract unmapped attributes
     for attr, value in elem.attrib.items():
-        # Skip structural attributes
-        if attr.startswith(f"{{{struct_ns}}}") or attr.startswith(f"{{{XSI_NS}}}"):
+        # Skip structural attributes - try detected namespace first, then fallback
+        is_struct_attr = False
+        if struct_ns and attr.startswith(f"{{{struct_ns}}}"):
+            is_struct_attr = True
+        else:
+            for ns in KNOWN_STRUCT_NAMESPACES:
+                if attr.startswith(f"{{{ns}}}"):
+                    is_struct_attr = True
+                    break
+
+        if is_struct_attr or attr.startswith(f"{{{XSI_NS}}}"):
             continue
 
         attr_qn = qname_from_tag(attr, ns_map)
@@ -450,7 +461,8 @@ def _recursively_flatten_element(
     obj_rules: dict[str, Any],
     assoc_by_qn: dict[str, Any],
     cmf_element_index: set,
-    path_prefix: str = ""
+    path_prefix: str = "",
+    struct_ns: str = None
 ) -> dict[str, Any]:
     """Recursively flatten an unselected element and all its descendants.
 
@@ -464,6 +476,7 @@ def _recursively_flatten_element(
         assoc_by_qn: Dictionary of association elements
         cmf_element_index: Set of known CMF elements for augmentation detection
         path_prefix: Accumulated property path prefix
+        struct_ns: NIEM structures namespace URI
 
     Returns:
         Dictionary of flattened properties with dot-notation paths
@@ -478,10 +491,17 @@ def _recursively_flatten_element(
 
     # Extract attributes (skip structural ones)
     for attr, value in elem.attrib.items():
-        # Skip NIEM structural attributes
-        if (f"{{{struct_ns}}}" in attr or
-            f"{{{XSI_NS}}}" in attr or
-            attr.startswith("xmlns")):
+        # Skip NIEM structural attributes - check detected namespace and fallback
+        is_struct_attr = False
+        if struct_ns and f"{{{struct_ns}}}" in attr:
+            is_struct_attr = True
+        else:
+            for ns in KNOWN_STRUCT_NAMESPACES:
+                if f"{{{ns}}}" in attr:
+                    is_struct_attr = True
+                    break
+
+        if is_struct_attr or f"{{{XSI_NS}}}" in attr or attr.startswith("xmlns"):
             continue
         # Convert attribute to qname
         if "{" in attr:
@@ -510,8 +530,8 @@ def _recursively_flatten_element(
             continue
 
         # Check if child has structures:id or uri (makes it a node)
-        child_sid = child.attrib.get(f"{{{struct_ns}}}id")
-        child_uri = child.attrib.get(f"{{{struct_ns}}}uri")
+        child_sid = get_structures_attr(child, "id", struct_ns)
+        child_uri = get_structures_attr(child, "uri", struct_ns)
         if child_sid or child_uri:
             continue
 
@@ -523,7 +543,7 @@ def _recursively_flatten_element(
         # If child has nested elements, recurse
         elif len(list(child)) > 0:
             nested_props = _recursively_flatten_element(
-                child, ns_map, obj_rules, assoc_by_qn, cmf_element_index, current_prefix
+                child, ns_map, obj_rules, assoc_by_qn, cmf_element_index, current_prefix, struct_ns
             )
             properties.update(nested_props)
 
@@ -770,7 +790,7 @@ def generate_for_xml_content(
 
                 # Flatten property
                 flattened = _recursively_flatten_element(
-                    child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, ""
+                    child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, "", struct_ns
                 )
                 aug_props.update(flattened)
 
@@ -985,7 +1005,7 @@ def generate_for_xml_content(
                 elif len(list(child)) > 0:
                     # Complex child with nested elements - recursively flatten
                     flattened = _recursively_flatten_element(
-                        child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, path_prefix=""
+                        child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, path_prefix="", struct_ns=struct_ns
                     )
 
                     # Determine if this is augmentation data
@@ -1061,7 +1081,8 @@ def generate_for_xml_content(
                 # Recursively extract all properties from this unselected element
                 flattened = _recursively_flatten_element(
                     elem, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index,
-                    path_prefix=elem_qn  # Use element qname as prefix
+                    path_prefix=elem_qn,  # Use element qname as prefix
+                    struct_ns=struct_ns
                 )
 
                 # Add flattened properties to parent node
