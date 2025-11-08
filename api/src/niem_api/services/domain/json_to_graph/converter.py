@@ -486,9 +486,49 @@ def generate_for_json_content(
     edges = []  # (from_id, from_label, to_id, to_label, rel_type, rel_props)
     contains = []  # (parent_id, parent_label, child_id, child_label, HAS_REL)
 
+    # Hub node tracking for co-referencing
+    id_occurrence_count = {}  # Count non-reference occurrences of each @id (for hub detection)
+    hub_nodes_needed = set()  # Set of @id values that need separate hub nodes
+    id_entity_registry = {}  # Track @id-based entities for co-referencing
+
     # Get objects from @graph or treat data as single object
     has_content = "@type" in data or any(k for k in data.keys() if not k.startswith("@"))
     objects = data.get("@graph", [data] if has_content else [])
+
+    # Pre-scan: Count @id occurrences to determine which need hub nodes
+    def count_id_occurrences(obj: dict[str, Any]):
+        """Recursively count non-reference @id occurrences."""
+        if not isinstance(obj, dict):
+            return
+
+        # Check if this object has @id and is not a pure reference
+        obj_id = obj.get("@id")
+        if obj_id and not is_reference(obj):
+            # This object OWNS the id (not just referencing it)
+            clean_id = obj_id.lstrip('#')
+            id_occurrence_count[clean_id] = id_occurrence_count.get(clean_id, 0) + 1
+
+        # Recurse into nested objects
+        for key, value in obj.items():
+            if key.startswith("@"):
+                continue
+            if isinstance(value, dict):
+                count_id_occurrences(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        count_id_occurrences(item)
+
+    # Run pre-scan
+    for obj in objects:
+        if isinstance(obj, dict):
+            count_id_occurrences(obj)
+
+    # Determine which @ids need hub nodes (2+ non-reference occurrences)
+    for id_value, count in id_occurrence_count.items():
+        if count >= 2:
+            hub_nodes_needed.add(id_value)
+            logger.info(f"Hub node needed for @id {id_value} ({count} role occurrences)")
 
     # Process each object
     object_counter = 0
@@ -517,14 +557,40 @@ def generate_for_json_content(
         raw_id = obj.get("@id")
         has_id = raw_id is not None
 
-        # Prefix @id with file_prefix to ensure file-level isolation
-        # (prevents nodes from different files with same @id from being merged)
-        # Strip leading # from IDs (JSON-LD fragment identifiers)
-        if raw_id:
+        # Determine if this is a hub-pattern scenario
+        if raw_id and not is_reference(obj):
+            clean_id = raw_id.lstrip('#')
+
+            # Check if this @id needs a separate hub node (2+ role occurrences)
+            if clean_id in hub_nodes_needed:
+                # SEPARATE HUB PATTERN: Create role node + hub node
+                # Always create role node with synthetic ID (for ALL occurrences)
+                object_counter += 1
+                obj_id = f"{file_prefix}_obj{object_counter}"
+                is_role_node = True
+
+                # Get/register hub node ID
+                hub_id = f"{file_prefix}_hub_{clean_id}"
+                if clean_id not in id_entity_registry:
+                    # First occurrence - register hub
+                    id_entity_registry[clean_id] = {
+                        'hub_id': hub_id,
+                        'id_value': raw_id,
+                        'role_qnames': [],
+                        'role_labels': []
+                    }
+            else:
+                # SINGLE OCCURRENCE: Use @id as node ID (no hub needed)
+                obj_id = f"{file_prefix}_{clean_id}"
+                is_role_node = False
+        elif raw_id:
+            # Pure reference - prefix ID
             clean_id = raw_id.lstrip('#')
             obj_id = f"{file_prefix}_{clean_id}"
+            is_role_node = False
         else:
             obj_id = None
+            is_role_node = False
 
         # Extract @type to determine object type
         obj_type = obj.get("@type")
@@ -706,7 +772,12 @@ def generate_for_json_content(
                         # Prefix endpoint reference for file-level isolation
                         # Strip leading # from @id references (JSON-LD fragment identifiers)
                         clean_endpoint_ref = endpoint_ref.lstrip('#')
-                        prefixed_endpoint_ref = f"{file_prefix}_{clean_endpoint_ref}"
+
+                        # Check if this entity has a hub node (2+ role occurrences)
+                        if clean_endpoint_ref in hub_nodes_needed:
+                            prefixed_endpoint_ref = f"{file_prefix}_hub_{clean_endpoint_ref}"
+                        else:
+                            prefixed_endpoint_ref = f"{file_prefix}_{clean_endpoint_ref}"
 
                         logger.info(f"  Creating association edge: ({obj_id})-[:{rel_type}]->({prefixed_endpoint_ref})")
                         edges.append((obj_id, assoc_label, prefixed_endpoint_ref, endpoint_label, rel_type, edge_props))
@@ -720,7 +791,9 @@ def generate_for_json_content(
                 # Strip leading # from references
                 clean_struct_ref = struct_ref.lstrip('#')
                 prefixed_struct_ref = f"{file_prefix}_{clean_struct_ref}"
-                edges.append((obj_id, assoc_label, prefixed_struct_ref, None, "REFERS_TO", {}))
+                # Skip self-referential edges (node referring to itself)
+                if obj_id != prefixed_struct_ref:
+                    edges.append((obj_id, assoc_label, prefixed_struct_ref, None, "REFERS_TO", {}))
             elif struct_uri:
                 # structures:uri - resolve to target ID
                 target_ref = None
@@ -734,7 +807,9 @@ def generate_for_json_content(
                 if target_ref:
                     # Prefix target reference for file-level isolation
                     prefixed_target_ref = f"{file_prefix}_{target_ref}"
-                    edges.append((obj_id, assoc_label, prefixed_target_ref, None, "REFERS_TO", {}))
+                    # Skip self-referential edges (node referring to itself)
+                    if obj_id != prefixed_target_ref:
+                        edges.append((obj_id, assoc_label, prefixed_target_ref, None, "REFERS_TO", {}))
 
             # Recursively process children (for nested objects within association)
             for key, value in obj.items():
@@ -868,6 +943,31 @@ def generate_for_json_content(
         if has_id:
             props_dict["structures_id"] = raw_id
 
+        # Hub pattern: Track role nodes and create REPRESENTS edges
+        if is_role_node and raw_id:
+            clean_id = raw_id.lstrip('#')
+            hub_id = f"{file_prefix}_hub_{clean_id}"
+
+            # Mark as role node (structures_id already contains the @id value)
+            props_dict["_isRole"] = True
+
+            # Track this role
+            if clean_id in id_entity_registry:
+                id_entity_registry[clean_id]['role_qnames'].append(qname)
+                id_entity_registry[clean_id]['role_labels'].append(label)
+
+            # Create REPRESENTS edge: (role)-[REPRESENTS]->(hub)
+            hub_label = f"Entity_{raw_id}"
+            edges.append((
+                obj_id,
+                label,
+                hub_id,
+                hub_label,
+                "REPRESENTS",
+                {"@id": raw_id, "role_qname": qname}
+            ))
+            logger.debug(f"Role node {qname} REPRESENTS {hub_label} {hub_id} (via {raw_id})")
+
         # Check for structures:uri in the object (support multiple prefix variants)
         struct_uri = obj.get("structures:uri") or obj.get("s:uri")
         if struct_uri:
@@ -893,7 +993,9 @@ def generate_for_json_content(
             # Strip leading # from references (JSON-LD fragment identifiers)
             clean_struct_ref = struct_ref.lstrip('#')
             prefixed_struct_ref = f"{file_prefix}_{clean_struct_ref}"
-            edges.append((obj_id, label, prefixed_struct_ref, None, "REFERS_TO", {}))
+            # Skip self-referential edges (node referring to itself)
+            if obj_id != prefixed_struct_ref:
+                edges.append((obj_id, label, prefixed_struct_ref, None, "REFERS_TO", {}))
         elif struct_uri:
             # structures:uri - resolve to target ID
             target_ref = None
@@ -907,7 +1009,9 @@ def generate_for_json_content(
             if target_ref:
                 # Prefix target reference for file-level isolation
                 prefixed_target_ref = f"{file_prefix}_{target_ref}"
-                edges.append((obj_id, label, prefixed_target_ref, None, "REFERS_TO", {}))
+                # Skip self-referential edges (node referring to itself)
+                if obj_id != prefixed_target_ref:
+                    edges.append((obj_id, label, prefixed_target_ref, None, "REFERS_TO", {}))
 
         # Process nested properties
         for key, value in obj.items():
@@ -944,6 +1048,31 @@ def generate_for_json_content(
     for obj in objects:
         if isinstance(obj, dict):
             process_jsonld_object(obj)
+
+    # Generate EntityHub nodes for multi-occurrence @ids
+    for entity_id, hub_info in id_entity_registry.items():
+        if entity_id in hub_nodes_needed and isinstance(hub_info, dict):
+            hub_id = hub_info['hub_id']
+            id_value = hub_info['id_value']
+            role_qnames = hub_info['role_qnames']
+            role_labels = hub_info['role_labels']
+
+            # Create EntityHub node with label "Entity_{id_value}"
+            hub_label = f"Entity_{id_value}"
+            hub_props = {
+                "qname": hub_label,
+                "uri_value": id_value,
+                "entity_id": entity_id,
+                "role_count": len(role_qnames),
+                "role_types": role_qnames,
+                "_isHub": True,
+                "_source_file": filename
+            }
+            if upload_id:
+                hub_props["_upload_id"] = upload_id
+
+            nodes[hub_id] = (hub_label, hub_label, hub_props, {})
+            logger.info(f"Created {hub_label} {hub_id} with {len(role_qnames)} roles: {role_qnames}")
 
     # Generate Cypher statements
     cypher_statements = generate_cypher_from_structures(nodes, edges, contains, upload_id, filename)

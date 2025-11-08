@@ -1043,14 +1043,23 @@ def generate_for_xml_content(
                                 # This ensures different URI formats pointing to same ID resolve to same node
                                 if '#' in endpoint_uri:
                                     # Fragment reference: "#P1" or "http://example.com#P1" -> "P1"
-                                    endpoint_id = f"{file_prefix}_{endpoint_uri.split('#')[-1]}"
+                                    entity_id = endpoint_uri.split('#')[-1]
+                                    # Check if this entity has a hub node (2+ role occurrences)
+                                    if entity_id in hub_nodes_needed:
+                                        endpoint_id = f"{file_prefix}_hub_{entity_id}"
+                                    else:
+                                        endpoint_id = f"{file_prefix}_{entity_id}"
                                 else:
                                     # Full URI without fragment - use basename or full sanitized URI
                                     # Try to extract a meaningful ID from the URI path
                                     uri_parts = endpoint_uri.rstrip('/').split('/')
                                     if uri_parts:
-                                        # Use last path segment as ID
-                                        endpoint_id = f"{file_prefix}_{uri_parts[-1].replace(':', '_')}"
+                                        entity_id = uri_parts[-1].replace(':', '_')
+                                        # Check for hub node
+                                        if entity_id in hub_nodes_needed:
+                                            endpoint_id = f"{file_prefix}_hub_{entity_id}"
+                                        else:
+                                            endpoint_id = f"{file_prefix}_{entity_id}"
                                     else:
                                         # Fallback: sanitize full URI
                                         endpoint_id = f"{file_prefix}_{endpoint_uri.replace('/', '_').replace(':', '_')}"
@@ -1184,15 +1193,16 @@ def generate_for_xml_content(
                     uri_entity_registry[entity_id]['role_labels'].append(node_label)
 
                     # Create REPRESENTS edge: (role)-[REPRESENTS]->(hub)
+                    hub_label = f"Entity_{uri_ref}"
                     edges.append((
                         node_id,
                         node_label,
                         hub_id,
-                        "EntityHub",
+                        hub_label,
                         "REPRESENTS",
                         {"uri": uri_ref, "role_qname": elem_qn}
                     ))
-                    logger.debug(f"Role node {elem_qn} REPRESENTS EntityHub {hub_id} (via {uri_ref})")
+                    logger.debug(f"Role node {elem_qn} REPRESENTS {hub_label} {hub_id} (via {uri_ref})")
                 else:
                     # SINGLE OCCURRENCE: Use URI as node ID (no hub needed)
                     canonical_id = f"{file_prefix}_{entity_id}"
@@ -1331,9 +1341,11 @@ def generate_for_xml_content(
             if ref:
                 # structures:ref - direct reference to an ID
                 target_id = f"{file_prefix}_{ref}"
-                pending_refs.append((node_id, target_id, f"Object {elem_qn} structures:ref"))
-                # Create REFERS_TO edge (target label will be resolved later)
-                edges.append((node_id, node_label, target_id, None, "REFERS_TO", {}))
+                # Skip self-referential edges (node referring to itself)
+                if node_id != target_id:
+                    pending_refs.append((node_id, target_id, f"Object {elem_qn} structures:ref"))
+                    # Create REFERS_TO edge (target label will be resolved later)
+                    edges.append((node_id, node_label, target_id, None, "REFERS_TO", {}))
             elif uri_ref:
                 # structures:uri - URI reference, extract fragment or basename
                 if '#' in uri_ref:
@@ -1343,7 +1355,8 @@ def generate_for_xml_content(
                     uri_parts = uri_ref.rstrip('/').split('/')
                     if uri_parts:
                         target_id = f"{file_prefix}_{uri_parts[-1].replace(':', '_')}"
-                if target_id:
+                # Skip self-referential edges (node referring to itself)
+                if target_id and node_id != target_id:
                     pending_refs.append((node_id, target_id, f"Object {elem_qn} structures:uri"))
                     # Create REFERS_TO edge (target label will be resolved later)
                     edges.append((node_id, node_label, target_id, None, "REFERS_TO", {}))
@@ -1471,9 +1484,10 @@ def generate_for_xml_content(
             role_qnames = hub_info['role_qnames']
             role_labels = hub_info['role_labels']
 
-            # Create EntityHub node
+            # Create EntityHub node with label "Entity_{uri_value}"
+            hub_label = f"Entity_{uri_value}"
             hub_props = {
-                "qname": "EntityHub",
+                "qname": hub_label,
                 "uri_value": uri_value,
                 "entity_id": entity_id,
                 "role_count": len(role_qnames),
@@ -1484,8 +1498,8 @@ def generate_for_xml_content(
 
             hub_aug_props = {}
 
-            nodes[hub_id] = ["EntityHub", "EntityHub", hub_props, hub_aug_props]
-            logger.info(f"Created EntityHub {hub_id} for {uri_value} with {len(role_qnames)} roles: {role_qnames}")
+            nodes[hub_id] = [hub_label, hub_label, hub_props, hub_aug_props]
+            logger.info(f"Created {hub_label} {hub_id} with {len(role_qnames)} roles: {role_qnames}")
 
     # HANDLE UNRESOLVED REFERENCES
     # After traversal, check for any references that weren't found in the ID registry
