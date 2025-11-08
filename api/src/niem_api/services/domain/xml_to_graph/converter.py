@@ -764,8 +764,7 @@ def generate_for_xml_content(
         cmf_element_index = set()
         logger.info("Dynamic mode: Augmentation detection disabled")
 
-    # Prepare reference and association indices
-    refs_by_owner = build_refs_index(references)
+    # Prepare association index
     assoc_by_qn = build_assoc_index(associations)
 
     # Build augmentation index from mapping
@@ -1427,33 +1426,6 @@ def generate_for_xml_content(
                     else:
                         # Add to parent's regular properties
                         nodes[parent_id][2].update(flattened)
-
-        # Handle reference edges from mapping.references
-        if elem_qn in refs_by_owner:
-            for rule in refs_by_owner[elem_qn]:
-                # Search children with matching field_qname and @structures:ref OR @structures:id
-                for ch in elem:
-                    if qname_from_tag(ch.tag, xml_ns_map) == rule["field_qname"]:
-                        # Check for structures:ref first (traditional NIEM pattern)
-                        to_id = get_structures_attr(ch, "ref", struct_ns)
-                        if not to_id:
-                            # If no structures:ref, check for structures:id (direct child pattern)
-                            to_id = get_structures_attr(ch, "id", struct_ns)
-
-                        if to_id and node_id:
-                            # Prefix referenced ID with file_prefix
-                            to_id_prefixed = f"{file_prefix}_{to_id}"
-
-                            # Validate reference exists in ID registry
-                            if to_id_prefixed not in id_registry:
-                                pending_refs.append((elem_qn, to_id_prefixed, f"Reference from {elem_qn} via {rule['field_qname']}"))
-
-                            # Use the node_id that was assigned to this element
-                            edges.append((
-                                node_id, rule["owner_object"].replace(":", "_"),
-                                to_id_prefixed, rule["target_label"],
-                                rule["rel_type"], {}
-                            ))
 
         # Recurse to children
         path_stack.append(elem)
