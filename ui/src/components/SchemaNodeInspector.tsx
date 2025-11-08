@@ -25,6 +25,8 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode 
         return 'bg-blue-100 text-blue-800';
       case 'association':
         return 'bg-purple-100 text-purple-800';
+      case 'property':
+        return 'bg-gray-100 text-gray-600';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -124,7 +126,18 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode 
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Selection Impact</h4>
           <div className="text-sm text-gray-600">
-            {selectedNode.selected ? (
+            {selectedNode.node_type === 'property' ? (
+              <div className="space-y-2">
+                <p className="text-purple-700 font-medium">⚡ Wrapper Type (Always Flattened)</p>
+                <p className="text-xs">
+                  This is a wrapper type (e.g., TextType, DateType, IndicatorType) that wraps a scalar value.
+                  It will always be flattened into a property on the parent node, regardless of selection state.
+                </p>
+                <p className="text-xs text-gray-500">
+                  Based on XSD structure: extends a simple type like xs:string, xs:boolean, or xs:date.
+                </p>
+              </div>
+            ) : selectedNode.selected ? (
               <div className="space-y-2">
                 <p className="text-green-700 font-medium">✓ Will create Neo4j node</p>
                 <p className="text-xs">
@@ -132,11 +145,6 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode 
                   {selectedNode.property_count > 0 && ` It will have ${selectedNode.property_count} scalar properties.`}
                   {selectedNode.nested_object_count > 0 && ` It will have ${selectedNode.nested_object_count} nested objects.`}
                 </p>
-                {selectedNode.children && selectedNode.children.length > 0 && !selectedNode.selected && (
-                  <p className="text-xs text-amber-700">
-                    Unselected child nodes will be flattened into this node as properties.
-                  </p>
-                )}
               </div>
             ) : (
               <div className="space-y-2">

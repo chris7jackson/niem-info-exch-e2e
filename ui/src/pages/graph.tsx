@@ -377,10 +377,16 @@ export default function GraphPage() {
       const nodeSize = getNodeSize(node, data.relationships);
       const tooltip = buildNodeTooltip(node);
 
-      // Special styling for ResolvedEntity nodes
+      // Special styling for ResolvedEntity nodes, Association nodes, and EntityHub nodes
       const isResolvedEntity = node.labels.includes('ResolvedEntity');
-      const nodeColor = isResolvedEntity ? '#9333EA' : (labelColorMap[node.label] || '#95A5A6'); // Purple for resolved entities
-      const nodeShape = isResolvedEntity ? 'diamond' : 'ellipse';
+      const isAssociation = node.properties?._isAssociation === true ||
+                            node.properties?._isAssociation === 'True' ||
+                            node.properties?.qname?.endsWith('Association');
+      const isEntityHub = node.properties?._isHub === true || node.label.startsWith('Entity_');
+
+      // Color priority: EntityHub (teal) > Association (orange) > ResolvedEntity (purple) > default
+      const nodeColor = isEntityHub ? '#14B8A6' : (isAssociation ? '#FF8C00' : (isResolvedEntity ? '#9333EA' : (labelColorMap[node.label] || '#95A5A6')));
+      const nodeShape = isEntityHub ? 'triangle' : (isResolvedEntity ? 'diamond' : (isAssociation ? 'hexagon' : 'ellipse'));
 
       return {
         data: {
@@ -394,6 +400,8 @@ export default function GraphPage() {
           tooltip: tooltip,
           shape: nodeShape,
           isResolvedEntity: isResolvedEntity,
+          isAssociation: isAssociation,
+          isEntityHub: isEntityHub,
         },
       };
     });
@@ -437,11 +445,16 @@ export default function GraphPage() {
 
       const tooltip = buildEdgeTooltip(rel);
 
-      // Special styling for RESOLVED_TO relationships
+      // Special styling for RESOLVED_TO, ASSOCIATED_WITH, REPRESENTS, and CONTAINS relationships
       const isResolvedTo = rel.type === 'RESOLVED_TO';
-      const edgeColor = isResolvedTo ? '#9333EA' : relStyle.color; // Purple for resolved relationships
-      const edgeWidth = isResolvedTo ? 3 : relStyle.width; // Thicker for resolved relationships
-      const edgeStyle = isResolvedTo ? 'dashed' : relStyle.style; // Dashed for resolved relationships
+      const isAssociatedWith = rel.type === 'ASSOCIATED_WITH';
+      const isRepresents = rel.type === 'REPRESENTS';
+      const isContains = rel.type === 'CONTAINS';
+
+      // Color priority: REPRESENTS (teal) > ASSOCIATED_WITH (orange) > RESOLVED_TO (purple) > CONTAINS (grey) > default
+      const edgeColor = isRepresents ? '#14B8A6' : (isAssociatedWith ? '#FF8C00' : (isResolvedTo ? '#9333EA' : (isContains ? '#888888' : relStyle.color)));
+      const edgeWidth = (isResolvedTo || isAssociatedWith || isRepresents) ? 3 : relStyle.width; // Thicker for special relationships
+      const edgeStyle = isResolvedTo ? 'dashed' : (isAssociatedWith ? 'dotted' : (isRepresents ? 'solid' : relStyle.style));
 
       return {
         data: {
@@ -457,6 +470,8 @@ export default function GraphPage() {
           opacity: relStyle.opacity,
           tooltip: tooltip,
           isResolvedTo: isResolvedTo,
+          isAssociatedWith: isAssociatedWith,
+          isRepresents: isRepresents,
         },
       };
     });

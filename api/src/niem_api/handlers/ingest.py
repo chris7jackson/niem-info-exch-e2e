@@ -409,7 +409,10 @@ def _clean_cypher_statement(statement: str) -> str:
 
 
 def _execute_cypher_statements(cypher_statements: str, neo4j_client) -> int:
-    """Execute Cypher statements in Neo4j.
+    """Execute Cypher statements in Neo4j within a single transaction.
+
+    All statements are executed atomically - if any statement fails, the entire
+    transaction is rolled back and no changes are committed.
 
     Args:
         cypher_statements: Cypher statements to execute
@@ -417,18 +420,32 @@ def _execute_cypher_statements(cypher_statements: str, neo4j_client) -> int:
 
     Returns:
         Number of statements executed
+
+    Raises:
+        Exception: If any Cypher statement fails (all changes rolled back)
     """
-    statements_executed = 0
     statements = [stmt.strip() for stmt in cypher_statements.split(';') if stmt.strip()]
+    clean_statements = []
 
     for statement in statements:
         if statement:
             clean_statement = _clean_cypher_statement(statement)
             if clean_statement:
-                neo4j_client.query(clean_statement)
-                statements_executed += 1
+                clean_statements.append(clean_statement)
 
-    return statements_executed
+    # Execute all statements in a single transaction for atomicity
+    with neo4j_client.driver.session() as session:
+        with session.begin_transaction() as tx:
+            try:
+                for statement in clean_statements:
+                    tx.run(statement)
+                # Commit all statements together
+                tx.commit()
+                return len(clean_statements)
+            except Exception as e:
+                # Rollback all changes on any error
+                logger.error(f"Cypher execution failed, rolling back transaction: {e}")
+                raise
 
 
 async def _store_processed_files(
@@ -529,7 +546,8 @@ async def _process_single_file(
     s3: Minio,
     schema_dir: str,
     upload_id: str,
-    schema_id: str
+    schema_id: str,
+    mode: str = "dynamic"
 ) -> tuple[dict[str, Any], int]:
     """Process a single XML file.
 
@@ -541,6 +559,7 @@ async def _process_single_file(
         schema_dir: Directory containing XSD schema files
         upload_id: Unique identifier for this upload batch
         schema_id: Schema identifier
+        mode: Converter mode - "mapping" (use selections) or "dynamic" (all complex elements)
 
     Returns:
         Tuple of (result_dict, statements_executed)
@@ -554,7 +573,7 @@ async def _process_single_file(
 
         # Use import_xml_to_cypher service to generate Cypher
         cypher_statements, stats = _generate_cypher_from_xml(
-            xml_content, mapping, file.filename, upload_id, schema_id
+            xml_content, mapping, file.filename, upload_id, schema_id, mode
         )
 
         if not cypher_statements:
@@ -622,6 +641,21 @@ async def handle_xml_ingest(
         # Step 3: Load mapping specification
         mapping = _load_mapping_from_s3(s3, schema_id)
 
+        # Step 3.5: Detect mode based on selections.json existence
+        from .schema import handle_get_selections
+        mode = "mapping"  # Default to mapping mode
+        try:
+            selections_data = await handle_get_selections(schema_id, s3)
+            if selections_data and selections_data.get("selections"):
+                mode = "mapping"
+                logger.info(f"Using MAPPING mode (found selections.json with {len(selections_data['selections'])} selections)")
+            else:
+                mode = "dynamic"
+                logger.info("Using DYNAMIC mode (selections.json exists but has no selections)")
+        except Exception as e:
+            mode = "dynamic"
+            logger.info(f"Using DYNAMIC mode (selections.json not found or error: {e})")
+
         # Step 4: Download schema files for validation
         schema_dir = await _download_schema_files(s3, schema_id)
 
@@ -637,7 +671,7 @@ async def handle_xml_ingest(
         try:
             for file in files:
                 result, statements_executed = await _process_single_file(
-                    file, mapping, neo4j_client, s3, schema_dir, upload_id, schema_id
+                    file, mapping, neo4j_client, s3, schema_dir, upload_id, schema_id, mode
                 )
                 results.append(result)
                 total_statements_executed += statements_executed
@@ -681,7 +715,8 @@ async def _process_single_json_file(
     neo4j_client,
     s3: Minio,
     upload_id: str,
-    schema_id: str
+    schema_id: str,
+    mode: str = "dynamic"
 ) -> tuple[dict[str, Any], int]:
     """Process a single NIEM JSON file.
 
@@ -693,6 +728,7 @@ async def _process_single_json_file(
         s3: MinIO client
         upload_id: Unique identifier for this upload batch
         schema_id: Schema identifier
+        mode: Converter mode - "mapping" (use selections) or "dynamic" (all complex elements)
 
     Returns:
         Tuple of (result_dict, statements_executed)
@@ -715,7 +751,7 @@ async def _process_single_json_file(
 
         # Generate Cypher from NIEM JSON
         cypher_statements, stats = _generate_cypher_from_json(
-            json_content, mapping, file.filename, upload_id, schema_id
+            json_content, mapping, file.filename, upload_id, schema_id, mode
         )
 
         if not cypher_statements:
@@ -804,6 +840,21 @@ async def handle_json_ingest(
         # Step 4: Load mapping specification
         mapping = _load_mapping_from_s3(s3, schema_id)
 
+        # Step 4.5: Detect mode based on selections.json existence
+        from .schema import handle_get_selections
+        mode = "mapping"  # Default to mapping mode
+        try:
+            selections_data = await handle_get_selections(schema_id, s3)
+            if selections_data and selections_data.get("selections"):
+                mode = "mapping"
+                logger.info(f"Using MAPPING mode (found selections.json with {len(selections_data['selections'])} selections)")
+            else:
+                mode = "dynamic"
+                logger.info("Using DYNAMIC mode (selections.json exists but has no selections)")
+        except Exception as e:
+            mode = "dynamic"
+            logger.info(f"Using DYNAMIC mode (selections.json not found or error: {e})")
+
         # Step 5: Download JSON Schema for validation
         json_schema = _download_json_schema_from_s3(s3, schema_id)
 
@@ -819,7 +870,7 @@ async def handle_json_ingest(
         try:
             for file in files:
                 result, statements_executed = await _process_single_json_file(
-                    file, mapping, json_schema, neo4j_client, s3, upload_id, schema_id
+                    file, mapping, json_schema, neo4j_client, s3, upload_id, schema_id, mode
                 )
                 results.append(result)
                 total_statements_executed += statements_executed
@@ -846,7 +897,7 @@ async def handle_json_ingest(
             raise
         raise HTTPException(status_code=500, detail=f"NIEM JSON ingestion failed: {str(e)}") from e
 
-def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filename: str, upload_id: str, schema_id: str) -> tuple[str, dict[str, Any]]:
+def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filename: str, upload_id: str, schema_id: str, mode: str = "dynamic") -> tuple[str, dict[str, Any]]:
     """
     Generate Cypher statements from XML content using the import_xml_to_cypher service.
 
@@ -856,6 +907,7 @@ def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filenam
         filename: Source filename for provenance
         upload_id: Unique identifier for this upload batch
         schema_id: Schema identifier
+        mode: Converter mode - "mapping" (use selections) or "dynamic" (all complex elements)
 
     Returns:
         Tuple of (cypher_statements, stats)
@@ -864,7 +916,7 @@ def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filenam
         from ..services.domain.xml_to_graph import generate_for_xml_content
 
         # Generate Cypher statements using in-memory processing (no temporary files needed)
-        cypher_statements, nodes, contains, edges = generate_for_xml_content(xml_content, mapping, filename, upload_id, schema_id)
+        cypher_statements, nodes, contains, edges = generate_for_xml_content(xml_content, mapping, filename, upload_id, schema_id, mode=mode)
 
         # Create stats dictionary from the returned data
         stats = {
@@ -889,7 +941,7 @@ def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filenam
         raise
 
 
-def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filename: str, upload_id: str, schema_id: str) -> tuple[str, dict[str, Any]]:
+def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filename: str, upload_id: str, schema_id: str, mode: str = "dynamic") -> tuple[str, dict[str, Any]]:
     """
     Generate Cypher statements from NIEM JSON content using the json_to_graph service.
 
@@ -910,7 +962,7 @@ def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filen
         from ..services.domain.json_to_graph import generate_for_json_content
 
         # Generate Cypher statements from NIEM JSON
-        cypher_statements, nodes, contains, edges = generate_for_json_content(json_content, mapping, filename, upload_id, schema_id)
+        cypher_statements, nodes, contains, edges = generate_for_json_content(json_content, mapping, filename, upload_id, schema_id, mode=mode)
 
         # Create stats dictionary from the returned data
         stats = {

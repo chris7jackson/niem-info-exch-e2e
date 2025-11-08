@@ -66,10 +66,25 @@ const GraphSchemaDesigner: React.FC<GraphSchemaDesignerProps> = ({ schemaId, ope
   };
 
   const handleSelectionChange = (qname: string, selected: boolean) => {
-    setSelections((prev) => ({
-      ...prev,
-      [qname]: selected,
-    }));
+    setSelections((prev) => {
+      const newSelections = {
+        ...prev,
+        [qname]: selected,
+      };
+
+      // Auto-select association endpoints when association is selected
+      if (selected && elementTree) {
+        const node = elementTree.nodes.find(n => n.qname === qname);
+        if (node && node.node_type === 'association' && node.endpoints) {
+          // Auto-select all entity endpoints (property wrappers already filtered out)
+          node.endpoints.forEach((endpointQname: string) => {
+            newSelections[endpointQname] = true;
+          });
+        }
+      }
+
+      return newSelections;
+    });
   };
 
   const handleNodeClick = (node: ElementTreeNode) => {

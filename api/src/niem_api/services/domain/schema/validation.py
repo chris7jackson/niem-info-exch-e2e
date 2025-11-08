@@ -207,10 +207,12 @@ class SchemaDesignValidator:
             if not selections.get(qname, False):
                 continue
 
-            # Count selected children (endpoints)
+            # Count selected entity endpoints (excludes wrapper properties which are always flattened)
+            # Use the "endpoints" field which contains only entity children, not wrapper types
+            endpoints = element.get("endpoints", [])
             selected_endpoint_count = sum(
-                1 for child_qname in element.get("children", [])
-                if selections.get(child_qname, False)
+                1 for endpoint_qname in endpoints
+                if selections.get(endpoint_qname, False)
             )
 
             if selected_endpoint_count < 2:
