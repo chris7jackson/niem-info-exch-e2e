@@ -1351,22 +1351,10 @@ def generate_for_xml_content(
                 # structures:uri - check if this is part of hub pattern
                 entity_id = uri_ref.lstrip('#').split('/')[-1].replace(':', '_') if '/' in uri_ref else uri_ref.lstrip('#')
 
-                # Only create REFERS_TO for single-occurrence URIs (no hub pattern)
-                if entity_id not in hub_nodes_needed:
-                    # Single occurrence - create REFERS_TO edge
-                    if '#' in uri_ref:
-                        target_id = f"{file_prefix}_{uri_ref.split('#')[-1]}"
-                    else:
-                        # Use last path segment as ID
-                        uri_parts = uri_ref.rstrip('/').split('/')
-                        if uri_parts:
-                            target_id = f"{file_prefix}_{uri_parts[-1].replace(':', '_')}"
-                    # Skip self-referential edges (node referring to itself)
-                    if target_id and node_id != target_id:
-                        pending_refs.append((node_id, target_id, f"Object {elem_qn} structures:uri"))
-                        # Create REFERS_TO edge (target label will be resolved later)
-                        edges.append((node_id, node_label, target_id, None, "REFERS_TO", {}))
-                # If in hub pattern, REPRESENTS edge already created - skip REFERS_TO
+                # For hub pattern, REPRESENTS edge already created - no REFERS_TO needed
+                # For single occurrence, structures:uri is the node's identity, not a reference
+                # (Matches JSON-LD semantics where @id is identity only)
+                # Therefore, no REFERS_TO edge needed for structures:uri in either case
 
             parent_ctx = (node_id, node_label)
         else:
