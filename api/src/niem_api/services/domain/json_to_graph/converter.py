@@ -916,9 +916,8 @@ def generate_for_json_content(
 
         # Skip if already processed
         if obj_id in nodes:
-            # Create reference edge if this is a nested occurrence
-            if parent_id and property_name:
-                edges.append((parent_id, parent_label, obj_id, qname, property_name, {}))
+            # Object already exists - no need to create duplicate edge
+            # The CONTAINS edge was already created on first occurrence
             return obj_id
 
         # Generate label and properties
@@ -1021,11 +1020,10 @@ def generate_for_json_content(
                 continue  # Skip JSON-LD keywords
 
             if is_reference(value):
-                # Reference edge (prefix target for file-level isolation)
-                # Strip leading # from @id references
-                clean_target_id = value['@id'].lstrip('#')
-                target_id = f"{file_prefix}_{clean_target_id}"
-                edges.append((obj_id, label, target_id, None, key, {}))
+                # Skip - reference edges are handled by REFERS_TO (structures:ref/uri)
+                # or CONTAINS (if reference becomes a child node)
+                # No need for property-name edges (nc:Metadata, j:Charge, etc.)
+                pass
 
             elif isinstance(value, dict):
                 # Nested object (containment edge created automatically)
@@ -1036,11 +1034,8 @@ def generate_for_json_content(
                 for item in value:
                     if isinstance(item, dict):
                         if is_reference(item):
-                            # Prefix target for file-level isolation
-                            # Strip leading # from @id references
-                            clean_target_id = item['@id'].lstrip('#')
-                            target_id = f"{file_prefix}_{clean_target_id}"
-                            edges.append((obj_id, label, target_id, None, key, {}))
+                            # Skip - reference handled by REFERS_TO or CONTAINS
+                            pass
                         else:
                             process_jsonld_object(item, obj_id, label, key)
 
