@@ -185,7 +185,7 @@ class TestIngestBatchProcessing:
         files = create_mock_json_files(5)
 
         with patch('niem_api.handlers.ingest._get_schema_id') as mock_get_schema, \
-             patch('niem_api.handlers.ingest.schema.get_schema_metadata') as mock_get_metadata, \
+             patch('niem_api.handlers.schema.get_schema_metadata') as mock_get_metadata, \
              patch('niem_api.handlers.ingest._load_mapping_from_s3') as mock_load_mapping, \
              patch('niem_api.handlers.ingest._download_json_schema_from_s3') as mock_download_schema, \
              patch('niem_api.handlers.ingest._process_single_json_file') as mock_process, \
@@ -216,7 +216,7 @@ class TestIngestBatchProcessing:
         files = create_mock_json_files(4)
 
         with patch('niem_api.handlers.ingest._get_schema_id') as mock_get_schema, \
-             patch('niem_api.handlers.ingest.schema.get_schema_metadata') as mock_get_metadata, \
+             patch('niem_api.handlers.schema.get_schema_metadata') as mock_get_metadata, \
              patch('niem_api.handlers.ingest._load_mapping_from_s3') as mock_load_mapping, \
              patch('niem_api.handlers.ingest._download_json_schema_from_s3') as mock_download_schema, \
              patch('niem_api.handlers.ingest._process_single_json_file') as mock_process, \

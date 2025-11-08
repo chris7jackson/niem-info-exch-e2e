@@ -52,16 +52,21 @@ class TestSchemaBatchProcessing:
         # Create 3 files (exceeds custom limit of 2)
         files = create_mock_files(3)
 
-        # Need to reload config to pick up env var
+        # Need to reload config and handler to pick up env var
         from importlib import reload
         from niem_api.core import config
+        from niem_api.handlers import schema
         from unittest.mock import patch
 
         with patch.dict('os.environ', {'BATCH_MAX_SCHEMA_FILES': '2'}):
             reload(config)
+            reload(schema)
+
+            # Re-import the function from the reloaded module
+            from niem_api.handlers.schema import handle_schema_upload as handle_upload
 
             with pytest.raises(HTTPException) as exc_info:
-                await handle_schema_upload(files, mock_s3_client)
+                await handle_upload(files, mock_s3_client)
 
             assert exc_info.value.status_code == 400
             assert "exceeds maximum of 2 files" in exc_info.value.detail
