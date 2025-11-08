@@ -957,7 +957,8 @@ def generate_for_json_content(
                 id_entity_registry[clean_id]['role_labels'].append(label)
 
             # Create REPRESENTS edge: (role)-[REPRESENTS]->(hub)
-            hub_label = f"Entity_{raw_id}"
+            # Use sanitized clean_id for label (no # or special chars)
+            hub_label = f"Entity_{clean_id}"
             edges.append((
                 obj_id,
                 label,
@@ -1057,8 +1058,9 @@ def generate_for_json_content(
             role_qnames = hub_info['role_qnames']
             role_labels = hub_info['role_labels']
 
-            # Create EntityHub node with label "Entity_{id_value}"
-            hub_label = f"Entity_{id_value}"
+            # Create EntityHub node with sanitized label (no # or special chars)
+            # Use entity_id which is already sanitized (e.g., "P01" not "#P01")
+            hub_label = f"Entity_{entity_id}"
             hub_props = {
                 "qname": hub_label,
                 "uri_value": id_value,

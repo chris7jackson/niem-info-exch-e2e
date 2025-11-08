@@ -1193,7 +1193,8 @@ def generate_for_xml_content(
                     uri_entity_registry[entity_id]['role_labels'].append(node_label)
 
                     # Create REPRESENTS edge: (role)-[REPRESENTS]->(hub)
-                    hub_label = f"Entity_{uri_ref}"
+                    # Use sanitized entity_id for label (no # or special chars)
+                    hub_label = f"Entity_{entity_id}"
                     edges.append((
                         node_id,
                         node_label,
@@ -1337,6 +1338,7 @@ def generate_for_xml_content(
                 contains.append((p_id, p_label, node_id, node_label, rel))
 
             # Create REFERS_TO edges for structures:ref and structures:uri
+            # NOTE: For structures:uri in hub pattern, REPRESENTS edge already created - skip REFERS_TO
             target_id = None
             if ref:
                 # structures:ref - direct reference to an ID
@@ -1347,19 +1349,25 @@ def generate_for_xml_content(
                     # Create REFERS_TO edge (target label will be resolved later)
                     edges.append((node_id, node_label, target_id, None, "REFERS_TO", {}))
             elif uri_ref:
-                # structures:uri - URI reference, extract fragment or basename
-                if '#' in uri_ref:
-                    target_id = f"{file_prefix}_{uri_ref.split('#')[-1]}"
-                else:
-                    # Use last path segment as ID
-                    uri_parts = uri_ref.rstrip('/').split('/')
-                    if uri_parts:
-                        target_id = f"{file_prefix}_{uri_parts[-1].replace(':', '_')}"
-                # Skip self-referential edges (node referring to itself)
-                if target_id and node_id != target_id:
-                    pending_refs.append((node_id, target_id, f"Object {elem_qn} structures:uri"))
-                    # Create REFERS_TO edge (target label will be resolved later)
-                    edges.append((node_id, node_label, target_id, None, "REFERS_TO", {}))
+                # structures:uri - check if this is part of hub pattern
+                entity_id = uri_ref.lstrip('#').split('/')[-1].replace(':', '_') if '/' in uri_ref else uri_ref.lstrip('#')
+
+                # Only create REFERS_TO for single-occurrence URIs (no hub pattern)
+                if entity_id not in hub_nodes_needed:
+                    # Single occurrence - create REFERS_TO edge
+                    if '#' in uri_ref:
+                        target_id = f"{file_prefix}_{uri_ref.split('#')[-1]}"
+                    else:
+                        # Use last path segment as ID
+                        uri_parts = uri_ref.rstrip('/').split('/')
+                        if uri_parts:
+                            target_id = f"{file_prefix}_{uri_parts[-1].replace(':', '_')}"
+                    # Skip self-referential edges (node referring to itself)
+                    if target_id and node_id != target_id:
+                        pending_refs.append((node_id, target_id, f"Object {elem_qn} structures:uri"))
+                        # Create REFERS_TO edge (target label will be resolved later)
+                        edges.append((node_id, node_label, target_id, None, "REFERS_TO", {}))
+                # If in hub pattern, REPRESENTS edge already created - skip REFERS_TO
 
             parent_ctx = (node_id, node_label)
         else:
@@ -1484,8 +1492,9 @@ def generate_for_xml_content(
             role_qnames = hub_info['role_qnames']
             role_labels = hub_info['role_labels']
 
-            # Create EntityHub node with label "Entity_{uri_value}"
-            hub_label = f"Entity_{uri_value}"
+            # Create EntityHub node with sanitized label (no # or special chars)
+            # Use entity_id which is already sanitized (e.g., "P01" not "#P01")
+            hub_label = f"Entity_{entity_id}"
             hub_props = {
                 "qname": hub_label,
                 "uri_value": uri_value,
