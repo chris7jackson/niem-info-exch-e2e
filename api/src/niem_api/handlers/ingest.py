@@ -14,7 +14,16 @@ from ..core.config import batch_config
 logger = logging.getLogger(__name__)
 
 # Shared semaphore for XML and JSON ingestion (both use Neo4j and MinIO)
-_ingest_semaphore = asyncio.Semaphore(batch_config.MAX_CONCURRENT_OPERATIONS)
+# Lazy-initialized to avoid event loop issues at module load time
+_ingest_semaphore = None
+
+
+def _get_ingest_semaphore() -> asyncio.Semaphore:
+    """Get or create the ingest semaphore."""
+    global _ingest_semaphore
+    if _ingest_semaphore is None:
+        _ingest_semaphore = asyncio.Semaphore(batch_config.MAX_CONCURRENT_OPERATIONS)
+    return _ingest_semaphore
 
 def _get_schema_id(s3: Minio, schema_id: str | None) -> str:
     """Get schema ID, using provided or active schema.
@@ -620,7 +629,7 @@ async def _process_single_file_with_concurrency(
     Returns:
         Tuple of (result dict, statements_executed count)
     """
-    async with _ingest_semaphore:
+    async with _get_ingest_semaphore():
         return await _process_single_file(file, mapping, neo4j_client, s3, schema_dir)
 
 
@@ -828,7 +837,7 @@ async def _process_single_json_file_with_concurrency(
     Returns:
         Tuple of (result dict, statements_executed count)
     """
-    async with _ingest_semaphore:
+    async with _get_ingest_semaphore():
         return await _process_single_json_file(file, mapping, json_schema, neo4j_client, s3)
 
 

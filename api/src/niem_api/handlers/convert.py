@@ -26,7 +26,16 @@ logger = logging.getLogger(__name__)
 
 # Shared semaphore for system-wide concurrency control
 # Configurable via BATCH_MAX_CONCURRENT_OPERATIONS environment variable
-_conversion_semaphore = asyncio.Semaphore(batch_config.MAX_CONCURRENT_OPERATIONS)
+# Lazy-initialized to avoid event loop issues at module load time
+_conversion_semaphore = None
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    """Get or create the conversion semaphore."""
+    global _conversion_semaphore
+    if _conversion_semaphore is None:
+        _conversion_semaphore = asyncio.Semaphore(batch_config.MAX_CONCURRENT_OPERATIONS)
+    return _conversion_semaphore
 
 
 async def _download_schema_files_for_validation(s3: Minio, schema_id: str) -> str:
@@ -165,7 +174,7 @@ async def _convert_single_file(
 
     try:
         # Acquire semaphore to limit concurrent conversions
-        async with _conversion_semaphore:
+        async with _get_semaphore():
             logger.info(f"Starting conversion for: {file.filename}")
 
             # Read XML content
