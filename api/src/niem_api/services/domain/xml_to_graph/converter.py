@@ -999,9 +999,9 @@ def generate_for_xml_content(
             assoc_props["_isAssociation"] = True
             assoc_props["_source_file"] = filename
 
-            # Capture NIEM structures attributes as metadata
+            # Capture NIEM structures attributes as metadata (with # prefix to match JSON-LD format)
             if sid:
-                assoc_props["structures_id"] = sid
+                assoc_props["structures_id"] = f"#{sid}"
             struct_uri = get_structures_attr(elem, "uri", struct_ns)
             if struct_uri:
                 assoc_props["structures_uri"] = struct_uri
@@ -1215,9 +1215,9 @@ def generate_for_xml_content(
                 ordinal_path = "/".join(chain)
                 node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
 
-            # Capture NIEM structures attributes as metadata
+            # Capture NIEM structures attributes as metadata (with # prefix to match JSON-LD format)
             if sid:
-                props["structures_id"] = sid
+                props["structures_id"] = f"#{sid}"
             if uri_ref:
                 props["structures_uri"] = uri_ref
             if ref:
