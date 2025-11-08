@@ -3,9 +3,10 @@ import { ElementTreeNode } from '../lib/api';
 
 interface SchemaNodeInspectorProps {
   selectedNode: ElementTreeNode | null;
+  selections: Record<string, boolean>;
 }
 
-const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode }) => {
+const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode, selections }) => {
   if (!selectedNode) {
     return (
       <div className="h-full flex items-center justify-center text-gray-400 p-6">
@@ -137,7 +138,7 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode 
                   Based on XSD structure: extends a simple type like xs:string, xs:boolean, or xs:date.
                 </p>
               </div>
-            ) : selectedNode.selected ? (
+            ) : selections[selectedNode.qname] !== false ? (
               <div className="space-y-2">
                 <p className="text-green-700 font-medium">✓ Will create Neo4j node</p>
                 <p className="text-xs">

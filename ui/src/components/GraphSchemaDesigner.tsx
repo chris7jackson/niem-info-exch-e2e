@@ -279,7 +279,7 @@ const GraphSchemaDesigner: React.FC<GraphSchemaDesignerProps> = ({ schemaId, ope
 
             {/* Right: Inspector */}
             <div className="w-1/2 overflow-hidden">
-              <SchemaNodeInspector selectedNode={selectedNode} />
+              <SchemaNodeInspector selectedNode={selectedNode} selections={selections} />
             </div>
           </div>
         )}
