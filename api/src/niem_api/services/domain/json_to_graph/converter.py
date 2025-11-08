@@ -1022,10 +1022,12 @@ def generate_for_json_content(
                 continue  # Skip JSON-LD keywords
 
             if is_reference(value):
-                # Skip - reference edges are handled by REFERS_TO (structures:ref/uri)
-                # or CONTAINS (if reference becomes a child node)
-                # No need for property-name edges (nc:Metadata, j:Charge, etc.)
-                pass
+                # Pure reference {"@id": "..."} - create REFERS_TO edge (not property-name edge)
+                clean_target_id = value['@id'].lstrip('#')
+                target_id = f"{file_prefix}_{clean_target_id}"
+                # Skip self-referential edges
+                if obj_id != target_id:
+                    edges.append((obj_id, label, target_id, None, "REFERS_TO", {}))
 
             elif isinstance(value, dict):
                 # Nested object (containment edge created automatically)
@@ -1036,8 +1038,11 @@ def generate_for_json_content(
                 for item in value:
                     if isinstance(item, dict):
                         if is_reference(item):
-                            # Skip - reference handled by REFERS_TO or CONTAINS
-                            pass
+                            # Pure reference in array - create REFERS_TO edge
+                            clean_target_id = item['@id'].lstrip('#')
+                            target_id = f"{file_prefix}_{clean_target_id}"
+                            if obj_id != target_id:
+                                edges.append((obj_id, label, target_id, None, "REFERS_TO", {}))
                         else:
                             process_jsonld_object(item, obj_id, label, key)
 

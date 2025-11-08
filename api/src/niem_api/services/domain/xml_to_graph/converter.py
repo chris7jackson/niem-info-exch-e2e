@@ -1561,6 +1561,8 @@ def generate_for_xml_content(
             setbits.append(f"n._upload_id='{upload_id}'")
         if schema_id:
             setbits.append(f"n._schema_id='{schema_id}'")
+        if filename:
+            setbits.append(f"n._source_file='{filename}'")
 
         # Add core mapped properties
         for key, value in sorted(props.items()):
