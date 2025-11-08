@@ -16,6 +16,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+import logging
+
+# Initialize logger for this module
+logger = logging.getLogger(__name__)
 
 # XSI namespace for xsi:nil and other schema instance attributes
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
@@ -50,7 +54,7 @@ def detect_structures_namespace(root: Element) -> str:
     if hasattr(root, 'nsmap') and root.nsmap:
         for ns_uri in root.nsmap.values():
             if ns_uri and ns_uri in KNOWN_STRUCT_NAMESPACES:
-                print(f"[INFO] Detected NIEM structures namespace: {ns_uri}")
+                logger.debug(f"Detected NIEM structures namespace: {ns_uri}")
                 return ns_uri
 
     # Fallback: check attributes for structures namespace
@@ -58,11 +62,11 @@ def detect_structures_namespace(root: Element) -> str:
         if '{' in attr_key:
             ns_uri = attr_key[1:attr_key.index('}')]
             if ns_uri in KNOWN_STRUCT_NAMESPACES:
-                print(f"[INFO] Detected structures namespace from attributes: {ns_uri}")
+                logger.debug(f"Detected structures namespace from attributes: {ns_uri}")
                 return ns_uri
 
     # Default to NIEM 6.0
-    print("[WARNING] No structures namespace detected, defaulting to NIEM 6.0")
+    logger.debug("No structures namespace detected, defaulting to NIEM 6.0")
     return KNOWN_STRUCT_NAMESPACES[0]
 
 
@@ -364,7 +368,7 @@ def process_reference_attributes(
                 }
             ))
 
-            print(f"[DEBUG] Detected reference: {node_id} --{ref_info['edge_type']}--> {target_id_prefixed} (via {attr_qname})")
+            logger.debug(f"Detected reference: {node_id} --{ref_info['edge_type']}--> {target_id_prefixed} (via {attr_qname})")
 
     return edges
 
@@ -612,8 +616,114 @@ def collect_scalar_setters(
     return setters
 
 
+def _is_complex_element(elem: Element, ns_map: dict[str, str], struct_ns: str) -> bool:
+    """Determine if element is complex (should become a node in dynamic mode).
+
+    Complex elements have:
+    1. Child elements (not just text), OR
+    2. Attributes (beyond structural ones), OR
+    3. structures:id/uri (explicitly identifiable)
+
+    Simple text elements become properties, not nodes.
+
+    Args:
+        elem: XML element
+        ns_map: Namespace mapping
+        struct_ns: Structures namespace URI
+
+    Returns:
+        True if element should become a node
+    """
+    # Check for structures:id or structures:uri (always makes it a node)
+    if get_structures_attr(elem, "id", struct_ns) or get_structures_attr(elem, "uri", struct_ns):
+        return True
+
+    # Check for child elements (not just text)
+    has_child_elements = len(list(elem)) > 0
+    if has_child_elements:
+        return True
+
+    # Check for non-structural attributes
+    for attr in elem.attrib.keys():
+        # Skip structural attributes
+        if attr.startswith(f"{{{struct_ns}}}") or attr.startswith(f"{{{XSI_NS}}}"):
+            continue
+        # Found a non-structural attribute
+        return True
+
+    # Element is simple (just text) - becomes a property
+    return False
+
+
+def detect_associations_from_xml_data(root: Element, xml_ns_map: dict[str, str]) -> dict[str, dict[str, Any]]:
+    """Auto-detect association patterns in XML data for dynamic mode.
+
+    NIEM associations follow naming convention: elements ending with "Association"
+    that have 2+ child elements representing endpoint roles.
+
+    Args:
+        root: XML root element
+        xml_ns_map: Namespace prefix mapping
+
+    Returns:
+        Dictionary mapping association QName to association rule
+    """
+    from .converter import qname_from_tag
+
+    auto_assocs = {}
+
+    def scan_element_for_associations(elem: Element):
+        """Recursively scan element for association patterns."""
+        elem_qn = qname_from_tag(elem.tag, xml_ns_map)
+
+        # Check if this looks like an association (ends with "Association")
+        if elem_qn.endswith("Association"):
+            # Extract potential endpoints (child elements)
+            endpoints = []
+
+            for child in elem:
+                child_qn = qname_from_tag(child.tag, xml_ns_map)
+
+                # Check if child has a reference (structures:ref, structures:uri, or structures:id)
+                # This indicates it's an endpoint role, not just a property
+                has_ref = False
+                for attr in child.attrib.keys():
+                    if 'ref' in attr.lower() or 'uri' in attr.lower() or 'id' in attr.lower():
+                        if any(ns in attr for ns in ['structures', 's:']):
+                            has_ref = True
+                            break
+
+                if has_ref:
+                    endpoints.append({
+                        "role_qname": child_qn,
+                        "maps_to_label": child_qn.replace(":", "_"),
+                        "direction": "source" if len(endpoints) == 0 else "target",
+                        "via": "structures:ref",
+                        "cardinality": "0..*"
+                    })
+
+            # Valid association must have 2+ endpoints
+            if len(endpoints) >= 2:
+                auto_assocs[elem_qn] = {
+                    "qname": elem_qn,
+                    "rel_type": elem_qn.replace(":", "_").upper(),
+                    "endpoints": endpoints,
+                    "rel_props": []
+                }
+                logger.info(f"Auto-detected association: {elem_qn} with {len(endpoints)} endpoints: {[ep['role_qname'] for ep in endpoints]}")
+
+        # Recurse into children
+        for child in elem:
+            scan_element_for_associations(child)
+
+    # Scan entire XML tree
+    scan_element_for_associations(root)
+
+    return auto_assocs
+
+
 def generate_for_xml_content(
-    xml_content: str, mapping_dict: dict[str, Any], filename: str = "memory", upload_id: str = None, schema_id: str = None, cmf_element_index: set = None
+    xml_content: str, mapping_dict: dict[str, Any], filename: str = "memory", upload_id: str = None, schema_id: str = None, cmf_element_index: set = None, mode: str = "dynamic"
 ) -> tuple[str, dict[str, Any], list[tuple], list[tuple]]:
     """Generate Cypher statements from XML content and mapping dictionary.
 
@@ -624,6 +734,7 @@ def generate_for_xml_content(
         upload_id: Unique identifier for this upload batch (for graph isolation)
         schema_id: Schema identifier (for graph isolation)
         cmf_element_index: Set of known CMF element QNames for augmentation detection
+        mode: Converter mode - "mapping" (use selections) or "dynamic" (all complex elements)
 
     Returns:
         Tuple of (cypher_statements, nodes_dict, contains_list, edges_list)
@@ -637,12 +748,23 @@ def generate_for_xml_content(
         cmf_elements_list = metadata.get("cmf_element_index", [])
         cmf_element_index = set(cmf_elements_list) if cmf_elements_list else set()
 
+    # In dynamic mode, disable augmentation detection (all properties are standard)
+    if mode == "dynamic":
+        cmf_element_index = set()
+        logger.info("Dynamic mode: Augmentation detection disabled")
+
     # Prepare reference and association indices
     refs_by_owner = build_refs_index(references)
     assoc_by_qn = build_assoc_index(associations)
 
     root = ET.fromstring(xml_content)
     xml_ns_map = parse_ns(xml_content)
+
+    # In dynamic mode, auto-detect associations from XML structure
+    if mode == "dynamic":
+        auto_detected_assocs = detect_associations_from_xml_data(root, xml_ns_map)
+        assoc_by_qn.update(auto_detected_assocs)
+        logger.info(f"Dynamic mode: Total associations (mapping + auto-detected): {len(assoc_by_qn)}")
 
     # Detect NIEM structures namespace dynamically
     struct_ns = detect_structures_namespace(root)
@@ -880,9 +1002,8 @@ def generate_for_xml_content(
                             pending_refs.append((elem_qn, endpoint_id, f"Association {elem_qn} endpoint {ep['role_qname']}"))
 
                     # Create edge from association node to endpoint
-                    # Relationship type: HAS_{role_local_name}
-                    role_local = ep["role_qname"].split(":")[-1].upper()
-                    rel_type = f"HAS_{role_local}"
+                    # Relationship type: ASSOCIATED_WITH
+                    rel_type = "ASSOCIATED_WITH"
 
                     # Edge properties include role metadata
                     edge_props = {
@@ -920,11 +1041,24 @@ def generate_for_xml_content(
                 traverse(ch, parent_info, path_stack)
             return
 
+        # Determine if element should become a node based on mode
+        should_create_node = False
 
-        # Only create nodes for elements explicitly selected in the designer
-        if obj_rule:
-            # Generate label from mapping
-            node_label = obj_rule["label"]
+        if mode == "mapping":
+            # Mapping mode: Only create nodes for elements explicitly selected in designer
+            should_create_node = obj_rule is not None
+        elif mode == "dynamic":
+            # Dynamic mode: Create nodes for all complex elements
+            should_create_node = _is_complex_element(elem, xml_ns_map, struct_ns)
+
+        if should_create_node:
+            # Generate label
+            if obj_rule:
+                # Use label from mapping
+                node_label = obj_rule["label"]
+            else:
+                # Dynamic mode: generate label from qname
+                node_label = elem_qn.replace(':', '_')
 
             # Generate node ID - use structures:id if present, otherwise structures:uri, otherwise synthetic
             if sid:
@@ -946,7 +1080,7 @@ def generate_for_xml_content(
                         "SAME_ENTITY",
                         {"uri": uri_ref, "source": "uri_co_reference"}
                     ))
-                    print(f"[DEBUG] URI co-reference: {node_id} --SAME_ENTITY--> {first_node_id} (via {uri_ref})")
+                    logger.debug(f"URI co-reference: {node_id} --SAME_ENTITY--> {first_node_id} (via {uri_ref})")
                 else:
                     # First occurrence of this URI
                     uri_entity_registry[entity_id] = node_id
@@ -980,10 +1114,18 @@ def generate_for_xml_content(
                 child_qn = qname_from_tag(child.tag, xml_ns_map)
 
                 # Check if child should become its own node
-                child_is_node = (
-                    child_qn in obj_rules or  # Explicitly selected in designer
-                    child_qn in assoc_by_qn    # Associations (handled separately)
-                )
+                if mode == "mapping":
+                    child_is_node = (
+                        child_qn in obj_rules or  # Explicitly selected in designer
+                        child_qn in assoc_by_qn    # Associations (handled separately)
+                    )
+                elif mode == "dynamic":
+                    child_is_node = (
+                        _is_complex_element(child, xml_ns_map, struct_ns) or
+                        child_qn in assoc_by_qn    # Associations (handled separately)
+                    )
+                else:
+                    child_is_node = False
 
                 if child_is_node:
                     # This child will be processed as a separate node in recursion
@@ -1138,8 +1280,6 @@ def generate_for_xml_content(
 
     # Report ID collisions if any were detected
     if id_collisions:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.warning(f"Found {len(id_collisions)} ID collisions in {filename}")
         for collision in id_collisions:
             logger.warning(
@@ -1199,8 +1339,6 @@ def generate_for_xml_content(
     # Log unresolved references for reporting (can be added to return value later)
     # For now, add as comment in Cypher output
     if unresolved_refs:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.warning(f"Found {len(unresolved_refs)} unresolved references in {filename}")
         for ref in unresolved_refs:
             logger.warning(f"  - {ref['context']}: {ref['target_id']}")
