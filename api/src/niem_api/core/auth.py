@@ -10,7 +10,13 @@ security = HTTPBearer()
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """Verify dev token"""
-    expected_token = os.getenv("DEV_TOKEN", "devtoken")
+    expected_token = os.getenv("DEV_TOKEN")
+
+    if not expected_token:
+        raise HTTPException(
+            status_code=500,
+            detail="DEV_TOKEN environment variable not configured"
+        )
 
     if credentials.credentials != expected_token:
         raise HTTPException(

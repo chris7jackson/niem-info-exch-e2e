@@ -37,6 +37,96 @@ services:
       retries: 20
     logging: *default-logging
 
+  senzing-postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: senzing
+      POSTGRES_USER: senzing
+      POSTGRES_PASSWORD: ${SENZING_DB_PASSWORD:-changeme}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --no-locale"
+      # Tell postgres to accept connections without SSL
+      PGSSLMODE: disable
+    command:
+      - "postgres"
+      - "-c"
+      - "ssl=off"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "shared_buffers=256MB"
+    ports: ["5433:5432"]
+    volumes:
+      - senzing-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U senzing -d senzing"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    logging: *default-logging
+
+  senzing-init:
+    image: senzing/init-database:latest
+    environment:
+      # Official Senzing engine configuration format with embedded license
+      # Connection string includes sslmode=disable to work with PostgreSQL without SSL
+      # IMPORTANT: Set SENZING_LICENSE_BASE64 in your .env file
+      SENZING_ENGINE_CONFIGURATION_JSON: >
+        {
+          "PIPELINE": {
+            "CONFIGPATH": "/etc/opt/senzing",
+            "RESOURCEPATH": "/opt/senzing/er/resources",
+            "SUPPORTPATH": "/opt/senzing/data",
+            "LICENSESTRINGBASE64": "${SENZING_LICENSE_BASE64}"
+          },
+          "SQL": {
+            "CONNECTION": "postgresql://senzing:${SENZING_DB_PASSWORD:-changeme}@senzing-postgres:5432:senzing?sslmode=disable"
+          }
+        }
+      # Register NIEM_GRAPH datasource during initialization
+      SENZING_TOOLS_DATASOURCES: "NIEM_GRAPH"
+      # Also set as environment variable for tools that read it directly
+      PGSSLMODE: disable
+    command: ["--install-senzing-er-configuration"]
+    depends_on:
+      senzing-postgres:
+        condition: service_healthy
+    restart: "no"
+    logging: *default-logging
+
+  senzing-grpc:
+    image: senzing/senzing-tools:latest
+    environment:
+      SENZING_TOOLS_COMMAND: serve-grpc
+      SENZING_TOOLS_ENABLE_ALL: "true"
+      # Use same engine configuration with embedded license and sslmode=disable
+      # IMPORTANT: Set SENZING_LICENSE_BASE64 in your .env file
+      SENZING_ENGINE_CONFIGURATION_JSON: >
+        {
+          "PIPELINE": {
+            "CONFIGPATH": "/etc/opt/senzing",
+            "RESOURCEPATH": "/opt/senzing/er/resources",
+            "SUPPORTPATH": "/opt/senzing/data",
+            "LICENSESTRINGBASE64": "${SENZING_LICENSE_BASE64}"
+          },
+          "SQL": {
+            "CONNECTION": "postgresql://senzing:${SENZING_DB_PASSWORD:-changeme}@senzing-postgres:5432:senzing?sslmode=disable"
+          }
+        }
+      PGSSLMODE: disable
+    ports: ["8261:8261"]
+    depends_on:
+      senzing-postgres:
+        condition: service_healthy
+      senzing-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8261 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    logging: *default-logging
+
   api:
     build:
       context: .
@@ -54,9 +144,8 @@ services:
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
-      # Validation feature flags
+      # JSON validation feature flag
       SKIP_JSON_VALIDATION: ${SKIP_JSON_VALIDATION:-false}
-      SKIP_SCHEMA_DEPENDENCY_VALIDATION: ${SKIP_SCHEMA_DEPENDENCY_VALIDATION:-false}
       # Batch processing configuration
       BATCH_MAX_CONCURRENT_OPERATIONS: ${BATCH_MAX_CONCURRENT_OPERATIONS:-3}
       BATCH_OPERATION_TIMEOUT: ${BATCH_OPERATION_TIMEOUT:-60}
@@ -66,11 +155,12 @@ services:
       # Senzing entity resolution configuration
       SENZING_LICENSE_PATH: /app/secrets/senzing/g2.lic
       SENZING_DATA_DIR: /data/senzing
+      SENZING_GRPC_URL: senzing-grpc:8261
     volumes:
       - api-data:/data
       # Mount secrets directory for decoded Senzing license
       # License auto-decodes from base64 on first startup
-      - ./api/secrets:/app/secrets:ro
+      - ./api/secrets:/app/secrets
       # Mount api directory to search for g2license_* folders (read-only)
       - ./api:/app/licenses:ro
     ports: ["8000:8000"]
@@ -79,6 +169,8 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_healthy
+      senzing-grpc:
+        condition: service_started  # Don't wait for healthy, just started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/readyz"]
       interval: 5s
@@ -107,3 +199,5 @@ volumes:
   minio-data:
   neo4j-data:
   api-data:
+  senzing-data:
+  senzing-postgres-data:

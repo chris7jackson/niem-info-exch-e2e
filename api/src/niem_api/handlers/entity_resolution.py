@@ -13,12 +13,17 @@ which entity types to resolve from the Neo4j graph.
 import hashlib
 import json
 import logging
+import yaml
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
 from ..clients.neo4j_client import Neo4jClient
 
 logger = logging.getLogger(__name__)
+
+# Cache for Senzing field mappings
+_SENZING_FIELD_MAPPINGS = None
 
 # Try to import Senzing integration
 SENZING_AVAILABLE = False
@@ -35,6 +40,91 @@ except ImportError:
     logger.info("Senzing integration not available - will use text-based entity matching")
 
 
+def _load_senzing_field_mappings() -> Dict[str, str]:
+    """Load Senzing field mappings from YAML configuration.
+
+    Returns:
+        Dictionary mapping NIEM field names to Senzing field names
+    """
+    global _SENZING_FIELD_MAPPINGS
+
+    if _SENZING_FIELD_MAPPINGS is not None:
+        return _SENZING_FIELD_MAPPINGS
+
+    try:
+        # Look for config file in multiple locations
+        config_paths = [
+            Path('/app/config/niem_senzing_mappings.yaml'),  # Docker
+            Path(__file__).parent.parent.parent.parent / 'config' / 'niem_senzing_mappings.yaml',  # Development
+        ]
+
+        config_path = None
+        for path in config_paths:
+            if path.exists():
+                config_path = path
+                break
+
+        if not config_path:
+            logger.warning("Senzing mappings config not found, using empty mappings")
+            _SENZING_FIELD_MAPPINGS = {}
+            return _SENZING_FIELD_MAPPINGS
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        # Extract field mappings
+        field_mappings = config.get('field_mappings', {})
+        custom_mappings = config.get('custom_mappings', {})
+
+        # Merge mappings
+        _SENZING_FIELD_MAPPINGS = {**field_mappings, **custom_mappings}
+
+        logger.info(f"Loaded {len(_SENZING_FIELD_MAPPINGS)} Senzing field mappings from {config_path}")
+        return _SENZING_FIELD_MAPPINGS
+
+    except Exception as e:
+        logger.error(f"Failed to load Senzing field mappings: {e}")
+        _SENZING_FIELD_MAPPINGS = {}
+        return _SENZING_FIELD_MAPPINGS
+
+
+def _count_senzing_mappable_fields(node_keys: List[str]) -> int:
+    """Count how many properties on a node map to Senzing fields.
+
+    Handles long prefixes like: role_of_person__nc_PersonFullName
+
+    Args:
+        node_keys: List of property keys from a Neo4j node
+
+    Returns:
+        Count of properties that map to Senzing fields
+    """
+    mappings = _load_senzing_field_mappings()
+    if not mappings:
+        return 0
+
+    # Get the NIEM field names (keys from mappings)
+    niem_fields = set(mappings.keys())
+
+    # Count matches - check if any node key ends with or contains a known NIEM field name
+    count = 0
+    for node_key in node_keys:
+        # Normalize key by removing all separators for comparison
+        normalized_key = node_key.lower().replace('__', '').replace('_', '').replace('-', '')
+
+        # Check if this key contains any known NIEM field
+        for niem_field in niem_fields:
+            # Normalize NIEM field the same way
+            niem_field_normalized = niem_field.lower().replace('_', '')
+
+            # Match if the normalized node key ends with the normalized NIEM field
+            if normalized_key.endswith(niem_field_normalized):
+                count += 1
+                break  # Count each node key only once
+
+    return count
+
+
 # ============================================================================
 # Internal Helper Functions (Entity Resolution Logic)
 # ============================================================================
@@ -42,8 +132,9 @@ except ImportError:
 def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types: List[str]) -> List[Dict]:
     """Extract entities from Neo4j for resolution.
 
-    Supports any entity type with name properties accessible through
-    direct or nested relationships to PersonName nodes.
+    Supports TWO patterns:
+    1. Flattened attributes directly on entity nodes (e.g., entity.nc_PersonFullName)
+    2. Related PersonName/OrganizationName nodes (e.g., entity-[:HAS_PERSONNAME]->personName)
 
     Args:
         neo4j_client: Neo4j client instance
@@ -58,14 +149,106 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
 
     logger.info(f"Extracting entities for resolution: {selected_node_types}")
 
-    # Query to get entities of selected types
-    # Use variable-length path (1-3 hops):
-    #   - 1 hop: Entity -> PersonName (direct, e.g., CrashDriver extends PersonType)
-    #   - 2 hops: Entity -> NestedObject -> PersonName
-    #   - 3 hops: Entity -> Container -> NestedObject -> PersonName
+    # Query to get entities with resolution attributes from entity OR related nodes
+    # Handles both flattened and relationship-based structures
     query = """
-    MATCH (entity)-[*1..3]->(pn:nc_PersonName)
+    MATCH (entity)
     WHERE entity.qname IN $node_types
+
+    // Optionally match related name nodes (PersonName, OrganizationName, etc.)
+    OPTIONAL MATCH (entity)-[]->(relatedName)
+    WHERE relatedName.qname IN ['nc:PersonName', 'nc:OrganizationName', 'nc:PersonBirthDate']
+
+    // Get keys from both entity and related nodes
+    WITH entity,
+         keys(entity) as entityKeys,
+         collect(keys(relatedName)) as relatedKeys,
+         collect(relatedName) as relatedNodes
+
+    // Flatten related keys
+    WITH entity, entityKeys, relatedNodes,
+         reduce(allKeys = entityKeys, keyList IN relatedKeys | allKeys + keyList) as allKeys
+
+    // Find resolution-relevant attributes by checking patterns (case-insensitive)
+    WITH entity, entityKeys, relatedNodes, allKeys,
+         // Name fields
+         [key IN allKeys WHERE toLower(key) CONTAINS 'fullname' OR toLower(key) CONTAINS 'organizationname'][0] as nameKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'givenname' OR toLower(key) CONTAINS 'firstname'][0] as givenNameKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'surname' OR toLower(key) CONTAINS 'lastname'][0] as surNameKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'middlename'][0] as middleNameKey,
+         // Identifier fields
+         [key IN allKeys WHERE toLower(key) CONTAINS 'ssn' OR toLower(key) CONTAINS 'socialsecurity'][0] as ssnKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'driverslicense' OR toLower(key) CONTAINS 'dln'][0] as dlKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'identification' AND NOT toLower(key) CONTAINS 'driver'][0] as idKey,
+         // Date fields
+         [key IN allKeys WHERE toLower(key) CONTAINS 'birthdate' OR toLower(key) CONTAINS 'dob'][0] as dobKey,
+         // Address fields
+         [key IN allKeys WHERE toLower(key) CONTAINS 'address' AND NOT toLower(key) CONTAINS 'email'][0] as addressKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'city'][0] as cityKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'state'][0] as stateKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'zip' OR toLower(key) CONTAINS 'postal'][0] as zipKey,
+         // Contact fields
+         [key IN allKeys WHERE toLower(key) CONTAINS 'phone' OR toLower(key) CONTAINS 'telephone'][0] as phoneKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'email'][0] as emailKey
+
+    // Helper function to extract value from entity or related nodes
+    WITH entity, relatedNodes, nameKey, givenNameKey, surNameKey, middleNameKey,
+         ssnKey, dlKey, idKey, dobKey, addressKey, cityKey, stateKey, zipKey, phoneKey, emailKey,
+         // Extract from entity first, then from related nodes
+         CASE
+           WHEN nameKey IS NOT NULL AND entity[nameKey] IS NOT NULL THEN entity[nameKey]
+           WHEN nameKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[nameKey] IS NOT NULL | n[nameKey]])
+           ELSE null
+         END as PersonFullName,
+         CASE
+           WHEN givenNameKey IS NOT NULL AND entity[givenNameKey] IS NOT NULL THEN entity[givenNameKey]
+           WHEN givenNameKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[givenNameKey] IS NOT NULL | n[givenNameKey]])
+           ELSE null
+         END as PersonGivenName,
+         CASE
+           WHEN surNameKey IS NOT NULL AND entity[surNameKey] IS NOT NULL THEN entity[surNameKey]
+           WHEN surNameKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[surNameKey] IS NOT NULL | n[surNameKey]])
+           ELSE null
+         END as PersonSurName,
+         CASE
+           WHEN middleNameKey IS NOT NULL AND entity[middleNameKey] IS NOT NULL THEN entity[middleNameKey]
+           WHEN middleNameKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[middleNameKey] IS NOT NULL | n[middleNameKey]])
+           ELSE null
+         END as PersonMiddleName,
+         CASE
+           WHEN ssnKey IS NOT NULL AND entity[ssnKey] IS NOT NULL THEN entity[ssnKey]
+           WHEN ssnKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[ssnKey] IS NOT NULL | n[ssnKey]])
+           ELSE null
+         END as PersonSSN,
+         CASE
+           WHEN dlKey IS NOT NULL AND entity[dlKey] IS NOT NULL THEN entity[dlKey]
+           WHEN dlKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[dlKey] IS NOT NULL | n[dlKey]])
+           ELSE null
+         END as DriverLicense,
+         CASE
+           WHEN dobKey IS NOT NULL AND entity[dobKey] IS NOT NULL THEN entity[dobKey]
+           WHEN dobKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[dobKey] IS NOT NULL | n[dobKey]])
+           ELSE null
+         END as BirthDate,
+         CASE
+           WHEN addressKey IS NOT NULL AND entity[addressKey] IS NOT NULL THEN entity[addressKey]
+           WHEN addressKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[addressKey] IS NOT NULL | n[addressKey]])
+           ELSE null
+         END as Address
+
+    WITH entity, PersonFullName, PersonGivenName, PersonSurName, PersonMiddleName,
+         PersonSSN, DriverLicense, BirthDate, Address,
+         null as PersonID, null as City, null as State, null as ZipCode, null as Phone, null as Email
+
+    // Only return entities that have at least one resolution-relevant attribute
+    WHERE PersonFullName IS NOT NULL
+       OR (PersonGivenName IS NOT NULL AND PersonSurName IS NOT NULL)
+       OR PersonSSN IS NOT NULL
+       OR DriverLicense IS NOT NULL
+       OR PersonID IS NOT NULL
+       OR BirthDate IS NOT NULL
+       OR Address IS NOT NULL
+
     RETURN
         id(entity) as neo4j_id,
         entity.id as entity_id,
@@ -74,10 +257,20 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
         entity._source_file as source_file,
         labels(entity) as labels,
         entity as entity_node,
-        pn.nc_PersonFullName as PersonFullName,
-        pn.nc_PersonGivenName as PersonGivenName,
-        pn.nc_PersonSurName as PersonSurName,
-        pn.nc_PersonMiddleName as PersonMiddleName
+        PersonFullName,
+        PersonGivenName,
+        PersonSurName,
+        PersonMiddleName,
+        PersonSSN,
+        DriverLicense,
+        PersonID,
+        BirthDate,
+        Address,
+        City,
+        State,
+        ZipCode,
+        Phone,
+        Email
     """
 
     # Use query() instead of query_graph() for scalar results
@@ -87,44 +280,53 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
     for record in results:
         entity_props = dict(record['entity_node'].items()) if record.get('entity_node') else {}
 
-        # Extract name components - support multiple formats
+        # Extract all resolution attributes
         full_name = str(record.get('PersonFullName') or '')
         given_name = str(record.get('PersonGivenName') or '')
         surname = str(record.get('PersonSurName') or '')
         middle_name = str(record.get('PersonMiddleName') or '')
+        ssn = str(record.get('PersonSSN') or '')
+        driver_license = str(record.get('DriverLicense') or '')
+        person_id = str(record.get('PersonID') or '')
+        birth_date = str(record.get('BirthDate') or '')
+        address = str(record.get('Address') or '')
+        city = str(record.get('City') or '')
+        state = str(record.get('State') or '')
+        zip_code = str(record.get('ZipCode') or '')
+        phone = str(record.get('Phone') or '')
+        email = str(record.get('Email') or '')
 
         # Get source and entity type info
         source = record.get('sourceDoc') or record.get('source_file') or 'unknown'
         entity_type = record.get('qname') or 'Unknown'
 
-        # Log extraction details for debugging
+        # Build list of found attributes for logging
+        found_attrs = []
         if full_name:
-            logger.info(
-                f"✓ Extracted {entity_type} entity: PersonFullName='{full_name}' "
-                f"from {source} (node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')})"
-            )
+            found_attrs.append(f"Name='{full_name}'")
         elif given_name and surname:
+            found_attrs.append(f"Name='{given_name} {surname}'")
+        if ssn:
+            found_attrs.append(f"SSN='{ssn[:3]}-XX-XXXX'")  # Masked for logging
+        if birth_date:
+            found_attrs.append(f"DOB='{birth_date}'")
+        if address:
+            found_attrs.append(f"Address='{address[:20]}...'")
+        if phone:
+            found_attrs.append(f"Phone='{phone}'")
+
+        # Log extraction with all found attributes
+        if found_attrs:
             logger.info(
-                f"✓ Extracted {entity_type} entity: GivenName='{given_name}', SurName='{surname}' "
-                f"from {source} (node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')})"
+                f"✓ Extracted {entity_type} entity with {len(found_attrs)} attributes: {', '.join(found_attrs)} "
+                f"from {source} (neo4j_id={record.get('neo4j_id')})"
             )
-        elif given_name:
-            # Accept entities with just given name (might be incomplete data)
-            logger.warning(
-                f"⚠ Partial extraction for {entity_type}: GivenName='{given_name}' only "
-                f"from {source} (node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')}). "
-                f"Skipping - need at least given name + surname for matching."
-            )
-            continue
         else:
             logger.warning(
-                f"✗ Failed to extract name from {entity_type} in {source} "
-                f"(node {record.get('entity_id')}, neo4j_id={record.get('neo4j_id')}). "
-                f"PersonFullName='{full_name}', GivenName='{given_name}', SurName='{surname}', "
-                f"PersonName fields from query: FullName={record.get('PersonFullName')}, "
-                f"GivenName={record.get('PersonGivenName')}, SurName={record.get('PersonSurName')}"
+                f"⚠ Skipping {entity_type} - no resolution attributes found "
+                f"(neo4j_id={record.get('neo4j_id')})"
             )
-            continue  # Skip entities without sufficient name data
+            continue
 
         entities.append({
             'neo4j_id': record['neo4j_id'],
@@ -138,7 +340,17 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
                 'PersonFullName': full_name,
                 'PersonGivenName': given_name,
                 'PersonSurName': surname,
-                'PersonMiddleName': middle_name
+                'PersonMiddleName': middle_name,
+                'PersonSSN': ssn,
+                'DriverLicense': driver_license,
+                'PersonID': person_id,
+                'BirthDate': birth_date,
+                'Address': address,
+                'City': city,
+                'State': state,
+                'ZipCode': zip_code,
+                'Phone': phone,
+                'Email': email
             }
         })
 
@@ -163,11 +375,18 @@ def _create_entity_key(entity: Dict) -> str:
     """
     props = entity.get('properties', {})
 
+    # DEBUG: Show entity being processed for text-based matching
+    print(f"\n[SENZING_DEBUG] TEXT-BASED MATCHING - Processing entity:")
+    print(f"[SENZING_DEBUG]   neo4j_id: {entity.get('neo4j_id')}")
+    print(f"[SENZING_DEBUG]   qname: {entity.get('qname')}")
+    print(f"[SENZING_DEBUG]   properties: {list(props.keys())}")
+
     # Try PersonFullName first (for Child entities from NEICE documents)
     full_name = props.get('PersonFullName', '').strip().lower()
     if full_name:
         # Normalize: "Jason Ohlendorf" -> "jason_ohlendorf"
         key = full_name.replace(' ', '_')
+        print(f"[SENZING_DEBUG]   Matched on PersonFullName: '{full_name}' → key='{key}'")
         return key
 
     # Fall back to GivenName + SurName (for CrashDriver entities)
@@ -177,9 +396,11 @@ def _create_entity_key(entity: Dict) -> str:
     if given_name and surname:
         # Create normalized key: "peter" + "wimsey" -> "peter_wimsey"
         key = f"{given_name}_{surname}"
+        print(f"[SENZING_DEBUG]   Matched on GivenName+SurName: '{given_name}' + '{surname}' → key='{key}'")
         return key
 
     # Insufficient data for matching
+    print(f"[SENZING_DEBUG]   ❌ Insufficient data for matching - no name fields found")
     return ''
 
 
@@ -263,6 +484,34 @@ def _create_resolved_entity_nodes(
 
         birth_date = props.get('PersonBirthDate', '')
 
+        # Collect graph isolation properties from all entities in the group
+        upload_ids = set()
+        schema_ids = set()
+        source_docs = set()
+
+        for entity in entities:
+            entity_props = entity.get('properties', {})
+
+            # Collect _upload_id
+            upload_id = entity_props.get('_upload_id')
+            if upload_id:
+                upload_ids.add(upload_id)
+
+            # Collect _schema_id
+            schema_id = entity_props.get('_schema_id')
+            if schema_id:
+                schema_ids.add(schema_id)
+
+            # Collect sourceDoc
+            source_doc = entity.get('source') or entity_props.get('sourceDoc')
+            if source_doc:
+                source_docs.add(source_doc)
+
+        # Convert sets to sorted lists for consistency
+        upload_ids_list = sorted(list(upload_ids))
+        schema_ids_list = sorted(list(schema_ids))
+        source_docs_list = sorted(list(source_docs))
+
         # Create ResolvedEntity node
         create_node_query = """
         MERGE (re:ResolvedEntity {entity_id: $entity_id})
@@ -270,7 +519,10 @@ def _create_resolved_entity_nodes(
             re.birth_date = $birth_date,
             re.resolved_count = $resolved_count,
             re.resolved_at = $resolved_at,
-            re.match_key = $match_key
+            re.match_key = $match_key,
+            re._upload_ids = $upload_ids,
+            re._schema_ids = $schema_ids,
+            re.sourceDocs = $source_docs
         RETURN re
         """
 
@@ -280,7 +532,10 @@ def _create_resolved_entity_nodes(
             'birth_date': birth_date,
             'resolved_count': len(entities),
             'resolved_at': timestamp,
-            'match_key': match_key
+            'match_key': match_key,
+            'upload_ids': upload_ids_list,
+            'schema_ids': schema_ids_list,
+            'source_docs': source_docs_list
         })
 
         resolved_count += 1
@@ -429,6 +684,37 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
         # Convert entities to Senzing format
         senzing_records = batch_convert_to_senzing(entities)
 
+        # Log what's being sent to Senzing (DEBUG)
+        logger.info("=" * 80)
+        logger.info("SENZING INPUT: Converting entities to Senzing format")
+        logger.info("=" * 80)
+        for i, (data_source, record_id, record_json) in enumerate(senzing_records[:5]):  # Show first 5
+            record_dict = json.loads(record_json)
+            logger.info(f"\n--- Record {i+1}/{len(senzing_records)} (ID: {record_id}) ---")
+            logger.info(f"DATA_SOURCE: {data_source}")
+            logger.info(f"RECORD_TYPE: {record_dict.get('RECORD_TYPE', 'N/A')}")
+            logger.info(f"ENTITY_TYPE: {record_dict.get('ENTITY_TYPE', 'N/A')}")
+            logger.info(f"SOURCE_FILE: {record_dict.get('SOURCE_FILE', 'N/A')}")
+
+            # Show name fields
+            name_fields = {k: v for k, v in record_dict.items() if 'NAME' in k}
+            if name_fields:
+                logger.info(f"NAME FIELDS: {json.dumps(name_fields, indent=2)}")
+
+            # Show identifier fields
+            id_fields = {k: v for k, v in record_dict.items() if any(x in k for x in ['SSN', 'DOB', 'LICENSE', 'ID_NUMBER'])}
+            if id_fields:
+                logger.info(f"IDENTIFIER FIELDS: {json.dumps(id_fields, indent=2)}")
+
+            # Show address fields
+            addr_fields = {k: v for k, v in record_dict.items() if 'ADDR' in k}
+            if addr_fields:
+                logger.info(f"ADDRESS FIELDS: {json.dumps(addr_fields, indent=2)}")
+
+        if len(senzing_records) > 5:
+            logger.info(f"\n... and {len(senzing_records) - 5} more records")
+        logger.info("=" * 80)
+
         # Process records through Senzing
         batch_result = senzing_client.process_batch(senzing_records)
         logger.info(f"Processed {batch_result['processed']} records through Senzing")
@@ -439,19 +725,58 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
         relationship_count = 0
         timestamp = datetime.utcnow().isoformat()
 
+        # Log Senzing output
+        logger.info("=" * 80)
+        logger.info("SENZING OUTPUT: Retrieving resolution results")
+        logger.info("=" * 80)
+
         # Get resolution results for each entity
-        for entity in entities:
+        for i, entity in enumerate(entities):
             record_id = str(entity.get('entity_id') or entity.get('neo4j_id', ''))
 
             # Get Senzing resolution result
             result = senzing_client.get_entity_by_record_id("NIEM_GRAPH", record_id)
             if not result:
+                logger.warning(f"No Senzing result for record {record_id}")
                 continue
+
+            # DEBUG: Print raw Senzing response
+            resolved_entity = result.get('RESOLVED_ENTITY', {})
+            records = resolved_entity.get('RECORDS', [])
+            print(f"\n[SENZING_DEBUG] Senzing response for record_id={record_id}:")
+            print(f"[SENZING_DEBUG]   ENTITY_ID: {resolved_entity.get('ENTITY_ID')}")
+            print(f"[SENZING_DEBUG]   ENTITY_NAME: {resolved_entity.get('ENTITY_NAME')}")
+            print(f"[SENZING_DEBUG]   Records matched: {len(records)}")
+            for rec in records:
+                print(f"[SENZING_DEBUG]     - {rec.get('DATA_SOURCE')}/{rec.get('RECORD_ID')} (MATCH_KEY: {rec.get('MATCH_KEY', 'N/A')})")
 
             # Extract Senzing entity ID
             senzing_entity_id = result.get('RESOLVED_ENTITY', {}).get('ENTITY_ID')
             if not senzing_entity_id:
+                logger.warning(f"No entity ID in Senzing result for record {record_id}")
                 continue
+
+            # Log detailed Senzing output for first 5 entities
+            if i < 5:
+                resolved_entity = result.get('RESOLVED_ENTITY', {})
+                logger.info(f"\n--- Senzing Result {i+1}/{len(entities)} (Record ID: {record_id}) ---")
+                logger.info(f"SENZING ENTITY_ID: {senzing_entity_id}")
+                logger.info(f"ENTITY_NAME: {resolved_entity.get('ENTITY_NAME', 'N/A')}")
+                logger.info(f"RECORD_SUMMARY:")
+
+                # Show all records that resolved to this entity
+                records = resolved_entity.get('RECORDS', [])
+                for rec in records:
+                    logger.info(f"  - {rec.get('DATA_SOURCE')}/{rec.get('RECORD_ID')} (MATCH_KEY: {rec.get('MATCH_KEY', 'N/A')})")
+
+                # Show match details
+                if len(records) > 1:
+                    logger.info(f"✓ DUPLICATE DETECTED: {len(records)} records resolve to same entity")
+                    # DEBUG: Print duplicate detection
+                    record_ids = [rec.get('RECORD_ID') for rec in records]
+                    print(f"[SENZING_DEBUG] ✓ DUPLICATE FOUND: Records {record_ids} all resolve to Senzing ENTITY_ID={senzing_entity_id}")
+                else:
+                    logger.info(f"  UNIQUE ENTITY: Only 1 record for this entity")
 
             # Check if this is a duplicate (multiple records resolved to same entity)
             if senzing_entity_id not in resolved_entities:
@@ -462,6 +787,11 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
                 }
 
             resolved_entities[senzing_entity_id]['entities'].append(entity)
+
+        logger.info(f"\n--- Summary ---")
+        logger.info(f"Total Senzing Entity IDs: {len(resolved_entities)}")
+        logger.info(f"Entities with duplicates (2+ records): {sum(1 for v in resolved_entities.values() if len(v['entities']) >= 2)}")
+        logger.info("=" * 80)
 
         # Create ResolvedEntity nodes for groups with duplicates
         for senzing_entity_id, group_data in resolved_entities.items():
@@ -491,6 +821,34 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
             # Get match confidence from Senzing
             confidence = extract_confidence_from_senzing({'RESOLVED_ENTITY': senzing_data})
 
+            # Collect graph isolation properties from all entities in the group
+            upload_ids = set()
+            schema_ids = set()
+            source_docs = set()
+
+            for entity in entities_in_group:
+                entity_props = entity.get('properties', {})
+
+                # Collect _upload_id
+                upload_id = entity_props.get('_upload_id')
+                if upload_id:
+                    upload_ids.add(upload_id)
+
+                # Collect _schema_id
+                schema_id = entity_props.get('_schema_id')
+                if schema_id:
+                    schema_ids.add(schema_id)
+
+                # Collect sourceDoc
+                source_doc = entity.get('source') or entity_props.get('sourceDoc')
+                if source_doc:
+                    source_docs.add(source_doc)
+
+            # Convert sets to sorted lists for consistency
+            upload_ids_list = sorted(list(upload_ids))
+            schema_ids_list = sorted(list(schema_ids))
+            source_docs_list = sorted(list(source_docs))
+
             # Create ResolvedEntity node
             create_node_query = """
             MERGE (re:ResolvedEntity {entity_id: $entity_id})
@@ -499,7 +857,10 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
                 re.resolved_count = $resolved_count,
                 re.resolved_at = $resolved_at,
                 re.resolution_method = 'senzing',
-                re.confidence = $confidence
+                re.confidence = $confidence,
+                re._upload_ids = $upload_ids,
+                re._schema_ids = $schema_ids,
+                re.sourceDocs = $source_docs
             RETURN re
             """
 
@@ -509,7 +870,10 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
                 'senzing_entity_id': senzing_entity_id,
                 'resolved_count': len(entities_in_group),
                 'resolved_at': timestamp,
-                'confidence': confidence
+                'confidence': confidence,
+                'upload_ids': upload_ids_list,
+                'schema_ids': schema_ids_list,
+                'source_docs': source_docs_list
             })
 
             resolved_count += 1
@@ -644,7 +1008,9 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
 
     This function discovers all node types in the graph that have:
     - A qname property (indicating they're NIEM entities)
-    - Name properties (either PersonFullName or PersonGivenName/PersonSurName)
+    - Resolution attributes (names, DOB, SSN, addresses, phone/email, etc.)
+
+    Supports flattened attributes with long prefixes (e.g., role_of_person__nc_person__nc_personname)
 
     Args:
         neo4j_client: Neo4j client instance
@@ -652,55 +1018,120 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
     Returns:
         List of dictionaries containing node type information
     """
-    # Query to find all distinct qnames and check if they have name properties
+    # Query to find all distinct qnames and check if they have resolution-relevant attributes
     discovery_query = """
     // Find all distinct qnames in the graph
+    // Exclude component nodes (PersonName, OrganizationName, etc.) - only show actual entities
     MATCH (n)
     WHERE n.qname IS NOT NULL
+      AND NOT n.qname IN ['nc:PersonName', 'nc:OrganizationName', 'nc:PersonBirthDate',
+                          'nc:PersonGivenName', 'nc:PersonSurName', 'nc:PersonMiddleName',
+                          'nc:PersonFullName', 'nc:AddressFullText', 'nc:Date']
     WITH DISTINCT n.qname as qname, labels(n)[0] as label
 
-    // Count entities for each qname
+    // Count entities for each qname and get a sample entity
     MATCH (entity)
     WHERE entity.qname = qname
-    WITH qname, label, count(entity) as count
+    WITH qname, label, count(entity) as count, collect(entity)[0] as sample
 
-    // Check if entities of this type have name properties
-    // Using 1-3 hop path to find entities with PersonName relationships
-    // 1 hop: Entity -> PersonName (direct, e.g., CrashDriver extends PersonType)
-    // 2 hops: Entity -> NestedObject -> PersonName
-    // 3 hops: Entity -> Container -> NestedObject -> PersonName
-    OPTIONAL MATCH (sample)-[*1..3]->(pn:nc_PersonName)
-    WHERE sample.qname = qname
-    WITH qname, label, count,
-         collect(DISTINCT pn.nc_PersonFullName)[0] as sampleFullName,
-         collect(DISTINCT pn.nc_PersonGivenName)[0] as sampleGivenName,
-         collect(DISTINCT pn.nc_PersonSurName)[0] as sampleSurName
+    // Also check related nodes for resolution attributes (PersonName, OrganizationName, etc.)
+    OPTIONAL MATCH (sample)-[]->(relatedName)
+    WHERE relatedName.qname IN ['nc:PersonName', 'nc:OrganizationName', 'nc:PersonBirthDate']
 
-    // Only return types that have name properties
-    WHERE sampleFullName IS NOT NULL
-       OR (sampleGivenName IS NOT NULL AND sampleSurName IS NOT NULL)
+    // Get all property keys from both the sample entity and related nodes
+    WITH qname, label, count, sample,
+         keys(sample) as entityKeys,
+         collect(keys(relatedName)) as relatedKeys,
+         collect(relatedName) as relatedNodes
+
+    // Flatten all keys from entity and related nodes
+    WITH qname, label, count, sample, relatedNodes,
+         reduce(allKeys = entityKeys, keyList IN relatedKeys | allKeys + keyList) as allKeys
+
+    // Find resolution-relevant attributes by checking suffixes (case-insensitive patterns)
+    // Support long prefixes like: role_of_person__nc_person__nc_personname
+    WITH qname, label, count, sample, relatedNodes, allKeys,
+         // Name fields
+         [key IN allKeys WHERE toLower(key) CONTAINS 'fullname' OR toLower(key) CONTAINS 'organizationname'][0] as nameKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'givenname' OR toLower(key) CONTAINS 'firstname'][0] as givenNameKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'surname' OR toLower(key) CONTAINS 'lastname'][0] as surNameKey,
+         // Identifier fields
+         [key IN allKeys WHERE toLower(key) CONTAINS 'ssn' OR toLower(key) CONTAINS 'socialsecurity'][0] as ssnKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'driverslicense' OR toLower(key) CONTAINS 'dln'][0] as dlKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'identification' AND NOT toLower(key) CONTAINS 'driver'][0] as idKey,
+         // Date fields
+         [key IN allKeys WHERE toLower(key) CONTAINS 'birthdate' OR toLower(key) CONTAINS 'dob'][0] as dobKey,
+         // Address fields
+         [key IN allKeys WHERE toLower(key) CONTAINS 'address' AND NOT toLower(key) CONTAINS 'email'][0] as addressKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'city'][0] as cityKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'state'][0] as stateKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'zip' OR toLower(key) CONTAINS 'postal'][0] as zipKey,
+         // Contact fields
+         [key IN allKeys WHERE toLower(key) CONTAINS 'phone' OR toLower(key) CONTAINS 'telephone'][0] as phoneKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'email'][0] as emailKey
+
+    // Check if entity has at least one resolution-relevant attribute
+    WITH qname, label, count, sample, relatedNodes, nameKey, givenNameKey, surNameKey, ssnKey, dlKey, idKey,
+         dobKey, addressKey, cityKey, stateKey, zipKey, phoneKey, emailKey,
+         // Count how many resolution attributes exist
+         size([k IN [nameKey, givenNameKey, ssnKey, dlKey, idKey, dobKey, addressKey, phoneKey, emailKey] WHERE k IS NOT NULL]) as attrCount
+
+    // Only return types that have at least one resolution-relevant attribute
+    WHERE attrCount > 0
+
+    // Get sample values from found keys (check entity first, then related nodes)
+    WITH qname, label, count, sample, relatedNodes, attrCount,
+         CASE
+           WHEN nameKey IS NOT NULL AND sample[nameKey] IS NOT NULL THEN sample[nameKey]
+           WHEN nameKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[nameKey] IS NOT NULL | n[nameKey]])
+           ELSE null
+         END as sampleName,
+         CASE
+           WHEN givenNameKey IS NOT NULL AND sample[givenNameKey] IS NOT NULL THEN sample[givenNameKey]
+           WHEN givenNameKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[givenNameKey] IS NOT NULL | n[givenNameKey]])
+           ELSE null
+         END as sampleGivenName,
+         CASE
+           WHEN surNameKey IS NOT NULL AND sample[surNameKey] IS NOT NULL THEN sample[surNameKey]
+           WHEN surNameKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[surNameKey] IS NOT NULL | n[surNameKey]])
+           ELSE null
+         END as sampleSurName,
+         CASE
+           WHEN ssnKey IS NOT NULL AND sample[ssnKey] IS NOT NULL THEN sample[ssnKey]
+           WHEN ssnKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[ssnKey] IS NOT NULL | n[ssnKey]])
+           ELSE null
+         END as sampleSSN,
+         CASE
+           WHEN dobKey IS NOT NULL AND sample[dobKey] IS NOT NULL THEN sample[dobKey]
+           WHEN dobKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[dobKey] IS NOT NULL | n[dobKey]])
+           ELSE null
+         END as sampleDOB,
+         CASE
+           WHEN addressKey IS NOT NULL AND sample[addressKey] IS NOT NULL THEN sample[addressKey]
+           WHEN addressKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[addressKey] IS NOT NULL | n[addressKey]])
+           ELSE null
+         END as sampleAddress,
+         keys(sample) + reduce(allKeys = [], keyList IN [n IN relatedNodes | keys(n)] | allKeys + keyList) as sampleKeys
 
     // Find the hierarchy path from root to this entity type
-    WITH qname, label, count, sampleFullName, sampleGivenName, sampleSurName
+    WITH qname, label, count, sample, attrCount, sampleName, sampleGivenName, sampleSurName,
+         sampleSSN, sampleDOB, sampleAddress, sampleKeys
     OPTIONAL MATCH path = (root)-[*]->(sample)
     WHERE sample.qname = qname
       AND NOT EXISTS((()-[]->(root)))  // root has no incoming edges
       AND root.qname IS NOT NULL
-    WITH qname, label, count, sampleFullName, sampleGivenName, sampleSurName,
+    WITH qname, label, count, attrCount, sampleName, sampleGivenName, sampleSurName,
+         sampleSSN, sampleDOB, sampleAddress, sampleKeys,
          collect(DISTINCT [node in nodes(path) | node.qname])[0] as pathQnames
 
-    RETURN DISTINCT qname, label, count,
-           CASE
-               WHEN sampleFullName IS NOT NULL THEN true
-               ELSE false
-           END as hasFullName,
-           CASE
-               WHEN sampleGivenName IS NOT NULL AND sampleSurName IS NOT NULL THEN true
-               ELSE false
-           END as hasGivenAndSurname,
-           sampleFullName,
+    RETURN DISTINCT qname, label, count, attrCount,
+           sampleName,
            sampleGivenName,
            sampleSurName,
+           sampleSSN,
+           sampleDOB,
+           sampleAddress,
+           sampleKeys,
            pathQnames[0..-1] as hierarchyPath
     ORDER BY count DESC
     """
@@ -717,12 +1148,23 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
             continue
         seen_qnames.add(qname)
 
-        # Determine which name fields are available
-        name_fields = []
-        if record.get('hasFullName'):
-            name_fields.append('PersonFullName')
-        if record.get('hasGivenAndSurname'):
-            name_fields.append('PersonGivenName + PersonSurName')
+        # Determine which resolution attributes are available
+        attr_count = record.get('attrCount', 0)
+        if attr_count == 0:
+            continue
+
+        # Build list of available fields dynamically
+        available_fields = []
+        if record.get('sampleName'):
+            available_fields.append('Name')
+        if record.get('sampleGivenName') or record.get('sampleSurName'):
+            available_fields.append('Given/Surname')
+        if record.get('sampleSSN'):
+            available_fields.append('SSN')
+        if record.get('sampleDOB'):
+            available_fields.append('DOB')
+        if record.get('sampleAddress'):
+            available_fields.append('Address')
 
         # Determine category
         category = 'other'
@@ -733,10 +1175,9 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
         except:
             pass
 
-        # Filter: Only include person and organization entity types
-        # Exclude vehicles, addresses, and other non-person entities
-        # This is necessary when using 1-3 hop paths which may include container entities
-        if category not in ['person', 'organization']:
+        # Filter: Include person, organization, and location entity types
+        # (as requested by user - key entities for resolution)
+        if category not in ['person', 'organization', 'address']:
             logger.debug(f"Excluding {qname} from entity resolution (category: {category})")
             continue
 
@@ -748,20 +1189,29 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
         else:
             hierarchy_path = []
 
+        # Compute how many properties map to Senzing fields (for "recommended" types)
+        sample_keys = record.get('sampleKeys', [])
+        senzing_mapped_count = _count_senzing_mappable_fields(sample_keys)
+        is_recommended = senzing_mapped_count > 0
+
         node_type_info = {
             'qname': qname,
             'label': record['label'],
             'count': record['count'],
-            'nameFields': name_fields,
+            'nameFields': available_fields,  # Changed from name_fields
             'category': category,
-            'hierarchyPath': hierarchy_path
+            'hierarchyPath': hierarchy_path,
+            'attributeCount': attr_count,
+            'senzingMappedFields': senzing_mapped_count,
+            'recommended': is_recommended
         }
 
         node_types.append(node_type_info)
 
         logger.info(
             f"Found resolvable type: {record['qname']} "
-            f"({record['count']} entities, name fields: {', '.join(name_fields)})"
+            f"({record['count']} entities, {attr_count} resolution attributes, "
+            f"{senzing_mapped_count} Senzing-mapped fields{' - RECOMMENDED' if is_recommended else ''})"
         )
 
     logger.info(f"Discovered {len(node_types)} resolvable node types")

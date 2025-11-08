@@ -445,11 +445,17 @@ async def execute_graph_query(
 @app.get("/api/graph/full")
 async def get_full_graph(
     limit: int = 500,
+    include_resolved: bool = False,
     token: str = Depends(verify_token)
 ):
-    """Get the complete graph structure with all nodes and relationships"""
+    """Get the complete graph structure with all nodes and relationships
+
+    Args:
+        limit: Maximum number of results to return (default 500)
+        include_resolved: Whether to include ResolvedEntity nodes and RESOLVED_TO relationships (default False)
+    """
     from .handlers.graph import get_full_graph
-    return get_full_graph(limit)
+    return get_full_graph(limit, include_resolved)
 
 
 # Entity Resolution Routes

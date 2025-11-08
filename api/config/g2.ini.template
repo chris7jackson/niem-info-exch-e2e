@@ -19,7 +19,8 @@ CONNECTION=sqlite3://na:na@/data/senzing/g2.db
 
 [HYBRID]
 # Hybrid configuration for better performance
+# NOTE: Update these values with actual credentials for production
 SSHOSTNAME=localhost
 SSPORT=8250
 SSUSER=root
-SSPASSWORD=root
+SSPASSWORD=${SENZING_HYBRID_PASSWORD:-changeme}

@@ -499,7 +499,6 @@ export default function GraphPage() {
       // Viewport and zoom settings for better visibility
       minZoom: 0.1,
       maxZoom: 10,
-      wheelSensitivity: 0.2,
 
       style: [
         {

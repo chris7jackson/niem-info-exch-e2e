@@ -79,10 +79,11 @@ CONNECTION=sqlite3://na:na@{db_path}
 
 [HYBRID]
 # Hybrid configuration for better performance (optional)
+# NOTE: Update SSPASSWORD with actual credentials for production
 SSHOSTNAME=localhost
 SSPORT=8250
 SSUSER=root
-SSPASSWORD=root
+SSPASSWORD={os.getenv('SENZING_HYBRID_PASSWORD', 'changeme')}
 """
 
     # Determine output path

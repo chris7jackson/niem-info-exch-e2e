@@ -149,6 +149,9 @@ def neo4j_entity_to_senzing_record(entity: Dict, data_source: str = "NIEM_GRAPH"
     """
     props = entity.get('properties', {})
 
+    # DEBUG: Print entity being processed
+    print(f"\n[SENZING_DEBUG] Processing entity: neo4j_id={entity.get('neo4j_id')}, qname={entity.get('qname')}, properties_count={len(props)}")
+
     # Start with base record structure
     senzing_record = {
         "DATA_SOURCE": data_source,
@@ -191,6 +194,9 @@ def neo4j_entity_to_senzing_record(entity: Dict, data_source: str = "NIEM_GRAPH"
             value = props[niem_field.replace('_', '')]
 
         if value is not None:
+            # DEBUG: Print each field mapping
+            print(f"[SENZING_DEBUG]   Mapped: {niem_field} → {senzing_field} = {repr(value)}")
+
             # Handle different value types
             if isinstance(value, list):
                 # For lists, join with semicolon or take first value
@@ -214,6 +220,9 @@ def neo4j_entity_to_senzing_record(entity: Dict, data_source: str = "NIEM_GRAPH"
     relationships = entity.get('relationships', [])
     if relationships:
         senzing_record['RELATIONSHIPS'] = json.dumps(relationships)
+
+    # DEBUG: Print final Senzing record
+    print(f"[SENZING_DEBUG] Final Senzing record: {json.dumps(senzing_record, indent=2)}\n")
 
     return json.dumps(senzing_record)
 
