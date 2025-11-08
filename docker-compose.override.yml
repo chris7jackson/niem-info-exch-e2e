@@ -12,7 +12,7 @@ services:
       - ./api/src:/app/src
       # Keep existing volumes from base config
       - api-data:/data
-      - ./api/secrets:/app/secrets:ro
+      - ./api/secrets:/app/secrets
       - ./api:/app/licenses:ro
 
   ui:

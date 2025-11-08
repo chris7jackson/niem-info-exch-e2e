@@ -161,25 +161,14 @@ date_formats:
   output_format: "%Y-%m-%d"
 
 # Recommended entity types for resolution
-# These will be marked as recommended in the UI
-recommended_types:
-  - nc:Person
-  - j:Person
-  - j:CrashDriver
-  - j:CrashPerson
-  - cyfs:Child
-  - cyfs:Parent
-  - nc:Organization
-  - j:Organization
-  - nc:Entity
-  - nc:Address
-  - nc:Location
-  - nc:Vehicle
-  - j:Vehicle
+# NOTE: Recommended types are now computed dynamically by the API
+# A node type is marked as "recommended" if it has properties that map to Senzing fields
+# (defined in the field_mappings section above).
+# This ensures that only types with actual resolvable data are recommended.
 
 # Custom mappings
 # Add your own project-specific mappings here
-custom_mappings:
-  # Example:
-  # myproject_PersonID: CUSTOM_PERSON_ID
-  # myproject_AccountNumber: ACCOUNT_NUMBER
+# Example:
+#   myproject_PersonID: CUSTOM_PERSON_ID
+#   myproject_AccountNumber: ACCOUNT_NUMBER
+custom_mappings: {}

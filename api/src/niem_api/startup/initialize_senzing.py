@@ -37,7 +37,7 @@ def initialize_senzing():
     # Setup SQLite configuration
     try:
         # Import configuration helper
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "config"))
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "config"))
         from senzing_simple_config import ensure_sqlite_setup
 
         config = ensure_sqlite_setup()
