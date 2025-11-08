@@ -1085,29 +1085,21 @@ def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
     Returns:
         Dictionary with counts of deleted nodes and relationships
     """
-    # Delete RESOLVED_TO relationships
-    delete_rels_query = """
-    MATCH ()-[r:RESOLVED_TO]->()
-    DELETE r
-    RETURN count(r) as count
-    """
-
-    rel_result = neo4j_client.query(delete_rels_query, {})
-    rel_count = 0
-    if rel_result and len(rel_result) > 0:
-        rel_count = rel_result[0].get('count', 0)
-
-    # Delete ResolvedEntity nodes
-    delete_nodes_query = """
+    # Delete ResolvedEntity nodes and all their relationships
+    # Use DETACH DELETE to automatically remove all relationships
+    delete_query = """
     MATCH (re:ResolvedEntity)
-    DELETE re
-    RETURN count(re) as count
+    WITH re, size([(re)-[r:RESOLVED_TO]-() | r]) as resolved_to_count
+    DETACH DELETE re
+    RETURN count(re) as nodes_deleted, sum(resolved_to_count) as rels_deleted
     """
 
-    node_result = neo4j_client.query(delete_nodes_query, {})
+    result = neo4j_client.query(delete_query, {})
     node_count = 0
-    if node_result and len(node_result) > 0:
-        node_count = node_result[0].get('count', 0)
+    rel_count = 0
+    if result and len(result) > 0:
+        node_count = result[0].get('nodes_deleted', 0)
+        rel_count = result[0].get('rels_deleted', 0)
 
     logger.info(
         f"Reset entity resolution: deleted {node_count} nodes "

@@ -516,6 +516,185 @@ async def reset_entity_resolution(
     return handle_reset_entity_resolution()
 
 
+@app.get("/api/entity-resolution/health")
+async def get_senzing_health(
+    token: str = Depends(verify_token)
+):
+    """Check Senzing configuration and availability.
+
+    Returns detailed information about:
+    - Senzing license status and validity
+    - Component status (SDK, gRPC, PostgreSQL, License)
+    - Database connectivity and stats
+    - Available data sources
+    """
+    from .clients.senzing_client import get_senzing_client, SENZING_AVAILABLE
+    from .core.config import senzing_config
+    import os
+    from pathlib import Path
+    from datetime import datetime
+
+    # Initialize response structure
+    health_info = {
+        "overall_status": "unknown",
+        "components": {},
+        "license": {},
+        "database": {},
+        "errors": [],
+        "warnings": []
+    }
+
+    # === Component 1: Senzing SDK ===
+    health_info["components"]["sdk"] = {
+        "name": "Senzing SDK",
+        "installed": SENZING_AVAILABLE,
+        "status": "healthy" if SENZING_AVAILABLE else "missing",
+        "version": "4.0+" if SENZING_AVAILABLE else None
+    }
+    if not SENZING_AVAILABLE:
+        health_info["errors"].append("Senzing SDK not installed - run: docker compose build api")
+
+    # === Component 2: License File ===
+    license_info = {
+        "name": "Senzing License",
+        "configured": False,
+        "path": None,
+        "valid": False,
+        "status": "unknown"
+    }
+
+    if senzing_config.is_available():
+        license_info["configured"] = True
+        license_info["path"] = str(senzing_config.LICENSE_PATH)
+
+        # Try to read license details
+        try:
+            license_path = Path(senzing_config.LICENSE_PATH)
+            if license_path.exists():
+                license_stat = license_path.stat()
+                license_info["size_bytes"] = license_stat.st_size
+                license_info["modified"] = datetime.fromtimestamp(license_stat.st_mtime).isoformat()
+
+                # Read license file to check if it's binary (valid) or text (likely invalid)
+                with open(license_path, 'rb') as f:
+                    header = f.read(10)
+                    # Senzing licenses are binary files starting with specific bytes
+                    is_binary = any(b < 32 and b not in (9, 10, 13) for b in header)
+
+                    if is_binary and license_stat.st_size > 100:
+                        license_info["valid"] = True
+                        license_info["status"] = "healthy"
+                        license_info["type"] = "binary (valid format)"
+                    else:
+                        license_info["valid"] = False
+                        license_info["status"] = "invalid"
+                        license_info["type"] = "text or corrupted"
+                        health_info["errors"].append("License file appears corrupted or in wrong format")
+            else:
+                license_info["status"] = "missing"
+                health_info["errors"].append(f"License file not found at {license_path}")
+        except Exception as e:
+            license_info["status"] = "error"
+            health_info["warnings"].append(f"Could not read license details: {e}")
+    else:
+        license_info["status"] = "missing"
+        health_info["errors"].append("License not configured - place g2.lic in api/secrets/senzing/")
+
+    health_info["license"] = license_info
+
+    # === Component 3: gRPC Server ===
+    grpc_url = os.getenv("SENZING_GRPC_URL", "localhost:8261")
+    grpc_info = {
+        "name": "Senzing gRPC Server",
+        "url": grpc_url,
+        "status": "unknown",
+        "connected": False
+    }
+
+    if SENZING_AVAILABLE:
+        try:
+            client = get_senzing_client()
+            grpc_info["client_available"] = client.is_available()
+            grpc_info["client_initialized"] = client.initialized
+
+            if client.initialized:
+                grpc_info["connected"] = True
+                grpc_info["status"] = "healthy"
+            else:
+                grpc_info["status"] = "not initialized"
+                health_info["errors"].append("Senzing client not initialized - check if senzing-grpc container is running")
+        except Exception as e:
+            grpc_info["status"] = "error"
+            health_info["errors"].append(f"gRPC connection error: {str(e)}")
+    else:
+        grpc_info["status"] = "skipped"
+        grpc_info["reason"] = "SDK not installed"
+
+    health_info["components"]["grpc"] = grpc_info
+
+    # === Component 4: PostgreSQL Database ===
+    db_info = {
+        "name": "Senzing PostgreSQL",
+        "status": "unknown",
+        "record_count": 0,
+        "entity_count": 0,
+        "datasources": []
+    }
+
+    if SENZING_AVAILABLE and grpc_info.get("connected"):
+        try:
+            client = get_senzing_client()
+            stats = client.get_stats()
+
+            if stats:
+                db_info["status"] = "healthy"
+                db_info["record_count"] = stats.get("numRecords", 0)
+                db_info["entity_count"] = stats.get("numEntities", 0)
+
+                # Extract datasources if available
+                if "dataSources" in stats:
+                    db_info["datasources"] = stats["dataSources"]
+                elif "activeDataSources" in stats:
+                    db_info["datasources"] = stats["activeDataSources"]
+
+                # Check if NIEM_GRAPH datasource exists
+                datasource_names = db_info.get("datasources", [])
+                if isinstance(datasource_names, list):
+                    if "NIEM_GRAPH" in datasource_names:
+                        db_info["niem_graph_registered"] = True
+                    else:
+                        db_info["niem_graph_registered"] = False
+                        health_info["warnings"].append("NIEM_GRAPH datasource not registered - may need to reinitialize")
+            else:
+                db_info["status"] = "no stats"
+                health_info["warnings"].append("Could not retrieve database statistics")
+        except Exception as e:
+            db_info["status"] = "error"
+            health_info["warnings"].append(f"Database stats error: {str(e)}")
+    else:
+        db_info["status"] = "skipped"
+        db_info["reason"] = "gRPC not connected"
+
+    health_info["database"] = db_info
+
+    # === Overall Status ===
+    all_healthy = (
+        health_info["components"]["sdk"]["status"] == "healthy" and
+        license_info["status"] == "healthy" and
+        grpc_info["status"] == "healthy" and
+        db_info["status"] == "healthy"
+    )
+
+    if all_healthy:
+        health_info["overall_status"] = "healthy"
+    elif license_info["configured"] and grpc_info.get("connected"):
+        health_info["overall_status"] = "degraded"
+    else:
+        health_info["overall_status"] = "unhealthy"
+
+    return health_info
+
+
 if __name__ == "__main__":
     import uvicorn
     host = os.getenv("API_HOST", "0.0.0.0")  # nosec B104

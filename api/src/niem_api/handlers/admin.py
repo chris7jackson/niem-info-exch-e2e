@@ -207,6 +207,24 @@ def reset_neo4j():
         neo4j_client.query("MATCH (n) DETACH DELETE n")
         logger.info("Deleted all nodes and relationships from Neo4j")
 
+        # Also clear Senzing entity resolution data to prevent orphaned records
+        # Since Senzing stores references to Neo4j node IDs, clearing Neo4j
+        # makes Senzing data stale and should be removed
+        try:
+            from ..handlers.entity_resolution import _reset_entity_resolution
+            from ..clients.senzing_client import SENZING_AVAILABLE
+
+            if SENZING_AVAILABLE:
+                senzing_result = _reset_entity_resolution(neo4j_client)
+                logger.info(
+                    f"Cleared Senzing entity resolution data: "
+                    f"{senzing_result.get('resolved_entities_deleted', 0)} nodes, "
+                    f"{senzing_result.get('relationships_deleted', 0)} relationships"
+                )
+        except Exception as e:
+            logger.warning(f"Could not clear Senzing data during Neo4j reset: {e}")
+            # Don't fail the entire reset if Senzing cleanup fails
+
     except Exception as e:
         logger.error(f"Neo4j reset failed: {e}")
         raise
