@@ -410,11 +410,12 @@ def _is_complex_json_element(obj: dict[str, Any]) -> bool:
             # Array property
             return True
 
-    # Multiple simple properties → Complex
-    if len(non_metadata_keys) > 1:
+    # Any properties → Complex (matches XML behavior: any child element = complex)
+    # This ensures JSON creates same nodes as XML for 1:1 parity
+    if len(non_metadata_keys) >= 1:
         return True
 
-    # Single simple property → Not complex (will be flattened)
+    # No properties → Not complex
     return False
 
 
