@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from .xsd_element_tree import (
     build_element_hierarchy,
+    build_augmentation_index,
     classify_xsd_type,
     extract_scalar_properties_from_type,
     _build_indices,
@@ -145,6 +146,9 @@ def apply_schema_design_from_xsd(
     # Build element hierarchy - O(e)
     element_hierarchy = build_element_hierarchy(type_definitions, element_declarations)
 
+    # Build augmentation index - O(a)
+    augmentation_index = build_augmentation_index(type_definitions, element_declarations)
+
     # Create selected set for O(1) lookups
     selected_set = {qname for qname, selected in selections.items() if selected}
 
@@ -195,6 +199,12 @@ def apply_schema_design_from_xsd(
             continue
 
         elem_decl, type_def = object_elements[elem_qname]
+
+        # Skip augmentations - they should never become nodes
+        # Their properties are automatically included in the base type
+        if type_def.is_augmentation_type:
+            continue
+
         label = elem_qname.replace(':', '_')
 
         # Start with direct scalar properties
@@ -211,6 +221,25 @@ def apply_schema_design_from_xsd(
                 "type": prop['type'],
                 "cardinality": prop['cardinality']
             })
+
+        # Automatically include augmentation properties
+        type_ref = elem_decl.type_ref
+        if type_ref and type_ref in augmentation_index:
+            for aug_def in augmentation_index[type_ref]:
+                aug_elem_qname = aug_def['augmentation_element_qname']
+                for aug_prop in aug_def['properties']:
+                    # Use flat naming: j:PersonAdultIndicator -> j_PersonAdultIndicator
+                    prop_qname = aug_prop['qname']
+                    neo4j_property = prop_qname.replace(':', '_')
+                    scalar_type = classify_xsd_type(aug_prop['type_ref'], type_definitions)
+
+                    scalar_props.append({
+                        "path": f"{aug_elem_qname}/{prop_qname}",
+                        "neo4j_property": neo4j_property,
+                        "type": scalar_type,
+                        "cardinality": f"{aug_prop['min_occurs']}..{aug_prop['max_occurs']}",
+                        "is_augmentation": True
+                    })
 
         # Check object properties for flattening (matches CMF logic at lines 336-352)
         for child_elem in type_def.elements:
@@ -277,13 +306,16 @@ def apply_schema_design_from_xsd(
             else:
                 continue
 
-            # Only include selected entity endpoints (not wrapper properties)
+            # Only include selected entity endpoints (not wrapper properties or augmentations)
             if target_qname in selected_set:
-                # Check if this is an entity endpoint (not a wrapper property)
+                # Check if this is an entity endpoint (not a wrapper property or augmentation)
                 if target_qname in object_elements:
                     target_elem_decl, target_type_def = object_elements[target_qname]
                     if is_wrapper_type(target_elem_decl.type_ref, target_type_def):
                         # Skip wrapper properties - they're always flattened
+                        continue
+                    if target_type_def.is_augmentation_type:
+                        # Skip augmentations - they're flattened into base types
                         continue
 
                 target_type = child_elem.get('type')
@@ -318,6 +350,10 @@ def apply_schema_design_from_xsd(
 
         elem_decl, type_def = object_elements[elem_qname]
 
+        # Skip augmentations - they should never own references
+        if type_def.is_augmentation_type:
+            continue
+
         for child_elem in type_def.elements:
             child_ref = child_elem.get('ref')
             child_name = child_elem.get('name')
@@ -341,9 +377,15 @@ def apply_schema_design_from_xsd(
             if child_type_def.is_simple or len(child_type_def.elements) == 0:
                 continue
 
-            # Create reference only if target is selected AND not an association (matches CMF lines 409-411)
+            # Create reference only if target is selected AND not an association or augmentation
             if (target_qname in selected_set and
                 target_qname not in association_elements):
+
+                # Skip if target is an augmentation
+                if target_qname in object_elements:
+                    target_elem_decl, target_type_def = object_elements[target_qname]
+                    if target_type_def.is_augmentation_type:
+                        continue
 
                 target_label = target_qname.replace(':', '_')
                 rel_type = field_qname.replace(':', '_').replace('/', '_').upper()
@@ -357,13 +399,31 @@ def apply_schema_design_from_xsd(
                     "cardinality": f"{child_elem.get('min_occurs', '0')}..{child_elem.get('max_occurs', '*')}"
                 })
 
+    # Build augmentations mapping
+    augmentations_mapping = []
+    for base_type_qname, aug_list in augmentation_index.items():
+        for aug_def in aug_list:
+            augmentations_mapping.append({
+                'base_type_qname': base_type_qname,
+                'augmentation_element_qname': aug_def['augmentation_element_qname'],
+                'augmentation_type_qname': aug_def['augmentation_type_qname'],
+                'properties': [
+                    {
+                        'qname': prop['qname'],
+                        'type_ref': prop['type_ref'],
+                        'cardinality': f"{prop['min_occurs']}..{prop['max_occurs']}"
+                    }
+                    for prop in aug_def['properties']
+                ]
+            })
+
     # Assemble final mapping (matches CMF lines 437-447)
     return {
         "namespaces": namespace_map,
         "objects": objects_mapping,
         "associations": associations_mapping,
         "references": references_mapping,
-        "augmentations": [],
+        "augmentations": augmentations_mapping,
         "polymorphism": {
             "strategy": "extraLabel",
             "store_actual_type_property": "xsiType"

@@ -270,12 +270,19 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
           <input
             type="checkbox"
             checked={isSelected}
+            disabled={!node.selectable}
             onChange={(e) => {
               e.stopPropagation();
               onSelectionChange(node.qname, e.target.checked);
             }}
-            className="mr-3"
-            title={node.node_type === 'property' ? 'Property wrapper - will be flattened' : ''}
+            className={`mr-3 ${!node.selectable ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={
+              node.node_type === 'property'
+                ? 'Property wrapper - will be flattened'
+                : node.node_type === 'augmentation'
+                ? 'Augmentation - automatically included with base type'
+                : ''
+            }
           />
 
           {/* Node Info */}
@@ -289,6 +296,8 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
                   ? 'bg-blue-100 text-blue-700'
                   : node.node_type === 'association'
                   ? 'bg-purple-100 text-purple-700'
+                  : node.node_type === 'augmentation'
+                  ? 'bg-orange-100 text-orange-700'
                   : node.node_type === 'property'
                   ? 'bg-gray-100 text-gray-500'
                   : 'bg-green-100 text-green-700'

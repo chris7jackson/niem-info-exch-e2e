@@ -80,7 +80,7 @@ export interface ConversionFileResult {
 export interface ElementTreeNode {
   qname: string;
   label: string;
-  node_type: 'object' | 'association' | 'property';
+  node_type: 'object' | 'association' | 'augmentation' | 'property';
   depth: number;
   property_count: number;
   nested_object_count: number;
@@ -88,6 +88,7 @@ export interface ElementTreeNode {
   warnings: string[];
   suggestions: string[];
   selected: boolean;
+  selectable: boolean;  // Can be selected/deselected (augmentations are not selectable)
   cardinality: string | null;
   description: string | null;
   namespace: string | null;
@@ -95,6 +96,7 @@ export interface ElementTreeNode {
   can_have_id?: boolean;  // True if type extends structures:ObjectType
   children: string[];
   endpoints?: string[];  // Only present for associations - contains entity endpoint qnames (not property wrappers)
+  augmented_properties?: string[];  // Only present for augmentations - contains selectable child properties
 }
 
 export interface ElementTreeResponse {

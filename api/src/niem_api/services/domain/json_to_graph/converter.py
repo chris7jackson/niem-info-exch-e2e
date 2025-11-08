@@ -125,6 +125,21 @@ def build_assoc_index(associations: list[dict[str, Any]]) -> dict[str, dict[str,
     return {assoc["qname"]: assoc for assoc in associations}
 
 
+def build_augmentation_index_from_mapping(mapping_dict: dict) -> dict[str, dict]:
+    """Build index: augmentation_element_qname → definition from mapping.
+
+    Args:
+        mapping_dict: The mapping dictionary containing augmentations
+
+    Returns:
+        Dictionary mapping augmentation element qname to augmentation definition
+    """
+    aug_index = {}
+    for aug in mapping_dict.get('augmentations', []):
+        aug_index[aug['augmentation_element_qname']] = aug
+    return aug_index
+
+
 def extract_properties(
     obj: dict[str, Any],
     obj_rule: dict[str, Any],
@@ -260,6 +275,100 @@ def _recursively_flatten_json_object(
     return flattened
 
 
+def detect_associations_from_json_data(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Auto-detect association patterns in JSON data for dynamic mode.
+
+    NIEM associations follow naming convention: elements ending with "Association"
+    that have 2+ object properties with @id references (endpoints).
+
+    Args:
+        data: Parsed JSON-LD data
+
+    Returns:
+        Dictionary mapping association QName to association rule
+    """
+    auto_assocs = {}
+
+    def scan_object_for_associations(obj: dict[str, Any], parent_key: str = None):
+        """Recursively scan object for association patterns."""
+        if not isinstance(obj, dict):
+            return
+
+        for key, value in obj.items():
+            # Skip JSON-LD keywords
+            if key.startswith("@"):
+                continue
+
+            # Check if this looks like an association (ends with "Association")
+            if key.endswith("Association"):
+                # Get sample instance (handle arrays)
+                sample = value[0] if isinstance(value, list) and value else value
+
+                if not isinstance(sample, dict):
+                    continue
+
+                # Extract potential endpoints (properties with @id references)
+                # Count total number of entity references, not just role properties
+                endpoints = []
+                total_entity_refs = 0
+
+                for prop_key, prop_val in sample.items():
+                    if prop_key.startswith("@"):
+                        continue
+
+                    # Skip metadata - not an entity endpoint
+                    if "Metadata" in prop_key:
+                        continue
+
+                    # Check if this is a reference to another object
+                    is_ref = False
+                    ref_count = 0
+
+                    if isinstance(prop_val, dict) and "@id" in prop_val and len(prop_val) <= 2:
+                        # Direct reference like {"@id": "#P01"} or with @type
+                        is_ref = True
+                        ref_count = 1
+                    elif isinstance(prop_val, list):
+                        # Array of references - count how many @id refs
+                        refs = [item for item in prop_val if isinstance(item, dict) and "@id" in item]
+                        if refs:
+                            is_ref = True
+                            ref_count = len(refs)
+
+                    if is_ref:
+                        endpoints.append({
+                            "role_qname": prop_key,
+                            "maps_to_label": prop_key.replace(":", "_"),
+                            "direction": "source" if len(endpoints) == 0 else "target",
+                            "via": "@id",
+                            "cardinality": "0..*"
+                        })
+                        total_entity_refs += ref_count
+
+                # Valid association must have 2+ entity references (could be multiple roles or one role with multiple refs)
+                if total_entity_refs >= 2 and len(endpoints) >= 1:
+                    auto_assocs[key] = {
+                        "qname": key,
+                        "rel_type": key.replace(":", "_").upper(),
+                        "endpoints": endpoints,
+                        "rel_props": []
+                    }
+                    logger.info(f"Auto-detected association: {key} with {len(endpoints)} endpoints: {[ep['role_qname'] for ep in endpoints]}")
+
+            # Recurse into nested objects
+            if isinstance(value, dict):
+                scan_object_for_associations(value, key)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        scan_object_for_associations(item, key)
+
+    # Scan top-level and nested objects
+    scan_object_for_associations(data)
+
+    return auto_assocs
+
+
 def _is_complex_json_element(obj: dict[str, Any]) -> bool:
     """Determine if JSON object is complex (should become a node in dynamic mode).
 
@@ -347,6 +456,16 @@ def generate_for_json_content(
 
     # Build association index for quick lookup
     assoc_by_qn = build_assoc_index(associations)
+    logger.info(f"Loaded {len(assoc_by_qn)} associations from mapping: {list(assoc_by_qn.keys())}")
+
+    # Build augmentation index from mapping
+    augmentation_index = build_augmentation_index_from_mapping(mapping_dict)
+
+    # In dynamic mode, auto-detect associations from data structure
+    if mode == "dynamic":
+        auto_detected_assocs = detect_associations_from_json_data(data)
+        assoc_by_qn.update(auto_detected_assocs)
+        logger.info(f"Dynamic mode: Total associations (mapping + auto-detected): {len(assoc_by_qn)}")
 
     # Extract CMF element index from mapping metadata if not provided
     if cmf_element_index is None:
@@ -390,8 +509,10 @@ def generate_for_json_content(
 
         # Prefix @id with file_prefix to ensure file-level isolation
         # (prevents nodes from different files with same @id from being merged)
+        # Strip leading # from IDs (JSON-LD fragment identifiers)
         if raw_id:
-            obj_id = f"{file_prefix}_{raw_id}"
+            clean_id = raw_id.lstrip('#')
+            obj_id = f"{file_prefix}_{clean_id}"
         else:
             obj_id = None
 
@@ -401,10 +522,54 @@ def generate_for_json_content(
         # Determine QName - prefer @type, fall back to property name
         qname = obj_type if obj_type else property_name
 
+        # Check for augmentation FIRST (before associations or objects)
+        # Augmentations should NEVER become nodes - they're transparent containers
+        is_augmentation = (qname and qname.endswith('Augmentation')) or (property_name and property_name.endswith('Augmentation'))
+
+        if is_augmentation:
+            # Process augmentation children directly under parent (augmentation is transparent)
+            if parent_id and parent_id in nodes:
+                parent_props = nodes[parent_id][2]
+
+                for key, value in obj.items():
+                    # Skip JSON-LD metadata
+                    if key.startswith('@'):
+                        continue
+
+                    # If complex object, process as direct child of PARENT
+                    if isinstance(value, dict) and _is_complex_json_element(value):
+                        # Process as child of parent (not augmentation)
+                        process_jsonld_object(value, parent_id, parent_label, key)
+                    # If simple value, flatten into parent properties
+                    elif isinstance(value, (str, int, float, bool)):
+                        prop_name = key.replace(':', '_')
+                        parent_props[prop_name] = value
+                        parent_props[f"{prop_name}_isAugmentation"] = True
+                    # If array, process each item
+                    elif isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, dict) and _is_complex_json_element(item):
+                                # Complex objects become children of parent
+                                process_jsonld_object(item, parent_id, parent_label, key)
+                            elif isinstance(item, (str, int, float, bool)):
+                                # Simple values get flattened (as arrays)
+                                prop_name = key.replace(':', '_')
+                                if prop_name not in parent_props:
+                                    parent_props[prop_name] = []
+                                if isinstance(parent_props[prop_name], list):
+                                    parent_props[prop_name].append(item)
+                                else:
+                                    parent_props[prop_name] = [parent_props[prop_name], item]
+                                parent_props[f"{prop_name}_isAugmentation"] = True
+
+            # Never create node for augmentation itself - return early
+            return None
+
         # Check if this is an association (process before checking for object rule)
         assoc_rule = assoc_by_qn.get(qname) if qname else None
 
         if assoc_rule:
+            logger.info(f"Processing association: {qname} with {len(assoc_rule.get('endpoints', []))} endpoints")
             # Handle Association objects (create intermediate nodes with hypergraph pattern)
             # Generate association node ID - use @id if present, otherwise synthetic
             if not obj_id:
@@ -481,48 +646,58 @@ def generate_for_json_content(
 
             # Create edges from association node to each endpoint
             for ep in endpoints:
-                # Find the role property and extract its @id reference
-                endpoint_ref = None
+                # Find the role property and extract its @id reference(s)
+                endpoint_refs = []
                 role_value = obj.get(ep["role_qname"])
+                logger.debug(f"  Looking for endpoint role: {ep['role_qname']}, found value: {role_value}")
 
                 if role_value:
                     if is_reference(role_value):
                         # Direct reference: {"@id": "P1"}
-                        endpoint_ref = role_value["@id"]
+                        endpoint_refs.append(role_value["@id"])
                     elif isinstance(role_value, dict) and role_value.get("@id"):
                         # Nested object with @id
-                        endpoint_ref = role_value["@id"]
+                        endpoint_refs.append(role_value["@id"])
                     elif isinstance(role_value, list) and len(role_value) > 0:
-                        # Array of references - take first
-                        first_item = role_value[0]
-                        if isinstance(first_item, dict) and first_item.get("@id"):
-                            endpoint_ref = first_item["@id"]
+                        # Array of references - process ALL items, not just first
+                        for item in role_value:
+                            if isinstance(item, dict) and item.get("@id"):
+                                endpoint_refs.append(item["@id"])
 
-                if endpoint_ref:
-                    # Create edge from association node to endpoint
-                    # Relationship type: HAS_{role_local_name}
-                    role_local = ep["role_qname"].split(":")[-1].upper()
-                    rel_type = f"HAS_{role_local}"
+                if endpoint_refs:
+                    # Create edges for all endpoint references
+                    for endpoint_ref in endpoint_refs:
+                        # Create edge from association node to endpoint
+                        # Relationship type: ASSOCIATED_WITH
+                        rel_type = "ASSOCIATED_WITH"
 
-                    # Edge properties include role metadata
-                    edge_props = {
-                        "role_qname": ep["role_qname"],
-                        "direction": ep.get("direction", "")
-                    }
+                        # Edge properties include role metadata
+                        edge_props = {
+                            "role_qname": ep["role_qname"],
+                            "direction": ep.get("direction", "")
+                        }
 
-                    # Get endpoint label from mapping
-                    endpoint_label = ep["maps_to_label"]
+                        # Get endpoint label - use None to let resolution logic find actual node label
+                        # This handles NIEM substitution where role type (nc:Person) differs from actual type (j:CrashDriver)
+                        endpoint_label = None
 
-                    # Prefix endpoint reference for file-level isolation
-                    prefixed_endpoint_ref = f"{file_prefix}_{endpoint_ref}"
+                        # Prefix endpoint reference for file-level isolation
+                        # Strip leading # from @id references (JSON-LD fragment identifiers)
+                        clean_endpoint_ref = endpoint_ref.lstrip('#')
+                        prefixed_endpoint_ref = f"{file_prefix}_{clean_endpoint_ref}"
 
-                    edges.append((obj_id, assoc_label, prefixed_endpoint_ref, endpoint_label, rel_type, edge_props))
+                        logger.info(f"  Creating association edge: ({obj_id})-[:{rel_type}]->({prefixed_endpoint_ref})")
+                        edges.append((obj_id, assoc_label, prefixed_endpoint_ref, endpoint_label, rel_type, edge_props))
+                else:
+                    logger.warning(f"  Endpoint {ep['role_qname']} has no reference - skipping edge")
 
             # Create REFERS_TO edges for structures:ref and structures:uri on the association itself
             # Note: struct_ref and struct_uri already checked for both prefixes above
             if struct_ref:
                 # structures:ref - direct reference to an ID (prefix for file-level isolation)
-                prefixed_struct_ref = f"{file_prefix}_{struct_ref}"
+                # Strip leading # from references
+                clean_struct_ref = struct_ref.lstrip('#')
+                prefixed_struct_ref = f"{file_prefix}_{clean_struct_ref}"
                 edges.append((obj_id, assoc_label, prefixed_struct_ref, None, "REFERS_TO", {}))
             elif struct_uri:
                 # structures:uri - resolve to target ID
@@ -555,19 +730,65 @@ def generate_for_json_content(
         # Find matching object rule
         obj_rule = obj_rules.get(qname) if qname else None
 
+        # Check if this is an augmentation (never create nodes for augmentations)
+        is_augmentation = property_name and property_name.endswith('Augmentation')
+
         # Determine if object should become a node based on mode
         should_create_node = False
 
         if mode == "mapping":
             # Mapping mode: Only create nodes for elements explicitly selected in designer
-            should_create_node = obj_rule is not None
+            # Skip augmentations even if they're in the mapping
+            should_create_node = obj_rule is not None and not is_augmentation
         elif mode == "dynamic":
-            # Dynamic mode: Create nodes for all complex objects
-            should_create_node = _is_complex_json_element(obj)
+            # Dynamic mode: Create nodes for all complex objects EXCEPT augmentations
+            # BUT skip anonymous root dict (no qname, no parent, no @id)
+            is_anonymous_root = (parent_id is None and not has_id and not qname)
+
+            if is_anonymous_root or is_augmentation:
+                # Skip anonymous root dict and augmentations - just process their children
+                should_create_node = False
+            else:
+                should_create_node = _is_complex_json_element(obj)
 
         if not should_create_node:
+            # Special handling for augmentations - process children directly under parent
+            if is_augmentation and parent_id and parent_id in nodes:
+                parent_props = nodes[parent_id][2]
+
+                for key, value in obj.items():
+                    # Skip JSON-LD metadata
+                    if key.startswith('@'):
+                        continue
+
+                    # If complex object, process as direct child of PARENT
+                    if isinstance(value, dict) and _is_complex_json_element(value):
+                        # Process as child of parent (not augmentation)
+                        process_jsonld_object(value, parent_id, parent_label, key)
+                    # If simple value, flatten into parent properties
+                    elif isinstance(value, (str, int, float, bool)):
+                        prop_name = key.replace(':', '_')
+                        parent_props[prop_name] = value
+                        parent_props[f"{prop_name}_isAugmentation"] = True
+                    # If array, process each item
+                    elif isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, dict) and _is_complex_json_element(item):
+                                # Complex objects become children of parent
+                                process_jsonld_object(item, parent_id, parent_label, key)
+                            elif isinstance(item, (str, int, float, bool)):
+                                # Simple values get flattened (as arrays)
+                                prop_name = key.replace(':', '_')
+                                if prop_name not in parent_props:
+                                    parent_props[prop_name] = []
+                                if isinstance(parent_props[prop_name], list):
+                                    parent_props[prop_name].append(item)
+                                else:
+                                    parent_props[prop_name] = [parent_props[prop_name], item]
+                                parent_props[f"{prop_name}_isAugmentation"] = True
+
             # Flatten properties onto parent node (if parent exists)
-            if parent_id and parent_id in nodes:
+            elif parent_id and parent_id in nodes:
                 parent_node = nodes[parent_id]
                 parent_props = parent_node[2]  # props_dict is at index 2
 
@@ -610,7 +831,8 @@ def generate_for_json_content(
             props_dict = dict(props)
         else:
             # Dynamic mode: Generate label from qname
-            label = qname.replace(":", "_") if qname else "Unknown"
+            # Sanitize label: Neo4j labels cannot contain hyphens, colons (except namespace separator), or other special chars
+            label = qname.replace(":", "_").replace("-", "_") if qname else "Unknown"
             props_dict = {}
 
         # Add source provenance and isolation properties
@@ -649,7 +871,9 @@ def generate_for_json_content(
         # Note: struct_ref and struct_uri already checked for both prefixes above
         if struct_ref:
             # structures:ref - direct reference to an ID (prefix for file-level isolation)
-            prefixed_struct_ref = f"{file_prefix}_{struct_ref}"
+            # Strip leading # from references (JSON-LD fragment identifiers)
+            clean_struct_ref = struct_ref.lstrip('#')
+            prefixed_struct_ref = f"{file_prefix}_{clean_struct_ref}"
             edges.append((obj_id, label, prefixed_struct_ref, None, "REFERS_TO", {}))
         elif struct_uri:
             # structures:uri - resolve to target ID
@@ -673,7 +897,9 @@ def generate_for_json_content(
 
             if is_reference(value):
                 # Reference edge (prefix target for file-level isolation)
-                target_id = f"{file_prefix}_{value['@id']}"
+                # Strip leading # from @id references
+                clean_target_id = value['@id'].lstrip('#')
+                target_id = f"{file_prefix}_{clean_target_id}"
                 edges.append((obj_id, label, target_id, None, key, {}))
 
             elif isinstance(value, dict):
@@ -686,7 +912,9 @@ def generate_for_json_content(
                     if isinstance(item, dict):
                         if is_reference(item):
                             # Prefix target for file-level isolation
-                            target_id = f"{file_prefix}_{item['@id']}"
+                            # Strip leading # from @id references
+                            clean_target_id = item['@id'].lstrip('#')
+                            target_id = f"{file_prefix}_{clean_target_id}"
                             edges.append((obj_id, label, target_id, None, key, {}))
                         else:
                             process_jsonld_object(item, obj_id, label, key)
@@ -702,6 +930,37 @@ def generate_for_json_content(
     cypher_statements = generate_cypher_from_structures(nodes, edges, contains, upload_id, filename)
 
     return cypher_statements, nodes, contains, edges
+
+
+def _sanitize_neo4j_relationship_type(rel_type: str) -> str:
+    """Sanitize relationship type for Neo4j compatibility.
+
+    Neo4j relationship types must:
+    - Start with a letter or underscore
+    - Contain only letters, numbers, and underscores
+    - Cannot contain: hyphens, colons, slashes, dots, etc.
+
+    Args:
+        rel_type: Raw relationship type (may contain URLs, namespaces, etc.)
+
+    Returns:
+        Sanitized relationship type safe for Neo4j
+    """
+    import re
+    # Replace common invalid characters with underscores
+    sanitized = rel_type.replace(":", "_").replace("/", "_").replace(".", "_").replace("-", "_")
+    # Remove any remaining non-alphanumeric chars (except underscores)
+    sanitized = re.sub(r'[^A-Za-z0-9_]', '_', sanitized)
+    # Remove consecutive underscores
+    sanitized = re.sub(r'_+', '_', sanitized)
+    # Remove leading/trailing underscores
+    sanitized = sanitized.strip('_')
+    # Ensure uppercase (Neo4j convention)
+    sanitized = sanitized.upper()
+    # Ensure starts with letter or underscore (prepend if needed)
+    if sanitized and not sanitized[0].isalpha() and sanitized[0] != '_':
+        sanitized = f"REL_{sanitized}"
+    return sanitized or "RELATED_TO"
 
 
 def generate_cypher_from_structures(
@@ -727,9 +986,20 @@ def generate_cypher_from_structures(
 
     # Generate MERGE statements for nodes
     for node_id, (label, qname, props, aug_props) in nodes.items():
+        # Sanitize label for Neo4j (labels cannot contain hyphens or other special chars)
+        sanitized_label = label.replace("-", "_").replace(".", "_")
+
         # Build properties string - include qname for display consistency with XML
+        # Also include upload_id and source_file for graph isolation
         props_parts = []
-        all_props = {**props, **aug_props, "qname": qname}  # Add qname to properties
+        all_props = {**props, **aug_props, "qname": qname}
+
+        # Add upload_id and source_file for graph isolation (consistent with XML converter)
+        if upload_id:
+            all_props["_upload_id"] = upload_id
+        if filename:
+            all_props["_source_file"] = filename
+
         for key, value in all_props.items():
             # Handle different value types properly
             if isinstance(value, (list, tuple)):
@@ -761,7 +1031,7 @@ def generate_cypher_from_structures(
                 props_parts.append(f"{key}: '{escaped_value}'")
 
         props_str = ", ".join(props_parts)
-        cypher_lines.append(f"MERGE (n:{label} {{id: '{node_id}', {props_str}}});")
+        cypher_lines.append(f"MERGE (n:{sanitized_label} {{id: '{node_id}', {props_str}}});")
 
     # Helper function to build match properties for a specific node ID
     def build_node_match_props(node_id: str) -> str:
@@ -775,18 +1045,25 @@ def generate_cypher_from_structures(
 
     # Generate MERGE statements for containment relationships
     for parent_id, parent_label, child_id, child_label, rel_type in contains:
+        # Sanitize labels for Neo4j
+        sanitized_parent_label = parent_label.replace("-", "_").replace(".", "_")
+        sanitized_child_label = child_label.replace("-", "_").replace(".", "_")
+        sanitized_rel_type = _sanitize_neo4j_relationship_type(rel_type)
+
         parent_match = build_node_match_props(parent_id)
         child_match = build_node_match_props(child_id)
 
         cypher_lines.append(
-            f"MATCH (parent:{parent_label} {{{parent_match}}}), (child:{child_label} {{{child_match}}}) "
-            f"MERGE (parent)-[:{rel_type}]->(child);"
+            f"MATCH (parent:{sanitized_parent_label} {{{parent_match}}}), (child:{sanitized_child_label} {{{child_match}}}) "
+            f"MERGE (parent)-[:{sanitized_rel_type}]->(child);"
         )
 
     # Generate MERGE statements for reference/association edges
     for from_id, from_label, to_id, to_label, rel_type, edge_props in edges:
-        # Clean relationship type
-        clean_rel_type = rel_type.replace(":", "_").upper()
+        # Sanitize labels and relationship type for Neo4j
+        sanitized_from_label = from_label.replace("-", "_").replace(".", "_")
+        sanitized_to_label = to_label.replace("-", "_").replace(".", "_") if to_label else None
+        clean_rel_type = _sanitize_neo4j_relationship_type(rel_type)
 
         # Build match properties for graph isolation
         from_match = build_node_match_props(from_id)
@@ -821,28 +1098,28 @@ def generate_cypher_from_structures(
 
             props_clause = ", ".join(prop_setters)
 
-            if to_label:
+            if sanitized_to_label:
                 cypher_lines.append(
-                    f"MATCH (from:{from_label} {{{from_match}}}), (to:{to_label} {{{to_match}}}) "
+                    f"MATCH (from:{sanitized_from_label} {{{from_match}}}), (to:{sanitized_to_label} {{{to_match}}}) "
                     f"MERGE (from)-[r:{clean_rel_type}]->(to) ON CREATE SET {props_clause};"
                 )
             else:
                 # Find target by ID only
                 cypher_lines.append(
-                    f"MATCH (from:{from_label} {{{from_match}}}), (to {{{to_match}}}) "
+                    f"MATCH (from:{sanitized_from_label} {{{from_match}}}), (to {{{to_match}}}) "
                     f"MERGE (from)-[r:{clean_rel_type}]->(to) ON CREATE SET {props_clause};"
                 )
         else:
             # Simple edge without properties
-            if to_label:
+            if sanitized_to_label:
                 cypher_lines.append(
-                    f"MATCH (from:{from_label} {{{from_match}}}), (to:{to_label} {{{to_match}}}) "
+                    f"MATCH (from:{sanitized_from_label} {{{from_match}}}), (to:{sanitized_to_label} {{{to_match}}}) "
                     f"MERGE (from)-[:{clean_rel_type}]->(to);"
                 )
             else:
                 # Find target by ID only
                 cypher_lines.append(
-                    f"MATCH (from:{from_label} {{{from_match}}}), (to {{{to_match}}}) "
+                    f"MATCH (from:{sanitized_from_label} {{{from_match}}}), (to {{{to_match}}}) "
                     f"MERGE (from)-[:{clean_rel_type}]->(to);"
                 )
 

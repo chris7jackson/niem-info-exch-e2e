@@ -287,6 +287,21 @@ def build_assoc_index(associations: list[dict[str, Any]]) -> dict[str, dict[str,
     return by_qn
 
 
+def build_augmentation_index_from_mapping(mapping_dict: dict) -> dict[str, dict]:
+    """Build index: augmentation_element_qname → definition from mapping.
+
+    Args:
+        mapping_dict: The mapping dictionary containing augmentations
+
+    Returns:
+        Dictionary mapping augmentation element qname to augmentation definition
+    """
+    aug_index = {}
+    for aug in mapping_dict.get('augmentations', []):
+        aug_index[aug['augmentation_element_qname']] = aug
+    return aug_index
+
+
 def process_reference_attributes(
     elem: Element,
     node_id: str,
@@ -757,6 +772,9 @@ def generate_for_xml_content(
     refs_by_owner = build_refs_index(references)
     assoc_by_qn = build_assoc_index(associations)
 
+    # Build augmentation index from mapping
+    augmentation_index = build_augmentation_index_from_mapping(mapping_dict)
+
     root = ET.fromstring(xml_content)
     xml_ns_map = parse_ns(xml_content)
 
@@ -872,6 +890,40 @@ def generate_for_xml_content(
 
         elem_qn = qname_from_tag(elem.tag, xml_ns_map)
 
+        # Check for augmentation FIRST (before associations or objects)
+        # Augmentations should NEVER become nodes - they're transparent containers
+        if elem_qn.endswith('Augmentation'):
+            if parent_info:
+                parent_id, parent_label = parent_info
+
+                # Process each child of the augmentation directly under parent
+                for aug_child in elem:
+                    aug_child_qn = qname_from_tag(aug_child.tag, xml_ns_map)
+
+                    # Check if this child is a complex element that should become a node
+                    if _is_complex_element(aug_child, xml_ns_map, struct_ns):
+                        # Process as direct child of PARENT (not augmentation)
+                        traverse(aug_child, parent_info=parent_info, path_stack=path_stack + [elem])
+                    # If simple property, flatten into parent properties
+                    elif aug_child.text and aug_child.text.strip() and len(list(aug_child)) == 0:
+                        prop_name = aug_child_qn.replace(':', '_')
+                        if parent_id in nodes:
+                            nodes[parent_id][2][prop_name] = aug_child.text.strip()
+                            nodes[parent_id][2][f"{prop_name}_isAugmentation"] = True
+                    # If has nested structure, recursively flatten
+                    elif len(list(aug_child)) > 0:
+                        flattened = _recursively_flatten_element(
+                            aug_child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, "", struct_ns
+                        )
+                        if parent_id in nodes and flattened:
+                            for key, value in flattened.items():
+                                nodes[parent_id][2][key] = value
+                                if not key.endswith('_isAugmentation'):
+                                    nodes[parent_id][2][f"{key}_isAugmentation"] = True
+
+            # Never create node for augmentation - return early
+            return
+
         # Handle Association elements (create intermediate nodes with hypergraph pattern)
         assoc_rule = assoc_by_qn.get(elem_qn)
         if assoc_rule:
@@ -943,13 +995,15 @@ def generate_for_xml_content(
 
             # Create edges from association node to each endpoint
             for ep in endpoints:
-                # Find the role element and extract its structures:ref, structures:id, or structures:uri
-                endpoint_id = None
-                endpoint_elem = None
+                # Find ALL role elements with matching qname and extract their references
+                # This handles cases like PersonUnionAssociation with multiple <nc:Person> elements
+                endpoint_refs = []
 
                 for ch in elem:
                     if qname_from_tag(ch.tag, xml_ns_map) == ep["role_qname"]:
+                        endpoint_id = None
                         endpoint_elem = ch
+
                         # Check for reference (structures:ref)
                         endpoint_ref = get_structures_attr(ch, "ref", struct_ns)
                         if endpoint_ref:
@@ -978,9 +1032,12 @@ def generate_for_xml_content(
                                 endpoint_sid = get_structures_attr(ch, "id", struct_ns)
                                 if endpoint_sid:
                                     endpoint_id = f"{file_prefix}_{endpoint_sid}"
-                        break
 
-                if endpoint_id:
+                        if endpoint_id:
+                            endpoint_refs.append((endpoint_id, endpoint_elem))
+
+                # Create edges for ALL matching role elements (handles multiple Person refs, etc.)
+                for endpoint_id, endpoint_elem in endpoint_refs:
                     # Validate reference exists in ID registry (or will be created)
                     if endpoint_id not in id_registry:
                         # Check if this is an inline element with structures:id
@@ -1041,15 +1098,19 @@ def generate_for_xml_content(
                 traverse(ch, parent_info, path_stack)
             return
 
+        # Check if this is an augmentation element (never create nodes for augmentations)
+        is_augmentation = elem_qn.endswith('Augmentation')
+
         # Determine if element should become a node based on mode
         should_create_node = False
 
         if mode == "mapping":
             # Mapping mode: Only create nodes for elements explicitly selected in designer
-            should_create_node = obj_rule is not None
+            # Skip augmentations even if they're in the mapping
+            should_create_node = obj_rule is not None and not is_augmentation
         elif mode == "dynamic":
-            # Dynamic mode: Create nodes for all complex elements
-            should_create_node = _is_complex_element(elem, xml_ns_map, struct_ns)
+            # Dynamic mode: Create nodes for all complex elements EXCEPT augmentations
+            should_create_node = _is_complex_element(elem, xml_ns_map, struct_ns) and not is_augmentation
 
         if should_create_node:
             # Generate label
@@ -1112,6 +1173,26 @@ def generate_for_xml_content(
             aug_props = {}
             for child in elem:
                 child_qn = qname_from_tag(child.tag, xml_ns_map)
+
+                # Check if this child is an augmentation element that should be flattened
+                if child_qn in augmentation_index:
+                    # This is an augmentation element - flatten all its properties into parent
+                    aug_def = augmentation_index[child_qn]
+                    for prop_def in aug_def['properties']:
+                        prop_qname = prop_def['qname']
+                        # Find child element matching this property
+                        for aug_child in child:
+                            aug_child_qn = qname_from_tag(aug_child.tag, xml_ns_map)
+                            if aug_child_qn == prop_qname:
+                                # Extract value (simple text)
+                                if aug_child.text and aug_child.text.strip():
+                                    # Flat naming: j:PersonAdultIndicator -> j_PersonAdultIndicator
+                                    prop_name = prop_qname.replace(':', '_')
+                                    props[prop_name] = aug_child.text.strip()
+                                    props[f"{prop_name}_isAugmentation"] = True
+                                break
+                    # Don't create a node for augmentation element itself
+                    continue
 
                 # Check if child should become its own node
                 if mode == "mapping":
@@ -1216,8 +1297,37 @@ def generate_for_xml_content(
             # Element is NOT selected as a node - flatten it into parent if there is one
             parent_ctx = parent_info
 
+            # Special handling for augmentations - process children directly under parent
+            if is_augmentation and parent_info:
+                parent_id, parent_label = parent_info
+
+                # Process each child of the augmentation
+                for aug_child in elem:
+                    aug_child_qn = qname_from_tag(aug_child.tag, xml_ns_map)
+
+                    # Check if this child is a complex element that should become a node
+                    if _is_complex_element(aug_child, xml_ns_map, struct_ns):
+                        # Process as direct child of PARENT (not augmentation)
+                        traverse(aug_child, parent_info=parent_info, path_stack=path_stack + [elem])
+                    # If simple property, flatten into parent properties
+                    elif aug_child.text and aug_child.text.strip() and len(list(aug_child)) == 0:
+                        prop_name = aug_child_qn.replace(':', '_')
+                        if parent_id in nodes:
+                            nodes[parent_id][2][prop_name] = aug_child.text.strip()
+                            nodes[parent_id][2][f"{prop_name}_isAugmentation"] = True
+                    # If has nested structure, recursively flatten
+                    elif len(list(aug_child)) > 0:
+                        flattened = _recursively_flatten_element(
+                            aug_child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, "", struct_ns
+                        )
+                        if parent_id in nodes and flattened:
+                            for key, value in flattened.items():
+                                nodes[parent_id][2][key] = value
+                                if not key.endswith('_isAugmentation'):
+                                    nodes[parent_id][2][f"{key}_isAugmentation"] = True
+
             # If we have a parent node, flatten this element's data into it
-            if parent_info:
+            elif parent_info:
                 parent_id, parent_label = parent_info
 
                 # Recursively extract all properties from this unselected element
@@ -1230,9 +1340,9 @@ def generate_for_xml_content(
                 # Add flattened properties to parent node
                 if parent_id in nodes and flattened:
                     # Determine if this is augmentation data
-                    is_aug = cmf_element_index and is_augmentation(elem_qn, cmf_element_index)
+                    is_aug_data = cmf_element_index and is_augmentation(elem_qn, cmf_element_index)
 
-                    if is_aug:
+                    if is_aug_data:
                         # Add to parent's augmentation properties
                         for prop_path, prop_value in flattened.items():
                             nodes[parent_id][3][prop_path] = prop_value
@@ -1384,9 +1494,14 @@ def generate_for_xml_content(
             # Escape property names with special characters (dots, hyphens, etc.) using backticks
             # Only alphanumeric and underscore are safe without backticks in Cypher
             prop_key = f"`{key}`" if not re.match(CYPHER_SAFE_PROPERTY_NAME, key) else key
-            # Escape backslashes first, then single quotes
-            escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
-            setbits.append(f"n.{prop_key}='{escaped_value}'")
+
+            if isinstance(value, bool):
+                # Write boolean flags directly (for _isAssociation and other boolean properties)
+                setbits.append(f"n.{prop_key}={str(value).lower()}")
+            else:
+                # Escape backslashes first, then single quotes
+                escaped_value = str(value).replace("\\", "\\\\").replace("'", "\\'")
+                setbits.append(f"n.{prop_key}='{escaped_value}'")
 
         # Add augmentation properties
         for key, value in sorted(aug_props.items()):

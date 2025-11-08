@@ -25,6 +25,7 @@ class NodeType(str, Enum):
     """Type of node in the element tree."""
     OBJECT = "object"
     ASSOCIATION = "association"
+    AUGMENTATION = "augmentation"  # Augmentation types that extend base types
     PROPERTY = "property"  # Wrapper types that are always flattened
     REFERENCE = "reference"
 
@@ -44,7 +45,7 @@ class ElementTreeNode:
     """Node in the element tree hierarchy."""
     qname: str                              # Qualified name (e.g., "j:CrashDriver")
     label: str                              # Neo4j label (e.g., "j_CrashDriver")
-    node_type: NodeType                     # object, association, or reference
+    node_type: NodeType                     # object, association, augmentation, or reference
     depth: int                              # Distance from root (0-indexed)
     property_count: int                     # Number of simple/scalar properties
     nested_object_count: int                # Number of nested complex objects
@@ -53,6 +54,7 @@ class ElementTreeNode:
     warnings: list[WarningType] = field(default_factory=list)
     suggestions: list[SuggestionType] = field(default_factory=list)
     selected: bool = True                   # Default selected (from auto-generated mapping)
+    selectable: bool = True                 # Can be selected/deselected (augmentations are not selectable)
     cardinality: Optional[str] = None       # Min..Max occurrence
     description: Optional[str] = None       # Element documentation
     namespace: Optional[str] = None         # Namespace prefix
@@ -82,6 +84,8 @@ class TypeDefinition:
     elements: list[dict]  # Element references in xs:sequence
     is_association: bool
     extends_object_type: bool = False  # Can have structures:id/ref/uri
+    is_augmentation_type: bool = False  # Extends structures:AugmentationType
+    augments_type_qname: Optional[str] = None  # Which type this augments
 
 
 @dataclass
@@ -94,6 +98,8 @@ class ElementDeclaration:
     min_occurs: str
     max_occurs: str
     documentation: Optional[str]
+    is_augmentation_point: bool = False  # Ends with AugmentationPoint
+    substitution_group: Optional[str] = None  # For augmentation elements
 
 
 def _get_qname(element: Element, attr: str, namespaces: dict[str, str]) -> Optional[str]:
@@ -253,6 +259,7 @@ def _parse_element_declaration(elem: Element, schema_ns_map: dict[str, str]) -> 
     type_attr = elem.attrib.get('type')
     min_occurs = elem.attrib.get('minOccurs', '1')
     max_occurs = elem.attrib.get('maxOccurs', '1')
+    substitution_group = elem.attrib.get('substitutionGroup')
 
     # Extract documentation
     doc_elem = elem.find(f'./{XS}annotation/{XS}documentation')
@@ -270,14 +277,20 @@ def _parse_element_declaration(elem: Element, schema_ns_map: dict[str, str]) -> 
         # Local declaration
         namespace = schema_ns_map.get('', '')
 
+    # Check if this is an augmentation point
+    elem_name = name or ref or ''
+    is_augmentation_point = elem_name.endswith('AugmentationPoint')
+
     return ElementDeclaration(
-        name=name or ref or '',
+        name=elem_name,
         namespace=namespace,
         type_name=type_attr,
         type_ref=_get_qname(elem, 'type', schema_ns_map) if type_attr else None,
         min_occurs=min_occurs,
         max_occurs=max_occurs,
-        documentation=documentation
+        documentation=documentation,
+        is_augmentation_point=is_augmentation_point,
+        substitution_group=_get_qname(elem, 'substitutionGroup', schema_ns_map) if substitution_group else None
     )
 
 
@@ -300,6 +313,20 @@ def _parse_complex_type(type_elem: Element, schema_ns_map: dict[str, str]) -> Ty
         'AssociationType' in name or
         (base_type and 'AssociationType' in base_type)
     )
+
+    # Check if this is an augmentation type
+    is_augmentation_type = (base_type == 'structures:AugmentationType')
+
+    # Determine which type this augments (based on naming convention)
+    augments_type_qname = None
+    if is_augmentation_type and name.endswith('AugmentationType'):
+        # j:PersonAugmentationType -> j:PersonType
+        local_name = name.replace('AugmentationType', 'Type')
+        # Get the namespace prefix from the schema
+        prefix = schema_ns_map.get('', '').split('/')[-1] if schema_ns_map.get('', '') else ''
+        # Actually, we need to use the prefix from the current namespace context
+        # For now, keep the local name and we'll resolve it later
+        augments_type_qname = local_name
 
     # Extract element children from xs:sequence or xs:choice
     # Look for sequences in specific places (not recursively to avoid duplicates)
@@ -350,7 +377,9 @@ def _parse_complex_type(type_elem: Element, schema_ns_map: dict[str, str]) -> Ty
         is_simple=False,
         base_type=base_type,
         elements=elements,
-        is_association=is_association
+        is_association=is_association,
+        is_augmentation_type=is_augmentation_type,
+        augments_type_qname=augments_type_qname
     )
 
 
@@ -532,7 +561,10 @@ def _build_tree_recursive(
         return None
 
     # Determine node type
-    if type_def.is_association:
+    if type_def.is_augmentation_type:
+        # Augmentation types extend structures:AugmentationType
+        node_type = NodeType.AUGMENTATION
+    elif type_def.is_association:
         node_type = NodeType.ASSOCIATION
     elif is_wrapper_type(elem_decl.type_ref, type_def):
         node_type = NodeType.PROPERTY
@@ -546,6 +578,11 @@ def _build_tree_recursive(
 
     # Create node
     label = element_qname.replace(':', '_')
+
+    # Augmentations should not be selectable (they're auto-included with their base types)
+    # But their child properties should be selectable
+    is_selectable = (node_type != NodeType.AUGMENTATION)
+
     node = ElementTreeNode(
         qname=element_qname,
         label=label,
@@ -557,7 +594,8 @@ def _build_tree_recursive(
         children=[],
         warnings=[],
         suggestions=[],
-        selected=False,
+        selected=False,  # Default to not selected; augmentations are never selected anyway
+        selectable=is_selectable,  # Augmentations are not selectable
         cardinality=f"{elem_decl.min_occurs}..{elem_decl.max_occurs}",
         description=elem_decl.documentation,
         namespace=element_qname.split(':')[0] if ':' in element_qname else None,
@@ -820,6 +858,83 @@ def build_element_hierarchy(
     return hierarchy
 
 
+def build_augmentation_index(
+    type_definitions: dict[str, TypeDefinition],
+    element_declarations: dict[str, ElementDeclaration]
+) -> dict[str, list[dict]]:
+    """Build index of augmentations by base type.
+
+    Args:
+        type_definitions: Index of all type definitions
+        element_declarations: Index of all element declarations
+
+    Returns:
+        Dictionary mapping base_type_qname -> list of augmentation definitions
+    """
+    augmentations_by_type = {}
+
+    # For each element declaration, check if it's an augmentation element
+    for elem_qname, elem_decl in element_declarations.items():
+        # Skip elements without substitution groups
+        if not elem_decl.substitution_group:
+            continue
+
+        # Check if substitution group is an augmentation point
+        aug_point = element_declarations.get(elem_decl.substitution_group)
+        if not aug_point or not aug_point.is_augmentation_point:
+            continue
+
+        # Determine base type from augmentation point name
+        # nc:PersonAugmentationPoint -> nc:PersonType
+        aug_point_name = aug_point.name
+        if aug_point_name.endswith('AugmentationPoint'):
+            base_type_qname = aug_point_name.replace('AugmentationPoint', 'Type')
+        else:
+            logger.warning(f"Augmentation point '{aug_point_name}' doesn't follow naming convention")
+            continue
+
+        # Get augmentation element's type definition
+        if not elem_decl.type_ref:
+            continue
+
+        aug_type_def = type_definitions.get(elem_decl.type_ref)
+        if not aug_type_def:
+            logger.debug(f"Augmentation type definition not found for '{elem_decl.type_ref}'")
+            continue
+
+        # Verify it's actually an augmentation type
+        if not aug_type_def.is_augmentation_type:
+            logger.debug(f"Type '{elem_decl.type_ref}' is not an augmentation type")
+            continue
+
+        # Extract properties from augmentation type
+        properties = []
+        for child_elem in aug_type_def.elements:
+            child_name = child_elem.get('name')
+            child_type = child_elem.get('type')
+            if child_name:
+                properties.append({
+                    'qname': child_name,
+                    'type_ref': child_type,
+                    'min_occurs': child_elem.get('min_occurs', '0'),
+                    'max_occurs': child_elem.get('max_occurs', 'unbounded')
+                })
+
+        # Register augmentation
+        if base_type_qname not in augmentations_by_type:
+            augmentations_by_type[base_type_qname] = []
+
+        augmentations_by_type[base_type_qname].append({
+            'augmentation_element_qname': elem_qname,
+            'augmentation_type_qname': elem_decl.type_ref,
+            'properties': properties
+        })
+
+        logger.info(f"Found augmentation: {elem_qname} augments {base_type_qname} with {len(properties)} properties")
+
+    return augmentations_by_type
+
+
 def flatten_tree_to_list(nodes: list[ElementTreeNode]) -> list[dict]:
     """Flatten tree structure to a flat list for API response.
 
@@ -843,6 +958,7 @@ def flatten_tree_to_list(nodes: list[ElementTreeNode]) -> list[dict]:
             "warnings": [w.value for w in node.warnings],
             "suggestions": [s.value for s in node.suggestions],
             "selected": node.selected,
+            "selectable": node.selectable,  # Include selectable field
             "cardinality": node.cardinality,
             "description": node.description,
             "namespace": node.namespace,
@@ -858,6 +974,14 @@ def flatten_tree_to_list(nodes: list[ElementTreeNode]) -> list[dict]:
                 if child.node_type != NodeType.PROPERTY
             ]
             node_dict["endpoints"] = endpoints
+
+        # For augmentations, add augmented_properties field with selectable child properties
+        if node.node_type == NodeType.AUGMENTATION:
+            augmented_properties = [
+                child.qname for child in node.children
+                if child.node_type != NodeType.PROPERTY  # Only include complex/entity properties
+            ]
+            node_dict["augmented_properties"] = augmented_properties
 
         result.append(node_dict)
 
