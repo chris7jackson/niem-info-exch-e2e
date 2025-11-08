@@ -67,11 +67,6 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode,
             <span className={`px-2 py-1 text-xs font-medium rounded ${getNodeTypeColor(selectedNode.node_type)}`}>
               {selectedNode.node_type}
             </span>
-            {selectedNode.is_nested_association && (
-              <span className="px-2 py-1 text-xs font-medium rounded bg-yellow-100 text-yellow-800">
-                Nested Association
-              </span>
-            )}
           </div>
         </div>
 

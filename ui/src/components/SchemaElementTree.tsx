@@ -181,33 +181,6 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
   //   );
   // };
 
-  const getAssociationBadge = (node: ElementTreeNode) => {
-    if (node.node_type !== 'association') return null;
-
-    let color = 'bg-gray-100 text-gray-600';
-    let icon = '🔗';
-
-    if (node.nested_object_count >= 2) {
-      color = 'bg-green-100 text-green-700';
-      icon = '🔗';
-    } else if (node.nested_object_count === 1) {
-      color = 'bg-yellow-100 text-yellow-700';
-      icon = '⚠️';
-    } else {
-      color = 'bg-gray-100 text-gray-600';
-      icon = '⊘';
-    }
-
-    const label = node.is_nested_association ? 'Nested' : 'Top-level';
-
-    return (
-      <span className={`px-2 py-0.5 text-xs rounded ${color} flex items-center space-x-1`}>
-        <span>{icon}</span>
-        <span>{label}</span>
-      </span>
-    );
-  };
-
   // Suggestions disabled - removed for NIEM schemas
   // const getSuggestionBadge = (suggestions: string[]) => {
   //   if (suggestions.length === 0) return null;
@@ -305,9 +278,6 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
             >
               {node.node_type}
             </span>
-
-            {/* Association Badge */}
-            {getAssociationBadge(node)}
 
             {/* Warnings - Disabled since deep nesting warnings are removed */}
             {/* {getWarningIcon(node.warnings)} */}
