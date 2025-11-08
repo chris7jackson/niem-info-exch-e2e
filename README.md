@@ -124,12 +124,18 @@ cd niem-info-exch-e2e
 # Copy environment configuration
 cp .env.example .env
 
-# Start all services
+# (Optional) Add your Senzing license for entity resolution
+# See "Senzing License (Optional)" section above
+# If you skip this, the system will use text-based entity matching
+
+# Start all services (works with default dev credentials)
 docker compose up -d
 
 # Wait for services to be healthy (2-3 minutes)
 docker compose ps
 ```
+
+**Note:** The system ships with default credentials for development convenience. You can start using it immediately without changing any passwords. For production deployments, see the [Security & Production Deployment](#security--production-deployment) section.
 
 ### 2. Access the Web Interface
 
@@ -647,6 +653,136 @@ This walkthrough demonstrates:
 - Test with different NIEM domains (Justice, Immigration, Emergency Management, etc.)
 - Experiment with custom privacy extensions
 - Build custom Cypher queries for your use case
+
+## Security & Production Deployment
+
+### ⚠️ Default Credentials Warning
+
+This system ships with **default credentials for development convenience**. These MUST be changed for production deployments!
+
+#### Default Credentials (Change These!)
+
+| Service | Username | Default Password | Environment Variable |
+|---------|----------|------------------|---------------------|
+| Neo4j | `neo4j` | `password` | `NEO4J_PASSWORD` |
+| MinIO | `minio` | `minio123` | `MINIO_ROOT_PASSWORD` |
+| API Auth | N/A | `devtoken` | `DEV_TOKEN` |
+| Senzing PostgreSQL | `senzing` | `changeme` | `SENZING_DB_PASSWORD` |
+
+### Production Security Checklist
+
+Before deploying to production, complete these security steps:
+
+#### 1. **Change All Default Passwords**
+
+Generate strong, random passwords for all services:
+
+```bash
+# Generate strong passwords
+openssl rand -base64 32  # For passwords
+openssl rand -hex 32     # For tokens
+
+# Update your .env file with new passwords
+# NEVER commit your .env file to version control!
+```
+
+Edit `.env` and update these variables:
+- `NEO4J_PASSWORD` - Neo4j database password
+- `MINIO_ROOT_PASSWORD` - MinIO object storage password
+- `DEV_TOKEN` - API authentication token
+- `SENZING_DB_PASSWORD` - Senzing PostgreSQL password (if using Senzing)
+
+#### 2. **Verify .env is Not Committed**
+
+The `.env` file is already in `.gitignore`, but double-check:
+
+```bash
+# This should show .env is ignored
+git check-ignore .env
+
+# Verify .env is not tracked
+git ls-files | grep "^\.env$"  # Should return nothing
+```
+
+#### 3. **Senzing License Security**
+
+The Senzing license contains sensitive information:
+
+- ✅ License folders (`g2license_*`) are automatically gitignored
+- ✅ Decoded license files (`api/secrets/`) are gitignored
+- ⚠️ Never commit license files to version control
+- ⚠️ Never share license files publicly
+- ✅ License is automatically decoded from `api/g2license_*/` on startup
+
+#### 4. **Production Deployment Recommendations**
+
+For production environments:
+
+1. **Use Docker Secrets** (for Docker Swarm) or **Kubernetes Secrets**
+   ```bash
+   # Example with Docker Secrets
+   echo "your-strong-password" | docker secret create neo4j_password -
+   ```
+
+2. **Enable HTTPS/TLS**
+   - Add nginx or traefik reverse proxy
+   - Configure SSL certificates (Let's Encrypt recommended)
+   - Update `MINIO_SECURE=true` for MinIO TLS
+
+3. **Network Security**
+   - Use Docker networks to isolate services
+   - Don't expose internal ports (7687, 9000, 5432) to public
+   - Only expose ports 80/443 through reverse proxy
+
+4. **Enable PostgreSQL SSL** (if using Senzing with PostgreSQL)
+   - Configure PostgreSQL with SSL certificates
+   - Update connection strings to use `sslmode=require`
+
+5. **Rotate Credentials Regularly**
+   - Implement password rotation policy (quarterly recommended)
+   - Update API tokens periodically
+
+#### 5. **Audit Logs & Monitoring**
+
+Enable logging and monitoring for security events:
+
+```bash
+# View authentication logs
+docker compose logs api | grep -i "auth\|token"
+
+# Monitor failed login attempts
+docker compose logs api | grep -i "401\|403"
+
+# Check Neo4j security logs
+docker compose logs neo4j | grep -i "auth\|failed"
+```
+
+### Environment Variable Reference
+
+All sensitive configuration is externalized to environment variables. See `.env.example` for the complete list with descriptions.
+
+**Required for basic operation:**
+- `NEO4J_PASSWORD` - Must be changed from default
+- `MINIO_ROOT_PASSWORD` - Must be changed from default
+- `DEV_TOKEN` - Must be changed from default
+
+**Required for Senzing entity resolution:**
+- Senzing license (via `api/g2license_*/` folder - auto-detected)
+- `SENZING_DB_PASSWORD` - PostgreSQL password for Senzing
+
+**Optional customization:**
+- `SENZING_GRPC_URL` - Senzing gRPC server URL (default: `senzing-grpc:8261`)
+- `SENZING_CONFIG_PATH` - Path to g2.ini config (default: `/app/config/g2.ini`)
+
+### Security Warnings in Logs
+
+The system will log security warnings when running with default credentials:
+
+```
+⚠️  Using default DEV_TOKEN='devtoken'. Set DEV_TOKEN environment variable for production!
+```
+
+These warnings indicate security issues that should be addressed before production deployment.
 
 ## Known Issues & TODO
 
