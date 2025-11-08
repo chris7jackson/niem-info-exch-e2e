@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -8,8 +9,21 @@ from fastapi import HTTPException, UploadFile
 from minio import Minio
 
 from ..clients.neo4j_client import Neo4jClient
+from ..core.config import batch_config
 
 logger = logging.getLogger(__name__)
+
+# Shared semaphore for XML and JSON ingestion (both use Neo4j and MinIO)
+# Lazy-initialized to avoid event loop issues at module load time
+_ingest_semaphore = None
+
+
+def _get_ingest_semaphore() -> asyncio.Semaphore:
+    """Get or create the ingest semaphore."""
+    global _ingest_semaphore
+    if _ingest_semaphore is None:
+        _ingest_semaphore = asyncio.Semaphore(batch_config.MAX_CONCURRENT_OPERATIONS)
+    return _ingest_semaphore
 
 def _get_schema_id(s3: Minio, schema_id: str | None) -> str:
     """Get schema ID, using provided or active schema.
@@ -596,6 +610,29 @@ async def _process_single_file(
         return _create_error_result(file.filename, error_msg), 0
 
 
+async def _process_single_file_with_concurrency(
+    file: UploadFile,
+    mapping: dict[str, Any],
+    neo4j_client,
+    s3: Minio,
+    schema_dir: str
+) -> tuple[dict[str, Any], int]:
+    """Process a single XML file with semaphore-controlled concurrency.
+
+    Args:
+        file: XML file to process
+        mapping: Mapping specification
+        neo4j_client: Neo4j client instance
+        s3: MinIO client
+        schema_dir: Directory containing schema files
+
+    Returns:
+        Tuple of (result dict, statements_executed count)
+    """
+    async with _get_ingest_semaphore():
+        return await _process_single_file(file, mapping, neo4j_client, s3, schema_dir)
+
+
 async def handle_xml_ingest(
     files: list[UploadFile],
     s3: Minio,
@@ -603,6 +640,16 @@ async def handle_xml_ingest(
 ) -> dict[str, Any]:
     """Handle XML file ingestion to Neo4j using import_xml_to_cypher service"""
     logger.info(f"Starting XML ingestion for {len(files)} files using import_xml_to_cypher service")
+
+    # Validate batch size limit
+    max_files = batch_config.get_batch_limit('ingest')
+    if len(files) > max_files:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch size exceeds maximum of {max_files} files. "
+                   f"Received {len(files)} files. "
+                   f"To increase this limit, set BATCH_MAX_INGEST_FILES in your .env file and restart the API service."
+        )
 
     schema_dir = None
     try:
@@ -615,31 +662,61 @@ async def handle_xml_ingest(
         # Step 3: Download schema files for validation
         schema_dir = await _download_schema_files(s3, schema_id)
 
-        # Step 4: Process files
-        results = []
-        total_statements_executed = 0
-        total_nodes = 0
-        total_relationships = 0
-
+        # Step 4: Process files in parallel with timeout
         # Initialize Neo4j client
         neo4j_client = Neo4jClient()
 
         try:
-            for file in files:
-                result, statements_executed = await _process_single_file(
-                    file, mapping, neo4j_client, s3, schema_dir
+            # Create tasks with timeout for each file
+            tasks = [
+                asyncio.wait_for(
+                    _process_single_file_with_concurrency(file, mapping, neo4j_client, s3, schema_dir),
+                    timeout=batch_config.OPERATION_TIMEOUT
                 )
+                for file in files
+            ]
+
+            # Execute all tasks, catching individual exceptions
+            raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        finally:
+            neo4j_client.driver.close()
+
+        # Process results and handle exceptions
+        results = []
+        total_statements_executed = 0
+        total_nodes = 0
+        total_relationships = 0
+        successful = 0
+        failed = 0
+
+        for idx, raw_result in enumerate(raw_results):
+            if isinstance(raw_result, Exception):
+                # Handle timeout or other exceptions
+                file = files[idx]
+                error_msg = str(raw_result)
+                if isinstance(raw_result, asyncio.TimeoutError):
+                    error_msg = f"Processing timeout after {batch_config.OPERATION_TIMEOUT}s"
+                results.append(_create_error_result(file.filename, error_msg))
+                failed += 1
+            else:
+                # Success case
+                result, statements_executed = raw_result
                 results.append(result)
                 total_statements_executed += statements_executed
                 total_nodes += result.get("nodes_created", 0)
                 total_relationships += result.get("relationships_created", 0)
 
-        finally:
-            neo4j_client.driver.close()
+                if result.get("status") == "success":
+                    successful += 1
+                else:
+                    failed += 1
 
         return {
             "schema_id": schema_id,
             "files_processed": len(files),
+            "successful": successful,
+            "failed": failed,
             "total_nodes_created": total_nodes,
             "total_relationships_created": total_relationships,
             "total_statements_executed": total_statements_executed,
@@ -741,6 +818,29 @@ async def _process_single_json_file(
         return _create_error_result(file.filename, error_msg), 0
 
 
+async def _process_single_json_file_with_concurrency(
+    file: UploadFile,
+    mapping: dict[str, Any],
+    json_schema: dict[str, Any],
+    neo4j_client,
+    s3: Minio
+) -> tuple[dict[str, Any], int]:
+    """Process a single JSON file with semaphore-controlled concurrency.
+
+    Args:
+        file: JSON file to process
+        mapping: Mapping specification
+        json_schema: JSON Schema for validation
+        neo4j_client: Neo4j client instance
+        s3: MinIO client
+
+    Returns:
+        Tuple of (result dict, statements_executed count)
+    """
+    async with _get_ingest_semaphore():
+        return await _process_single_json_file(file, mapping, json_schema, neo4j_client, s3)
+
+
 async def handle_json_ingest(
     files: list[UploadFile],
     s3: Minio,
@@ -753,6 +853,16 @@ async def handle_json_ingest(
     from XSD by CMF tool) and converted to Cypher using the same mapping as XML.
     """
     logger.info(f"Starting NIEM JSON ingestion for {len(files)} files using json_to_graph service")
+
+    # Validate batch size limit
+    max_files = batch_config.get_batch_limit('ingest')
+    if len(files) > max_files:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch size exceeds maximum of {max_files} files. "
+                   f"Received {len(files)} files. "
+                   f"To increase this limit, set BATCH_MAX_INGEST_FILES in your .env file and restart the API service."
+        )
 
     try:
         # Step 1: Get schema ID (use provided or get active)
@@ -778,31 +888,61 @@ async def handle_json_ingest(
         # Step 4: Download JSON Schema for validation
         json_schema = _download_json_schema_from_s3(s3, schema_id)
 
-        # Step 5: Process files
-        results = []
-        total_statements_executed = 0
-        total_nodes = 0
-        total_relationships = 0
-
+        # Step 5: Process files in parallel with timeout
         # Initialize Neo4j client
         neo4j_client = Neo4jClient()
 
         try:
-            for file in files:
-                result, statements_executed = await _process_single_json_file(
-                    file, mapping, json_schema, neo4j_client, s3
+            # Create tasks with timeout for each file
+            tasks = [
+                asyncio.wait_for(
+                    _process_single_json_file_with_concurrency(file, mapping, json_schema, neo4j_client, s3),
+                    timeout=batch_config.OPERATION_TIMEOUT
                 )
+                for file in files
+            ]
+
+            # Execute all tasks, catching individual exceptions
+            raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        finally:
+            neo4j_client.driver.close()
+
+        # Process results and handle exceptions
+        results = []
+        total_statements_executed = 0
+        total_nodes = 0
+        total_relationships = 0
+        successful = 0
+        failed = 0
+
+        for idx, raw_result in enumerate(raw_results):
+            if isinstance(raw_result, Exception):
+                # Handle timeout or other exceptions
+                file = files[idx]
+                error_msg = str(raw_result)
+                if isinstance(raw_result, asyncio.TimeoutError):
+                    error_msg = f"Processing timeout after {batch_config.OPERATION_TIMEOUT}s"
+                results.append(_create_error_result(file.filename, error_msg))
+                failed += 1
+            else:
+                # Success case
+                result, statements_executed = raw_result
                 results.append(result)
                 total_statements_executed += statements_executed
                 total_nodes += result.get("nodes_created", 0)
                 total_relationships += result.get("relationships_created", 0)
 
-        finally:
-            neo4j_client.driver.close()
+                if result.get("status") == "success":
+                    successful += 1
+                else:
+                    failed += 1
 
         return {
             "schema_id": schema_id,
             "files_processed": len(files),
+            "successful": successful,
+            "failed": failed,
             "total_nodes_created": total_nodes,
             "total_relationships_created": total_relationships,
             "total_statements_executed": total_statements_executed,

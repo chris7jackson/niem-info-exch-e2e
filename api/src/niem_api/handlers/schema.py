@@ -18,6 +18,7 @@ import defusedxml.ElementTree as ET
 
 from ..clients.s3_client import upload_file
 from ..clients.scheval_client import is_scheval_available
+from ..core.config import batch_config
 from ..models.models import SchevalIssue, SchevalReport, SchemaResponse
 from ..services.cmf_tool import (
     convert_cmf_to_jsonschema,
@@ -885,6 +886,16 @@ async def handle_schema_upload(
         file_paths: List of relative file paths (preserves directory structure)
     """
     try:
+        # Validate batch size limit
+        max_files = batch_config.get_batch_limit('schema')
+        if len(files) > max_files:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Batch size exceeds maximum of {max_files} files. "
+                       f"Received {len(files)} files. "
+                       f"To increase this limit, set BATCH_MAX_SCHEMA_FILES in your .env file and restart the API service."
+            )
+
         # Step 1: Validate and read files
         file_contents, file_path_map, primary_file, schema_id = await _validate_and_read_files(files, file_paths)
         primary_content = file_contents[primary_file.filename]
@@ -997,7 +1008,10 @@ async def handle_schema_upload(
             scheval_report=scheval_report,
             import_validation_report=import_validation_report,
             is_active=True,  # Latest uploaded schema is automatically active
-            warnings=warnings
+            warnings=warnings,
+            files_processed=len(files),
+            successful=len(files),  # All-or-nothing: if we got here, all succeeded
+            failed=0
         )
 
     except Exception as e:

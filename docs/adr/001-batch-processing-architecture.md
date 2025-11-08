@@ -42,10 +42,10 @@ Implement **synchronous batch processing with controlled concurrency** across al
 - Provides predictable resource usage for cloud deployment
 
 **2. Batch Size Limits** (Operation-Specific)
-- **Schema Upload**: Max 50 files (via `BATCH_MAX_SCHEMA_FILES`)
+- **Schema Upload**: Max 150 files (via `BATCH_MAX_SCHEMA_FILES`)
   - NIEM schemas often have 25+ reference XSD files
-- **XML/JSON Conversion**: Max 20 files (via `BATCH_MAX_CONVERSION_FILES`)
-- **XML/JSON Ingestion**: Max 20 files (via `BATCH_MAX_INGEST_FILES`)
+- **XML/JSON Conversion**: Max 150 files (via `BATCH_MAX_CONVERSION_FILES`)
+- **XML/JSON Ingestion**: Max 150 files (via `BATCH_MAX_INGEST_FILES`)
 - Returns HTTP 400 if limit exceeded
 - Configurable via environment variables for production deployments
 
@@ -126,9 +126,9 @@ All batch processing limits are configurable via environment variables for flexi
 |----------|---------|-------------|
 | `BATCH_MAX_CONCURRENT_OPERATIONS` | 3 | Max parallel operations across entire system |
 | `BATCH_OPERATION_TIMEOUT` | 60 | Timeout in seconds per individual file |
-| `BATCH_MAX_SCHEMA_FILES` | 50 | Max files for schema upload (NIEM often has 25+ refs) |
-| `BATCH_MAX_CONVERSION_FILES` | 20 | Max files for XML/JSON conversion |
-| `BATCH_MAX_INGEST_FILES` | 20 | Max files for XML/JSON ingestion |
+| `BATCH_MAX_SCHEMA_FILES` | 150 | Max files for schema upload (NIEM often has 25+ refs) |
+| `BATCH_MAX_CONVERSION_FILES` | 150 | Max files for XML/JSON conversion |
+| `BATCH_MAX_INGEST_FILES` | 150 | Max files for XML/JSON ingestion |
 
 **Example `docker-compose.yml` override for production:**
 
@@ -138,8 +138,9 @@ services:
     environment:
       BATCH_MAX_CONCURRENT_OPERATIONS: 5  # More powerful server
       BATCH_OPERATION_TIMEOUT: 120        # Larger files
-      BATCH_MAX_CONVERSION_FILES: 50      # Higher limits
-      BATCH_MAX_SCHEMA_FILES: 100         # Large NIEM schemas
+      BATCH_MAX_CONVERSION_FILES: 200     # Higher limits
+      BATCH_MAX_SCHEMA_FILES: 200         # Large NIEM schemas
+      BATCH_MAX_INGEST_FILES: 200         # Large batches
 ```
 
 **Configuration Location:** `api/src/niem_api/core/config.py`
