@@ -78,41 +78,93 @@ The API provides automatic interactive documentation via FastAPI:
 - 8GB+ RAM recommended
 - Ports 3000, 7474, 7687, 8000, 9000, 9001 available
 
-### Senzing License (Optional)
+### Entity Resolution & Senzing Setup (Optional)
 
-For entity resolution features, a Senzing license is required.
+The system supports two modes of entity resolution:
 
-**What the system expects:**
-- **Folder name pattern**: `g2license_*` (e.g., `g2license_20251201-120000`)
-- **File name inside folder**: `g2.lic_base64` (base64-encoded license)
-- **Location**: `api/g2license_*/g2.lic_base64`
+**Text-Based Matching (Default)**
+- Works without any license - zero configuration
+- Simple name matching with case-insensitive comparison
+- Basic punctuation normalization
+- Good for development and testing
 
-The system automatically searches for and decodes any matching license file on startup.
+**Senzing ML-Based Resolution (Optional - Requires License)**
+- Machine learning-based entity matching
+- Fuzzy name matching and phonetic matching
+- Address standardization and date normalization
+- Relationship analysis with confidence scoring
+- Match transparency - see exactly why entities matched ([Match Details Feature](docs/SENZING_MATCH_DETAILS.md))
 
-**Setup:**
-1. Contact support@senzing.com to obtain a license
-2. Receive license folder (typically named `g2license_YYYYMMDD-HHMMSS.zip`)
-3. Unzip the folder into the `api/` directory
-4. Start/restart the system - license is automatically decoded
+#### Quick License Setup (Recommended Method)
 
-**Example:**
+The system automatically detects and decodes Senzing licenses on startup:
+
 ```bash
-# Unzip your license folder into api/
+# 1. Obtain license from Senzing (contact support@senzing.com)
+# You'll receive a zip file: g2license_YYYYMMDD-HHMMSS.zip
+
+# 2. Unzip into api/ directory
 unzip g2license_20251201-120000.zip -d api/
 
-# Verify the structure matches what the system expects:
-ls api/g2license_20251201-120000/g2.lic_base64
+# 3. Verify structure
+ls api/g2license_*/g2.lic_base64
 # Should show: api/g2license_20251201-120000/g2.lic_base64
 
-# Start/restart system
-docker compose up -d
+# 4. Start/restart system
+docker compose restart api
 
-# Check logs to confirm license was decoded:
+# 5. Verify Senzing is active
 docker compose logs api | grep -i senzing
 # Should show: "✅ Senzing license decoded successfully"
 ```
 
-**Note**: If you have multiple license folders, the system uses the most recent one (sorted by folder name).
+**What the system expects:**
+- Folder name pattern: `g2license_*`
+- File inside: `g2.lic_base64` (base64-encoded)
+- Location: `api/g2license_*/g2.lic_base64`
+
+If you have multiple license folders, the system uses the most recent one.
+
+#### Verification
+
+Check if Senzing is active:
+```bash
+curl http://localhost:8000/api/entity-resolution/status \
+  -H "Authorization: Bearer devtoken" | jq .
+```
+
+Expected response with Senzing:
+```json
+{
+  "senzing_available": true,
+  "mode": "senzing",
+  "message": "Using Senzing SDK for entity resolution"
+}
+```
+
+#### Common Issues
+
+**License not detected?**
+```bash
+# Check folder structure
+ls -la api/g2license_*/
+# Should show a folder with g2.lic_base64 inside
+
+# Check decoded license was created
+ls -la api/secrets/senzing/g2.lic
+# Should exist after restart
+
+# Check permissions
+chmod -R 755 api/g2license_*/
+```
+
+**Senzing SDK not found?**
+- Docker: Installed automatically via requirements.txt
+- Local dev: Run `pip install senzing-grpc`
+
+**For detailed troubleshooting and alternative installation methods**, see:
+- [Senzing Integration Guide](docs/senzing-integration.md) - Technical details, database configuration
+- [Senzing Match Details](docs/SENZING_MATCH_DETAILS.md) - Match transparency features
 
 ### 1. Start the System
 
