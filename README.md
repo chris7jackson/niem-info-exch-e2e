@@ -95,52 +95,25 @@ The system supports two modes of entity resolution:
 - Relationship analysis with confidence scoring
 - Match transparency - see exactly why entities matched ([Match Details Feature](docs/SENZING_MATCH_DETAILS.md))
 
-#### Quick License Setup (Recommended Method)
-
-The system automatically detects and decodes Senzing licenses on startup:
+#### Quick License Setup
 
 ```bash
-# 1. Obtain license from Senzing (contact support@senzing.com)
-# You'll receive a zip file: g2license_YYYYMMDD-HHMMSS.zip
-
+# 1. Get license from Senzing (contact support@senzing.com)
 # 2. Unzip into api/ directory
-unzip g2license_20251201-120000.zip -d api/
+unzip g2license_YYYYMMDD-HHMMSS.zip -d api/
 
-# 3. Verify structure
-ls api/g2license_*/g2.lic_base64
-# Should show: api/g2license_20251201-120000/g2.lic_base64
-
-# 4. Start/restart system
-docker compose restart api
-
-# 5. Verify Senzing is active
-docker compose logs api | grep -i senzing
-# Should show: "✅ Senzing license decoded successfully"
+# 3. Start system
+docker compose up -d
 ```
 
-**What the system expects:**
-- Folder name pattern: `g2license_*`
-- File inside: `g2.lic_base64` (base64-encoded)
-- Location: `api/g2license_*/g2.lic_base64`
+License auto-decodes on startup and is shared with all services.
 
-If you have multiple license folders, the system uses the most recent one.
-
-#### Verification
-
-Check if Senzing is active:
+**Verify setup:**
 ```bash
-curl http://localhost:8000/api/entity-resolution/status \
-  -H "Authorization: Bearer devtoken" | jq .
+./scripts/check_senzing.sh
 ```
 
-Expected response with Senzing:
-```json
-{
-  "senzing_available": true,
-  "mode": "senzing",
-  "message": "Using Senzing SDK for entity resolution"
-}
-```
+See [docs/SENZING_SETUP.md](docs/SENZING_SETUP.md) for detailed setup and troubleshooting.
 
 #### Common Issues
 

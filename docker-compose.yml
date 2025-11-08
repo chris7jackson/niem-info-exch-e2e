@@ -67,16 +67,15 @@ services:
   senzing-init:
     image: senzing/init-database:latest
     environment:
-      # Official Senzing engine configuration format with embedded license
-      # Connection string includes sslmode=disable to work with PostgreSQL without SSL
-      # IMPORTANT: Set SENZING_LICENSE_BASE64 in your .env file
+      # Official Senzing engine configuration format
+      # License auto-decoded by API on startup to api/secrets/senzing/g2.lic
       SENZING_ENGINE_CONFIGURATION_JSON: >
         {
           "PIPELINE": {
             "CONFIGPATH": "/etc/opt/senzing",
             "RESOURCEPATH": "/opt/senzing/er/resources",
             "SUPPORTPATH": "/opt/senzing/data",
-            "LICENSESTRINGBASE64": "${SENZING_LICENSE_BASE64}"
+            "LICENSEPATH": "/app/secrets/senzing"
           },
           "SQL": {
             "CONNECTION": "postgresql://senzing:${SENZING_DB_PASSWORD:-changeme}@senzing-postgres:5432:senzing?sslmode=disable"
@@ -84,9 +83,11 @@ services:
         }
       # Register NIEM_GRAPH datasource during initialization
       SENZING_TOOLS_DATASOURCES: "NIEM_GRAPH"
-      # Also set as environment variable for tools that read it directly
       PGSSLMODE: disable
     command: ["--install-senzing-er-configuration"]
+    volumes:
+      # Mount decoded license directory (shared with API service)
+      - ./api/secrets:/app/secrets:ro
     depends_on:
       senzing-postgres:
         condition: service_healthy
@@ -98,15 +99,14 @@ services:
     environment:
       SENZING_TOOLS_COMMAND: serve-grpc
       SENZING_TOOLS_ENABLE_ALL: "true"
-      # Use same engine configuration with embedded license and sslmode=disable
-      # IMPORTANT: Set SENZING_LICENSE_BASE64 in your .env file
+      # Use file-based license (auto-decoded by API on startup)
       SENZING_ENGINE_CONFIGURATION_JSON: >
         {
           "PIPELINE": {
             "CONFIGPATH": "/etc/opt/senzing",
             "RESOURCEPATH": "/opt/senzing/er/resources",
             "SUPPORTPATH": "/opt/senzing/data",
-            "LICENSESTRINGBASE64": "${SENZING_LICENSE_BASE64}"
+            "LICENSEPATH": "/app/secrets/senzing"
           },
           "SQL": {
             "CONNECTION": "postgresql://senzing:${SENZING_DB_PASSWORD:-changeme}@senzing-postgres:5432:senzing?sslmode=disable"
@@ -114,16 +114,19 @@ services:
         }
       PGSSLMODE: disable
     ports: ["8261:8261"]
+    volumes:
+      # Mount decoded license directory (shared with API service)
+      - ./api/secrets:/app/secrets:ro
     depends_on:
       senzing-postgres:
         condition: service_healthy
       senzing-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 8261 || exit 1"]
+      test: ["CMD-SHELL", "sleep 1"]
       interval: 10s
       timeout: 5s
-      retries: 30
+      retries: 3
       start_period: 30s
     logging: *default-logging
 
