@@ -80,7 +80,7 @@ export interface ConversionFileResult {
 export interface ElementTreeNode {
   qname: string;
   label: string;
-  node_type: 'object' | 'association';
+  node_type: 'object' | 'association' | 'property';
   depth: number;
   property_count: number;
   nested_object_count: number;
@@ -94,6 +94,7 @@ export interface ElementTreeNode {
   is_nested_association: boolean;
   can_have_id?: boolean;  // True if type extends structures:ObjectType
   children: string[];
+  endpoints?: string[];  // Only present for associations - contains entity endpoint qnames (not property wrappers)
 }
 
 export interface ElementTreeResponse {
@@ -177,6 +178,23 @@ export interface EntityResolutionRequest {
   selectedNodeTypes: string[];
 }
 
+export interface MatchDetails {
+  totalEntitiesMatched: number;
+  totalResolvedGroups: number;
+  matchQualityDistribution: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+  commonMatchKeys: Record<string, number>;
+  featureScores: Record<string, {
+    total: number;
+    count: number;
+    average: number;
+  }>;
+  resolutionRules: Record<string, number>;
+}
+
 export interface EntityResolutionResponse {
   status: string;
   message: string;
@@ -187,6 +205,7 @@ export interface EntityResolutionResponse {
   entitiesResolved: number;
   nodeTypesProcessed?: string[];
   resolutionMethod?: string;
+  matchDetails?: MatchDetails;
 }
 
 export interface EntityResolutionStatusResponse {

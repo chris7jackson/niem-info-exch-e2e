@@ -246,7 +246,13 @@ class SenzingClient:
         try:
             # SDK v4 API: get_entity_by_record_id returns string directly
             from senzing import SzEngineFlags
-            flags = flags or SzEngineFlags.SZ_ENTITY_DEFAULT_FLAGS
+            # Request enhanced match details including feature scores and matching info
+            flags = flags or (
+                SzEngineFlags.SZ_ENTITY_DEFAULT_FLAGS |
+                SzEngineFlags.SZ_INCLUDE_FEATURE_SCORES |
+                SzEngineFlags.SZ_INCLUDE_MATCH_KEY_DETAILS |
+                SzEngineFlags.SZ_ENTITY_INCLUDE_RECORD_MATCHING_INFO
+            )
             response = self.engine.get_entity_by_record_id(data_source, record_id, flags)
             return json.loads(response)
 

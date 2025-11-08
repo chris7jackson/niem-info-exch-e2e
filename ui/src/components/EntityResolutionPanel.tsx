@@ -7,6 +7,31 @@ interface EntityResolutionPanelProps {
   onError?: (error: string) => void;
 }
 
+// Tooltip component for displaying helpful information
+const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, children }) => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  return (
+    <div className="relative inline-flex items-center">
+      <div
+        onMouseEnter={() => setIsVisible(true)}
+        onMouseLeave={() => setIsVisible(false)}
+        className="cursor-help inline-flex"
+      >
+        {children}
+      </div>
+      {isVisible && (
+        <div className="absolute z-10 w-64 p-2 text-xs text-white bg-gray-900 rounded shadow-lg left-full ml-2 top-1/2 transform -translate-y-1/2">
+          {text}
+          <div className="absolute top-1/2 right-full transform -translate-y-1/2">
+            <div className="border-4 border-transparent border-r-gray-900"></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
   onResolutionComplete,
   onError,
@@ -20,6 +45,7 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
   );
   const [lastResult, setLastResult] = useState<EntityResolutionResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showMatchDetails, setShowMatchDetails] = useState(false);
 
   // Fetch available node types on mount
   useEffect(() => {
@@ -147,6 +173,45 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const formatMatchKey = (matchKey: string) => {
+    // Handle special Senzing match keys
+    if (matchKey === 'Exactly_same' || matchKey === 'EXACTLY_SAME') {
+      return 'Exact match (all attributes identical)';
+    }
+    if (matchKey === 'SAME_ID') {
+      return 'Same identifier';
+    }
+    if (!matchKey || matchKey === '') {
+      return 'Unknown match criteria';
+    }
+
+    // Convert "+NAME+DOB+ADDRESS" to "Name + Date of Birth + Address"
+    const parts = matchKey
+      .split('+')
+      .filter(Boolean)
+      .map((key) => {
+        // Convert common abbreviations
+        let formatted = key
+          .replace(/^DOB$/i, 'Date of Birth')
+          .replace(/^SSN$/i, 'SSN')
+          .replace(/^ADDR$/i, 'Address')
+          .replace(/^PHONE$/i, 'Phone')
+          .replace(/^EMAIL$/i, 'Email')
+          .replace(/^ADDRESS$/i, 'Address')
+          .replace(/_/g, ' '); // Replace underscores with spaces
+
+        // Title case each word
+        formatted = formatted
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+
+        return formatted;
+      });
+
+    return parts.join(' + ');
   };
 
   const filteredNodeTypes = getFilteredNodeTypes();
@@ -300,6 +365,152 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                 : 'Text-Based Entity Matching'}
             </div>
           </div>
+
+          {/* Match Details Section - Only shown for Senzing results */}
+          {lastResult.matchDetails && lastResult.resolutionMethod === 'senzing' && (
+            <div className="mt-4 pt-4 border-t border-green-200">
+              <button
+                onClick={() => setShowMatchDetails(!showMatchDetails)}
+                className="flex items-center justify-between w-full text-sm font-medium text-green-900 hover:text-green-700"
+              >
+                <span>Match Details</span>
+                <svg
+                  className={`w-5 h-5 transform transition-transform ${showMatchDetails ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showMatchDetails && (
+                <div className="mt-3 space-y-4">
+                  {/* Match Quality Distribution */}
+                  <div>
+                    <div className="flex items-center gap-1 mb-2">
+                      <h5 className="text-xs font-semibold text-green-900">Match Quality Distribution</h5>
+                      <Tooltip text="Shows how confident Senzing is about each entity match. High confidence means strong evidence that entities are the same person/organization. This counts individual record-level matches, not entity groups.">
+                        <svg className="w-4 h-4 text-green-700" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </Tooltip>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="bg-white rounded p-2 border border-green-200">
+                        <div className="text-gray-500">High Confidence</div>
+                        <div className="text-lg font-semibold text-green-700">
+                          {lastResult.matchDetails.matchQualityDistribution.high}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">record matches</div>
+                      </div>
+                      <div className="bg-white rounded p-2 border border-green-200">
+                        <div className="text-gray-500">Medium Confidence</div>
+                        <div className="text-lg font-semibold text-yellow-600">
+                          {lastResult.matchDetails.matchQualityDistribution.medium}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">record matches</div>
+                      </div>
+                      <div className="bg-white rounded p-2 border border-green-200">
+                        <div className="text-gray-500">Low Confidence</div>
+                        <div className="text-lg font-semibold text-orange-600">
+                          {lastResult.matchDetails.matchQualityDistribution.low}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">record matches</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Common Match Keys */}
+                  {Object.keys(lastResult.matchDetails.commonMatchKeys).length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1 mb-2">
+                        <h5 className="text-xs font-semibold text-green-900">How Entities Were Matched</h5>
+                        <Tooltip text="Shows which combinations of attributes Senzing used to determine entities are the same. For example, 'Name + Date of Birth' means Senzing matched entities that had the same name AND date of birth. The count shows how many times each combination was used.">
+                          <svg className="w-4 h-4 text-green-700" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          </svg>
+                        </Tooltip>
+                      </div>
+                      <div className="bg-white rounded p-3 border border-green-200 space-y-1">
+                        {Object.entries(lastResult.matchDetails.commonMatchKeys)
+                          .slice(0, 5)
+                          .map(([key, count]) => (
+                            <div key={key} className="flex justify-between text-xs items-center">
+                              <span className="text-gray-700">{formatMatchKey(key)}</span>
+                              <span className="font-medium text-green-700">{count} record{count !== 1 ? 's' : ''} matched this way</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Feature Scores - Only show if we have scores > 0 */}
+                  {(() => {
+                    const featuresWithScores = Object.entries(lastResult.matchDetails.featureScores || {})
+                      .filter(([_, scores]) => scores.average > 0);
+
+                    if (featuresWithScores.length === 0) {
+                      return null; // Don't show section at all if no scores
+                    }
+
+                    return (
+                      <div>
+                        <div className="flex items-center gap-1 mb-2">
+                          <h5 className="text-xs font-semibold text-green-900">Attributes Used</h5>
+                          <Tooltip text="Shows which types of attributes were found in the matched entities. A score of 100 means the attribute was present in all matched records. Lower scores indicate the attribute was found in some but not all records, or match quality varies.">
+                            <svg className="w-4 h-4 text-green-700" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                          </Tooltip>
+                        </div>
+                        <div className="bg-white rounded p-3 border border-green-200 space-y-1">
+                          {featuresWithScores.map(([feature, scores]) => (
+                            <div key={feature} className="flex justify-between text-xs items-center">
+                              <span className="text-gray-700 font-medium">{feature}</span>
+                              <div className="flex items-center gap-2">
+                                <div className="w-24 bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-green-600 h-2 rounded-full"
+                                    style={{ width: `${Math.min(100, scores.average)}%` }}
+                                  />
+                                </div>
+                                <span className="font-medium text-green-700 w-8 text-right">{scores.average}%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Resolution Rules */}
+                  {Object.keys(lastResult.matchDetails.resolutionRules).length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1 mb-2">
+                        <h5 className="text-xs font-semibold text-green-900">Senzing Rules Used</h5>
+                        <Tooltip text="Shows which Senzing resolution rules were applied during entity matching. Each rule defines specific criteria for when entities should be considered the same. The count shows how many times each rule was triggered.">
+                          <svg className="w-4 h-4 text-green-700" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          </svg>
+                        </Tooltip>
+                      </div>
+                      <div className="bg-white rounded p-3 border border-green-200 space-y-1">
+                        {Object.entries(lastResult.matchDetails.resolutionRules)
+                          .slice(0, 5)
+                          .map(([rule, count]) => (
+                            <div key={rule} className="flex justify-between text-xs items-center">
+                              <span className="text-gray-700 font-mono text-xs">{rule}</span>
+                              <span className="font-medium text-green-700">{count} time{count !== 1 ? 's' : ''}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

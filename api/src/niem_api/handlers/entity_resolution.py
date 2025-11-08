@@ -125,6 +125,169 @@ def _count_senzing_mappable_fields(node_keys: List[str]) -> int:
     return count
 
 
+def _extract_match_details_from_senzing_results(resolved_entities: Dict) -> Dict:
+    """Extract and aggregate match details from Senzing resolution results.
+
+    Args:
+        resolved_entities: Dictionary of Senzing entity groups with their data
+
+    Returns:
+        Dictionary with aggregated match details including:
+        - totalEntitiesMatched: Total number of entities that were matched
+        - totalResolvedGroups: Number of unique resolved entity groups
+        - matchQualityDistribution: Breakdown by confidence level
+        - commonMatchKeys: Most common matching attributes
+        - featureScores: Average scores for each feature type
+        - resolutionRules: Rules used for entity resolution
+    """
+    match_details = {
+        'totalEntitiesMatched': 0,
+        'totalResolvedGroups': 0,
+        'matchQualityDistribution': {
+            'high': 0,
+            'medium': 0,
+            'low': 0
+        },
+        'commonMatchKeys': {},
+        'featureScores': {},
+        'resolutionRules': {}
+    }
+
+    if not resolved_entities:
+        return match_details
+
+    match_details['totalResolvedGroups'] = len(resolved_entities)
+
+    # Aggregate data from each resolved entity group
+    for senzing_entity_id, group_data in resolved_entities.items():
+        entities_in_group = group_data['entities']
+        senzing_data = group_data['senzing_data']
+
+        # Count entities matched
+        match_details['totalEntitiesMatched'] += len(entities_in_group)
+
+        # Only process groups with duplicates (2+ entities)
+        if len(entities_in_group) < 2:
+            continue
+
+        records = senzing_data.get('RECORDS', [])
+
+        # Extract match quality from records
+        for record in records:
+            match_level_code = record.get('MATCH_LEVEL_CODE', '').upper()
+            match_level = record.get('MATCH_LEVEL', 0)
+
+            # Categorize match quality
+            if match_level_code in ['RESOLVED', 'EXACT_MATCH'] or match_level >= 3:
+                match_details['matchQualityDistribution']['high'] += 1
+            elif match_level_code in ['POSSIBLY_SAME', 'POSSIBLY_RELATED'] or match_level >= 2:
+                match_details['matchQualityDistribution']['medium'] += 1
+            else:
+                match_details['matchQualityDistribution']['low'] += 1
+
+            # Track match keys
+            match_key = record.get('MATCH_KEY', '')
+            if match_key:
+                match_details['commonMatchKeys'][match_key] = match_details['commonMatchKeys'].get(match_key, 0) + 1
+
+            # Track resolution rules
+            errule_code = record.get('ERRULE_CODE', '')
+            if errule_code:
+                match_details['resolutionRules'][errule_code] = match_details['resolutionRules'].get(errule_code, 0) + 1
+
+        # Extract feature scores
+        # NOTE: Senzing feature scores are only available with enhanced flags
+        # The FEATURES object contains feature values, not scores by default
+        features = senzing_data.get('FEATURES', {})
+
+        # Try to get record-level feature details if available
+        records = senzing_data.get('RECORDS', [])
+        for record in records:
+            # Check for FEATURE_DETAILS in records (available with enhanced flags)
+            if 'FEATURES' in record:
+                record_features = record['FEATURES']
+                for feature_type, feature_list in record_features.items():
+                    if not feature_list:
+                        continue
+
+                    # Initialize feature score tracking
+                    if feature_type not in match_details['featureScores']:
+                        match_details['featureScores'][feature_type] = {
+                            'total': 0,
+                            'count': 0,
+                            'average': 0
+                        }
+
+                    # Aggregate scores from record features
+                    for feature in feature_list:
+                        # Try different possible score locations in Senzing response
+                        score = 0
+                        if isinstance(feature, dict):
+                            # Try FEAT_DESC_VALUES structure
+                            if 'FEAT_DESC_VALUES' in feature and isinstance(feature['FEAT_DESC_VALUES'], list):
+                                if len(feature['FEAT_DESC_VALUES']) > 0:
+                                    score = feature['FEAT_DESC_VALUES'][0].get('FEAT_SCORE', 0)
+                            # Try direct USAGE_TYPE (can indicate match quality)
+                            elif 'USAGE_TYPE' in feature:
+                                # USAGE_TYPE values like "FF" (full feature) indicate strong match
+                                usage = feature.get('USAGE_TYPE', '')
+                                if usage == 'FF':
+                                    score = 100
+                                elif usage in ['FM', 'FME']:
+                                    score = 75
+                                elif usage in ['FNF']:
+                                    score = 50
+
+                        if score > 0:
+                            match_details['featureScores'][feature_type]['total'] += score
+                            match_details['featureScores'][feature_type]['count'] += 1
+
+        # If no record-level features, try entity-level features with count
+        if not match_details['featureScores'] and features:
+            for feature_type, feature_list in features.items():
+                if not feature_list or not isinstance(feature_list, list):
+                    continue
+
+                # Initialize tracking
+                if feature_type not in match_details['featureScores']:
+                    match_details['featureScores'][feature_type] = {
+                        'total': 0,
+                        'count': 0,
+                        'average': 0
+                    }
+
+                # Count features as a proxy for score (number of matching values)
+                # Normalize to 0-100 scale based on number of records
+                num_records = len(records) if records else 1
+                feature_count = len(feature_list)
+                # If we have as many features as records, score 100; otherwise proportional
+                score = min(100, int((feature_count / num_records) * 100)) if num_records > 0 else 0
+
+                if score > 0:
+                    match_details['featureScores'][feature_type]['total'] = score
+                    match_details['featureScores'][feature_type]['count'] = 1
+
+    # Calculate average feature scores
+    for feature_type, scores in match_details['featureScores'].items():
+        if scores['count'] > 0:
+            scores['average'] = round(scores['total'] / scores['count'], 2)
+
+    # Sort match keys and resolution rules by frequency
+    match_details['commonMatchKeys'] = dict(sorted(
+        match_details['commonMatchKeys'].items(),
+        key=lambda x: x[1],
+        reverse=True
+    )[:10])  # Top 10
+
+    match_details['resolutionRules'] = dict(sorted(
+        match_details['resolutionRules'].items(),
+        key=lambda x: x[1],
+        reverse=True
+    )[:10])  # Top 10
+
+    return match_details
+
+
 # ============================================================================
 # Internal Helper Functions (Entity Resolution Logic)
 # ============================================================================
@@ -654,7 +817,7 @@ def _create_resolved_entity_relationships(neo4j_client: Neo4jClient) -> int:
         return 0
 
 
-def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dict]) -> Tuple[int, int]:
+def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dict]) -> Tuple[int, int, Dict]:
     """
     Resolve entities using Senzing SDK.
 
@@ -663,22 +826,22 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
         entities: List of entity dictionaries to resolve
 
     Returns:
-        Tuple of (resolved_entity_count, relationship_count)
+        Tuple of (resolved_entity_count, relationship_count, match_details)
     """
     if not SENZING_AVAILABLE:
         logger.error("Senzing not available but Senzing resolution was called")
-        return 0, 0
+        return 0, 0, {}
 
     # Get or initialize Senzing client
     senzing_client = get_senzing_client()
     if not senzing_client.is_available():
         logger.error("Senzing client not available (license or configuration issue)")
-        return 0, 0
+        return 0, 0, {}
 
     if not senzing_client.initialized:
         if not senzing_client.initialize():
             logger.error("Failed to initialize Senzing client")
-            return 0, 0
+            return 0, 0, {}
 
     try:
         # Convert entities to Senzing format
@@ -902,11 +1065,15 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
                 relationship_count += 1
 
         logger.info(f"Senzing resolution created {resolved_count} resolved entities with {relationship_count} relationships")
-        return resolved_count, relationship_count
+
+        # Extract match details from Senzing results
+        match_details = _extract_match_details_from_senzing_results(resolved_entities)
+
+        return resolved_count, relationship_count, match_details
 
     except Exception as e:
         logger.error(f"Error during Senzing resolution: {e}", exc_info=True)
-        return 0, 0
+        return 0, 0, {}
 
 
 def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
@@ -1284,12 +1451,13 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
 
         # Step 3: Perform entity resolution
         # Check if Senzing is available
+        match_details = {}  # Initialize match details
         if SENZING_AVAILABLE:
             try:
                 senzing_client = get_senzing_client()
                 if senzing_client.is_available():
                     logger.info("Using Senzing SDK for entity resolution")
-                    resolved_count, relationship_count = _resolve_entities_with_senzing(
+                    resolved_count, relationship_count, match_details = _resolve_entities_with_senzing(
                         neo4j_client,
                         entities
                     )
@@ -1334,7 +1502,7 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
             except:
                 pass
 
-        return {
+        response = {
             'status': 'success',
             'message': f'Successfully resolved {total_resolved_entities} entities into {resolved_count} clusters with {resolved_relationships_count} relationships',
             'entitiesExtracted': len(entities),
@@ -1345,6 +1513,12 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
             'resolutionMethod': resolution_method,
             'nodeTypesProcessed': selected_node_types
         }
+
+        # Include match details if using Senzing
+        if resolution_method == 'senzing' and match_details:
+            response['matchDetails'] = match_details
+
+        return response
 
     except Exception as e:
         logger.error(f"Entity resolution failed: {e}", exc_info=True)
