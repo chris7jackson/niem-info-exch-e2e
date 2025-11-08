@@ -1390,30 +1390,8 @@ def generate_for_xml_content(
                                 if not key.endswith('_isAugmentation'):
                                     nodes[parent_id][2][f"{key}_isAugmentation"] = True
 
-            # If we have a parent node, flatten this element's data into it
-            elif parent_info:
-                parent_id, parent_label = parent_info
-
-                # Recursively extract all properties from this unselected element
-                flattened = _recursively_flatten_element(
-                    elem, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index,
-                    path_prefix=elem_qn,  # Use element qname as prefix
-                    struct_ns=struct_ns
-                )
-
-                # Add flattened properties to parent node
-                if parent_id in nodes and flattened:
-                    # Determine if this is augmentation data
-                    is_aug_data = cmf_element_index and is_augmentation(elem_qn, cmf_element_index)
-
-                    if is_aug_data:
-                        # Add to parent's augmentation properties
-                        for prop_path, prop_value in flattened.items():
-                            nodes[parent_id][3][prop_path] = prop_value
-                            nodes[parent_id][3][f"{prop_path}_isAugmentation"] = True
-                    else:
-                        # Add to parent's regular properties
-                        nodes[parent_id][2].update(flattened)
+            # Unselected elements are already flattened by their parent (lines 1280-1305)
+            # No need for additional processing here - skip to avoid duplicate properties
 
         # Recurse to children
         path_stack.append(elem)
