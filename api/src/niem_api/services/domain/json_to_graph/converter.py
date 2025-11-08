@@ -941,6 +941,38 @@ def generate_for_json_content(
         if schema_id:
             props_dict["_schema_id"] = schema_id
 
+        # Flatten unselected child properties onto this node (matches XML converter behavior)
+        # This ensures j:Charge nodes have j_ChargeDescriptionText etc. as properties
+        for key, value in obj.items():
+            if key.startswith("@"):
+                continue  # Skip JSON-LD keywords
+
+            # Check if this property should become a separate node
+            should_be_node = False
+            if isinstance(value, dict) and not is_reference(value):
+                child_qname = value.get("@type") or key
+                # Check if it's selected as a node or is an association
+                should_be_node = (child_qname in obj_rules) or (child_qname in assoc_by_qn)
+            elif isinstance(value, list):
+                # Check if array contains objects that should be nodes
+                for item in value:
+                    if isinstance(item, dict) and not is_reference(item):
+                        child_qname = item.get("@type") or key
+                        should_be_node = (child_qname in obj_rules) or (child_qname in assoc_by_qn)
+                        break
+
+            # If not a node, flatten it as a property
+            if not should_be_node:
+                prop_name = key.replace(':', '_')
+                if isinstance(value, (str, int, float, bool)):
+                    # Simple scalar value
+                    props_dict[prop_name] = value
+                elif isinstance(value, list):
+                    # Array - extract simple values
+                    simple_values = [item for item in value if isinstance(item, (str, int, float, bool))]
+                    if simple_values:
+                        props_dict[prop_name] = simple_values[0] if len(simple_values) == 1 else simple_values
+
         # Capture NIEM structures attributes as metadata (original @id before prefixing)
         if has_id:
             props_dict["structures_id"] = raw_id
