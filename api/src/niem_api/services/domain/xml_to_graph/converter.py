@@ -884,14 +884,36 @@ def generate_for_xml_content(
             collect_ids_pass1(child)
 
     def traverse(elem, parent_info=None, path_stack=None):
-        """Traverse XML tree and generate nodes and relationships."""
+        """Traverse XML tree and generate nodes and relationships.
+
+        CRITICAL: Augmentations are processed FIRST to ensure they never create nodes.
+
+        Processing order:
+        1. Augmentations (transparent - flatten children into parent)
+        2. Associations (create intermediate hypergraph nodes)
+        3. Objects (create entity nodes)
+
+        This order ensures augmentations are completely invisible in the graph.
+        """
         if path_stack is None:
             path_stack = []
 
         elem_qn = qname_from_tag(elem.tag, xml_ns_map)
 
+        # ============================================================================
+        # AUGMENTATION HANDLING (MUST BE FIRST!)
+        # ============================================================================
         # Check for augmentation FIRST (before associations or objects)
-        # Augmentations should NEVER become nodes - they're transparent containers
+        # Augmentations are NIEM schema constructs that should NEVER become nodes.
+        # They exist only to extend types from other namespaces without modification.
+        #
+        # Detection: Elements with qname ending in "Augmentation"
+        # Examples: j:MetadataAugmentation, exch:ChargeAugmentation
+        #
+        # Processing:
+        # - Simple properties → flattened into parent node properties
+        # - Complex children → direct containment to parent (skip augmentation layer)
+        # - Never create a node for the augmentation itself
         if elem_qn.endswith('Augmentation'):
             if parent_info:
                 parent_id, parent_label = parent_info
@@ -1267,6 +1289,9 @@ def generate_for_xml_content(
             # Create containment edge
             if parent_info:
                 p_id, p_label = parent_info
+                # Look up actual parent label from nodes dict (handles co-referenced nodes)
+                if p_id in nodes:
+                    p_label = nodes[p_id][0]  # Use actual label from node
                 rel = "HAS_" + re.sub(r'[^A-Za-z0-9]', '_', local_from_qname(elem_qn)).upper()
                 contains.append((p_id, p_label, node_id, node_label, rel))
 

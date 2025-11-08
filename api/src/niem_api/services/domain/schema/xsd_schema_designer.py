@@ -200,8 +200,20 @@ def apply_schema_design_from_xsd(
 
         elem_decl, type_def = object_elements[elem_qname]
 
-        # Skip augmentations - they should never become nodes
-        # Their properties are automatically included in the base type
+        # ====================================================================
+        # AUGMENTATION EXCLUSION (CRITICAL!)
+        # ====================================================================
+        # Skip augmentations - they should NEVER become nodes in the graph.
+        # Augmentations are schema-level constructs for extending types.
+        # Their properties are automatically included in the base type's properties.
+        #
+        # Example: exch:ChargeAugmentation extends j:ChargeType
+        # Result: When user selects j:Charge, they get augmentation properties automatically
+        # But exch:ChargeAugmentation itself never appears in:
+        # - objects mapping (skipped here)
+        # - associations mapping (skipped below)
+        # - references mapping (skipped below)
+        # - graph nodes (transparent during ingestion)
         if type_def.is_augmentation_type:
             continue
 
@@ -222,7 +234,20 @@ def apply_schema_design_from_xsd(
                 "cardinality": prop['cardinality']
             })
 
-        # Automatically include augmentation properties
+        # ====================================================================
+        # AUTOMATIC AUGMENTATION INCLUSION
+        # ====================================================================
+        # When a base type is selected, automatically include all augmentation properties.
+        # This ensures augmentation data is preserved even though augmentation elements
+        # don't appear as nodes.
+        #
+        # Example: User selects j:Charge
+        # → Automatically includes j_ArrestTrackingNumberID from exch:ChargeAugmentation
+        #
+        # Properties are added to base type with:
+        # - Flat naming: j:PersonAdultIndicator → j_PersonAdultIndicator
+        # - Path metadata: j:PersonAugmentation/j:PersonAdultIndicator
+        # - Augmentation flag: is_augmentation = true
         type_ref = elem_decl.type_ref
         if type_ref and type_ref in augmentation_index:
             for aug_def in augmentation_index[type_ref]:

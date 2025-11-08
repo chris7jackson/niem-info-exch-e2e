@@ -496,7 +496,17 @@ def generate_for_json_content(
     def process_jsonld_object(
         obj: dict[str, Any], parent_id: str = None, parent_label: str = None, property_name: str = None
     ):
-        """Process a JSON-LD object and generate nodes/relationships."""
+        """Process a JSON-LD object and generate nodes/relationships.
+
+        CRITICAL: Augmentations are processed FIRST to ensure they never create nodes.
+
+        Processing order:
+        1. Augmentations (transparent - flatten children into parent)
+        2. Associations (create intermediate hypergraph nodes)
+        3. Objects (create entity nodes)
+
+        This order ensures augmentations are completely invisible in the graph.
+        """
         nonlocal object_counter
 
         # Skip if not a dict
@@ -522,8 +532,20 @@ def generate_for_json_content(
         # Determine QName - prefer @type, fall back to property name
         qname = obj_type if obj_type else property_name
 
+        # ============================================================================
+        # AUGMENTATION HANDLING (MUST BE FIRST!)
+        # ============================================================================
         # Check for augmentation FIRST (before associations or objects)
-        # Augmentations should NEVER become nodes - they're transparent containers
+        # Augmentations are NIEM schema constructs that should NEVER become nodes.
+        # They exist only to extend types from other namespaces without modification.
+        #
+        # Detection: qname or property_name ending in "Augmentation"
+        # Examples: j:MetadataAugmentation, exch:ChargeAugmentation
+        #
+        # Processing:
+        # - Simple properties → flattened into parent node properties
+        # - Complex children → direct children of parent (skip augmentation layer)
+        # - Never create a node for the augmentation itself
         is_augmentation = (qname and qname.endswith('Augmentation')) or (property_name and property_name.endswith('Augmentation'))
 
         if is_augmentation:

@@ -864,12 +864,26 @@ def build_augmentation_index(
 ) -> dict[str, list[dict]]:
     """Build index of augmentations by base type.
 
+    NIEM augmentations allow extending types from other namespaces without modification.
+    This function identifies all augmentation elements and maps them to their base types.
+
+    Detection criteria:
+    1. Element has substitutionGroup="*AugmentationPoint"
+    2. Element's type extends structures:AugmentationType
+    3. Augmentation point name follows pattern: *AugmentationPoint
+
+    Example:
+        j:PersonAugmentation (type: j:PersonAugmentationType)
+        → substitutionGroup: nc:PersonAugmentationPoint
+        → augments: nc:PersonType
+
     Args:
         type_definitions: Index of all type definitions
         element_declarations: Index of all element declarations
 
     Returns:
         Dictionary mapping base_type_qname -> list of augmentation definitions
+        Example: {"nc:PersonType": [{"augmentation_element_qname": "j:PersonAugmentation", ...}]}
     """
     augmentations_by_type = {}
 
