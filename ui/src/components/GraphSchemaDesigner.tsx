@@ -289,7 +289,13 @@ const GraphSchemaDesigner: React.FC<GraphSchemaDesignerProps> = ({ schemaId, ope
           <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
             <div className="text-sm text-gray-600">
               <p>
-                <strong>{Object.values(selections).filter(Boolean).length}</strong> elements selected
+                <strong>
+                  {Object.entries(selections).filter(([qname, selected]) => {
+                    if (!selected) return false;
+                    const node = elementTree.nodes.find(n => n.qname === qname);
+                    return node && node.node_type !== 'augmentation';
+                  }).length}
+                </strong> elements selected
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 Tip: Select nodes you want to query independently. Unselected nodes will be flattened.

@@ -26,6 +26,8 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode,
         return 'bg-blue-100 text-blue-800';
       case 'association':
         return 'bg-purple-100 text-purple-800';
+      case 'augmentation':
+        return 'bg-orange-100 text-orange-700';
       case 'property':
         return 'bg-gray-100 text-gray-600';
       default:
@@ -122,7 +124,32 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode,
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Selection Impact</h4>
           <div className="text-sm text-gray-600">
-            {selectedNode.node_type === 'property' ? (
+            {selectedNode.node_type === 'augmentation' ? (
+              <div className="space-y-2">
+                <p className="text-orange-700 font-medium">🔧 Augmentation</p>
+                <p className="text-xs">
+                  Augmentations are property wrappers that don't physically exist. They can add any number
+                  of properties or nested objects to the object being augmented.
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Augmentations are transparent in the graph - they never create nodes. Their children are
+                  added directly to the augmented type.
+                </p>
+              </div>
+            ) : selectedNode.node_type === 'association' ? (
+              <div className="space-y-2">
+                <p className="text-purple-700 font-medium">🔗 Association</p>
+                <p className="text-xs">
+                  Associations model relationships between entities. When selected, this will create a
+                  relationship node that automatically selects all children objects as endpoints to join them together.
+                </p>
+                {selectedNode.endpoints && selectedNode.endpoints.length > 0 && (
+                  <p className="text-xs text-gray-500">
+                    {selectedNode.endpoints.length} endpoint{selectedNode.endpoints.length !== 1 ? 's' : ''} will be auto-selected: <span className="font-mono">{selectedNode.endpoints.join(', ')}</span>
+                  </p>
+                )}
+              </div>
+            ) : selectedNode.node_type === 'property' ? (
               <div className="space-y-2">
                 <p className="text-purple-700 font-medium">⚡ Wrapper Type (Always Flattened)</p>
                 <p className="text-xs">
@@ -141,12 +168,16 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode,
                   {selectedNode.property_count > 0 && ` It will have ${selectedNode.property_count} scalar properties.`}
                   {selectedNode.nested_object_count > 0 && ` It will have ${selectedNode.nested_object_count} nested objects.`}
                 </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  All child properties will be flattened as properties on this node.
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 <p className="text-gray-700 font-medium">⊘ Will be flattened</p>
                 <p className="text-xs">
-                  This element will not become a node. Its data will be flattened as properties on the nearest selected ancestor node.
+                  This element will not become a node. Its data will be flattened as properties on
+                  the nearest selected ancestor node.
                 </p>
               </div>
             )}

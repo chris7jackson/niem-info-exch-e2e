@@ -228,6 +228,36 @@ def is_entity_type(elem_name: Optional[str], type_name: Optional[str], type_def:
     return False
 
 
+def _check_extends_object_type(base_type: Optional[str], type_name: str) -> bool:
+    """Check if a type extends structures:ObjectType or structures:AssociationType.
+
+    Types that extend ObjectType or AssociationType can have structures:id/ref/uri attributes.
+
+    Args:
+        base_type: Qualified base type reference (e.g., "structures:ObjectType")
+        type_name: Name of the type being checked
+
+    Returns:
+        True if this type can have structures:id/ref/uri attributes
+    """
+    if not base_type:
+        return False
+
+    # Direct inheritance from structures types
+    if 'structures:ObjectType' in base_type or 'structures:AssociationType' in base_type:
+        return True
+
+    # Association types all extend structures:AssociationType
+    if 'AssociationType' in base_type or 'AssociationType' in type_name:
+        return True
+
+    # Note: For complete detection, we'd need to recursively check the base type chain
+    # Most NIEM types that are entities (not wrappers) extend ObjectType
+    # This is a conservative check - some object types may not be detected
+
+    return False
+
+
 def _extract_namespace_map_from_xml(xml_content: bytes) -> dict[str, str]:
     """Extract namespace prefix mappings from raw XML content.
 
@@ -328,6 +358,9 @@ def _parse_complex_type(type_elem: Element, schema_ns_map: dict[str, str]) -> Ty
         # For now, keep the local name and we'll resolve it later
         augments_type_qname = local_name
 
+    # Check if this type can have structures:id/ref/uri attributes
+    extends_object_type = _check_extends_object_type(base_type, name)
+
     # Extract element children from xs:sequence or xs:choice
     # Look for sequences in specific places (not recursively to avoid duplicates)
     elements = []
@@ -378,6 +411,7 @@ def _parse_complex_type(type_elem: Element, schema_ns_map: dict[str, str]) -> Ty
         base_type=base_type,
         elements=elements,
         is_association=is_association,
+        extends_object_type=extends_object_type,
         is_augmentation_type=is_augmentation_type,
         augments_type_qname=augments_type_qname
     )
@@ -599,7 +633,8 @@ def _build_tree_recursive(
         cardinality=f"{elem_decl.min_occurs}..{elem_decl.max_occurs}",
         description=elem_decl.documentation,
         namespace=element_qname.split(':')[0] if ':' in element_qname else None,
-        is_nested_association=(node_type == NodeType.ASSOCIATION and parent_qname is not None)
+        is_nested_association=(node_type == NodeType.ASSOCIATION and parent_qname is not None),
+        can_have_id=type_def.extends_object_type if type_def else False
     )
 
     # Recursively build children
