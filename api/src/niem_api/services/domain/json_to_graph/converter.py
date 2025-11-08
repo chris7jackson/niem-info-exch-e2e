@@ -26,6 +26,7 @@ import hashlib
 import json
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -482,6 +483,7 @@ def generate_for_json_content(
     # Generate file-specific prefix for node IDs
     # SHA1 used for ID generation only, not cryptographic security
     file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode(), usedforsecurity=False).hexdigest()[:8]
+    ingest_timestamp = datetime.now(timezone.utc).isoformat()
 
     nodes = {}  # id -> (label, qname, props_dict, aug_props_dict)
     edges = []  # (from_id, from_label, to_id, to_label, rel_type, rel_props)
@@ -1073,7 +1075,7 @@ def generate_for_json_content(
             logger.info(f"Created {hub_label} {hub_id} with {len(role_qnames)} roles: {role_qnames}")
 
     # Generate Cypher statements
-    cypher_statements = generate_cypher_from_structures(nodes, edges, contains, upload_id, filename)
+    cypher_statements = generate_cypher_from_structures(nodes, edges, contains, upload_id, filename, ingest_timestamp)
 
     return cypher_statements, nodes, contains, edges
 
@@ -1114,7 +1116,8 @@ def generate_cypher_from_structures(
     edges: list[tuple],
     contains: list[tuple],
     upload_id: str = None,
-    filename: str = None
+    filename: str = None,
+    ingest_timestamp: str = None
 ) -> str:
     """Generate Cypher statements from node and edge structures.
 
@@ -1124,6 +1127,7 @@ def generate_cypher_from_structures(
         contains: List of containment edge tuples
         upload_id: Unique identifier for this upload batch (for graph isolation)
         filename: Source filename (for graph isolation)
+        ingest_timestamp: ISO timestamp of ingestion (for provenance)
 
     Returns:
         Cypher statements as string
@@ -1136,15 +1140,17 @@ def generate_cypher_from_structures(
         sanitized_label = label.replace("-", "_").replace(".", "_")
 
         # Build properties string - include qname for display consistency with XML
-        # Also include upload_id and source_file for graph isolation
+        # Also include upload_id, source_file, and ingestDate for provenance
         props_parts = []
         all_props = {**props, **aug_props, "qname": qname}
 
-        # Add upload_id and source_file for graph isolation (consistent with XML converter)
+        # Add provenance and graph isolation metadata (consistent with XML converter)
         if upload_id:
             all_props["_upload_id"] = upload_id
         if filename:
             all_props["_source_file"] = filename
+        if ingest_timestamp:
+            all_props["ingestDate"] = ingest_timestamp
 
         for key, value in all_props.items():
             # Handle different value types properly

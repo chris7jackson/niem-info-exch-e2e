@@ -1200,7 +1200,7 @@ def generate_for_xml_content(
                         hub_id,
                         hub_label,
                         "REPRESENTS",
-                        {"uri": uri_ref, "role_qname": elem_qn}
+                        {"id_value": uri_ref, "role_qname": elem_qn}  # Use id_value (matches JSON converter)
                     ))
                     logger.debug(f"Role node {elem_qn} REPRESENTS {hub_label} {hub_id} (via {uri_ref})")
                 else:
@@ -1465,6 +1465,10 @@ def generate_for_xml_content(
                 "_source_file": filename
             }
 
+            # Add upload_id for graph isolation (matches JSON converter)
+            if upload_id:
+                hub_props["_upload_id"] = upload_id
+
             hub_aug_props = {}
 
             nodes[hub_id] = [hub_label, hub_label, hub_props, hub_aug_props]
@@ -1551,7 +1555,7 @@ def generate_for_xml_content(
         aug_props = node_data[3] if len(node_data) > 3 else {}
 
         lines.append(f"MERGE (n:`{label}` {{id:'{nid}'}})")
-        setbits = [f"n.qname='{qn}'", f"n.sourceDoc='{filename}'", f"n.ingestDate='{ingest_timestamp}'"]
+        setbits = [f"n.qname='{qn}'", f"n.ingestDate='{ingest_timestamp}'"]
         # Add isolation properties for graph separation
         if upload_id:
             setbits.append(f"n._upload_id='{upload_id}'")
@@ -1606,7 +1610,7 @@ def generate_for_xml_content(
         if upload_id:
             props += f", _upload_id:'{upload_id}'"
         if filename:
-            props += f", sourceDoc:'{filename}'"
+            props += f", _source_file:'{filename}'"
         return props
 
     # MERGE containment edges
