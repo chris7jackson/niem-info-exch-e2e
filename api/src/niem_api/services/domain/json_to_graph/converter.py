@@ -965,7 +965,7 @@ def generate_for_json_content(
                 hub_id,
                 hub_label,
                 "REPRESENTS",
-                {"@id": raw_id, "role_qname": qname}
+                {"id_value": raw_id, "role_qname": qname}  # Use id_value not @id (@ invalid in property names)
             ))
             logger.debug(f"Role node {qname} REPRESENTS {hub_label} {hub_id} (via {raw_id})")
 
