@@ -115,10 +115,6 @@ def build_standard_reference_registry(struct_ns: str, nc_ns: str) -> dict:
         # Structures namespace (version-specific)
         f"{{{struct_ns}}}ref": {"cardinality": "single", "edge_type": "REFERS_TO"},
         f"{{{struct_ns}}}uri": {"cardinality": "single", "edge_type": "REFERS_TO"},
-
-        # NIEM Core metadata (standard)
-        f"{{{nc_ns}}}metadataRef": {"cardinality": "multiple", "edge_type": "HAS_METADATA"},
-        f"{{{nc_ns}}}metadata": {"cardinality": "multiple", "edge_type": "HAS_METADATA"},
     }
 
 
@@ -140,12 +136,12 @@ def detect_reference_by_heuristic(attr_qname: str, attr_value: str) -> dict | No
     if re.match(r'.*[Rr]ef(erence)?$', local_name):
         # Auto-detect cardinality from value (space = multiple)
         cardinality = "auto"
-        edge_type = f"HAS_{local_name.upper()}"
+        edge_type = "REFERS_TO"
         return {"cardinality": cardinality, "edge_type": edge_type, "confidence": "medium"}
 
     # Pattern 2: Contains "metadata" + "ref" (case insensitive)
     if "metadata" in local_name.lower() and "ref" in local_name.lower():
-        return {"cardinality": "multiple", "edge_type": "HAS_METADATA", "confidence": "medium"}
+        return {"cardinality": "multiple", "edge_type": "REFERS_TO", "confidence": "medium"}
 
     # Pattern 3: Value looks like ID(s) - alphanumeric with optional spaces
     if attr_value and re.match(r'^[A-Za-z0-9_-]+(\s+[A-Za-z0-9_-]+)*$', attr_value):
@@ -811,6 +807,8 @@ def generate_for_xml_content(
     # Collect all IDs in first pass to enable forward reference resolution
     id_registry = {}  # id -> element info for deferred processing
     uri_entity_registry = {}  # Track URI-based entities for co-referencing
+    uri_occurrence_count = {}  # Count non-reference occurrences of each URI (for hub detection)
+    hub_nodes_needed = set()  # Set of URI values that need separate hub nodes
     pending_refs = []  # List of (source_id, target_id, context) for validation
     id_collisions = []  # List of ID collisions detected during Pass 1
 
@@ -851,6 +849,9 @@ def generate_for_xml_content(
         # Process structures:uri - these also define identifiable resources
         # URI fragments (#P01) or full URIs can be used as identifiers
         if uri_ref and not sid:  # Only if no structures:id (structures:id takes precedence)
+            # Check if this is a pure reference (xsi:nil="true") - don't count for hub detection
+            is_nil = elem.attrib.get(f"{{{XSI_NS}}}nil") == "true"
+
             # Extract fragment or basename from URI
             uri_id = None
             if '#' in uri_ref:
@@ -864,6 +865,10 @@ def generate_for_xml_content(
             if uri_id:
                 prefixed_id = f"{file_prefix}_{uri_id}"
                 elem_qn = qname_from_tag(elem.tag, xml_ns_map)
+
+                # Count non-nil occurrences for hub detection
+                if not is_nil:
+                    uri_occurrence_count[uri_id] = uri_occurrence_count.get(uri_id, 0) + 1
 
                 # Check for ID collisions
                 if prefixed_id in id_registry:
@@ -1149,24 +1154,50 @@ def generate_for_xml_content(
             elif uri_ref:
                 # Extract fragment for co-referencing: "#P01" -> "P01"
                 entity_id = uri_ref.lstrip('#')
-                node_id = f"{file_prefix}_{entity_id}"
 
-                # Track URI entity for co-referencing
-                if entity_id in uri_entity_registry:
-                    # This entity already exists - create SAME_ENTITY edge
-                    first_node_id = uri_entity_registry[entity_id]
+                # Check if this URI needs a separate hub node (2+ role occurrences)
+                if entity_id in hub_nodes_needed:
+                    # SEPARATE HUB PATTERN: Create role node + hub node
+                    # Always create role node with synthetic ID (for ALL occurrences)
+                    parent_id = parent_info[0] if parent_info else "root"
+                    chain = [qname_from_tag(e.tag, xml_ns_map) for e in path_stack] + [elem_qn]
+                    ordinal_path = "/".join(chain)
+                    node_id = synth_id(parent_id, elem_qn, ordinal_path, file_prefix)
+
+                    # Mark as role node
+                    props["_isRole"] = True
+                    props["structures_uri"] = uri_ref
+
+                    # Get/register hub node ID
+                    hub_id = f"{file_prefix}_hub_{entity_id}"
+                    if entity_id not in uri_entity_registry:
+                        # First occurrence - register hub
+                        uri_entity_registry[entity_id] = {
+                            'hub_id': hub_id,
+                            'uri_value': uri_ref,
+                            'role_qnames': [],
+                            'role_labels': []
+                        }
+
+                    # Track this role
+                    uri_entity_registry[entity_id]['role_qnames'].append(elem_qn)
+                    uri_entity_registry[entity_id]['role_labels'].append(node_label)
+
+                    # Create REPRESENTS edge: (role)-[REPRESENTS]->(hub)
                     edges.append((
                         node_id,
                         node_label,
-                        first_node_id,
-                        nodes[first_node_id][0],  # First node's label
-                        "SAME_ENTITY",
-                        {"uri": uri_ref, "source": "uri_co_reference"}
+                        hub_id,
+                        "EntityHub",
+                        "REPRESENTS",
+                        {"uri": uri_ref, "role_qname": elem_qn}
                     ))
-                    logger.debug(f"URI co-reference: {node_id} --SAME_ENTITY--> {first_node_id} (via {uri_ref})")
+                    logger.debug(f"Role node {elem_qn} REPRESENTS EntityHub {hub_id} (via {uri_ref})")
                 else:
-                    # First occurrence of this URI
-                    uri_entity_registry[entity_id] = node_id
+                    # SINGLE OCCURRENCE: Use URI as node ID (no hub needed)
+                    canonical_id = f"{file_prefix}_{entity_id}"
+                    node_id = canonical_id
+                    logger.debug(f"Single occurrence URI {uri_ref} - no hub needed")
             else:
                 # Generate synthetic ID based on element position
                 parent_id = parent_info[0] if parent_info else "root"
@@ -1292,7 +1323,7 @@ def generate_for_xml_content(
                 # Look up actual parent label from nodes dict (handles co-referenced nodes)
                 if p_id in nodes:
                     p_label = nodes[p_id][0]  # Use actual label from node
-                rel = "HAS_" + re.sub(r'[^A-Za-z0-9]', '_', local_from_qname(elem_qn)).upper()
+                rel = "CONTAINS"
                 contains.append((p_id, p_label, node_id, node_label, rel))
 
             # Create REFERS_TO edges for structures:ref and structures:uri
@@ -1413,6 +1444,12 @@ def generate_for_xml_content(
     # Pass 1: Collect all IDs to enable forward/backward reference resolution
     collect_ids_pass1(root)
 
+    # Determine which URIs need separate hub nodes (2+ non-reference occurrences)
+    for uri_id, count in uri_occurrence_count.items():
+        if count >= 2:
+            hub_nodes_needed.add(uri_id)
+            logger.info(f"Hub node needed for URI {uri_id} ({count} role occurrences)")
+
     # Report ID collisions if any were detected
     if id_collisions:
         logger.warning(f"Found {len(id_collisions)} ID collisions in {filename}")
@@ -1425,6 +1462,30 @@ def generate_for_xml_content(
 
     # Pass 2: Process root element and create graph structure (always)
     traverse(root, None, [])
+
+    # Generate EntityHub nodes for multi-occurrence URIs
+    for entity_id, hub_info in uri_entity_registry.items():
+        if entity_id in hub_nodes_needed and isinstance(hub_info, dict):
+            hub_id = hub_info['hub_id']
+            uri_value = hub_info['uri_value']
+            role_qnames = hub_info['role_qnames']
+            role_labels = hub_info['role_labels']
+
+            # Create EntityHub node
+            hub_props = {
+                "qname": "EntityHub",
+                "uri_value": uri_value,
+                "entity_id": entity_id,
+                "role_count": len(role_qnames),
+                "role_types": role_qnames,
+                "_isHub": True,
+                "_source_file": filename
+            }
+
+            hub_aug_props = {}
+
+            nodes[hub_id] = ["EntityHub", "EntityHub", hub_props, hub_aug_props]
+            logger.info(f"Created EntityHub {hub_id} for {uri_value} with {len(role_qnames)} roles: {role_qnames}")
 
     # HANDLE UNRESOLVED REFERENCES
     # After traversal, check for any references that weren't found in the ID registry

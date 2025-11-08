@@ -512,7 +512,7 @@ Navigate to the **"Graph"** tab to explore the ingested data:
 2. **Graph Display**:
    - Nodes colored by type (auto-generated distinguishable colors)
    - Node labels show `qname` (e.g., `j:Crash`, `nc:Person`, `exch:CrashDriverInfo`)
-   - Relationships labeled with types (`HAS_`, `J_PERSONCHARGEASSOCIATION`, etc.)
+   - Relationships labeled with types (`CONTAINS`, `REFERS_TO`, `ASSOCIATED_WITH`, etc.)
    - Interactive: click nodes/edges for details in brower development console by inspecting element. 
 
 3. **Layout Options**:

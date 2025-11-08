@@ -419,13 +419,13 @@ MERGE (n:`cb_ext_FollowupReport` {id:'abc123_FR01'})
 
 **Rule:** Parent-child structural relationships in the document
 
-**Creates:** `HAS_*` relationships
+**Creates:** `CONTAINS relationships
 
 **Example:**
 ```cypher
 MATCH (p:`j_Crash` {id:'abc123_CR01'}),
       (c:`j_CrashVehicle` {id:'abc123_CV01'})
-MERGE (p)-[:`HAS_CRASHVEHICLE`]->(c)
+MERGE (p)-[:`CONTAINS`]->(c)
 ```
 
 **Purpose:** Preserves document structure and element containment
@@ -492,28 +492,60 @@ MERGE (assoc)-[:`ASSOCIATED_WITH` {role_qname: 'j:Charge'}]->(charge)
 - Association nodes: Orange hexagons
 - `ASSOCIATED_WITH` edges: Thick orange dotted lines
 
-#### 5. Role-Based Entity Modeling (Schema-Agnostic)
+#### 5. Role-Based Entity Modeling with Hub Pattern
 
-**Pattern:** NIEM uses role elements (like `j:CrashDriver`, `j:VehicleOperator`) that reference core entities using `structures:uri`.
+**Pattern:** NIEM uses `structures:uri` for entity co-referencing - multiple role elements representing the same real-world entity in different contexts.
+
+**Hub Node Architecture:**
+- **First occurrence** with `structures:uri="#P01"` creates the **canonical entity node** (hub)
+- **Subsequent occurrences** create **role nodes** with `REPRESENTS` edges to the canonical entity
+- Each role node maintains its own properties and child relationships
 
 **XML Example:**
 ```xml
+<!-- First occurrence: Creates canonical entity -->
 <j:CrashDriver structures:uri="#P01">
-  <nc:PersonName>...</nc:PersonName>
+  <nc:PersonName>Peter Wimsey</nc:PersonName>
+  <j:DriverLicense>A1234567</j:DriverLicense>
 </j:CrashDriver>
-<nc:Person structures:id="P01">...</nc:Person>
+
+<!-- Second occurrence: Creates role node -->
+<j:CrashPerson structures:uri="#P01">
+  <j:CrashPersonInjury>Broken Arm</j:CrashPersonInjury>
+</j:CrashPerson>
+
+<!-- Third occurrence (pure reference): No node -->
+<nc:Person structures:uri="#P01" xsi:nil="true"/>
 ```
 
-**Creates:**
-1. Entity node (type determined by actual element - Person, Organization, Vehicle, etc.)
-2. Role node with synthetic ID
-3. `REPRESENTS` relationship from role to entity (label resolved when entity element is encountered)
-
+**Graph Structure:**
 ```cypher
-MERGE (e:`nc_Person` {id:'abc123_P01'})  # Entity type determined by actual element
-MERGE (r:`j_CrashDriver` {id:'abc123_syn_cd01'})
-MERGE (r)-[:`REPRESENTS`]->(e)
+# Canonical entity (first occurrence)
+MERGE (canonical:`j_CrashDriver` {id:'file123_P01'})
+  SET canonical.qname = 'j:CrashDriver',
+      canonical.nc_PersonName__nc_PersonGivenName = 'Peter'
+
+# Canonical has its own children
+MERGE (license:`j_DriverLicense` {id:'file123_syn_lic01'})
+MERGE (canonical)-[:CONTAINS]->(license)
+
+# Role node (second occurrence)
+MERGE (role:`j_CrashPerson` {id:'file123_syn_role01'})
+  SET role.qname = 'j:CrashPerson'
+
+# Role REPRESENTS canonical entity
+MERGE (role)-[:REPRESENTS {uri: '#P01', role: 'j:CrashPerson'}]->(canonical)
+
+# Role has its own children
+MERGE (injury:`j_CrashPersonInjury` {id:'file123_syn_inj01'})
+MERGE (role)-[:CONTAINS]->(injury)
 ```
+
+**Result:**
+- Canonical entity preserves first role's context with its properties
+- Each additional role preserved as separate node with distinct children
+- REPRESENTS edges show which roles refer to same underlying entity
+- Supports 3+ co-references: all point to first (star pattern)
 
 **JSON Example:**
 ```json
@@ -799,7 +831,7 @@ Correct (augmentation is transparent):
 
            # Create containment edge if nested
            if parent_id:
-               contains.append((parent_id, parent_label, obj_id, label, f"HAS_{property_name}"))
+               contains.append((parent_id, parent_label, obj_id, label, CONTAINS))
 
            # Process nested properties
            for key, value in obj.items():

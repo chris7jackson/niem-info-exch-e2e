@@ -69,7 +69,7 @@ Result: XML and JSON create byte-for-byte identical graph structures
 -- Query: MATCH (p:nc_Person)<-[:REPRESENTS]-(role) RETURN p, role
 
 -- Pattern 2: Dual relationship types (structure + semantics)
-(j:Crash)-[:HAS_CRASHVEHICLE]->(j:CrashVehicle)      -- Containment (document structure)
+(j:Crash)-[:CONTAINS]->(j:CrashVehicle)      -- Containment (document structure)
 (j:CrashVehicle)-[:J_CRASHDRIVER]->(j:CrashDriver)   -- Reference (domain semantics)
 
 -- Pattern 3: Augmentation property prefixing (schema vs extensions)
@@ -954,7 +954,7 @@ def generate_cypher(nodes, contains, edges, filename):
     for (parent_id, parent_label, child_id, child_label, rel) in contains:
         """
         MATCH (p:`j_Crash` {id:'file_CR01'}), (c:`j_CrashVehicle` {id:'file_CV01'})
-        MERGE (p)-[:`HAS_CRASHVEHICLE`]->(c);
+        MERGE (p)-[:`CONTAINS`]->(c);
 
         Notes:
         - MATCH both nodes first (must exist)
@@ -1057,10 +1057,10 @@ node_id = f"{file_prefix}_{structures_id}"
 
 ### Decision 2: Containment vs Reference Relationships
 
-**Containment Relationships (`HAS_*`):**
+**Containment Relationships (`CONTAINS`):**
 - Represent structural parent-child relationships in the document
 - Always created when a node is nested inside another node
-- Example: `(j:Crash)-[:HAS_CRASHVEHICLE]->(j:CrashVehicle)`
+- Example: `(j:Crash)-[:CONTAINS]->(j:CrashVehicle)`
 
 **Reference Relationships (named from mapping):**
 - Represent semantic object-to-object relationships
@@ -1432,7 +1432,7 @@ RETURN e.nc_PersonGivenName, e.nc_PersonSurName, labels(role), role
 ### Query 2: Traverse Document Structure
 
 ```cypher
-MATCH path = (root:j_Crash)-[:HAS_CRASHVEHICLE*]->(leaf)
+MATCH path = (root:j_Crash)-[:CONTAINS*]->(leaf)
 RETURN path
 ```
 

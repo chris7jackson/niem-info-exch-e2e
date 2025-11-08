@@ -883,10 +883,7 @@ def generate_for_json_content(
 
         # Create containment edge if nested
         if parent_id:
-            rel_type = (
-                f"HAS_{local_from_qname(property_name)}"
-                if property_name else 'HAS_CHILD'
-            )
+            rel_type = "CONTAINS"
             contains.append((parent_id, parent_label, obj_id, label, rel_type))
 
         # Create REFERS_TO edges for structures:ref and structures:uri on the object itself
