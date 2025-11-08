@@ -161,13 +161,17 @@ class TestConversionBatchProcessing:
         mock_config.OPERATION_TIMEOUT = 0.1  # Very short timeout
         mock_config.MAX_CONCURRENT_OPERATIONS = 3
 
+        # Create new semaphore with the mock config value
+        mock_semaphore = asyncio.Semaphore(mock_config.MAX_CONCURRENT_OPERATIONS)
+
         with patch('niem_api.handlers.convert.is_niemtran_available') as mock_niemtran_available, \
              patch('niem_api.handlers.convert.get_active_schema_id') as mock_get_active_schema, \
              patch('niem_api.handlers.convert.get_schema_metadata') as mock_get_metadata, \
              patch('niem_api.handlers.convert.download_file') as mock_download_file, \
              patch('niem_api.handlers.convert._download_schema_files_for_validation') as mock_download, \
              patch('niem_api.handlers.convert._convert_single_file') as mock_convert, \
-             patch('niem_api.handlers.convert.batch_config', mock_config):
+             patch('niem_api.handlers.convert.batch_config', mock_config), \
+             patch('niem_api.handlers.convert._conversion_semaphore', mock_semaphore):
 
             mock_niemtran_available.return_value = True
             mock_get_active_schema.return_value = "test-schema-id"
