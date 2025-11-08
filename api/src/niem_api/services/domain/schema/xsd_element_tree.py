@@ -406,7 +406,7 @@ def _build_indices(xsd_files: dict[str, bytes]) -> tuple[dict, dict, dict]:
                     logger.info(f"DEBUG: Indexed element declaration '{qname}' from {filename}")
 
         except ET.ParseError as e:
-            print(f"Warning: Failed to parse {filename}: {e}")
+            logger.warning(f"Failed to parse {filename}: {e}")
             continue
 
     logger.info(f"DEBUG: Total element declarations indexed: {len(element_declarations)}")

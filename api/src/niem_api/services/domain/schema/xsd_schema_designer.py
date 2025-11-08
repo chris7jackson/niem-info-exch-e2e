@@ -14,6 +14,8 @@ from .xsd_element_tree import (
     _build_indices,
     TypeDefinition,
     ElementDeclaration,
+    is_wrapper_type,
+    is_entity_type,
 )
 
 
@@ -171,6 +173,7 @@ def apply_schema_design_from_xsd(
 
     # Auto-select association endpoints for selected associations
     # This ensures associations can become edges even if endpoints weren't explicitly selected
+    # Only auto-select entity endpoints, not wrapper properties (they're always flattened)
     for assoc_qname in list(selected_set):  # Use list() to avoid modifying set during iteration
         if assoc_qname not in association_elements:
             continue
@@ -179,8 +182,11 @@ def apply_schema_design_from_xsd(
         for child_elem in type_def.elements:
             child_ref = child_elem.get('ref')
             if child_ref and child_ref in object_elements:
-                # Auto-add endpoint to selected set
-                selected_set.add(child_ref)
+                # Check if this is an entity endpoint (not a wrapper property)
+                child_elem_decl, child_type_def = object_elements[child_ref]
+                if not is_wrapper_type(child_elem_decl.type_ref, child_type_def):
+                    # Auto-add entity endpoint to selected set
+                    selected_set.add(child_ref)
 
     # Build objects mapping - preserves all data
     objects_mapping = []
@@ -271,8 +277,15 @@ def apply_schema_design_from_xsd(
             else:
                 continue
 
-            # Only include selected endpoints (matches CMF line 376)
+            # Only include selected entity endpoints (not wrapper properties)
             if target_qname in selected_set:
+                # Check if this is an entity endpoint (not a wrapper property)
+                if target_qname in object_elements:
+                    target_elem_decl, target_type_def = object_elements[target_qname]
+                    if is_wrapper_type(target_elem_decl.type_ref, target_type_def):
+                        # Skip wrapper properties - they're always flattened
+                        continue
+
                 target_type = child_elem.get('type')
                 # Get actual target qname from type if available
                 if target_type and target_type in type_definitions:
