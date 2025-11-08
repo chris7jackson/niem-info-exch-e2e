@@ -58,18 +58,23 @@ class TestSchemaBatchProcessing:
         from niem_api.handlers import schema
         from unittest.mock import patch
 
-        with patch.dict('os.environ', {'BATCH_MAX_SCHEMA_FILES': '2'}):
+        try:
+            with patch.dict('os.environ', {'BATCH_MAX_SCHEMA_FILES': '2'}):
+                reload(config)
+                reload(schema)
+
+                # Re-import the function from the reloaded module
+                from niem_api.handlers.schema import handle_schema_upload as handle_upload
+
+                with pytest.raises(HTTPException) as exc_info:
+                    await handle_upload(files, mock_s3_client)
+
+                assert exc_info.value.status_code == 400
+                assert "exceeds maximum of 2 files" in exc_info.value.detail
+        finally:
+            # Restore original config by reloading without env override
             reload(config)
             reload(schema)
-
-            # Re-import the function from the reloaded module
-            from niem_api.handlers.schema import handle_schema_upload as handle_upload
-
-            with pytest.raises(HTTPException) as exc_info:
-                await handle_upload(files, mock_s3_client)
-
-            assert exc_info.value.status_code == 400
-            assert "exceeds maximum of 2 files" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_batch_within_limit_success(self, mock_s3_client, create_mock_files):

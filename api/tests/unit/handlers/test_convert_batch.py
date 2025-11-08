@@ -51,18 +51,28 @@ class TestConversionBatchProcessing:
         """Test batch size limit with custom environment variable."""
         files = create_mock_xml_files(6)
 
-        # Reload config to pick up env var
+        # Reload config and handler to pick up env var
         from importlib import reload
         from niem_api.core import config
+        from niem_api.handlers import convert
 
-        with patch.dict('os.environ', {'BATCH_MAX_CONVERSION_FILES': '5'}):
+        try:
+            with patch.dict('os.environ', {'BATCH_MAX_CONVERSION_FILES': '5'}):
+                reload(config)
+                reload(convert)
+
+                # Re-import the function from the reloaded module
+                from niem_api.handlers.convert import handle_xml_to_json_batch as handle_batch
+
+                with pytest.raises(HTTPException) as exc_info:
+                    await handle_batch(files, mock_s3_client)
+
+                assert exc_info.value.status_code == 400
+                assert "exceeds maximum of 5 files" in exc_info.value.detail
+        finally:
+            # Restore original config by reloading without env override
             reload(config)
-
-            with pytest.raises(HTTPException) as exc_info:
-                await handle_xml_to_json_batch(files, mock_s3_client)
-
-            assert exc_info.value.status_code == 400
-            assert "exceeds maximum of 5 files" in exc_info.value.detail
+            reload(convert)
 
     @pytest.mark.asyncio
     async def test_parallel_conversion_success(self, mock_s3_client, create_mock_xml_files):
@@ -145,27 +155,31 @@ class TestConversionBatchProcessing:
         """Test that timeout exceptions are handled for conversion."""
         files = create_mock_xml_files(3)
 
+        # Use a mock config with very short timeout
+        from niem_api.core.config import BatchConfig
+        mock_config = BatchConfig()
+        mock_config.OPERATION_TIMEOUT = 0.1  # Very short timeout
+        mock_config.MAX_CONCURRENT_OPERATIONS = 3
+
         with patch('niem_api.handlers.convert.is_niemtran_available') as mock_niemtran_available, \
              patch('niem_api.handlers.convert.get_active_schema_id') as mock_get_active_schema, \
              patch('niem_api.handlers.convert.get_schema_metadata') as mock_get_metadata, \
              patch('niem_api.handlers.convert.download_file') as mock_download_file, \
              patch('niem_api.handlers.convert._download_schema_files_for_validation') as mock_download, \
              patch('niem_api.handlers.convert._convert_single_file') as mock_convert, \
-             patch('niem_api.handlers.convert.batch_config') as mock_config:
+             patch('niem_api.handlers.convert.batch_config', mock_config):
 
             mock_niemtran_available.return_value = True
             mock_get_active_schema.return_value = "test-schema-id"
             mock_get_metadata.return_value = {"cmf_filename": "test.cmf"}
             mock_download_file.return_value = b'<cmf>test</cmf>'
             mock_download.return_value = "/tmp/schema"
-            mock_config.OPERATION_TIMEOUT = 1
-            mock_config.get_batch_limit.return_value = 150
 
             # Mock: one file takes too long
             async def slow_convert(*args, **kwargs):
                 file = args[0]
                 if "instance_1" in file.filename:
-                    await asyncio.sleep(2)  # Exceeds timeout
+                    await asyncio.sleep(1)  # Exceeds 0.1s timeout
                 return {
                     "filename": file.filename,
                     "status": "success",
