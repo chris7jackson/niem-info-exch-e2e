@@ -47,7 +47,6 @@ class TestSchemaBatchProcessing:
         assert ".env" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    @patch.dict('os.environ', {'BATCH_MAX_SCHEMA_FILES': '2'})
     async def test_batch_size_limit_with_custom_env(self, mock_s3_client, create_mock_files):
         """Test batch size limit with custom environment variable."""
         # Create 3 files (exceeds custom limit of 2)
@@ -56,13 +55,16 @@ class TestSchemaBatchProcessing:
         # Need to reload config to pick up env var
         from importlib import reload
         from niem_api.core import config
-        reload(config)
+        from unittest.mock import patch
 
-        with pytest.raises(HTTPException) as exc_info:
-            await handle_schema_upload(files, mock_s3_client)
+        with patch.dict('os.environ', {'BATCH_MAX_SCHEMA_FILES': '2'}):
+            reload(config)
 
-        assert exc_info.value.status_code == 400
-        assert "exceeds maximum of 2 files" in exc_info.value.detail
+            with pytest.raises(HTTPException) as exc_info:
+                await handle_schema_upload(files, mock_s3_client)
+
+            assert exc_info.value.status_code == 400
+            assert "exceeds maximum of 2 files" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_batch_within_limit_success(self, mock_s3_client, create_mock_files):

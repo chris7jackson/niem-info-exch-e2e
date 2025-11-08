@@ -47,7 +47,6 @@ class TestConversionBatchProcessing:
         assert ".env" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    @patch.dict('os.environ', {'BATCH_MAX_CONVERSION_FILES': '5'})
     async def test_batch_size_limit_with_custom_env(self, mock_s3_client, create_mock_xml_files):
         """Test batch size limit with custom environment variable."""
         files = create_mock_xml_files(6)
@@ -55,13 +54,15 @@ class TestConversionBatchProcessing:
         # Reload config to pick up env var
         from importlib import reload
         from niem_api.core import config
-        reload(config)
 
-        with pytest.raises(HTTPException) as exc_info:
-            await handle_xml_to_json_batch(files, mock_s3_client)
+        with patch.dict('os.environ', {'BATCH_MAX_CONVERSION_FILES': '5'}):
+            reload(config)
 
-        assert exc_info.value.status_code == 400
-        assert "exceeds maximum of 5 files" in exc_info.value.detail
+            with pytest.raises(HTTPException) as exc_info:
+                await handle_xml_to_json_batch(files, mock_s3_client)
+
+            assert exc_info.value.status_code == 400
+            assert "exceeds maximum of 5 files" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_parallel_conversion_success(self, mock_s3_client, create_mock_xml_files):
@@ -69,12 +70,14 @@ class TestConversionBatchProcessing:
         files = create_mock_xml_files(5)
 
         with patch('niem_api.handlers.convert.is_niemtran_available') as mock_niemtran_available, \
-             patch('niem_api.handlers.convert._get_schema_id') as mock_get_schema, \
+             patch('niem_api.handlers.convert.get_active_schema_id') as mock_get_active_schema, \
+             patch('niem_api.handlers.convert.get_schema_metadata') as mock_get_metadata, \
              patch('niem_api.handlers.convert._download_schema_files_for_validation') as mock_download, \
              patch('niem_api.handlers.convert._convert_single_file') as mock_convert:
 
             mock_niemtran_available.return_value = True
-            mock_get_schema.return_value = "test-schema-id"
+            mock_get_active_schema.return_value = "test-schema-id"
+            mock_get_metadata.return_value = {"cmf_filename": "test.cmf"}
             mock_download.return_value = "/tmp/schema"
 
             # Mock successful conversion
@@ -99,12 +102,14 @@ class TestConversionBatchProcessing:
         files = create_mock_xml_files(4)
 
         with patch('niem_api.handlers.convert.is_niemtran_available') as mock_niemtran_available, \
-             patch('niem_api.handlers.convert._get_schema_id') as mock_get_schema, \
+             patch('niem_api.handlers.convert.get_active_schema_id') as mock_get_active_schema, \
+             patch('niem_api.handlers.convert.get_schema_metadata') as mock_get_metadata, \
              patch('niem_api.handlers.convert._download_schema_files_for_validation') as mock_download, \
              patch('niem_api.handlers.convert._convert_single_file') as mock_convert:
 
             mock_niemtran_available.return_value = True
-            mock_get_schema.return_value = "test-schema-id"
+            mock_get_active_schema.return_value = "test-schema-id"
+            mock_get_metadata.return_value = {"cmf_filename": "test.cmf"}
             mock_download.return_value = "/tmp/schema"
 
             # Mock: 2 successes, 2 failures
@@ -137,13 +142,15 @@ class TestConversionBatchProcessing:
         files = create_mock_xml_files(3)
 
         with patch('niem_api.handlers.convert.is_niemtran_available') as mock_niemtran_available, \
-             patch('niem_api.handlers.convert._get_schema_id') as mock_get_schema, \
+             patch('niem_api.handlers.convert.get_active_schema_id') as mock_get_active_schema, \
+             patch('niem_api.handlers.convert.get_schema_metadata') as mock_get_metadata, \
              patch('niem_api.handlers.convert._download_schema_files_for_validation') as mock_download, \
              patch('niem_api.handlers.convert._convert_single_file') as mock_convert, \
              patch('niem_api.handlers.convert.batch_config') as mock_config:
 
             mock_niemtran_available.return_value = True
-            mock_get_schema.return_value = "test-schema-id"
+            mock_get_active_schema.return_value = "test-schema-id"
+            mock_get_metadata.return_value = {"cmf_filename": "test.cmf"}
             mock_download.return_value = "/tmp/schema"
             mock_config.OPERATION_TIMEOUT = 1
             mock_config.get_batch_limit.return_value = 150
@@ -181,7 +188,7 @@ class TestConversionBatchProcessing:
             with pytest.raises(HTTPException) as exc_info:
                 await handle_xml_to_json_batch(files, mock_s3_client)
 
-            assert exc_info.value.status_code == 500
+            assert exc_info.value.status_code == 503
             assert "NIEMTran tool is not available" in exc_info.value.detail
 
     @pytest.mark.asyncio
@@ -190,12 +197,14 @@ class TestConversionBatchProcessing:
         files = create_mock_xml_files(3)
 
         with patch('niem_api.handlers.convert.is_niemtran_available') as mock_niemtran_available, \
-             patch('niem_api.handlers.convert._get_schema_id') as mock_get_schema, \
+             patch('niem_api.handlers.convert.get_active_schema_id') as mock_get_active_schema, \
+             patch('niem_api.handlers.convert.get_schema_metadata') as mock_get_metadata, \
              patch('niem_api.handlers.convert._download_schema_files_for_validation') as mock_download, \
              patch('niem_api.handlers.convert._convert_single_file') as mock_convert:
 
             mock_niemtran_available.return_value = True
-            mock_get_schema.return_value = "test-schema-id"
+            mock_get_active_schema.return_value = "test-schema-id"
+            mock_get_metadata.return_value = {"cmf_filename": "test.cmf"}
             mock_download.return_value = "/tmp/schema"
             mock_convert.return_value = {
                 "filename": "test.xml",
@@ -222,12 +231,14 @@ class TestConversionBatchProcessing:
         files = create_mock_xml_files(1)
 
         with patch('niem_api.handlers.convert.is_niemtran_available') as mock_niemtran_available, \
-             patch('niem_api.handlers.convert._get_schema_id') as mock_get_schema, \
+             patch('niem_api.handlers.convert.get_active_schema_id') as mock_get_active_schema, \
+             patch('niem_api.handlers.convert.get_schema_metadata') as mock_get_metadata, \
              patch('niem_api.handlers.convert._download_schema_files_for_validation') as mock_download, \
              patch('niem_api.handlers.convert._convert_single_file') as mock_convert:
 
             mock_niemtran_available.return_value = True
-            mock_get_schema.return_value = "test-schema-id"
+            mock_get_active_schema.return_value = "test-schema-id"
+            mock_get_metadata.return_value = {"cmf_filename": "test.cmf"}
             mock_download.return_value = "/tmp/schema"
             mock_convert.return_value = {
                 "filename": "instance_0.xml",

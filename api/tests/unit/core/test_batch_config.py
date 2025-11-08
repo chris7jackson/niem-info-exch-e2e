@@ -42,35 +42,35 @@ class TestBatchConfig:
         limit = batch_config.get_batch_limit('unknown_operation')
         assert limit == 10  # Default fallback
 
-    @patch.dict(os.environ, {
-        'BATCH_MAX_CONCURRENT_OPERATIONS': '5',
-        'BATCH_OPERATION_TIMEOUT': '120',
-        'BATCH_MAX_SCHEMA_FILES': '200',
-        'BATCH_MAX_CONVERSION_FILES': '100',
-        'BATCH_MAX_INGEST_FILES': '50'
-    })
     def test_environment_variable_override(self):
         """Test that environment variables override defaults."""
-        # Need to create a new instance to pick up env vars
-        config = BatchConfig()
+        # Set env vars before creating instance
+        with patch.dict(os.environ, {
+            'BATCH_MAX_CONCURRENT_OPERATIONS': '5',
+            'BATCH_OPERATION_TIMEOUT': '120',
+            'BATCH_MAX_SCHEMA_FILES': '200',
+            'BATCH_MAX_CONVERSION_FILES': '100',
+            'BATCH_MAX_INGEST_FILES': '50'
+        }):
+            config = BatchConfig()
 
-        assert config.MAX_CONCURRENT_OPERATIONS == 5
-        assert config.OPERATION_TIMEOUT == 120
-        assert config.MAX_SCHEMA_FILES == 200
-        assert config.MAX_CONVERSION_FILES == 100
-        assert config.MAX_INGEST_FILES == 50
+            assert config.MAX_CONCURRENT_OPERATIONS == 5
+            assert config.OPERATION_TIMEOUT == 120
+            assert config.MAX_SCHEMA_FILES == 200
+            assert config.MAX_CONVERSION_FILES == 100
+            assert config.MAX_INGEST_FILES == 50
 
-    @patch.dict(os.environ, {'BATCH_MAX_SCHEMA_FILES': '2'})
     def test_small_batch_limit(self):
         """Test setting a small batch limit via environment variable."""
-        config = BatchConfig()
-        assert config.MAX_SCHEMA_FILES == 2
+        with patch.dict(os.environ, {'BATCH_MAX_SCHEMA_FILES': '2'}):
+            config = BatchConfig()
+            assert config.MAX_SCHEMA_FILES == 2
 
-    @patch.dict(os.environ, {'BATCH_MAX_CONCURRENT_OPERATIONS': '1'})
     def test_single_concurrent_operation(self):
         """Test setting concurrent operations to 1."""
-        config = BatchConfig()
-        assert config.MAX_CONCURRENT_OPERATIONS == 1
+        with patch.dict(os.environ, {'BATCH_MAX_CONCURRENT_OPERATIONS': '1'}):
+            config = BatchConfig()
+            assert config.MAX_CONCURRENT_OPERATIONS == 1
 
     def test_singleton_instance_exists(self):
         """Test that batch_config singleton instance exists."""
