@@ -162,6 +162,34 @@ chmod -R 755 api/g2license_*/
 - Docker: Installed automatically via requirements.txt
 - Local dev: Run `pip install senzing-grpc`
 
+#### Health Check
+
+Verify Senzing is working correctly:
+
+```bash
+# Quick diagnostic script
+./scripts/check_senzing.sh
+
+# Or check via API
+curl http://localhost:8000/api/entity-resolution/health \
+  -H "Authorization: Bearer devtoken" | jq .
+```
+
+**Expected response when healthy**:
+```json
+{
+  "overall_status": "healthy",
+  "license_configured": true,
+  "client_initialized": true,
+  "connection_status": "healthy"
+}
+```
+
+If status is "unhealthy", check:
+- License file exists: `ls -la api/secrets/senzing/g2.lic`
+- Services running: `docker compose ps`
+- Logs: `docker compose logs senzing-grpc api`
+
 **For detailed troubleshooting and alternative installation methods**, see:
 - [Senzing Integration Guide](docs/senzing-integration.md) - Technical details, database configuration
 - [Senzing Match Details](docs/SENZING_MATCH_DETAILS.md) - Match transparency features
