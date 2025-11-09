@@ -1401,10 +1401,11 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
         return {
             'status': 'error',
             'message': 'No node types selected for entity resolution',
-            'entities_extracted': 0,
-            'duplicate_groups_found': 0,
-            'resolved_entities_created': 0,
-            'relationships_created': 0
+            'entitiesExtracted': 0,
+            'duplicateGroupsFound': 0,
+            'resolvedEntitiesCreated': 0,
+            'relationshipsCreated': 0,
+            'entitiesResolved': 0
         }
 
     logger.info(f"Starting entity resolution for node types: {selected_node_types}")
@@ -1421,10 +1422,13 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
             return {
                 'status': 'success',
                 'message': 'No entities found in the graph to resolve',
-                'entities_extracted': 0,
-                'duplicate_groups_found': 0,
-                'resolved_entities_created': 0,
-                'relationships_created': 0
+                'entitiesExtracted': 0,
+                'duplicateGroupsFound': 0,
+                'resolvedEntitiesCreated': 0,
+                'relationshipsCreated': 0,
+                'entitiesResolved': 0,
+                'resolutionMethod': 'text_based',
+                'nodeTypesProcessed': selected_node_types
             }
 
         # Step 2: Group entities by matching keys
@@ -1435,10 +1439,13 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
             return {
                 'status': 'success',
                 'message': 'No duplicate entities found - all entities are unique',
-                'entities_extracted': len(entities),
-                'duplicate_groups_found': 0,
-                'resolved_entities_created': 0,
-                'relationships_created': 0
+                'entitiesExtracted': len(entities),
+                'duplicateGroupsFound': 0,
+                'resolvedEntitiesCreated': 0,
+                'relationshipsCreated': 0,
+                'entitiesResolved': 0,
+                'resolutionMethod': 'text_based',
+                'nodeTypesProcessed': selected_node_types
             }
 
         # Step 3: Perform entity resolution

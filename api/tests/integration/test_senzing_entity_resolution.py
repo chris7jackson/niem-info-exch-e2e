@@ -40,6 +40,7 @@ def sample_entities(neo4j_client):
         _schema_id: 'test_schema'
     })
     CREATE (pn1:nc_PersonName {
+        qname: 'nc:PersonName',
         nc_PersonGivenName: 'Peter',
         nc_PersonSurName: 'Wimsey'
     })
@@ -54,6 +55,7 @@ def sample_entities(neo4j_client):
         _schema_id: 'test_schema'
     })
     CREATE (pn2:nc_PersonName {
+        qname: 'nc:PersonName',
         nc_PersonGivenName: 'Peter',
         nc_PersonSurName: 'Wimsey'
     })
@@ -68,6 +70,7 @@ def sample_entities(neo4j_client):
         _schema_id: 'test_schema'
     })
     CREATE (pn3:nc_PersonName {
+        qname: 'nc:PersonName',
         nc_PersonGivenName: 'Harriet',
         nc_PersonSurName: 'Vane'
     })
@@ -287,6 +290,7 @@ class TestSenzingEntityResolution:
             _schema_id: 'test_schema'
         })
         CREATE (pn:nc_PersonName {
+            qname: 'nc:PersonName',
             nc_PersonGivenName: 'Unique',
             nc_PersonSurName: 'Person'
         })
@@ -322,9 +326,19 @@ class TestSenzingEntityResolution:
         assert result['resolvedEntitiesCreated'] == 0
 
 
+def _check_senzing_available():
+    """Check if Senzing is fully available (SDK + license)."""
+    try:
+        from niem_api.clients.senzing_client import get_senzing_client
+        client = get_senzing_client()
+        return client.is_available()
+    except:
+        return False
+
+
 @pytest.mark.skipif(
-    not pytest.importorskip("senzing_grpc", reason="Senzing gRPC not available"),
-    reason="Senzing not installed"
+    not _check_senzing_available(),
+    reason="Senzing not available (missing SDK or license)"
 )
 class TestSenzingSpecificFeatures:
     """Tests that require actual Senzing (not text-based fallback)."""
