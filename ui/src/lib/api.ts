@@ -88,15 +88,15 @@ export interface ElementTreeNode {
   warnings: string[];
   suggestions: string[];
   selected: boolean;
-  selectable: boolean;  // Can be selected/deselected (augmentations are not selectable)
+  selectable: boolean; // Can be selected/deselected (augmentations are not selectable)
   cardinality: string | null;
   description: string | null;
   namespace: string | null;
   is_nested_association: boolean;
-  can_have_id?: boolean;  // True if type extends structures:ObjectType
+  can_have_id?: boolean; // True if type extends structures:ObjectType
   children: string[];
-  endpoints?: string[];  // Only present for associations - contains entity endpoint qnames (not property wrappers)
-  augmented_properties?: string[];  // Only present for augmentations - contains selectable child properties
+  endpoints?: string[]; // Only present for associations - contains entity endpoint qnames (not property wrappers)
+  augmented_properties?: string[]; // Only present for augmentations - contains selectable child properties
 }
 
 export interface ElementTreeResponse {
@@ -189,11 +189,14 @@ export interface MatchDetails {
     low: number;
   };
   commonMatchKeys: Record<string, number>;
-  featureScores: Record<string, {
-    total: number;
-    count: number;
-    average: number;
-  }>;
+  featureScores: Record<
+    string,
+    {
+      total: number;
+      count: number;
+      average: number;
+    }
+  >;
   resolutionRules: Record<string, number>;
 }
 
@@ -273,7 +276,10 @@ class ApiClient {
     return response.data;
   }
 
-  async applySchemaDesign(schemaId: string, selections: Record<string, boolean>): Promise<ApplyDesignResponse> {
+  async applySchemaDesign(
+    schemaId: string,
+    selections: Record<string, boolean>
+  ): Promise<ApplyDesignResponse> {
     const response = await this.client.post(`/api/schema/${schemaId}/apply-design`, selections);
     return response.data;
   }

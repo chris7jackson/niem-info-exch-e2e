@@ -205,7 +205,7 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
         // Title case each word
         formatted = formatted
           .split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
           .join(' ');
 
         return formatted;
@@ -380,7 +380,12 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </button>
 
@@ -389,10 +394,20 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                   {/* Match Quality Distribution */}
                   <div>
                     <div className="flex items-center gap-1 mb-2">
-                      <h5 className="text-xs font-semibold text-green-900">Match Quality Distribution</h5>
+                      <h5 className="text-xs font-semibold text-green-900">
+                        Match Quality Distribution
+                      </h5>
                       <Tooltip text="Shows how confident Senzing is about each entity match. High confidence means strong evidence that entities are the same person/organization. This counts individual record-level matches, not entity groups.">
-                        <svg className="w-4 h-4 text-green-700" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        <svg
+                          className="w-4 h-4 text-green-700"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       </Tooltip>
                     </div>
@@ -425,10 +440,20 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                   {Object.keys(lastResult.matchDetails.commonMatchKeys).length > 0 && (
                     <div>
                       <div className="flex items-center gap-1 mb-2">
-                        <h5 className="text-xs font-semibold text-green-900">How Entities Were Matched</h5>
+                        <h5 className="text-xs font-semibold text-green-900">
+                          How Entities Were Matched
+                        </h5>
                         <Tooltip text="Shows which combinations of attributes Senzing used to determine entities are the same. For example, 'Name + Date of Birth' means Senzing matched entities that had the same name AND date of birth. The count shows how many times each combination was used.">
-                          <svg className="w-4 h-4 text-green-700" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          <svg
+                            className="w-4 h-4 text-green-700"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         </Tooltip>
                       </div>
@@ -438,7 +463,9 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                           .map(([key, count]) => (
                             <div key={key} className="flex justify-between text-xs items-center">
                               <span className="text-gray-700">{formatMatchKey(key)}</span>
-                              <span className="font-medium text-green-700">{count} record{count !== 1 ? 's' : ''} matched this way</span>
+                              <span className="font-medium text-green-700">
+                                {count} record{count !== 1 ? 's' : ''} matched this way
+                              </span>
                             </div>
                           ))}
                       </div>
@@ -447,8 +474,9 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
 
                   {/* Feature Scores - Only show if we have scores > 0 */}
                   {(() => {
-                    const featuresWithScores = Object.entries(lastResult.matchDetails.featureScores || {})
-                      .filter(([_, scores]) => scores.average > 0);
+                    const featuresWithScores = Object.entries(
+                      lastResult.matchDetails.featureScores || {}
+                    ).filter(([_, scores]) => scores.average > 0);
 
                     if (featuresWithScores.length === 0) {
                       return null; // Don't show section at all if no scores
@@ -459,14 +487,25 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                         <div className="flex items-center gap-1 mb-2">
                           <h5 className="text-xs font-semibold text-green-900">Attributes Used</h5>
                           <Tooltip text="Shows which types of attributes were found in the matched entities. A score of 100 means the attribute was present in all matched records. Lower scores indicate the attribute was found in some but not all records, or match quality varies.">
-                            <svg className="w-4 h-4 text-green-700" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            <svg
+                              className="w-4 h-4 text-green-700"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                clipRule="evenodd"
+                              />
                             </svg>
                           </Tooltip>
                         </div>
                         <div className="bg-white rounded p-3 border border-green-200 space-y-1">
                           {featuresWithScores.map(([feature, scores]) => (
-                            <div key={feature} className="flex justify-between text-xs items-center">
+                            <div
+                              key={feature}
+                              className="flex justify-between text-xs items-center"
+                            >
                               <span className="text-gray-700 font-medium">{feature}</span>
                               <div className="flex items-center gap-2">
                                 <div className="w-24 bg-gray-200 rounded-full h-2">
@@ -475,7 +514,9 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                                     style={{ width: `${Math.min(100, scores.average)}%` }}
                                   />
                                 </div>
-                                <span className="font-medium text-green-700 w-8 text-right">{scores.average}%</span>
+                                <span className="font-medium text-green-700 w-8 text-right">
+                                  {scores.average}%
+                                </span>
                               </div>
                             </div>
                           ))}
@@ -490,8 +531,16 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                       <div className="flex items-center gap-1 mb-2">
                         <h5 className="text-xs font-semibold text-green-900">Senzing Rules Used</h5>
                         <Tooltip text="Shows which Senzing resolution rules were applied during entity matching. Each rule defines specific criteria for when entities should be considered the same. The count shows how many times each rule was triggered.">
-                          <svg className="w-4 h-4 text-green-700" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          <svg
+                            className="w-4 h-4 text-green-700"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         </Tooltip>
                       </div>
@@ -501,7 +550,9 @@ const EntityResolutionPanel: React.FC<EntityResolutionPanelProps> = ({
                           .map(([rule, count]) => (
                             <div key={rule} className="flex justify-between text-xs items-center">
                               <span className="text-gray-700 font-mono text-xs">{rule}</span>
-                              <span className="font-medium text-green-700">{count} time{count !== 1 ? 's' : ''}</span>
+                              <span className="font-medium text-green-700">
+                                {count} time{count !== 1 ? 's' : ''}
+                              </span>
                             </div>
                           ))}
                       </div>

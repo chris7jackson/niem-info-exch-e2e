@@ -41,14 +41,14 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
 
     // Create a lookup map for nodes by qname
     const nodesByQname = new Map<string, ElementTreeNode>();
-    nodes.forEach(node => nodesByQname.set(node.qname, node));
+    nodes.forEach((node) => nodesByQname.set(node.qname, node));
 
     // Build children map using the children field from API (if available)
     // This preserves the backend's deduplication logic
     nodes.forEach((node) => {
       if (node.children && node.children.length > 0) {
         const children = node.children
-          .map(qname => nodesByQname.get(qname))
+          .map((qname) => nodesByQname.get(qname))
           .filter((child): child is ElementTreeNode => child !== undefined);
         if (children.length > 0) {
           map.set(node.qname, children);
@@ -112,11 +112,11 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
     if (!filteredNodes || filteredNodes.length === 0) {
       return rows;
     }
-    const filteredQnames = new Set(filteredNodes.map(n => n.qname));
+    const filteredQnames = new Set(filteredNodes.map((n) => n.qname));
 
     const addNodeAndChildren = (node: ElementTreeNode, depth: number) => {
       const allChildren = childrenMap.get(node.qname) || [];
-      const children = allChildren.filter(child => filteredQnames.has(child.qname));
+      const children = allChildren.filter((child) => filteredQnames.has(child.qname));
       const hasChildren = children.length > 0;
       const isExpanded = expandedNodes.has(node.qname);
 
@@ -129,15 +129,15 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
 
       // Only add children if node is expanded
       if (isExpanded && hasChildren) {
-        children.forEach(child => addNodeAndChildren(child, depth + 1));
+        children.forEach((child) => addNodeAndChildren(child, depth + 1));
       }
     };
 
     // Start with root nodes
     if (rootNodes && rootNodes.length > 0) {
       rootNodes
-        .filter(node => filteredQnames.has(node.qname))
-        .forEach(node => addNodeAndChildren(node, 0));
+        .filter((node) => filteredQnames.has(node.qname))
+        .forEach((node) => addNodeAndChildren(node, 0));
     }
 
     return rows;
@@ -227,11 +227,21 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
             >
               {isExpanded ? (
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               ) : (
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
               )}
             </button>
@@ -253,8 +263,8 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
               node.node_type === 'property'
                 ? 'Property wrapper - will be flattened'
                 : node.node_type === 'augmentation'
-                ? 'Augmentation - automatically included with base type'
-                : ''
+                  ? 'Augmentation - automatically included with base type'
+                  : ''
             }
           />
 
@@ -268,12 +278,12 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
                 node.node_type === 'object'
                   ? 'bg-blue-100 text-blue-700'
                   : node.node_type === 'association'
-                  ? 'bg-purple-100 text-purple-700'
-                  : node.node_type === 'augmentation'
-                  ? 'bg-orange-100 text-orange-700'
-                  : node.node_type === 'property'
-                  ? 'bg-gray-100 text-gray-500'
-                  : 'bg-green-100 text-green-700'
+                    ? 'bg-purple-100 text-purple-700'
+                    : node.node_type === 'augmentation'
+                      ? 'bg-orange-100 text-orange-700'
+                      : node.node_type === 'property'
+                        ? 'bg-gray-100 text-gray-500'
+                        : 'bg-green-100 text-green-700'
               }`}
             >
               {node.node_type}
@@ -340,7 +350,8 @@ const SchemaElementTree: React.FC<SchemaElementTreeProps> = ({
             Clear All
           </button>
           <div className="flex-1 text-right text-xs text-gray-500">
-            {(filteredNodes || []).filter((n) => selections[n.qname] !== false).length} / {(filteredNodes || []).length} selected
+            {(filteredNodes || []).filter((n) => selections[n.qname] !== false).length} /{' '}
+            {(filteredNodes || []).length} selected
           </div>
         </div>
 

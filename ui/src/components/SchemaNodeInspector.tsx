@@ -11,8 +11,18 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode,
     return (
       <div className="h-full flex items-center justify-center text-gray-400 p-6">
         <div className="text-center">
-          <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className="mx-auto h-12 w-12 text-gray-300"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
           <p className="mt-2 text-sm">Select a node to view details</p>
         </div>
@@ -66,7 +76,9 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode,
         <div>
           <h3 className="text-lg font-semibold text-gray-900">{selectedNode.qname}</h3>
           <div className="mt-2 flex items-center space-x-2">
-            <span className={`px-2 py-1 text-xs font-medium rounded ${getNodeTypeColor(selectedNode.node_type)}`}>
+            <span
+              className={`px-2 py-1 text-xs font-medium rounded ${getNodeTypeColor(selectedNode.node_type)}`}
+            >
               {selectedNode.node_type}
             </span>
           </div>
@@ -128,24 +140,27 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode,
               <div className="space-y-2">
                 <p className="text-orange-700 font-medium">🔧 Augmentation</p>
                 <p className="text-xs">
-                  Augmentations are property wrappers that don't physically exist. They can add any number
-                  of properties or nested objects to the object being augmented.
+                  Augmentations are property wrappers that don't physically exist. They can add any
+                  number of properties or nested objects to the object being augmented.
                 </p>
                 <p className="text-xs text-gray-500 mt-2">
-                  Augmentations are transparent in the graph - they never create nodes. Their children are
-                  added directly to the augmented type.
+                  Augmentations are transparent in the graph - they never create nodes. Their
+                  children are added directly to the augmented type.
                 </p>
               </div>
             ) : selectedNode.node_type === 'association' ? (
               <div className="space-y-2">
                 <p className="text-purple-700 font-medium">🔗 Association</p>
                 <p className="text-xs">
-                  Associations model relationships between entities. When selected, this will create a
-                  relationship node that automatically selects all children objects as endpoints to join them together.
+                  Associations model relationships between entities. When selected, this will create
+                  a relationship node that automatically selects all children objects as endpoints
+                  to join them together.
                 </p>
                 {selectedNode.endpoints && selectedNode.endpoints.length > 0 && (
                   <p className="text-xs text-gray-500">
-                    {selectedNode.endpoints.length} endpoint{selectedNode.endpoints.length !== 1 ? 's' : ''} will be auto-selected: <span className="font-mono">{selectedNode.endpoints.join(', ')}</span>
+                    {selectedNode.endpoints.length} endpoint
+                    {selectedNode.endpoints.length !== 1 ? 's' : ''} will be auto-selected:{' '}
+                    <span className="font-mono">{selectedNode.endpoints.join(', ')}</span>
                   </p>
                 )}
               </div>
@@ -153,20 +168,25 @@ const SchemaNodeInspector: React.FC<SchemaNodeInspectorProps> = ({ selectedNode,
               <div className="space-y-2">
                 <p className="text-purple-700 font-medium">⚡ Wrapper Type (Always Flattened)</p>
                 <p className="text-xs">
-                  This is a wrapper type (e.g., TextType, DateType, IndicatorType) that wraps a scalar value.
-                  It will always be flattened into a property on the parent node, regardless of selection state.
+                  This is a wrapper type (e.g., TextType, DateType, IndicatorType) that wraps a
+                  scalar value. It will always be flattened into a property on the parent node,
+                  regardless of selection state.
                 </p>
                 <p className="text-xs text-gray-500">
-                  Based on XSD structure: extends a simple type like xs:string, xs:boolean, or xs:date.
+                  Based on XSD structure: extends a simple type like xs:string, xs:boolean, or
+                  xs:date.
                 </p>
               </div>
             ) : selections[selectedNode.qname] !== false ? (
               <div className="space-y-2">
                 <p className="text-green-700 font-medium">✓ Will create Neo4j node</p>
                 <p className="text-xs">
-                  This element will become a node with label <span className="font-mono">{selectedNode.label}</span>.
-                  {selectedNode.property_count > 0 && ` It will have ${selectedNode.property_count} scalar properties.`}
-                  {selectedNode.nested_object_count > 0 && ` It will have ${selectedNode.nested_object_count} nested objects.`}
+                  This element will become a node with label{' '}
+                  <span className="font-mono">{selectedNode.label}</span>.
+                  {selectedNode.property_count > 0 &&
+                    ` It will have ${selectedNode.property_count} scalar properties.`}
+                  {selectedNode.nested_object_count > 0 &&
+                    ` It will have ${selectedNode.nested_object_count} nested objects.`}
                 </p>
                 <p className="text-xs text-gray-500 mt-2">
                   All child properties will be flattened as properties on this node.

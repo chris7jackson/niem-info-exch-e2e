@@ -180,7 +180,7 @@ export default function GraphPage() {
   const availableFiles = useMemo(() => {
     if (!graphData) return [];
     const files = new Set<string>();
-    graphData.nodes.forEach(node => {
+    graphData.nodes.forEach((node) => {
       const sourceFile = node.properties?._source_file || node.properties?.sourceDoc;
       if (sourceFile) {
         files.add(sourceFile);
@@ -379,14 +379,27 @@ export default function GraphPage() {
 
       // Special styling for ResolvedEntity nodes, Association nodes, and EntityHub nodes
       const isResolvedEntity = node.labels.includes('ResolvedEntity');
-      const isAssociation = node.properties?._isAssociation === true ||
-                            node.properties?._isAssociation === 'True' ||
-                            node.properties?.qname?.endsWith('Association');
+      const isAssociation =
+        node.properties?._isAssociation === true ||
+        node.properties?._isAssociation === 'True' ||
+        node.properties?.qname?.endsWith('Association');
       const isEntityHub = node.properties?._isHub === true || node.label.startsWith('Entity_');
 
       // Color priority: EntityHub (teal) > Association (orange) > ResolvedEntity (purple) > default
-      const nodeColor = isEntityHub ? '#14B8A6' : (isAssociation ? '#FF8C00' : (isResolvedEntity ? '#9333EA' : (labelColorMap[node.label] || '#95A5A6')));
-      const nodeShape = isEntityHub ? 'triangle' : (isResolvedEntity ? 'diamond' : (isAssociation ? 'hexagon' : 'ellipse'));
+      const nodeColor = isEntityHub
+        ? '#14B8A6'
+        : isAssociation
+          ? '#FF8C00'
+          : isResolvedEntity
+            ? '#9333EA'
+            : labelColorMap[node.label] || '#95A5A6';
+      const nodeShape = isEntityHub
+        ? 'triangle'
+        : isResolvedEntity
+          ? 'diamond'
+          : isAssociation
+            ? 'hexagon'
+            : 'ellipse';
 
       return {
         data: {
@@ -408,30 +421,30 @@ export default function GraphPage() {
 
     // Filter nodes by filename if filter is active (exact match)
     let filteredNodes = cyNodes;
-    let filteredNodeIds = new Set(cyNodes.map(n => n.data.id));
+    let filteredNodeIds = new Set(cyNodes.map((n) => n.data.id));
 
     if (filenameFilter.length > 0) {
       // Step 1: Get nodes from selected files
-      const primaryNodes = cyNodes.filter(node => {
+      const primaryNodes = cyNodes.filter((node) => {
         const sourceFile = node.data.properties?._source_file || node.data.properties?.sourceDoc;
         return sourceFile && filenameFilter.includes(sourceFile);
       });
-      const primaryNodeIds = new Set(primaryNodes.map(n => n.data.id));
+      const primaryNodeIds = new Set(primaryNodes.map((n) => n.data.id));
 
       // Step 2: Find all edges connected to primary nodes
-      const connectedEdges = data.relationships.filter(rel =>
-        primaryNodeIds.has(rel.startNode) || primaryNodeIds.has(rel.endNode)
+      const connectedEdges = data.relationships.filter(
+        (rel) => primaryNodeIds.has(rel.startNode) || primaryNodeIds.has(rel.endNode)
       );
 
       // Step 3: Include all nodes that are connected to primary nodes
       const relatedNodeIds = new Set<string>();
-      connectedEdges.forEach(edge => {
+      connectedEdges.forEach((edge) => {
         relatedNodeIds.add(edge.startNode);
         relatedNodeIds.add(edge.endNode);
       });
 
       // Filter to include both primary and related nodes
-      filteredNodes = cyNodes.filter(node => relatedNodeIds.has(node.data.id));
+      filteredNodes = cyNodes.filter((node) => relatedNodeIds.has(node.data.id));
       filteredNodeIds = relatedNodeIds;
     }
 
@@ -452,9 +465,23 @@ export default function GraphPage() {
       const isContains = rel.type === 'CONTAINS';
 
       // Color priority: REPRESENTS (teal) > ASSOCIATED_WITH (orange) > RESOLVED_TO (purple) > CONTAINS (grey) > default
-      const edgeColor = isRepresents ? '#14B8A6' : (isAssociatedWith ? '#FF8C00' : (isResolvedTo ? '#9333EA' : (isContains ? '#888888' : relStyle.color)));
-      const edgeWidth = (isResolvedTo || isAssociatedWith || isRepresents) ? 3 : relStyle.width; // Thicker for special relationships
-      const edgeStyle = isResolvedTo ? 'dashed' : (isAssociatedWith ? 'dotted' : (isRepresents ? 'solid' : relStyle.style));
+      const edgeColor = isRepresents
+        ? '#14B8A6'
+        : isAssociatedWith
+          ? '#FF8C00'
+          : isResolvedTo
+            ? '#9333EA'
+            : isContains
+              ? '#888888'
+              : relStyle.color;
+      const edgeWidth = isResolvedTo || isAssociatedWith || isRepresents ? 3 : relStyle.width; // Thicker for special relationships
+      const edgeStyle = isResolvedTo
+        ? 'dashed'
+        : isAssociatedWith
+          ? 'dotted'
+          : isRepresents
+            ? 'solid'
+            : relStyle.style;
 
       return {
         data: {
@@ -477,10 +504,9 @@ export default function GraphPage() {
     });
 
     // Filter edges to only show edges between filtered nodes
-    const filteredEdges = cyEdges.filter(edge =>
-      filteredNodeIds.has(edge.data.source) && filteredNodeIds.has(edge.data.target)
+    const filteredEdges = cyEdges.filter(
+      (edge) => filteredNodeIds.has(edge.data.source) && filteredNodeIds.has(edge.data.target)
     );
-
 
     // Stop any running layout first
     if (currentLayout.current) {
@@ -507,176 +533,175 @@ export default function GraphPage() {
     // Create new Cytoscape instance with data-agnostic styles
     try {
       cyInstance.current = cytoscape({
-      container: cyRef.current,
+        container: cyRef.current,
 
-      elements: [...filteredNodes, ...filteredEdges],
+        elements: [...filteredNodes, ...filteredEdges],
 
-      // Viewport and zoom settings for better visibility
-      minZoom: 0.1,
-      maxZoom: 10,
+        // Viewport and zoom settings for better visibility
+        minZoom: 0.1,
+        maxZoom: 10,
 
-      style: [
-        {
-          selector: 'node',
-          style: {
-            'background-color': 'data(color)',
-            label: 'data(label)',
-            'text-valign': 'center',
-            'text-halign': 'center',
-            'text-rotation': 'none', // Force horizontal (no rotation)
-            'text-justification': 'center',
-            color: '#000000',
-            'text-outline-width': 1.5,
-            'text-outline-color': '#ffffff',
-            'font-size': '7px',
-            'font-weight': 'normal',
-            width: 'data(size)',
-            height: 'data(size)',
-            shape: 'data(shape)' as any, // Diamond for ResolvedEntity, ellipse for others
-            'border-width': 1,
-            'border-color': '#333333',
-            'text-wrap': 'wrap', // Wrap text instead of truncating
-            'min-zoomed-font-size': 4,
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'background-color': 'data(color)',
+              label: 'data(label)',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'text-rotation': 'none', // Force horizontal (no rotation)
+              'text-justification': 'center',
+              color: '#000000',
+              'text-outline-width': 1.5,
+              'text-outline-color': '#ffffff',
+              'font-size': '7px',
+              'font-weight': 'normal',
+              width: 'data(size)',
+              height: 'data(size)',
+              shape: 'data(shape)' as any, // Diamond for ResolvedEntity, ellipse for others
+              'border-width': 1,
+              'border-color': '#333333',
+              'text-wrap': 'wrap', // Wrap text instead of truncating
+              'min-zoomed-font-size': 4,
+            },
           },
-        },
-        {
-          selector: 'node:selected',
-          style: {
-            'border-width': 3,
-            'border-color': '#FFA500',
-            'text-outline-color': '#FFA500',
+          {
+            selector: 'node:selected',
+            style: {
+              'border-width': 3,
+              'border-color': '#FFA500',
+              'text-outline-color': '#FFA500',
+            },
           },
-        },
-        {
-          selector: 'edge',
-          style: {
-            width: 'data(width)',
-            'line-color': 'data(color)',
-            'target-arrow-color': 'data(color)',
-            'target-arrow-shape': 'triangle',
-            'curve-style': 'bezier',
-            label: 'data(label)',
-            'font-size': '7px',
-            color: '#444444',
-            'text-outline-width': 1,
-            'text-outline-color': '#ffffff',
-            'text-rotation': 'autorotate',
-            'text-margin-y': -8,
-            opacity: 'data(opacity)' as any,
-            'line-style': 'data(lineStyle)' as any,
-            'min-zoomed-font-size': 4,
+          {
+            selector: 'edge',
+            style: {
+              width: 'data(width)',
+              'line-color': 'data(color)',
+              'target-arrow-color': 'data(color)',
+              'target-arrow-shape': 'triangle',
+              'curve-style': 'bezier',
+              label: 'data(label)',
+              'font-size': '7px',
+              color: '#444444',
+              'text-outline-width': 1,
+              'text-outline-color': '#ffffff',
+              'text-rotation': 'autorotate',
+              'text-margin-y': -8,
+              opacity: 'data(opacity)' as any,
+              'line-style': 'data(lineStyle)' as any,
+              'min-zoomed-font-size': 4,
+            },
           },
-        },
-        {
-          selector: 'edge:selected',
-          style: {
-            width: 3,
-            'line-color': '#FFA500',
-            'target-arrow-color': '#FFA500',
+          {
+            selector: 'edge:selected',
+            style: {
+              width: 3,
+              'line-color': '#FFA500',
+              'target-arrow-color': '#FFA500',
+            },
           },
-        },
-      ],
+        ],
 
-      layout: {
-        name: ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'].includes(selectedLayout)
-          ? selectedLayout
-          : 'cose',
-        animate: true,
-        animationDuration: 500,
-        fit: true,
-        padding: 50,
-        stop: function() {
-          // Ensure fit happens after layout completes
-          if (cyInstance.current && isMounted.current) {
-            cyInstance.current.fit();
-          }
-        },
-        // Generic layout options that work for any data
-        ...(selectedLayout === 'cose' && {
-          nodeOverlap: 20,
-          refresh: 20,
-          randomize: false,
-          componentSpacing: 100,
-          nodeRepulsion: 400000,
-          idealEdgeLength: 100,
-          edgeElasticity: 100,
-          nestingFactor: 5,
-          gravity: 80,
-          numIter: 1000,
-          initialTemp: 200,
-          coolingFactor: 0.95,
-          minTemp: 1.0,
-        }),
-        ...(selectedLayout === 'circle' && {
-          radius: Math.min(200, Math.max(100, data.nodes.length * 8)),
-        }),
-        ...(selectedLayout === 'concentric' && {
-          concentric: function (node: any) {
-            return node.data('size'); // Arrange by connectivity
+        layout: {
+          name: ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'].includes(selectedLayout)
+            ? selectedLayout
+            : 'cose',
+          animate: true,
+          animationDuration: 500,
+          fit: true,
+          padding: 50,
+          stop: function () {
+            // Ensure fit happens after layout completes
+            if (cyInstance.current && isMounted.current) {
+              cyInstance.current.fit();
+            }
           },
-          levelWidth: function () {
-            return 1;
-          },
-        }),
-      } as any,
-    });
-
-    // Universal event handlers - show complete information
-    cyInstance.current.on('tap', 'node', function (evt) {
-      const node = evt.target;
-      const data = node.data();
-      console.log('=== Node Details ===');
-      console.log('Labels:', data.nodeLabels.join(', '));
-      console.log('Primary Label:', data.nodeType);
-      console.log('Semantic ID:', data.id);
-
-      if (data.properties.qname) {
-        console.log('QName:', data.properties.qname);
-      }
-
-      console.log('\n--- All Properties ---');
-      Object.entries(data.properties).forEach(([key, value]) => {
-        const prefix = key.startsWith('aug_') ? '[AUG] ' : '';
-        console.log(`${prefix}${key}:`, value);
+          // Generic layout options that work for any data
+          ...(selectedLayout === 'cose' && {
+            nodeOverlap: 20,
+            refresh: 20,
+            randomize: false,
+            componentSpacing: 100,
+            nodeRepulsion: 400000,
+            idealEdgeLength: 100,
+            edgeElasticity: 100,
+            nestingFactor: 5,
+            gravity: 80,
+            numIter: 1000,
+            initialTemp: 200,
+            coolingFactor: 0.95,
+            minTemp: 1.0,
+          }),
+          ...(selectedLayout === 'circle' && {
+            radius: Math.min(200, Math.max(100, data.nodes.length * 8)),
+          }),
+          ...(selectedLayout === 'concentric' && {
+            concentric: function (node: any) {
+              return node.data('size'); // Arrange by connectivity
+            },
+            levelWidth: function () {
+              return 1;
+            },
+          }),
+        } as any,
       });
-      console.log('==================');
-    });
 
-    cyInstance.current.on('tap', 'edge', function (evt) {
-      const edge = evt.target;
-      const data = edge.data();
-      console.log('=== Relationship Details ===');
-      console.log('Type:', data.type);
-      console.log('Internal ID:', data.id);
-      console.log('From:', data.source);
-      console.log('To:', data.target);
+      // Universal event handlers - show complete information
+      cyInstance.current.on('tap', 'node', function (evt) {
+        const node = evt.target;
+        const data = node.data();
+        console.log('=== Node Details ===');
+        console.log('Labels:', data.nodeLabels.join(', '));
+        console.log('Primary Label:', data.nodeType);
+        console.log('Semantic ID:', data.id);
 
-      if (Object.keys(data.properties).length > 0) {
-        console.log('\n--- Properties ---');
+        if (data.properties.qname) {
+          console.log('QName:', data.properties.qname);
+        }
+
+        console.log('\n--- All Properties ---');
         Object.entries(data.properties).forEach(([key, value]) => {
-          console.log(`${key}:`, value);
+          const prefix = key.startsWith('aug_') ? '[AUG] ' : '';
+          console.log(`${prefix}${key}:`, value);
         });
-      }
-      console.log('===========================');
-    });
-
-    // Add hover effects for nodes
-    cyInstance.current.on('mouseover', 'node', function (evt) {
-      const node = evt.target;
-      node.style({
-        'border-width': 2,
-        'border-color': '#FF6B35',
+        console.log('==================');
       });
-    });
 
-    cyInstance.current.on('mouseout', 'node', function (evt) {
-      const node = evt.target;
-      node.style({
-        'border-width': 1,
-        'border-color': '#333333',
+      cyInstance.current.on('tap', 'edge', function (evt) {
+        const edge = evt.target;
+        const data = edge.data();
+        console.log('=== Relationship Details ===');
+        console.log('Type:', data.type);
+        console.log('Internal ID:', data.id);
+        console.log('From:', data.source);
+        console.log('To:', data.target);
+
+        if (Object.keys(data.properties).length > 0) {
+          console.log('\n--- Properties ---');
+          Object.entries(data.properties).forEach(([key, value]) => {
+            console.log(`${key}:`, value);
+          });
+        }
+        console.log('===========================');
       });
-    });
 
+      // Add hover effects for nodes
+      cyInstance.current.on('mouseover', 'node', function (evt) {
+        const node = evt.target;
+        node.style({
+          'border-width': 2,
+          'border-color': '#FF6B35',
+        });
+      });
+
+      cyInstance.current.on('mouseout', 'node', function (evt) {
+        const node = evt.target;
+        node.style({
+          'border-width': 1,
+          'border-color': '#333333',
+        });
+      });
     } catch (error) {
       console.error('Failed to initialize Cytoscape:', error);
       return;
@@ -689,7 +714,7 @@ export default function GraphPage() {
 
     // Apply initial layout after creation
     // Use circle layout for small graphs (< 20 nodes) for better visibility
-    const layoutName = filteredNodes.length < 20 ? 'circle' : (selectedLayout || 'cose');
+    const layoutName = filteredNodes.length < 20 ? 'circle' : selectedLayout || 'cose';
 
     if (cyInstance.current) {
       currentLayout.current = cyInstance.current.layout({
@@ -741,7 +766,7 @@ export default function GraphPage() {
         animationDuration: 500,
         fit: true,
         padding: 50,
-        stop: function() {
+        stop: function () {
           if (cyInstance.current && isMounted.current) {
             try {
               cyInstance.current.fit();
@@ -1032,8 +1057,18 @@ export default function GraphPage() {
                     ? `All files (${availableFiles.length})`
                     : `${filenameFilter.length} file${filenameFilter.length > 1 ? 's' : ''} selected`}
                 </span>
-                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <svg
+                  className="h-4 w-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </button>
 
@@ -1072,7 +1107,7 @@ export default function GraphPage() {
                             if (e.target.checked) {
                               setFilenameFilter([...filenameFilter, filename]);
                             } else {
-                              setFilenameFilter(filenameFilter.filter(f => f !== filename));
+                              setFilenameFilter(filenameFilter.filter((f) => f !== filename));
                             }
                           }}
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
