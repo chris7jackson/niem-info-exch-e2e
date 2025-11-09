@@ -9,10 +9,14 @@ See api/tests/CONVERTER_BEHAVIOR.md for specification.
 """
 
 import pytest
+import sys
 from pathlib import Path
 
+# Add parent directory to path for test utilities
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
+
 from niem_api.services.domain.xml_to_graph.converter import generate_for_xml_content
-from tests.utils.converter_helpers import (
+from utils.converter_helpers import (
     assert_node_exists,
     get_node_properties,
     count_nodes_by_label,
