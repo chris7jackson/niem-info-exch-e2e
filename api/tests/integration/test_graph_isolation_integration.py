@@ -26,16 +26,20 @@ class TestMultiFileGraphIsolation:
     def clean_database(self, neo4j_driver):
         """Clean test data before and after each test."""
         with neo4j_driver.session() as session:
-            # Clean before
-            session.run("MATCH (n) WHERE n._upload_id STARTS WITH 'test_integration_' DELETE n")
-            session.run("MATCH ()-[r]->() WHERE r._upload_id STARTS WITH 'test_integration_' DELETE r")
+            # Clean before - delete all relationships connected to test nodes, then delete nodes
+            session.run("""
+                MATCH (n) WHERE n._upload_id STARTS WITH 'test_integration_'
+                DETACH DELETE n
+            """)
 
         yield
 
         with neo4j_driver.session() as session:
-            # Clean after
-            session.run("MATCH (n) WHERE n._upload_id STARTS WITH 'test_integration_' DELETE n")
-            session.run("MATCH ()-[r]->() WHERE r._upload_id STARTS WITH 'test_integration_' DELETE r")
+            # Clean after - delete all relationships connected to test nodes, then delete nodes
+            session.run("""
+                MATCH (n) WHERE n._upload_id STARTS WITH 'test_integration_'
+                DETACH DELETE n
+            """)
 
     def test_nodes_with_same_id_different_uploads_are_isolated(self, neo4j_driver, clean_database):
         """Test that nodes with same ID in different uploads remain isolated."""
