@@ -42,9 +42,15 @@ class BatchConfig:
     MAX_INGEST_FILES = int(os.getenv('BATCH_MAX_INGEST_FILES', '20'))
 
     # JSON validation feature flag
-    # Set to 'true' to skip JSON schema validation during ingestion
-    # Useful for development or when working with known-good data
-    SKIP_JSON_VALIDATION = os.getenv('SKIP_JSON_VALIDATION', 'false').lower() == 'true'
+    # Default: true (validation skipped)
+    #
+    # Reasons for default=true:
+    # 1. CMF tool cannot generate JSON schemas for NIEM < 6.0 (e.g., NIECE 3.0, NIBRS 5.0)
+    # 2. JSON schemas from model.xsd don't validate message instances correctly
+    # 3. Model schema validation cycle is separate from message validation
+    #
+    # Set to 'false' only if you have NIEM 6.0+ schemas AND valid message schemas
+    SKIP_JSON_VALIDATION = os.getenv('SKIP_JSON_VALIDATION', 'true').lower() == 'true'
 
     @classmethod
     def get_batch_limit(cls, operation_type: str) -> int:
