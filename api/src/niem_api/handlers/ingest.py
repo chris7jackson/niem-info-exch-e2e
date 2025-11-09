@@ -632,7 +632,7 @@ async def handle_xml_ingest(
         # Step 1: Generate unique upload ID for this ingestion batch
         import time
         import hashlib
-        upload_id = f"upload_{int(time.time())}_{hashlib.sha1(str(time.time()).encode()).hexdigest()[:8]}"
+        upload_id = f"upload_{int(time.time())}_{hashlib.sha1(str(time.time()).encode(), usedforsecurity=False).hexdigest()[:8]}"
         logger.info(f"Generated upload_id: {upload_id}")
 
         # Step 2: Get schema ID (use provided or get active)
@@ -817,7 +817,7 @@ async def handle_json_ingest(
         # Step 1: Generate unique upload ID for this ingestion batch
         import time
         import hashlib
-        upload_id = f"upload_{int(time.time())}_{hashlib.sha1(str(time.time()).encode()).hexdigest()[:8]}"
+        upload_id = f"upload_{int(time.time())}_{hashlib.sha1(str(time.time()).encode(), usedforsecurity=False).hexdigest()[:8]}"
         logger.info(f"Generated upload_id: {upload_id}")
 
         # Step 2: Get schema ID (use provided or get active)

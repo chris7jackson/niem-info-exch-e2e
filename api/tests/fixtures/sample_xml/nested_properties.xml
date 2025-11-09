@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nc:Person xmlns:nc="http://release.niem.gov/niem/niem-core/5.0/"
+           xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/"
+           structures:id="P01">
+    <nc:PersonName>
+        <nc:PersonGivenName>John</nc:PersonGivenName>
+        <nc:PersonMiddleName>Robert</nc:PersonMiddleName>
+        <nc:PersonMiddleName>James</nc:PersonMiddleName>
+        <nc:PersonSurName>Smith</nc:PersonSurName>
+    </nc:PersonName>
+    <nc:PersonBirthDate>
+        <nc:Date>1990-01-15</nc:Date>
+    </nc:PersonBirthDate>
+</nc:Person>
