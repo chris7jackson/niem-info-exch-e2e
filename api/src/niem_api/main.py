@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Application start time for uptime calculation
 _app_start_time = time.time()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
@@ -40,18 +41,17 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down NIEM API service")
 
 
-
 async def startup_tasks():
     """Initialize external services"""
     try:
-
         # Create MinIO buckets
         from .clients.s3_client import create_buckets
-        await create_buckets()
 
+        await create_buckets()
 
         # Download and setup CMF tool
         from .clients.cmf_client import download_and_setup_cmf
+
         cmf_setup = await download_and_setup_cmf()
         if cmf_setup:
             logger.info("CMF tool setup completed successfully")
@@ -60,6 +60,7 @@ async def startup_tasks():
 
         # Setup scheval tool
         from .clients.scheval_client import download_and_setup_scheval
+
         scheval_setup = await download_and_setup_scheval()
         if scheval_setup:
             logger.info("Scheval tool setup completed successfully")
@@ -68,6 +69,7 @@ async def startup_tasks():
 
         # Download and setup NIEMTran tool
         from .clients.niemtran_client import download_and_setup_niemtran
+
         niemtran_setup = await download_and_setup_niemtran()
         if niemtran_setup:
             logger.info("NIEMTran tool setup completed successfully")
@@ -76,12 +78,14 @@ async def startup_tasks():
 
         # Setup Senzing license (auto-decode if needed)
         from .core.config import senzing_config
+
         senzing_available = senzing_config.ensure_license()
 
         # Initialize Senzing configuration if available
         if senzing_available:
             try:
                 from .startup.initialize_senzing import initialize_senzing
+
                 senzing_configured = initialize_senzing()
                 if senzing_configured:
                     logger.info("✓ Senzing entity resolution is available and configured")
@@ -107,7 +111,7 @@ app = FastAPI(
     title="NIEM Information Exchange API",
     description="API for managing NIEM schemas and data ingestion",
     version=os.getenv("APP_VERSION", "unknown"),
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS middleware
@@ -120,6 +124,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Add version header middleware
 @app.middleware("http")
 async def add_version_header(request, call_next):
@@ -127,6 +132,7 @@ async def add_version_header(request, call_next):
     response = await call_next(request)
     response.headers["X-API-Version"] = os.getenv("APP_VERSION", "unknown")
     return response
+
 
 @app.get("/healthz")
 async def health_check():
@@ -140,7 +146,7 @@ async def health_check():
         "api_version": os.getenv("APP_VERSION", "unknown"),
         "git_commit": os.getenv("GIT_COMMIT", "unknown"),
         "build_date": os.getenv("BUILD_DATE", "unknown"),
-        "niem_version": "6.0"
+        "niem_version": "6.0",
     }
 
 
@@ -169,9 +175,8 @@ async def readiness_check():
         raise HTTPException(status_code=503, detail={"status": "not_ready"}) from e
 
 
-
-
 # Schema Management Routes
+
 
 @app.post("/api/schema/xsd", response_model=SchemaResponse)
 async def upload_schema(
@@ -179,7 +184,7 @@ async def upload_schema(
     file_paths: str = Form("[]"),
     skip_niem_ndr: bool = Form(False),
     token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
+    s3=Depends(get_s3_client),
 ):
     """Upload and validate XSD schema(s) - supports multiple related XSD files.
 
@@ -207,13 +212,10 @@ async def upload_schema(
 
 
 @app.post("/api/schema/activate/{schema_id}")
-async def activate_schema(
-    schema_id: str,
-    token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
-):
+async def activate_schema(schema_id: str, token: str = Depends(verify_token), s3=Depends(get_s3_client)):
     """Activate a schema"""
     from .handlers.schema import handle_schema_activation
+
     return await handle_schema_activation(schema_id, s3)
 
 
@@ -221,15 +223,13 @@ async def activate_schema(
 async def get_schemas(s3=Depends(get_s3_client)):
     """Get all schemas"""
     from .handlers.schema import get_all_schemas
+
     return get_all_schemas(s3)
 
 
 @app.get("/api/schema/{schema_id}/file/{file_type}")
 async def download_schema_file(
-    schema_id: str,
-    file_type: str,
-    token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
+    schema_id: str, file_type: str, token: str = Depends(verify_token), s3=Depends(get_s3_client)
 ):
     """Download generated schema files (CMF or JSON Schema).
 
@@ -247,20 +247,12 @@ async def download_schema_file(
     content_type = "application/json" if file_type == "json" else "application/xml"
 
     return Response(
-        content=content,
-        media_type=content_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
-        }
+        content=content, media_type=content_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 
 @app.get("/api/schema/{schema_id}/element-tree")
-async def get_element_tree(
-    schema_id: str,
-    token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
-):
+async def get_element_tree(schema_id: str, token: str = Depends(verify_token), s3=Depends(get_s3_client)):
     """Get element tree structure for graph schema design.
 
     Args:
@@ -276,10 +268,7 @@ async def get_element_tree(
 
 @app.post("/api/schema/{schema_id}/apply-design")
 async def apply_schema_design(
-    schema_id: str,
-    selections: dict[str, bool],
-    token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
+    schema_id: str, selections: dict[str, bool], token: str = Depends(verify_token), s3=Depends(get_s3_client)
 ):
     """Apply user schema design selections and regenerate mapping.yaml.
 
@@ -296,10 +285,7 @@ async def apply_schema_design(
 
 
 @app.get("/api/schema/{schema_id}/selections")
-async def get_schema_selections(
-    schema_id: str,
-    s3=Depends(get_s3_client)
-):
+async def get_schema_selections(schema_id: str, s3=Depends(get_s3_client)):
     """Get saved design selections for a schema.
 
     Args:
@@ -315,15 +301,17 @@ async def get_schema_selections(
 
 # Data Ingestion Routes
 
+
 @app.post("/api/ingest/xml")
 async def ingest_xml(
     files: list[UploadFile] = File(...),
     schema_id: str = Form(None),  # Optional schema selection
     token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
+    s3=Depends(get_s3_client),
 ):
     """Ingest XML files directly to Neo4j"""
     from .handlers.ingest import handle_xml_ingest
+
     return await handle_xml_ingest(files, s3, schema_id)
 
 
@@ -332,7 +320,7 @@ async def ingest_json(
     files: list[UploadFile] = File(...),
     schema_id: str = Form(None),  # Optional schema selection
     token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
+    s3=Depends(get_s3_client),
 ):
     """Ingest NIEM JSON files directly to Neo4j.
 
@@ -340,20 +328,20 @@ async def ingest_json(
     Files are validated against JSON Schema and converted to graph using the same mapping as XML.
     """
     from .handlers.ingest import handle_json_ingest
+
     return await handle_json_ingest(files, s3, schema_id)
 
 
 @app.get("/api/ingest/files")
-async def get_uploaded_files(
-    token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
-):
+async def get_uploaded_files(token: str = Depends(verify_token), s3=Depends(get_s3_client)):
     """Get list of uploaded data files"""
     from .handlers.ingest import handle_get_uploaded_files
+
     return await handle_get_uploaded_files(s3)
 
 
 # Conversion Routes
+
 
 @app.post("/api/convert/xml-to-json")
 async def convert_xml_to_json(
@@ -362,7 +350,7 @@ async def convert_xml_to_json(
     schema_id: str = Form(None),
     context_uri: str = Form(None),
     token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
+    s3=Depends(get_s3_client),
 ):
     """Convert NIEM XML message(s) to JSON format.
 
@@ -398,41 +386,32 @@ async def convert_xml_to_json(
         # Only single file - convert to list for batch handler
         files = [file]
     elif not files:
-        raise HTTPException(
-            status_code=400,
-            detail="No files provided. Please upload at least one XML file."
-        )
+        raise HTTPException(status_code=400, detail="No files provided. Please upload at least one XML file.")
 
     return await handle_xml_to_json_batch(files, s3, schema_id, context_uri)
 
 
 # Admin Routes
 
+
 @app.post("/api/admin/reset")
-async def reset_system(
-    request: ResetRequest,
-    token: str = Depends(verify_token),
-    s3=Depends(get_s3_client)
-):
+async def reset_system(request: ResetRequest, token: str = Depends(verify_token), s3=Depends(get_s3_client)):
     """Reset system components"""
     from .handlers.admin import handle_reset
+
     return handle_reset(request, s3)
 
 
 @app.get("/api/admin/neo4j/stats")
-async def get_neo4j_stats(
-    token: str = Depends(verify_token)
-):
+async def get_neo4j_stats(token: str = Depends(verify_token)):
     """Get Neo4j database statistics"""
     from .handlers.admin import count_neo4j_objects
+
     return count_neo4j_objects()
 
 
 @app.post("/api/graph/query")
-async def execute_graph_query(
-    request: dict,
-    token: str = Depends(verify_token)
-):
+async def execute_graph_query(request: dict, token: str = Depends(verify_token)):
     """Execute a Cypher query and return ALL graph data exactly as Neo4j provides it"""
     from .handlers.graph import execute_cypher_query
 
@@ -443,11 +422,7 @@ async def execute_graph_query(
 
 
 @app.get("/api/graph/full")
-async def get_full_graph(
-    limit: int = 500,
-    include_resolved: bool = False,
-    token: str = Depends(verify_token)
-):
+async def get_full_graph(limit: int = 500, include_resolved: bool = False, token: str = Depends(verify_token)):
     """Get the complete graph structure with all nodes and relationships
 
     Args:
@@ -455,16 +430,15 @@ async def get_full_graph(
         include_resolved: Whether to include ResolvedEntity nodes and RESOLVED_TO relationships (default False)
     """
     from .handlers.graph import get_full_graph
+
     return get_full_graph(limit, include_resolved)
 
 
 # Entity Resolution Routes
 
+
 @app.post("/api/entity-resolution/run")
-async def run_entity_resolution(
-    request: EntityResolutionRequest,
-    token: str = Depends(verify_token)
-):
+async def run_entity_resolution(request: EntityResolutionRequest, token: str = Depends(verify_token)):
     """Run entity resolution on the current graph.
 
     Identifies duplicate entities based on name and other attributes,
@@ -477,49 +451,41 @@ async def run_entity_resolution(
     from .handlers.entity_resolution import handle_run_entity_resolution
 
     if not request.selectedNodeTypes:
-        raise HTTPException(
-            status_code=400,
-            detail="selectedNodeTypes is required and cannot be empty"
-        )
+        raise HTTPException(status_code=400, detail="selectedNodeTypes is required and cannot be empty")
 
     return handle_run_entity_resolution(request.selectedNodeTypes)
 
 
 @app.get("/api/entity-resolution/node-types")
-async def get_available_node_types(
-    token: str = Depends(verify_token)
-):
+async def get_available_node_types(token: str = Depends(verify_token)):
     """Get all available node types that can be resolved.
 
     Returns node types that have name properties and can be
     used for entity resolution.
     """
     from .handlers.entity_resolution import handle_get_available_node_types
+
     return handle_get_available_node_types()
 
 
 @app.get("/api/entity-resolution/status")
-async def get_entity_resolution_status(
-    token: str = Depends(verify_token)
-):
+async def get_entity_resolution_status(token: str = Depends(verify_token)):
     """Get current entity resolution statistics"""
     from .handlers.entity_resolution import handle_get_resolution_status
+
     return handle_get_resolution_status()
 
 
 @app.delete("/api/entity-resolution/reset")
-async def reset_entity_resolution(
-    token: str = Depends(verify_token)
-):
+async def reset_entity_resolution(token: str = Depends(verify_token)):
     """Reset entity resolution by removing all ResolvedEntity nodes"""
     from .handlers.entity_resolution import handle_reset_entity_resolution
+
     return handle_reset_entity_resolution()
 
 
 @app.get("/api/entity-resolution/health")
-async def get_senzing_health(
-    token: str = Depends(verify_token)
-):
+async def get_senzing_health(token: str = Depends(verify_token)):
     """Check Senzing configuration and availability.
 
     Returns detailed information about:
@@ -541,7 +507,7 @@ async def get_senzing_health(
         "license": {},
         "database": {},
         "errors": [],
-        "warnings": []
+        "warnings": [],
     }
 
     # === Component 1: Senzing SDK ===
@@ -549,19 +515,13 @@ async def get_senzing_health(
         "name": "Senzing SDK",
         "installed": SENZING_AVAILABLE,
         "status": "healthy" if SENZING_AVAILABLE else "missing",
-        "version": "4.0+" if SENZING_AVAILABLE else None
+        "version": "4.0+" if SENZING_AVAILABLE else None,
     }
     if not SENZING_AVAILABLE:
         health_info["errors"].append("Senzing SDK not installed - run: docker compose build api")
 
     # === Component 2: License File ===
-    license_info = {
-        "name": "Senzing License",
-        "configured": False,
-        "path": None,
-        "valid": False,
-        "status": "unknown"
-    }
+    license_info = {"name": "Senzing License", "configured": False, "path": None, "valid": False, "status": "unknown"}
 
     if senzing_config.is_available():
         license_info["configured"] = True
@@ -576,7 +536,7 @@ async def get_senzing_health(
                 license_info["modified"] = datetime.fromtimestamp(license_stat.st_mtime).isoformat()
 
                 # Read license file to check if it's binary (valid) or text (likely invalid)
-                with open(license_path, 'rb') as f:
+                with open(license_path, "rb") as f:
                     header = f.read(10)
                     # Senzing licenses are binary files starting with specific bytes
                     is_binary = any(b < 32 and b not in (9, 10, 13) for b in header)
@@ -604,12 +564,7 @@ async def get_senzing_health(
 
     # === Component 3: gRPC Server ===
     grpc_url = os.getenv("SENZING_GRPC_URL", "localhost:8261")
-    grpc_info = {
-        "name": "Senzing gRPC Server",
-        "url": grpc_url,
-        "status": "unknown",
-        "connected": False
-    }
+    grpc_info = {"name": "Senzing gRPC Server", "url": grpc_url, "status": "unknown", "connected": False}
 
     if SENZING_AVAILABLE:
         try:
@@ -622,7 +577,9 @@ async def get_senzing_health(
                 grpc_info["status"] = "healthy"
             else:
                 grpc_info["status"] = "not initialized"
-                health_info["errors"].append("Senzing client not initialized - check if senzing-grpc container is running")
+                health_info["errors"].append(
+                    "Senzing client not initialized - check if senzing-grpc container is running"
+                )
         except Exception as e:
             grpc_info["status"] = "error"
             health_info["errors"].append(f"gRPC connection error: {str(e)}")
@@ -638,7 +595,7 @@ async def get_senzing_health(
         "status": "unknown",
         "record_count": 0,
         "entity_count": 0,
-        "datasources": []
+        "datasources": [],
     }
 
     if SENZING_AVAILABLE and grpc_info.get("connected"):
@@ -664,7 +621,9 @@ async def get_senzing_health(
                         db_info["niem_graph_registered"] = True
                     else:
                         db_info["niem_graph_registered"] = False
-                        health_info["warnings"].append("NIEM_GRAPH datasource not registered - may need to reinitialize")
+                        health_info["warnings"].append(
+                            "NIEM_GRAPH datasource not registered - may need to reinitialize"
+                        )
             else:
                 db_info["status"] = "no stats"
                 health_info["warnings"].append("Could not retrieve database statistics")
@@ -679,10 +638,10 @@ async def get_senzing_health(
 
     # === Overall Status ===
     all_healthy = (
-        health_info["components"]["sdk"]["status"] == "healthy" and
-        license_info["status"] == "healthy" and
-        grpc_info["status"] == "healthy" and
-        db_info["status"] == "healthy"
+        health_info["components"]["sdk"]["status"] == "healthy"
+        and license_info["status"] == "healthy"
+        and grpc_info["status"] == "healthy"
+        and db_info["status"] == "healthy"
     )
 
     if all_healthy:
@@ -697,6 +656,7 @@ async def get_senzing_health(
 
 if __name__ == "__main__":
     import uvicorn
+
     host = os.getenv("API_HOST", "0.0.0.0")  # nosec B104
     port = int(os.getenv("API_PORT", "8000"))
     uvicorn.run(app, host=host, port=port)

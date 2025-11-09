@@ -17,19 +17,22 @@ from typing import Optional
 
 class ValidationSeverity(str, Enum):
     """Severity level for validation messages."""
-    ERROR = "error"          # Blocks design application
-    WARNING = "warning"      # Allows but warns user
+
+    ERROR = "error"  # Blocks design application
+    WARNING = "warning"  # Allows but warns user
     SUGGESTION = "suggestion"  # Helpful hints
 
 
 class ValidationErrorType(str, Enum):
     """Types of validation errors that block design application."""
+
     NO_SELECTIONS = "no_selections"
     INVALID_IDENTIFIER = "invalid_identifier"
 
 
 class ValidationWarningType(str, Enum):
     """Types of validation warnings that allow but suggest caution."""
+
     SPARSE_CONNECTIVITY = "sparse_connectivity"
     DEEP_FLATTENING = "deep_flattening"
     INSUFFICIENT_ENDPOINTS = "insufficient_endpoints"
@@ -39,6 +42,7 @@ class ValidationWarningType(str, Enum):
 @dataclass
 class ValidationMessage:
     """A validation message (error, warning, or suggestion)."""
+
     severity: ValidationSeverity
     type: str
     message: str
@@ -51,6 +55,7 @@ class ValidationMessage:
 @dataclass
 class ValidationSummary:
     """Summary statistics for the design validation."""
+
     nodes_selected: int = 0
     nodes_flattened: int = 0
     relationships_created: int = 0
@@ -61,6 +66,7 @@ class ValidationSummary:
 @dataclass
 class ValidationResult:
     """Result of schema design validation."""
+
     valid: bool
     can_proceed: bool  # False if errors, True if only warnings
     errors: list[ValidationMessage] = field(default_factory=list)
@@ -80,11 +86,7 @@ class SchemaDesignValidator:
         """Initialize the validator."""
         pass
 
-    def validate_has_selections(
-        self,
-        selections: dict[str, bool],
-        result: ValidationResult
-    ) -> None:
+    def validate_has_selections(self, selections: dict[str, bool], result: ValidationResult) -> None:
         """Validate that at least one node is selected.
 
         Args:
@@ -94,19 +96,18 @@ class SchemaDesignValidator:
         selected_count = sum(1 for is_selected in selections.values() if is_selected)
 
         if selected_count == 0:
-            result.errors.append(ValidationMessage(
-                severity=ValidationSeverity.ERROR,
-                type=ValidationErrorType.NO_SELECTIONS.value,
-                message="Must select at least one element to create graph nodes",
-                recommendation="Select at least one element from the tree to proceed with schema design",
-                impact="high"
-            ))
+            result.errors.append(
+                ValidationMessage(
+                    severity=ValidationSeverity.ERROR,
+                    type=ValidationErrorType.NO_SELECTIONS.value,
+                    message="Must select at least one element to create graph nodes",
+                    recommendation="Select at least one element from the tree to proceed with schema design",
+                    impact="high",
+                )
+            )
 
     def detect_sparse_connectivity(
-        self,
-        selections: dict[str, bool],
-        element_tree: list[dict],
-        result: ValidationResult
+        self, selections: dict[str, bool], element_tree: list[dict], result: ValidationResult
     ) -> None:
         """Detect sparse connectivity warnings.
 
@@ -131,24 +132,20 @@ class SchemaDesignValidator:
                 for child_qname in element.get("children", []):
                     if selections.get(child_qname, False):
                         # Child is selected but parent is not - sparse connectivity
-                        result.warnings.append(ValidationMessage(
-                            severity=ValidationSeverity.WARNING,
-                            type=ValidationWarningType.SPARSE_CONNECTIVITY.value,
-                            message=f"Element '{qname}' is deselected but references selected element '{child_qname}'",
-                            element=qname,
-                            recommendation=f"Consider selecting '{qname}' to create consistent relationships to '{child_qname}' for better relationship analysis",
-                            impact="moderate",
-                            details={
-                                "source": qname,
-                                "target": child_qname
-                            }
-                        ))
+                        result.warnings.append(
+                            ValidationMessage(
+                                severity=ValidationSeverity.WARNING,
+                                type=ValidationWarningType.SPARSE_CONNECTIVITY.value,
+                                message=f"Element '{qname}' is deselected but references selected element '{child_qname}'",
+                                element=qname,
+                                recommendation=f"Consider selecting '{qname}' to create consistent relationships to '{child_qname}' for better relationship analysis",
+                                impact="moderate",
+                                details={"source": qname, "target": child_qname},
+                            )
+                        )
 
     def detect_deep_flattening(
-        self,
-        selections: dict[str, bool],
-        element_tree: list[dict],
-        result: ValidationResult
+        self, selections: dict[str, bool], element_tree: list[dict], result: ValidationResult
     ) -> None:
         """Detect deep flattening warnings.
 
@@ -180,10 +177,7 @@ class SchemaDesignValidator:
         pass  # Method disabled to avoid warning clutter
 
     def detect_insufficient_endpoints(
-        self,
-        selections: dict[str, bool],
-        element_tree: list[dict],
-        result: ValidationResult
+        self, selections: dict[str, bool], element_tree: list[dict], result: ValidationResult
     ) -> None:
         """Detect insufficient endpoint warnings for associations.
 
@@ -210,27 +204,22 @@ class SchemaDesignValidator:
             # Count selected entity endpoints (excludes wrapper properties which are always flattened)
             # Use the "endpoints" field which contains only entity children, not wrapper types
             endpoints = element.get("endpoints", [])
-            selected_endpoint_count = sum(
-                1 for endpoint_qname in endpoints
-                if selections.get(endpoint_qname, False)
-            )
+            selected_endpoint_count = sum(1 for endpoint_qname in endpoints if selections.get(endpoint_qname, False))
 
             if selected_endpoint_count < 2:
-                result.warnings.append(ValidationMessage(
-                    severity=ValidationSeverity.WARNING,
-                    type=ValidationWarningType.INSUFFICIENT_ENDPOINTS.value,
-                    message=f"Association '{qname}' has only {selected_endpoint_count} selected endpoint(s)",
-                    element=qname,
-                    recommendation="Consider selecting more endpoints for this association to enable meaningful relationship analysis",
-                    impact="moderate",
-                    details={"endpoint_count": selected_endpoint_count}
-                ))
+                result.warnings.append(
+                    ValidationMessage(
+                        severity=ValidationSeverity.WARNING,
+                        type=ValidationWarningType.INSUFFICIENT_ENDPOINTS.value,
+                        message=f"Association '{qname}' has only {selected_endpoint_count} selected endpoint(s)",
+                        element=qname,
+                        recommendation="Consider selecting more endpoints for this association to enable meaningful relationship analysis",
+                        impact="moderate",
+                        details={"endpoint_count": selected_endpoint_count},
+                    )
+                )
 
-    def validate(
-        self,
-        selections: dict[str, bool],
-        element_tree: list[dict]
-    ) -> ValidationResult:
+    def validate(self, selections: dict[str, bool], element_tree: list[dict]) -> ValidationResult:
         """Validate schema design selections.
 
         Args:

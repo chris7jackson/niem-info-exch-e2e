@@ -21,10 +21,7 @@ from .xsd_element_tree import (
 
 
 def _find_nearest_selected_ancestor(
-    qname: str,
-    selected_set: set[str],
-    hierarchy: dict[str, str],
-    ancestor_cache: dict[str, Optional[str]]
+    qname: str, selected_set: set[str], hierarchy: dict[str, str], ancestor_cache: dict[str, Optional[str]]
 ) -> Optional[str]:
     """Find the nearest selected ancestor for an unselected element.
 
@@ -74,9 +71,7 @@ def _find_nearest_selected_ancestor(
 
 
 def _flatten_properties_into_parent(
-    unselected_type_ref: str,
-    type_definitions: dict[str, TypeDefinition],
-    path_prefix: str = ""
+    unselected_type_ref: str, type_definitions: dict[str, TypeDefinition], path_prefix: str = ""
 ) -> list[dict[str, str]]:
     """Flatten unselected element's scalar properties into parent.
 
@@ -101,9 +96,9 @@ def _flatten_properties_into_parent(
     scalar_props = extract_scalar_properties_from_type(type_def, type_definitions)
 
     for prop in scalar_props:
-        prop_name = prop['name']
-        prop_type = prop['type']
-        cardinality = prop['cardinality']
+        prop_name = prop["name"]
+        prop_type = prop["type"]
+        cardinality = prop["cardinality"]
 
         # Build property path with prefix (matches CMF: path_prefix/prop_qname)
         # Assuming prop_name includes namespace prefix (e.g., "nc:PersonGivenName")
@@ -112,20 +107,15 @@ def _flatten_properties_into_parent(
         # Convert to Neo4j property name (replace : and / with _)
         neo4j_property = prop_path.replace(":", "_").replace("/", "_")
 
-        flattened_props.append({
-            "path": prop_path,
-            "neo4j_property": neo4j_property,
-            "type": prop_type,
-            "cardinality": cardinality
-        })
+        flattened_props.append(
+            {"path": prop_path, "neo4j_property": neo4j_property, "type": prop_type, "cardinality": cardinality}
+        )
 
     return flattened_props
 
 
 def apply_schema_design_from_xsd(
-    xsd_files: dict[str, bytes],
-    primary_filename: str,
-    selections: dict[str, bool]
+    xsd_files: dict[str, bytes], primary_filename: str, selections: dict[str, bool]
 ) -> dict[str, Any]:
     """Apply user schema design selections to generate custom mapping from XSD.
 
@@ -184,7 +174,7 @@ def apply_schema_design_from_xsd(
 
         _, type_def = association_elements[assoc_qname]
         for child_elem in type_def.elements:
-            child_ref = child_elem.get('ref')
+            child_ref = child_elem.get("ref")
             if child_ref and child_ref in object_elements:
                 # Check if this is an entity endpoint (not a wrapper property)
                 child_elem_decl, child_type_def = object_elements[child_ref]
@@ -217,22 +207,24 @@ def apply_schema_design_from_xsd(
         if type_def.is_augmentation_type:
             continue
 
-        label = elem_qname.replace(':', '_')
+        label = elem_qname.replace(":", "_")
 
         # Start with direct scalar properties
         direct_scalars = extract_scalar_properties_from_type(type_def, type_definitions)
         scalar_props = []
 
         for prop in direct_scalars:
-            prop_path = prop['name']  # Direct property, no prefix
-            neo4j_property = label + "_" + prop['name'].replace(':', '_')
+            prop_path = prop["name"]  # Direct property, no prefix
+            neo4j_property = label + "_" + prop["name"].replace(":", "_")
 
-            scalar_props.append({
-                "path": prop_path,
-                "neo4j_property": neo4j_property,
-                "type": prop['type'],
-                "cardinality": prop['cardinality']
-            })
+            scalar_props.append(
+                {
+                    "path": prop_path,
+                    "neo4j_property": neo4j_property,
+                    "type": prop["type"],
+                    "cardinality": prop["cardinality"],
+                }
+            )
 
         # ====================================================================
         # AUTOMATIC AUGMENTATION INCLUSION
@@ -251,32 +243,34 @@ def apply_schema_design_from_xsd(
         type_ref = elem_decl.type_ref
         if type_ref and type_ref in augmentation_index:
             for aug_def in augmentation_index[type_ref]:
-                aug_elem_qname = aug_def['augmentation_element_qname']
-                for aug_prop in aug_def['properties']:
+                aug_elem_qname = aug_def["augmentation_element_qname"]
+                for aug_prop in aug_def["properties"]:
                     # Use flat naming: j:PersonAdultIndicator -> j_PersonAdultIndicator
-                    prop_qname = aug_prop['qname']
-                    neo4j_property = prop_qname.replace(':', '_')
-                    scalar_type = classify_xsd_type(aug_prop['type_ref'], type_definitions)
+                    prop_qname = aug_prop["qname"]
+                    neo4j_property = prop_qname.replace(":", "_")
+                    scalar_type = classify_xsd_type(aug_prop["type_ref"], type_definitions)
 
-                    scalar_props.append({
-                        "path": f"{aug_elem_qname}/{prop_qname}",
-                        "neo4j_property": neo4j_property,
-                        "type": scalar_type,
-                        "cardinality": f"{aug_prop['min_occurs']}..{aug_prop['max_occurs']}",
-                        "is_augmentation": True
-                    })
+                    scalar_props.append(
+                        {
+                            "path": f"{aug_elem_qname}/{prop_qname}",
+                            "neo4j_property": neo4j_property,
+                            "type": scalar_type,
+                            "cardinality": f"{aug_prop['min_occurs']}..{aug_prop['max_occurs']}",
+                            "is_augmentation": True,
+                        }
+                    )
 
         # Check object properties for flattening (matches CMF logic at lines 336-352)
         for child_elem in type_def.elements:
-            child_name = child_elem.get('name')
-            child_ref = child_elem.get('ref')
-            child_type = child_elem.get('type')
+            child_name = child_elem.get("name")
+            child_ref = child_elem.get("ref")
+            child_type = child_elem.get("type")
 
             # Determine child qname
             if child_ref:
                 child_qname = child_ref
             elif child_name:
-                ns_prefix = elem_qname.split(':')[0] if ':' in elem_qname else ''
+                ns_prefix = elem_qname.split(":")[0] if ":" in elem_qname else ""
                 child_qname = f"{ns_prefix}:{child_name}" if ns_prefix else child_name
             else:
                 continue
@@ -295,18 +289,13 @@ def apply_schema_design_from_xsd(
             if child_qname not in selected_set:
                 # Flatten target properties into this object (matches CMF lines 341-352)
                 flattened = _flatten_properties_into_parent(
-                    child_type,
-                    type_definitions,
-                    path_prefix=child_qname  # Use child qname as prefix
+                    child_type, type_definitions, path_prefix=child_qname  # Use child qname as prefix
                 )
                 scalar_props.extend(flattened)
 
-        objects_mapping.append({
-            "qname": elem_qname,
-            "label": label,
-            "carries_structures_id": True,
-            "scalar_props": scalar_props
-        })
+        objects_mapping.append(
+            {"qname": elem_qname, "label": label, "carries_structures_id": True, "scalar_props": scalar_props}
+        )
 
     # Build associations mapping
     associations_mapping = []
@@ -315,18 +304,18 @@ def apply_schema_design_from_xsd(
             continue
 
         elem_decl, type_def = association_elements[elem_qname]
-        label = elem_qname.replace(':', '_')
+        label = elem_qname.replace(":", "_")
         rel_type = label.upper()
 
         endpoints = []
         for idx, child_elem in enumerate(type_def.elements):
-            child_name = child_elem.get('name')
-            child_ref = child_elem.get('ref')
+            child_name = child_elem.get("name")
+            child_ref = child_elem.get("ref")
 
             if child_ref:
                 target_qname = child_ref
             elif child_name:
-                ns_prefix = elem_qname.split(':')[0] if ':' in elem_qname else ''
+                ns_prefix = elem_qname.split(":")[0] if ":" in elem_qname else ""
                 target_qname = f"{ns_prefix}:{child_name}" if ns_prefix else child_name
             else:
                 continue
@@ -343,29 +332,28 @@ def apply_schema_design_from_xsd(
                         # Skip augmentations - they're flattened into base types
                         continue
 
-                target_type = child_elem.get('type')
+                target_type = child_elem.get("type")
                 # Get actual target qname from type if available
                 if target_type and target_type in type_definitions:
-                    target_label = target_qname.replace(':', '_')
+                    target_label = target_qname.replace(":", "_")
                 else:
-                    target_label = target_qname.replace(':', '_')
+                    target_label = target_qname.replace(":", "_")
 
-                endpoints.append({
-                    "role_qname": target_qname,
-                    "maps_to_label": target_label,
-                    "direction": "source" if idx == 0 else "target",
-                    "via": "structures:ref",
-                    "cardinality": f"{child_elem.get('min_occurs', '0')}..{child_elem.get('max_occurs', '*')}"
-                })
+                endpoints.append(
+                    {
+                        "role_qname": target_qname,
+                        "maps_to_label": target_label,
+                        "direction": "source" if idx == 0 else "target",
+                        "via": "structures:ref",
+                        "cardinality": f"{child_elem.get('min_occurs', '0')}..{child_elem.get('max_occurs', '*')}",
+                    }
+                )
 
         # Only include associations with 2+ endpoints (matches CMF line 386)
         if len(endpoints) >= 2:
-            associations_mapping.append({
-                "qname": elem_qname,
-                "rel_type": rel_type,
-                "endpoints": endpoints,
-                "rel_props": []
-            })
+            associations_mapping.append(
+                {"qname": elem_qname, "rel_type": rel_type, "endpoints": endpoints, "rel_props": []}
+            )
 
     # Build references mapping (matches CMF lines 394-420)
     references_mapping = []
@@ -380,15 +368,15 @@ def apply_schema_design_from_xsd(
             continue
 
         for child_elem in type_def.elements:
-            child_ref = child_elem.get('ref')
-            child_name = child_elem.get('name')
-            child_type = child_elem.get('type')
+            child_ref = child_elem.get("ref")
+            child_name = child_elem.get("name")
+            child_type = child_elem.get("type")
 
             if child_ref:
                 target_qname = child_ref
                 field_qname = child_ref
             elif child_name:
-                ns_prefix = elem_qname.split(':')[0] if ':' in elem_qname else ''
+                ns_prefix = elem_qname.split(":")[0] if ":" in elem_qname else ""
                 target_qname = f"{ns_prefix}:{child_name}" if ns_prefix else child_name
                 field_qname = target_qname
             else:
@@ -403,44 +391,46 @@ def apply_schema_design_from_xsd(
                 continue
 
             # Create reference only if target is selected AND not an association or augmentation
-            if (target_qname in selected_set and
-                target_qname not in association_elements):
-
+            if target_qname in selected_set and target_qname not in association_elements:
                 # Skip if target is an augmentation
                 if target_qname in object_elements:
                     target_elem_decl, target_type_def = object_elements[target_qname]
                     if target_type_def.is_augmentation_type:
                         continue
 
-                target_label = target_qname.replace(':', '_')
-                rel_type = field_qname.replace(':', '_').replace('/', '_').upper()
+                target_label = target_qname.replace(":", "_")
+                rel_type = field_qname.replace(":", "_").replace("/", "_").upper()
 
-                references_mapping.append({
-                    "owner_object": elem_qname,
-                    "field_qname": field_qname,
-                    "target_label": target_label,
-                    "rel_type": rel_type,
-                    "via": "structures:ref",
-                    "cardinality": f"{child_elem.get('min_occurs', '0')}..{child_elem.get('max_occurs', '*')}"
-                })
+                references_mapping.append(
+                    {
+                        "owner_object": elem_qname,
+                        "field_qname": field_qname,
+                        "target_label": target_label,
+                        "rel_type": rel_type,
+                        "via": "structures:ref",
+                        "cardinality": f"{child_elem.get('min_occurs', '0')}..{child_elem.get('max_occurs', '*')}",
+                    }
+                )
 
     # Build augmentations mapping
     augmentations_mapping = []
     for base_type_qname, aug_list in augmentation_index.items():
         for aug_def in aug_list:
-            augmentations_mapping.append({
-                'base_type_qname': base_type_qname,
-                'augmentation_element_qname': aug_def['augmentation_element_qname'],
-                'augmentation_type_qname': aug_def['augmentation_type_qname'],
-                'properties': [
-                    {
-                        'qname': prop['qname'],
-                        'type_ref': prop['type_ref'],
-                        'cardinality': f"{prop['min_occurs']}..{prop['max_occurs']}"
-                    }
-                    for prop in aug_def['properties']
-                ]
-            })
+            augmentations_mapping.append(
+                {
+                    "base_type_qname": base_type_qname,
+                    "augmentation_element_qname": aug_def["augmentation_element_qname"],
+                    "augmentation_type_qname": aug_def["augmentation_type_qname"],
+                    "properties": [
+                        {
+                            "qname": prop["qname"],
+                            "type_ref": prop["type_ref"],
+                            "cardinality": f"{prop['min_occurs']}..{prop['max_occurs']}",
+                        }
+                        for prop in aug_def["properties"]
+                    ],
+                }
+            )
 
     # Assemble final mapping (matches CMF lines 437-447)
     return {
@@ -449,8 +439,5 @@ def apply_schema_design_from_xsd(
         "associations": associations_mapping,
         "references": references_mapping,
         "augmentations": augmentations_mapping,
-        "polymorphism": {
-            "strategy": "extraLabel",
-            "store_actual_type_property": "xsiType"
-        }
+        "polymorphism": {"strategy": "extraLabel", "store_actual_type_property": "xsiType"},
     }

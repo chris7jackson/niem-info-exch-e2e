@@ -18,10 +18,7 @@ from minio.error import S3Error
 logger = logging.getLogger(__name__)
 
 # Application-wide bucket configuration
-BUCKETS = [
-    "niem-schemas",  # Schema XSD files and mappings
-    "niem-data"      # Uploaded XML/JSON data files
-]
+BUCKETS = ["niem-schemas", "niem-data"]  # Schema XSD files and mappings  # Uploaded XML/JSON data files
 
 
 async def create_buckets():
@@ -54,13 +51,7 @@ async def create_buckets():
             raise
 
 
-async def upload_file(
-    client: Minio,
-    bucket: str,
-    object_name: str,
-    data: bytes,
-    content_type: str
-) -> str:
+async def upload_file(client: Minio, bucket: str, object_name: str, data: bytes, content_type: str) -> str:
     """
     Upload a file to MinIO object storage.
 
@@ -92,13 +83,8 @@ async def upload_file(
     """
     try:
         from io import BytesIO
-        client.put_object(
-            bucket,
-            object_name,
-            BytesIO(data),
-            length=len(data),
-            content_type=content_type
-        )
+
+        client.put_object(bucket, object_name, BytesIO(data), length=len(data), content_type=content_type)
         logger.info(f"Uploaded {object_name} to {bucket}")
         return f"s3://{bucket}/{object_name}"
     except S3Error as e:
@@ -183,12 +169,14 @@ async def list_files(client: Minio, bucket: str, prefix: str = "") -> list[dict[
         objects = client.list_objects(bucket, prefix=prefix, recursive=True)
         files = []
         for obj in objects:
-            files.append({
-                "name": obj.object_name,
-                "size": obj.size,
-                "last_modified": obj.last_modified.isoformat() if obj.last_modified else None,
-                "content_type": obj.content_type or "application/octet-stream"
-            })
+            files.append(
+                {
+                    "name": obj.object_name,
+                    "size": obj.size,
+                    "last_modified": obj.last_modified.isoformat() if obj.last_modified else None,
+                    "content_type": obj.content_type or "application/octet-stream",
+                }
+            )
         return files
     except S3Error as e:
         # If bucket doesn't exist, return empty list
@@ -226,7 +214,7 @@ def get_text_content(client: Minio, bucket: str, object_name: str) -> str:
     """
     try:
         response = client.get_object(bucket, object_name)
-        content = response.read().decode('utf-8')
+        content = response.read().decode("utf-8")
         response.close()
         response.release_conn()
         return content
@@ -262,9 +250,10 @@ def get_json_content(client: Minio, bucket: str, object_name: str) -> dict[str, 
         Properly closes and releases HTTP connection after reading.
     """
     import json
+
     try:
         response = client.get_object(bucket, object_name)
-        content = response.read().decode('utf-8')
+        content = response.read().decode("utf-8")
         response.close()
         response.release_conn()
         return json.loads(content)
@@ -299,9 +288,10 @@ def get_yaml_content(client: Minio, bucket: str, object_name: str) -> dict[str, 
         Properly closes and releases HTTP connection after reading.
     """
     import yaml
+
     try:
         response = client.get_object(bucket, object_name)
-        content = response.read().decode('utf-8')
+        content = response.read().decode("utf-8")
         response.close()
         response.release_conn()
         return yaml.safe_load(content)

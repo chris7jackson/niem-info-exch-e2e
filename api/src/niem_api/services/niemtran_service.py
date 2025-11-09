@@ -12,19 +12,13 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-from ..clients.niemtran_client import (
-    run_niemtran_command,
-    is_niemtran_available,
-    NIEMTranError
-)
+from ..clients.niemtran_client import run_niemtran_command, is_niemtran_available, NIEMTranError
 
 logger = logging.getLogger(__name__)
 
 
 async def convert_xml_to_json(
-    xml_content: bytes,
-    cmf_content: str,
-    context_uri: Optional[str] = None
+    xml_content: bytes, cmf_content: str, context_uri: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Convert NIEM XML content to JSON using NIEMTran tool.
@@ -83,19 +77,12 @@ async def convert_xml_to_json(
                 cmd.extend(["--curi", context_uri])
 
             # Add CMF model and XML input files
-            cmd.extend([
-                "model.cmf",
-                "input.xml"
-            ])
+            cmd.extend(["model.cmf", "input.xml"])
 
             logger.info(f"Running NIEMTran conversion with command: {cmd}")
 
             # Run conversion
-            result = run_niemtran_command(
-                cmd,
-                timeout=60,
-                working_dir=str(temp_path)
-            )
+            result = run_niemtran_command(cmd, timeout=60, working_dir=str(temp_path))
 
             # Check if conversion succeeded
             if result["returncode"] != 0:
@@ -105,7 +92,7 @@ async def convert_xml_to_json(
                     "success": False,
                     "error": f"Conversion failed: {error_msg}",
                     "stderr": result["stderr"],
-                    "stdout": result["stdout"]
+                    "stdout": result["stdout"],
                 }
 
             # Read the generated JSON file
@@ -118,7 +105,7 @@ async def convert_xml_to_json(
                     "success": False,
                     "error": "Conversion completed but output file was not created",
                     "stderr": result["stderr"],
-                    "stdout": result["stdout"]
+                    "stdout": result["stdout"],
                 }
 
             # Read and parse JSON content
@@ -131,20 +118,12 @@ async def convert_xml_to_json(
                 "success": True,
                 "json_content": json_content,
                 "json_string": json_string,
-                "message": "XML successfully converted to JSON"
+                "message": "XML successfully converted to JSON",
             }
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse generated JSON: {e}")
-            return {
-                "success": False,
-                "error": f"Generated JSON is invalid: {str(e)}"
-            }
+            return {"success": False, "error": f"Generated JSON is invalid: {str(e)}"}
         except Exception as e:
             logger.error(f"Unexpected error during conversion: {e}")
-            return {
-                "success": False,
-                "error": f"Unexpected error: {str(e)}"
-            }
-
-
+            return {"success": False, "error": f"Unexpected error: {str(e)}"}

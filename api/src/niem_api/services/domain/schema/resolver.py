@@ -3,6 +3,7 @@
 import logging
 import re
 from pathlib import Path
+
 # Use defusedxml for secure XML parsing (prevents XXE attacks)
 from defusedxml import ElementTree as ET
 
@@ -30,8 +31,8 @@ class SchemaValidator:
 
             # Find all xs:import elements with schemaLocation
             for elem in root.iter():
-                if elem.tag.endswith('}import') or elem.tag == 'import':
-                    schema_location = elem.get('schemaLocation')
+                if elem.tag.endswith("}import") or elem.tag == "import":
+                    schema_location = elem.get("schemaLocation")
                     if schema_location:
                         schema_locations.add(schema_location)
 
@@ -54,13 +55,13 @@ class SchemaValidator:
 
             # Find all xs:import elements
             for elem in root.iter():
-                if elem.tag.endswith('}import') or elem.tag == 'import':
-                    namespace = elem.get('namespace')
+                if elem.tag.endswith("}import") or elem.tag == "import":
+                    namespace = elem.get("namespace")
                     if namespace:
                         imported_namespaces.add(namespace)
 
             # Also check xsi:schemaLocation in root element
-            schema_location = root.get('{http://www.w3.org/2001/XMLSchema-instance}schemaLocation')
+            schema_location = root.get("{http://www.w3.org/2001/XMLSchema-instance}schemaLocation")
             if schema_location:
                 # xsi:schemaLocation format: "namespace1 location1 namespace2 location2"
                 parts = schema_location.split()
@@ -97,13 +98,13 @@ class SchemaValidator:
 
             # Get all namespace declarations (xmlns:prefix="uri")
             for key, value in root.attrib.items():
-                if key.startswith('{http://www.w3.org/2000/xmlns/}'):
+                if key.startswith("{http://www.w3.org/2000/xmlns/}"):
                     # Remove namespace prefix to get the local prefix
-                    prefix = key.split('}')[1] if '}' in key else ''
+                    prefix = key.split("}")[1] if "}" in key else ""
                     namespace_map[prefix] = value
-                elif key == 'xmlns':
+                elif key == "xmlns":
                     # Default namespace
-                    namespace_map[''] = value
+                    namespace_map[""] = value
 
             # ElementTree doesn't always capture xmlns attributes correctly, so also use regex
             xmlns_pattern = r'xmlns:([^=\s]+)\s*=\s*["\']([^"\']+)["\']'
@@ -131,14 +132,14 @@ class SchemaValidator:
             r'type\s*=\s*["\']([^:"\'\s]+):',  # type="prefix:TypeName"
             r'base\s*=\s*["\']([^:"\'\s]+):',  # base="prefix:BaseType"
             r'substitutionGroup\s*=\s*["\']([^:"\'\s]+):',  # substitutionGroup="prefix:Element"
-            r'<([^:>\s]+):',  # <prefix:ElementName> (element declarations/usage)
-            r'</([^:>\s]+):',  # </prefix:ElementName> (closing tags)
+            r"<([^:>\s]+):",  # <prefix:ElementName> (element declarations/usage)
+            r"</([^:>\s]+):",  # </prefix:ElementName> (closing tags)
         ]
 
         for pattern in prefix_usage_patterns:
             for match in re.finditer(pattern, xsd_content):
                 prefix = match.group(1)
-                if prefix and prefix != 'xs':  # Exclude XML Schema namespace
+                if prefix and prefix != "xs":  # Exclude XML Schema namespace
                     used_prefixes.add(prefix)
 
         logger.debug(f"Found used namespace prefixes: {used_prefixes}")
@@ -161,7 +162,7 @@ class SchemaValidator:
         for filename, content in uploaded_schemas.items():
             try:
                 root = ET.fromstring(content)
-                target_namespace = root.get('targetNamespace')
+                target_namespace = root.get("targetNamespace")
                 if target_namespace:
                     namespace_to_file[target_namespace] = filename
                     logger.debug(f"Mapped namespace {target_namespace} -> {filename}")
@@ -185,7 +186,7 @@ class SchemaValidator:
 
             for schema_location in schema_imports:
                 # Normalize the path (convert backslashes to forward slashes)
-                normalized_location = schema_location.replace('\\', '/')
+                normalized_location = schema_location.replace("\\", "/")
                 import_filename = Path(schema_location).name
 
                 # Check if this file exists in uploaded schemas
@@ -200,7 +201,7 @@ class SchemaValidator:
                 else:
                     # Also check if any uploaded schema path ends with this import path
                     for uploaded_name in uploaded_schemas.keys():
-                        normalized_uploaded = uploaded_name.replace('\\', '/')
+                        normalized_uploaded = uploaded_name.replace("\\", "/")
 
                         # Check various matching patterns
                         if normalized_uploaded.endswith(normalized_location):
@@ -213,15 +214,15 @@ class SchemaValidator:
                         # Special handling: If the uploaded path contains .xsd in folder names,
                         # try to match by comparing the final path components
                         # Example: "model.xsd/niem/domains/justice.xsd" should match import "../niem/domains/justice.xsd"
-                        if '.xsd/' in normalized_uploaded:
+                        if ".xsd/" in normalized_uploaded:
                             # Extract the path after any folder containing .xsd
                             # This handles cases like "model.xsd/niem/domains/justice.xsd"
-                            parts = normalized_uploaded.split('.xsd/')
+                            parts = normalized_uploaded.split(".xsd/")
                             if len(parts) > 1:
                                 # Get everything after the .xsd/ folder
                                 path_after_xsd_folder = parts[-1]
                                 # Check if this matches our import location
-                                if path_after_xsd_folder == normalized_location.lstrip('../'):
+                                if path_after_xsd_folder == normalized_location.lstrip("../"):
                                     found = True
                                     break
                                 # Also check if import path ends with this
@@ -236,16 +237,18 @@ class SchemaValidator:
                     import_namespace = ns
                     break
 
-                status = 'satisfied' if found else 'missing'
+                status = "satisfied" if found else "missing"
                 if not found:
                     total_missing_count += 1
 
-                file_imports.append({
-                    'schema_location': schema_location,
-                    'namespace': import_namespace,
-                    'status': status,
-                    'expected_filename': import_filename
-                })
+                file_imports.append(
+                    {
+                        "schema_location": schema_location,
+                        "namespace": import_namespace,
+                        "status": status,
+                        "expected_filename": import_filename,
+                    }
+                )
 
                 if not found:
                     logger.warning(f"{filename} imports {schema_location} which is not in uploaded files")
@@ -261,35 +264,27 @@ class SchemaValidator:
 
                     # Skip standard XML/XSD namespaces
                     standard_namespaces = [
-                        'http://www.w3.org/2001/XMLSchema',
-                        'http://www.w3.org/2001/XMLSchema-instance',
-                        'http://www.w3.org/XML/1998/namespace'
+                        "http://www.w3.org/2001/XMLSchema",
+                        "http://www.w3.org/2001/XMLSchema-instance",
+                        "http://www.w3.org/XML/1998/namespace",
                     ]
 
                     if namespace_uri in standard_namespaces:
                         continue
 
-                    status = 'satisfied' if namespace_uri in namespace_to_file else 'missing'
-                    if status == 'missing':
+                    status = "satisfied" if namespace_uri in namespace_to_file else "missing"
+                    if status == "missing":
                         total_missing_count += 1
 
-                    file_namespaces.append({
-                        'prefix': prefix,
-                        'namespace_uri': namespace_uri,
-                        'status': status
-                    })
+                    file_namespaces.append({"prefix": prefix, "namespace_uri": namespace_uri, "status": status})
 
-                    if status == 'missing':
+                    if status == "missing":
                         logger.warning(
                             f"{filename} uses prefix {prefix}:{namespace_uri} but no uploaded "
                             f"schema provides this namespace"
                         )
 
-            file_details.append({
-                'filename': filename,
-                'imports': file_imports,
-                'namespaces_used': file_namespaces
-            })
+            file_details.append({"filename": filename, "imports": file_imports, "namespaces_used": file_namespaces})
 
         # Determine if validation passed
         validation_passed = total_missing_count == 0
@@ -298,30 +293,34 @@ class SchemaValidator:
         missing_imports = []
         missing_namespaces = []
         for file_info in file_details:
-            for imp in file_info['imports']:
-                if imp['status'] == 'missing':
-                    missing_imports.append({
-                        'source_file': file_info['filename'],
-                        'schema_location': imp['schema_location'],
-                        'expected_filename': imp['expected_filename']
-                    })
-            for ns in file_info['namespaces_used']:
-                if ns['status'] == 'missing':
-                    missing_namespaces.append({
-                        'source_file': file_info['filename'],
-                        'prefix': ns['prefix'],
-                        'namespace_uri': ns['namespace_uri']
-                    })
+            for imp in file_info["imports"]:
+                if imp["status"] == "missing":
+                    missing_imports.append(
+                        {
+                            "source_file": file_info["filename"],
+                            "schema_location": imp["schema_location"],
+                            "expected_filename": imp["expected_filename"],
+                        }
+                    )
+            for ns in file_info["namespaces_used"]:
+                if ns["status"] == "missing":
+                    missing_namespaces.append(
+                        {
+                            "source_file": file_info["filename"],
+                            "prefix": ns["prefix"],
+                            "namespace_uri": ns["namespace_uri"],
+                        }
+                    )
 
         result = {
-            'valid': validation_passed,
-            'total_schemas': len(uploaded_schemas),
-            'namespace_mappings': namespace_to_file,
-            'missing_imports': missing_imports,
-            'missing_namespaces': missing_namespaces,
-            'file_details': file_details,
-            'total_missing_count': total_missing_count,
-            'summary': self._build_validation_summary(missing_imports, missing_namespaces)
+            "valid": validation_passed,
+            "total_schemas": len(uploaded_schemas),
+            "namespace_mappings": namespace_to_file,
+            "missing_imports": missing_imports,
+            "missing_namespaces": missing_namespaces,
+            "file_details": file_details,
+            "total_missing_count": total_missing_count,
+            "summary": self._build_validation_summary(missing_imports, missing_namespaces),
         }
 
         logger.info(f"Validation result: {'PASS' if result['valid'] else 'FAIL'} - {result['summary']}")

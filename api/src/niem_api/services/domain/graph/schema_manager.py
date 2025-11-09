@@ -39,7 +39,7 @@ class GraphSchemaManager:
             "indexes_failed": [],
             "constraints_failed": [],
             "labels_identified": [],
-            "relationship_types_identified": []
+            "relationship_types_identified": [],
         }
 
         try:
@@ -106,8 +106,7 @@ class GraphSchemaManager:
             # Check if index already exists
             existing_indexes = self.neo4j_client.query(SHOW_INDEXES_QUERY)
             for index in existing_indexes:
-                if (index.get("labelsOrTypes") == [label] and
-                    index.get("properties") == [property_name]):
+                if index.get("labelsOrTypes") == [label] and index.get("properties") == [property_name]:
                     logger.debug(f"Index on {label}.{property_name} already exists")
                     return False
 
@@ -129,9 +128,11 @@ class GraphSchemaManager:
             # Check if constraint already exists
             existing_constraints = self.neo4j_client.query(SHOW_CONSTRAINTS_QUERY)
             for constraint in existing_constraints:
-                if (constraint.get("labelsOrTypes") == [label] and
-                    constraint.get("properties") == [property_name] and
-                    constraint.get("type") == "UNIQUENESS"):
+                if (
+                    constraint.get("labelsOrTypes") == [label]
+                    and constraint.get("properties") == [property_name]
+                    and constraint.get("type") == "UNIQUENESS"
+                ):
                     logger.debug(f"Unique constraint on {label}.{property_name} already exists")
                     return False
 
@@ -141,9 +142,11 @@ class GraphSchemaManager:
             index_name = None
 
             for index in existing_indexes:
-                if (index.get("labelsOrTypes") == [label] and
-                    index.get("properties") == [property_name] and
-                    index.get("type") != "RANGE"):  # Skip built-in range indexes
+                if (
+                    index.get("labelsOrTypes") == [label]
+                    and index.get("properties") == [property_name]
+                    and index.get("type") != "RANGE"
+                ):  # Skip built-in range indexes
                     index_exists = True
                     index_name = index.get("name")
                     break
@@ -186,7 +189,7 @@ class GraphSchemaManager:
                 "indexes": indexes,
                 "constraints": constraints,
                 "labels": labels,
-                "relationship_types": relationship_types
+                "relationship_types": relationship_types,
             }
         except Exception as e:
             logger.error(f"Failed to get schema info: {e}")
@@ -230,10 +233,7 @@ class GraphSchemaManager:
                 f"{len(dropped_indexes)} indexes"
             )
 
-            return {
-                "dropped_constraints": dropped_constraints,
-                "dropped_indexes": dropped_indexes
-            }
+            return {"dropped_constraints": dropped_constraints, "dropped_indexes": dropped_indexes}
 
         except Exception as e:
             logger.error(f"Failed to reset schema: {e}")

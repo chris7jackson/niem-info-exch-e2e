@@ -32,9 +32,9 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def load_mapping_from_dict(mapping_dict: dict[str, Any]) -> tuple[
-    dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]
-]:
+def load_mapping_from_dict(
+    mapping_dict: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]]:
     """Load mapping from dictionary.
 
     Args:
@@ -136,16 +136,12 @@ def build_augmentation_index_from_mapping(mapping_dict: dict) -> dict[str, dict]
         Dictionary mapping augmentation element qname to augmentation definition
     """
     aug_index = {}
-    for aug in mapping_dict.get('augmentations', []):
-        aug_index[aug['augmentation_element_qname']] = aug
+    for aug in mapping_dict.get("augmentations", []):
+        aug_index[aug["augmentation_element_qname"]] = aug
     return aug_index
 
 
-def extract_properties(
-    obj: dict[str, Any],
-    obj_rule: dict[str, Any],
-    context: dict[str, Any]
-) -> list[tuple[str, Any]]:
+def extract_properties(obj: dict[str, Any], obj_rule: dict[str, Any], context: dict[str, Any]) -> list[tuple[str, Any]]:
     """Extract properties from JSON-LD object based on mapping rules.
 
     Args:
@@ -208,10 +204,7 @@ def extract_properties(
 
 
 def _recursively_flatten_json_object(
-    obj: dict[str, Any],
-    obj_rules: dict[str, Any],
-    assoc_by_qn: dict[str, Any],
-    path_prefix: str = ""
+    obj: dict[str, Any], obj_rules: dict[str, Any], assoc_by_qn: dict[str, Any], path_prefix: str = ""
 ) -> dict[str, Any]:
     """Recursively flatten an unselected JSON object and all its descendants.
 
@@ -251,9 +244,7 @@ def _recursively_flatten_json_object(
                     item_type = item.get("@type") or key
                     if item_type not in obj_rules and item_type not in assoc_by_qn:
                         # Recursively flatten nested object
-                        nested_props = _recursively_flatten_json_object(
-                            item, obj_rules, assoc_by_qn, prop_path
-                        )
+                        nested_props = _recursively_flatten_json_object(item, obj_rules, assoc_by_qn, prop_path)
                         flattened.update(nested_props)
             if simple_values:
                 flattened[prop_path] = simple_values
@@ -268,9 +259,7 @@ def _recursively_flatten_json_object(
                 nested_type = value.get("@type") or key
                 if nested_type not in obj_rules and nested_type not in assoc_by_qn:
                     # Recursively flatten nested object
-                    nested_props = _recursively_flatten_json_object(
-                        value, obj_rules, assoc_by_qn, prop_path
-                    )
+                    nested_props = _recursively_flatten_json_object(value, obj_rules, assoc_by_qn, prop_path)
                     flattened.update(nested_props)
 
     return flattened
@@ -337,13 +326,15 @@ def detect_associations_from_json_data(data: dict[str, Any]) -> dict[str, dict[s
                             ref_count = len(refs)
 
                     if is_ref:
-                        endpoints.append({
-                            "role_qname": prop_key,
-                            "maps_to_label": prop_key.replace(":", "_"),
-                            "direction": "source" if len(endpoints) == 0 else "target",
-                            "via": "@id",
-                            "cardinality": "0..*"
-                        })
+                        endpoints.append(
+                            {
+                                "role_qname": prop_key,
+                                "maps_to_label": prop_key.replace(":", "_"),
+                                "direction": "source" if len(endpoints) == 0 else "target",
+                                "via": "@id",
+                                "cardinality": "0..*",
+                            }
+                        )
                         total_entity_refs += ref_count
 
                 # Valid association must have 2+ entity references (could be multiple roles or one role with multiple refs)
@@ -352,9 +343,11 @@ def detect_associations_from_json_data(data: dict[str, Any]) -> dict[str, dict[s
                         "qname": key,
                         "rel_type": key.replace(":", "_").upper(),
                         "endpoints": endpoints,
-                        "rel_props": []
+                        "rel_props": [],
                     }
-                    logger.info(f"Auto-detected association: {key} with {len(endpoints)} endpoints: {[ep['role_qname'] for ep in endpoints]}")
+                    logger.info(
+                        f"Auto-detected association: {key} with {len(endpoints)} endpoints: {[ep['role_qname'] for ep in endpoints]}"
+                    )
 
             # Recurse into nested objects
             if isinstance(value, dict):
@@ -427,7 +420,7 @@ def generate_for_json_content(
     upload_id: str = None,
     schema_id: str = None,
     cmf_element_index: set = None,
-    mode: str = "dynamic"
+    mode: str = "dynamic",
 ) -> tuple[str, dict[str, Any], list[tuple], list[tuple]]:
     """Generate Cypher statements from NIEM JSON content and mapping dictionary.
 
@@ -508,7 +501,7 @@ def generate_for_json_content(
         obj_id = obj.get("@id")
         if obj_id and not is_reference(obj):
             # This object OWNS the id (not just referencing it)
-            clean_id = obj_id.lstrip('#')
+            clean_id = obj_id.lstrip("#")
             id_occurrence_count[clean_id] = id_occurrence_count.get(clean_id, 0) + 1
 
         # Recurse into nested objects
@@ -562,7 +555,7 @@ def generate_for_json_content(
 
         # Determine if this is a hub-pattern scenario
         if raw_id and not is_reference(obj):
-            clean_id = raw_id.lstrip('#')
+            clean_id = raw_id.lstrip("#")
 
             # Check if this @id needs a separate hub node (2+ role occurrences)
             if clean_id in hub_nodes_needed:
@@ -577,10 +570,10 @@ def generate_for_json_content(
                 if clean_id not in id_entity_registry:
                     # First occurrence - register hub
                     id_entity_registry[clean_id] = {
-                        'hub_id': hub_id,
-                        'id_value': raw_id,
-                        'role_qnames': [],
-                        'role_labels': []
+                        "hub_id": hub_id,
+                        "id_value": raw_id,
+                        "role_qnames": [],
+                        "role_labels": [],
                     }
             else:
                 # SINGLE OCCURRENCE: Use @id as node ID (no hub needed)
@@ -588,7 +581,7 @@ def generate_for_json_content(
                 is_role_node = False
         elif raw_id:
             # Pure reference - prefix ID
-            clean_id = raw_id.lstrip('#')
+            clean_id = raw_id.lstrip("#")
             obj_id = f"{file_prefix}_{clean_id}"
             is_role_node = False
         else:
@@ -615,7 +608,9 @@ def generate_for_json_content(
         # - Simple properties → flattened into parent node properties
         # - Complex children → direct children of parent (skip augmentation layer)
         # - Never create a node for the augmentation itself
-        is_augmentation = (qname and qname.endswith('Augmentation')) or (property_name and property_name.endswith('Augmentation'))
+        is_augmentation = (qname and qname.endswith("Augmentation")) or (
+            property_name and property_name.endswith("Augmentation")
+        )
 
         if is_augmentation:
             # Process augmentation children directly under parent (augmentation is transparent)
@@ -624,7 +619,7 @@ def generate_for_json_content(
 
                 for key, value in obj.items():
                     # Skip JSON-LD metadata
-                    if key.startswith('@'):
+                    if key.startswith("@"):
                         continue
 
                     # If complex object, process as direct child of PARENT
@@ -633,7 +628,7 @@ def generate_for_json_content(
                         process_jsonld_object(value, parent_id, parent_label, key)
                     # If simple value, flatten into parent properties
                     elif isinstance(value, (str, int, float, bool)):
-                        prop_name = key.replace(':', '_')
+                        prop_name = key.replace(":", "_")
                         parent_props[prop_name] = value
                         parent_props[f"{prop_name}_isAugmentation"] = True
                     # If array, process each item
@@ -644,7 +639,7 @@ def generate_for_json_content(
                                 process_jsonld_object(item, parent_id, parent_label, key)
                             elif isinstance(item, (str, int, float, bool)):
                                 # Simple values get flattened (as arrays)
-                                prop_name = key.replace(':', '_')
+                                prop_name = key.replace(":", "_")
                                 if prop_name not in parent_props:
                                     parent_props[prop_name] = []
                                 if isinstance(parent_props[prop_name], list):
@@ -763,10 +758,7 @@ def generate_for_json_content(
                         rel_type = "ASSOCIATED_WITH"
 
                         # Edge properties include role metadata
-                        edge_props = {
-                            "role_qname": ep["role_qname"],
-                            "direction": ep.get("direction", "")
-                        }
+                        edge_props = {"role_qname": ep["role_qname"], "direction": ep.get("direction", "")}
 
                         # Get endpoint label - use None to let resolution logic find actual node label
                         # This handles NIEM substitution where role type (nc:Person) differs from actual type (j:CrashDriver)
@@ -774,7 +766,7 @@ def generate_for_json_content(
 
                         # Prefix endpoint reference for file-level isolation
                         # Strip leading # from @id references (JSON-LD fragment identifiers)
-                        clean_endpoint_ref = endpoint_ref.lstrip('#')
+                        clean_endpoint_ref = endpoint_ref.lstrip("#")
 
                         # Check if this entity has a hub node (2+ role occurrences)
                         if clean_endpoint_ref in hub_nodes_needed:
@@ -792,7 +784,7 @@ def generate_for_json_content(
             if struct_ref:
                 # structures:ref - direct reference to an ID (prefix for file-level isolation)
                 # Strip leading # from references
-                clean_struct_ref = struct_ref.lstrip('#')
+                clean_struct_ref = struct_ref.lstrip("#")
                 prefixed_struct_ref = f"{file_prefix}_{clean_struct_ref}"
                 # Skip self-referential edges (node referring to itself)
                 if obj_id != prefixed_struct_ref:
@@ -800,13 +792,13 @@ def generate_for_json_content(
             elif struct_uri:
                 # structures:uri - resolve to target ID
                 target_ref = None
-                if '#' in struct_uri:
-                    target_ref = struct_uri.split('#')[-1]
+                if "#" in struct_uri:
+                    target_ref = struct_uri.split("#")[-1]
                 else:
                     # Use last path segment as ID
-                    uri_parts = struct_uri.rstrip('/').split('/')
+                    uri_parts = struct_uri.rstrip("/").split("/")
                     if uri_parts:
-                        target_ref = uri_parts[-1].replace(':', '_')
+                        target_ref = uri_parts[-1].replace(":", "_")
                 if target_ref:
                     # Prefix target reference for file-level isolation
                     prefixed_target_ref = f"{file_prefix}_{target_ref}"
@@ -831,7 +823,7 @@ def generate_for_json_content(
         obj_rule = obj_rules.get(qname) if qname else None
 
         # Check if this is an augmentation (never create nodes for augmentations)
-        is_augmentation = property_name and property_name.endswith('Augmentation')
+        is_augmentation = property_name and property_name.endswith("Augmentation")
 
         # Determine if object should become a node based on mode
         should_create_node = False
@@ -843,7 +835,7 @@ def generate_for_json_content(
         elif mode == "dynamic":
             # Dynamic mode: Create nodes for all complex objects EXCEPT augmentations
             # BUT skip anonymous root dict (no qname, no parent, no @id)
-            is_anonymous_root = (parent_id is None and not has_id and not qname)
+            is_anonymous_root = parent_id is None and not has_id and not qname
 
             if is_anonymous_root or is_augmentation:
                 # Skip anonymous root dict and augmentations - just process their children
@@ -858,7 +850,7 @@ def generate_for_json_content(
 
                 for key, value in obj.items():
                     # Skip JSON-LD metadata
-                    if key.startswith('@'):
+                    if key.startswith("@"):
                         continue
 
                     # If complex object, process as direct child of PARENT
@@ -867,7 +859,7 @@ def generate_for_json_content(
                         process_jsonld_object(value, parent_id, parent_label, key)
                     # If simple value, flatten into parent properties
                     elif isinstance(value, (str, int, float, bool)):
-                        prop_name = key.replace(':', '_')
+                        prop_name = key.replace(":", "_")
                         parent_props[prop_name] = value
                         parent_props[f"{prop_name}_isAugmentation"] = True
                     # If array, process each item
@@ -878,7 +870,7 @@ def generate_for_json_content(
                                 process_jsonld_object(item, parent_id, parent_label, key)
                             elif isinstance(item, (str, int, float, bool)):
                                 # Simple values get flattened (as arrays)
-                                prop_name = key.replace(':', '_')
+                                prop_name = key.replace(":", "_")
                                 if prop_name not in parent_props:
                                     parent_props[prop_name] = []
                                 if isinstance(parent_props[prop_name], list):
@@ -963,7 +955,7 @@ def generate_for_json_content(
 
             # If not a node, flatten it as a property
             if not should_be_node:
-                prop_name = key.replace(':', '_')
+                prop_name = key.replace(":", "_")
                 if isinstance(value, (str, int, float, bool)):
                     # Simple scalar value
                     props_dict[prop_name] = value
@@ -979,7 +971,7 @@ def generate_for_json_content(
 
         # Hub pattern: Track role nodes and create REPRESENTS edges
         if is_role_node and raw_id:
-            clean_id = raw_id.lstrip('#')
+            clean_id = raw_id.lstrip("#")
             hub_id = f"{file_prefix}_hub_{clean_id}"
 
             # Mark as role node (structures_id already contains the @id value)
@@ -987,20 +979,22 @@ def generate_for_json_content(
 
             # Track this role
             if clean_id in id_entity_registry:
-                id_entity_registry[clean_id]['role_qnames'].append(qname)
-                id_entity_registry[clean_id]['role_labels'].append(label)
+                id_entity_registry[clean_id]["role_qnames"].append(qname)
+                id_entity_registry[clean_id]["role_labels"].append(label)
 
             # Create REPRESENTS edge: (role)-[REPRESENTS]->(hub)
             # Use sanitized clean_id for label (no # or special chars)
             hub_label = f"Entity_{clean_id}"
-            edges.append((
-                obj_id,
-                label,
-                hub_id,
-                hub_label,
-                "REPRESENTS",
-                {"id_value": raw_id, "role_qname": qname}  # Use id_value not @id (@ invalid in property names)
-            ))
+            edges.append(
+                (
+                    obj_id,
+                    label,
+                    hub_id,
+                    hub_label,
+                    "REPRESENTS",
+                    {"id_value": raw_id, "role_qname": qname},  # Use id_value not @id (@ invalid in property names)
+                )
+            )
             logger.debug(f"Role node {qname} REPRESENTS {hub_label} {hub_id} (via {raw_id})")
 
         # Check for structures:uri in the object (support multiple prefix variants)
@@ -1026,7 +1020,7 @@ def generate_for_json_content(
         if struct_ref:
             # structures:ref - direct reference to an ID (prefix for file-level isolation)
             # Strip leading # from references (JSON-LD fragment identifiers)
-            clean_struct_ref = struct_ref.lstrip('#')
+            clean_struct_ref = struct_ref.lstrip("#")
             prefixed_struct_ref = f"{file_prefix}_{clean_struct_ref}"
             # Skip self-referential edges (node referring to itself)
             if obj_id != prefixed_struct_ref:
@@ -1034,13 +1028,13 @@ def generate_for_json_content(
         elif struct_uri:
             # structures:uri - resolve to target ID
             target_ref = None
-            if '#' in struct_uri:
-                target_ref = struct_uri.split('#')[-1]
+            if "#" in struct_uri:
+                target_ref = struct_uri.split("#")[-1]
             else:
                 # Use last path segment as ID
-                uri_parts = struct_uri.rstrip('/').split('/')
+                uri_parts = struct_uri.rstrip("/").split("/")
                 if uri_parts:
-                    target_ref = uri_parts[-1].replace(':', '_')
+                    target_ref = uri_parts[-1].replace(":", "_")
             if target_ref:
                 # Prefix target reference for file-level isolation
                 prefixed_target_ref = f"{file_prefix}_{target_ref}"
@@ -1055,7 +1049,7 @@ def generate_for_json_content(
 
             if is_reference(value):
                 # Pure reference {"@id": "..."} - create REFERS_TO edge (not property-name edge)
-                clean_target_id = value['@id'].lstrip('#')
+                clean_target_id = value["@id"].lstrip("#")
                 target_id = f"{file_prefix}_{clean_target_id}"
                 # Skip self-referential edges
                 if obj_id != target_id:
@@ -1071,7 +1065,7 @@ def generate_for_json_content(
                     if isinstance(item, dict):
                         if is_reference(item):
                             # Pure reference in array - create REFERS_TO edge
-                            clean_target_id = item['@id'].lstrip('#')
+                            clean_target_id = item["@id"].lstrip("#")
                             target_id = f"{file_prefix}_{clean_target_id}"
                             if obj_id != target_id:
                                 edges.append((obj_id, label, target_id, None, "REFERS_TO", {}))
@@ -1088,10 +1082,10 @@ def generate_for_json_content(
     # Generate EntityHub nodes for multi-occurrence @ids
     for entity_id, hub_info in id_entity_registry.items():
         if entity_id in hub_nodes_needed and isinstance(hub_info, dict):
-            hub_id = hub_info['hub_id']
-            id_value = hub_info['id_value']
-            role_qnames = hub_info['role_qnames']
-            role_labels = hub_info['role_labels']
+            hub_id = hub_info["hub_id"]
+            id_value = hub_info["id_value"]
+            role_qnames = hub_info["role_qnames"]
+            role_labels = hub_info["role_labels"]
 
             # Create EntityHub node with sanitized label (no # or special chars)
             # Use entity_id which is already sanitized (e.g., "P01" not "#P01")
@@ -1103,7 +1097,7 @@ def generate_for_json_content(
                 "role_count": len(role_qnames),
                 "role_types": role_qnames,
                 "_isHub": True,
-                "_source_file": filename
+                "_source_file": filename,
             }
             if upload_id:
                 hub_props["_upload_id"] = upload_id
@@ -1132,18 +1126,19 @@ def _sanitize_neo4j_relationship_type(rel_type: str) -> str:
         Sanitized relationship type safe for Neo4j
     """
     import re
+
     # Replace common invalid characters with underscores
     sanitized = rel_type.replace(":", "_").replace("/", "_").replace(".", "_").replace("-", "_")
     # Remove any remaining non-alphanumeric chars (except underscores)
-    sanitized = re.sub(r'[^A-Za-z0-9_]', '_', sanitized)
+    sanitized = re.sub(r"[^A-Za-z0-9_]", "_", sanitized)
     # Remove consecutive underscores
-    sanitized = re.sub(r'_+', '_', sanitized)
+    sanitized = re.sub(r"_+", "_", sanitized)
     # Remove leading/trailing underscores
-    sanitized = sanitized.strip('_')
+    sanitized = sanitized.strip("_")
     # Ensure uppercase (Neo4j convention)
     sanitized = sanitized.upper()
     # Ensure starts with letter or underscore (prepend if needed)
-    if sanitized and not sanitized[0].isalpha() and sanitized[0] != '_':
+    if sanitized and not sanitized[0].isalpha() and sanitized[0] != "_":
         sanitized = f"REL_{sanitized}"
     return sanitized or "RELATED_TO"
 
@@ -1154,7 +1149,7 @@ def generate_cypher_from_structures(
     contains: list[tuple],
     upload_id: str = None,
     filename: str = None,
-    ingest_timestamp: str = None
+    ingest_timestamp: str = None,
 ) -> str:
     """Generate Cypher statements from node and edge structures.
 

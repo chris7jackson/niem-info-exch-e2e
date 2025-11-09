@@ -52,7 +52,7 @@ async def _download_schema_files_for_validation(s3: Minio, schema_id: str) -> st
 
         xsd_count = 0
         for obj in objects:
-            if obj.object_name.endswith('.xsd'):
+            if obj.object_name.endswith(".xsd"):
                 # Download the file
                 content = await download_file(s3, "niem-schemas", obj.object_name)
 
@@ -62,7 +62,7 @@ async def _download_schema_files_for_validation(s3: Minio, schema_id: str) -> st
                 target_path.parent.mkdir(parents=True, exist_ok=True)
 
                 # Write file
-                with open(target_path, 'wb') as f:
+                with open(target_path, "wb") as f:
                     f.write(content)
 
                 xsd_count += 1
@@ -75,16 +75,13 @@ async def _download_schema_files_for_validation(s3: Minio, schema_id: str) -> st
         logger.error(f"Failed to download schema files: {e}")
         # Clean up on error
         import shutil
+
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise HTTPException(status_code=500, detail=f"Failed to download schema files: {str(e)}")
 
 
 def _create_success_result(
-    filename: str,
-    json_content: Any,
-    json_string: str,
-    schema_id: str,
-    schema_filename: str
+    filename: str, json_content: Any, json_string: str, schema_id: str, schema_filename: str
 ) -> Dict[str, Any]:
     """Create success result dictionary for a single file.
 
@@ -104,14 +101,12 @@ def _create_success_result(
         "json_content": json_content,
         "json_string": json_string,
         "schema_id": schema_id,
-        "schema_filename": schema_filename
+        "schema_filename": schema_filename,
     }
 
 
 def _create_error_result(
-    filename: str,
-    error_message: str,
-    validation_details: Dict[str, Any] = None
+    filename: str, error_message: str, validation_details: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """Create error result dictionary for a single file.
 
@@ -123,11 +118,7 @@ def _create_error_result(
     Returns:
         Error result dictionary
     """
-    result = {
-        "filename": filename,
-        "status": "failed",
-        "error": error_message
-    }
+    result = {"filename": filename, "status": "failed", "error": error_message}
 
     if validation_details:
         result["validation_details"] = validation_details
@@ -142,7 +133,7 @@ async def _convert_single_file(
     schema_metadata: Dict[str, Any],
     cmf_content: str,
     schema_dir: str,
-    context_uri: str
+    context_uri: str,
 ) -> Dict[str, Any]:
     """Convert a single XML file to JSON with error handling.
 
@@ -183,20 +174,19 @@ async def _convert_single_file(
 
                 # Import validation function from ingest
                 from . import ingest
-                ingest._validate_xml_content(xml_content.decode('utf-8'), schema_dir, file.filename)
+
+                ingest._validate_xml_content(xml_content.decode("utf-8"), schema_dir, file.filename)
 
                 logger.debug(f"XML validation passed for: {file.filename}")
             except HTTPException as e:
                 # Validation failed - extract error details
-                if hasattr(e, 'detail') and isinstance(e.detail, dict):
-                    validation_result = e.detail.get('validation_result', {})
+                if hasattr(e, "detail") and isinstance(e.detail, dict):
+                    validation_result = e.detail.get("validation_result", {})
                     return _create_error_result(
-                        file.filename,
-                        e.detail.get('message', 'XML validation failed'),
-                        validation_result
+                        file.filename, e.detail.get("message", "XML validation failed"), validation_result
                     )
                 else:
-                    return _create_error_result(file.filename, str(e.detail) if hasattr(e, 'detail') else str(e))
+                    return _create_error_result(file.filename, str(e.detail) if hasattr(e, "detail") else str(e))
             except Exception as e:
                 logger.error(f"Validation error for {file.filename}: {e}")
                 return _create_error_result(file.filename, f"Validation error: {str(e)}")
@@ -205,17 +195,12 @@ async def _convert_single_file(
             try:
                 logger.debug(f"Starting NIEMTran conversion for: {file.filename}")
                 conversion_result = await niemtran_service.convert_xml_to_json(
-                    xml_content=xml_content,
-                    cmf_content=cmf_content,
-                    context_uri=context_uri
+                    xml_content=xml_content, cmf_content=cmf_content, context_uri=context_uri
                 )
 
                 if not conversion_result["success"]:
                     logger.error(f"Conversion failed for {file.filename}: {conversion_result.get('error')}")
-                    return _create_error_result(
-                        file.filename,
-                        conversion_result.get("error", "Conversion failed")
-                    )
+                    return _create_error_result(file.filename, conversion_result.get("error", "Conversion failed"))
 
                 logger.info(f"Conversion successful for: {file.filename}")
 
@@ -227,7 +212,7 @@ async def _convert_single_file(
                     conversion_result.get("json_content"),
                     conversion_result.get("json_string"),
                     schema_id,
-                    cmf_filename
+                    cmf_filename,
                 )
 
             except NIEMTranError as e:
@@ -253,10 +238,7 @@ async def _convert_single_file(
 
 
 async def handle_xml_to_json_batch(
-    files: List[UploadFile],
-    s3: Minio,
-    schema_id: str = None,
-    context_uri: str = None
+    files: List[UploadFile], s3: Minio, schema_id: str = None, context_uri: str = None
 ) -> Dict[str, Any]:
     """
     Handle batch XML to JSON conversion request.
@@ -287,11 +269,11 @@ async def handle_xml_to_json_batch(
 
     try:
         # Step 1: Validate batch size (configurable via BATCH_MAX_CONVERSION_FILES env var)
-        max_files = batch_config.get_batch_limit('conversion')
+        max_files = batch_config.get_batch_limit("conversion")
         if len(files) > max_files:
             raise HTTPException(
                 status_code=400,
-                detail=f"Batch size exceeds maximum of {max_files} files. Please reduce the number of files."
+                detail=f"Batch size exceeds maximum of {max_files} files. Please reduce the number of files.",
             )
 
         # Step 2: Check if NIEMTran tool is available
@@ -299,7 +281,7 @@ async def handle_xml_to_json_batch(
             logger.error("NIEMTran tool is not available")
             raise HTTPException(
                 status_code=503,
-                detail="XML to JSON conversion is not available on this server. NIEMTran tool is not installed."
+                detail="XML to JSON conversion is not available on this server. NIEMTran tool is not installed.",
             )
 
         # Step 3: Determine which schema to use
@@ -309,7 +291,7 @@ async def handle_xml_to_json_batch(
                 logger.error("No active schema found and no schema_id provided")
                 raise HTTPException(
                     status_code=400,
-                    detail="No active schema found. Please upload and activate a schema first, or specify a schema_id."
+                    detail="No active schema found. Please upload and activate a schema first, or specify a schema_id.",
                 )
             logger.info(f"Using active schema: {schema_id}")
         else:
@@ -319,10 +301,7 @@ async def handle_xml_to_json_batch(
         schema_metadata = get_schema_metadata(s3, schema_id)
         if not schema_metadata:
             logger.error(f"Schema not found: {schema_id}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"Schema '{schema_id}' not found"
-            )
+            raise HTTPException(status_code=404, detail=f"Schema '{schema_id}' not found")
 
         # Step 5: Get CMF filename from metadata
         cmf_filename = schema_metadata.get("cmf_filename")
@@ -330,7 +309,7 @@ async def handle_xml_to_json_batch(
             logger.error(f"No CMF file found for schema: {schema_id}")
             raise HTTPException(
                 status_code=400,
-                detail=f"Schema '{schema_id}' does not have a CMF file. CMF conversion may have failed during schema upload."
+                detail=f"Schema '{schema_id}' does not have a CMF file. CMF conversion may have failed during schema upload.",
             )
 
         # Step 6: Download CMF file from S3
@@ -341,25 +320,21 @@ async def handle_xml_to_json_batch(
             logger.info(f"Successfully downloaded CMF file ({len(cmf_content)} bytes)")
         except S3Error as e:
             logger.error(f"Failed to download CMF file from S3: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to retrieve CMF file for schema '{schema_id}'"
-            )
+            raise HTTPException(status_code=500, detail=f"Failed to retrieve CMF file for schema '{schema_id}'")
 
         # Step 7: Download XSD schema files to temporary directory
         schema_dir = await _download_schema_files_for_validation(s3, schema_id)
 
         # Step 8: Process all files with timeout and concurrency control
-        logger.info(f"Processing {len(files)} files with max {batch_config.MAX_CONCURRENT_OPERATIONS} concurrent conversions")
+        logger.info(
+            f"Processing {len(files)} files with max {batch_config.MAX_CONCURRENT_OPERATIONS} concurrent conversions"
+        )
 
         # Create tasks for all files with timeout
         tasks = [
             asyncio.wait_for(
-                _convert_single_file(
-                    file, s3, schema_id, schema_metadata, cmf_content,
-                    schema_dir, context_uri
-                ),
-                timeout=batch_config.OPERATION_TIMEOUT
+                _convert_single_file(file, s3, schema_id, schema_metadata, cmf_content, schema_dir, context_uri),
+                timeout=batch_config.OPERATION_TIMEOUT,
             )
             for file in files
         ]
@@ -373,10 +348,7 @@ async def handle_xml_to_json_batch(
             if isinstance(result, Exception):
                 # Task raised an exception
                 logger.error(f"Task failed for {files[i].filename}: {result}")
-                processed_results.append(_create_error_result(
-                    files[i].filename,
-                    f"Processing error: {str(result)}"
-                ))
+                processed_results.append(_create_error_result(files[i].filename, f"Processing error: {str(result)}"))
             else:
                 processed_results.append(result)
 
@@ -386,26 +358,19 @@ async def handle_xml_to_json_batch(
 
         logger.info(f"Batch conversion complete: {successful} successful, {failed} failed")
 
-        return {
-            "files_processed": len(files),
-            "successful": successful,
-            "failed": failed,
-            "results": processed_results
-        }
+        return {"files_processed": len(files), "successful": successful, "failed": failed, "results": processed_results}
 
     except HTTPException:
         # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
         logger.error(f"Unexpected error during batch conversion: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Unexpected error during batch conversion: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Unexpected error during batch conversion: {str(e)}")
     finally:
         # Clean up schema directory
         if schema_dir:
             import shutil
+
             try:
                 shutil.rmtree(schema_dir, ignore_errors=True)
                 logger.info(f"Cleaned up schema directory: {schema_dir}")

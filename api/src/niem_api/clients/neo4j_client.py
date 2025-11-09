@@ -144,8 +144,8 @@ class Neo4jClient:
                     "nodeLabels": sorted(all_labels),
                     "relationshipTypes": sorted(all_rel_types),
                     "nodeCount": len(nodes_list),
-                    "relationshipCount": len(relationships_list)
-                }
+                    "relationshipCount": len(relationships_list),
+                },
             }
 
     def _extract_graph_elements(self, value: Any, nodes: dict, relationships: dict):
@@ -167,7 +167,7 @@ class Neo4jClient:
 
             # Extract semantic ID (NIEM structures:id) if available
             # This is the ID used for relationships in the graph data model
-            semantic_id = properties.get('id', internal_id)
+            semantic_id = properties.get("id", internal_id)
 
             if internal_id not in nodes:
                 nodes[internal_id] = {
@@ -175,7 +175,7 @@ class Neo4jClient:
                     "internal_id": internal_id,  # Keep internal ID for reference
                     "label": list(value.labels)[0] if value.labels else "Unknown",
                     "labels": list(value.labels),
-                    "properties": properties
+                    "properties": properties,
                 }
 
         elif isinstance(value, Relationship):
@@ -198,8 +198,8 @@ class Neo4jClient:
                     "id": rel_id,
                     "type": value.type,
                     "startNode": start_semantic_id,  # Use semantic ID
-                    "endNode": end_semantic_id,      # Use semantic ID
-                    "properties": dict(value.items())
+                    "endNode": end_semantic_id,  # Use semantic ID
+                    "properties": dict(value.items()),
                 }
 
         elif isinstance(value, Path):
@@ -244,10 +244,7 @@ class Neo4jClient:
             types_result = session.run("CALL db.relationshipTypes()")
             rel_types = [record["relationshipType"] for record in types_result]
 
-            return {
-                "nodeLabels": sorted(labels),
-                "relationshipTypes": sorted(rel_types)
-            }
+            return {"nodeLabels": sorted(labels), "relationshipTypes": sorted(rel_types)}
 
     def get_stats(self) -> dict[str, int]:
         """
@@ -271,10 +268,7 @@ class Neo4jClient:
             node_count = session.run("MATCH (n) RETURN count(n) as count").single()["count"]
             rel_count = session.run("MATCH ()-[r]->() RETURN count(r) as count").single()["count"]
 
-            return {
-                "nodeCount": node_count,
-                "relationshipCount": rel_count
-            }
+            return {"nodeCount": node_count, "relationshipCount": rel_count}
 
     def close(self):
         """

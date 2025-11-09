@@ -16,7 +16,7 @@ from niem_api.handlers.entity_resolution import (
     handle_run_entity_resolution,
     handle_get_resolution_status,
     handle_reset_entity_resolution,
-    handle_get_available_node_types
+    handle_get_available_node_types,
 )
 
 
@@ -103,31 +103,28 @@ class TestSenzingEntityResolution:
         """Test discovery of resolvable entity types."""
         result = handle_get_available_node_types()
 
-        assert result['status'] == 'success'
-        assert 'nodeTypes' in result
-        assert result['totalTypes'] > 0
+        assert result["status"] == "success"
+        assert "nodeTypes" in result
+        assert result["totalTypes"] > 0
 
         # Find CrashDriver in results
-        crash_driver = next(
-            (nt for nt in result['nodeTypes'] if nt['qname'] == 'j:CrashDriver'),
-            None
-        )
+        crash_driver = next((nt for nt in result["nodeTypes"] if nt["qname"] == "j:CrashDriver"), None)
         assert crash_driver is not None
-        assert crash_driver['category'] == 'person'
-        assert crash_driver['count'] >= 3  # Our 3 test entities
-        assert crash_driver['recommended'] is True  # Has Senzing-mappable fields
+        assert crash_driver["category"] == "person"
+        assert crash_driver["count"] >= 3  # Our 3 test entities
+        assert crash_driver["recommended"] is True  # Has Senzing-mappable fields
 
     def test_entity_resolution_with_duplicates(self, sample_entities):
         """Test resolving duplicate entities."""
         # Run entity resolution
-        result = handle_run_entity_resolution(['j:CrashDriver'])
+        result = handle_run_entity_resolution(["j:CrashDriver"])
 
         # Verify response structure
-        assert result['status'] == 'success'
-        assert result['entitiesExtracted'] >= 3
-        assert result['resolvedEntitiesCreated'] >= 1
-        assert result['relationshipsCreated'] >= 2
-        assert result['resolutionMethod'] in ['senzing', 'text_based']
+        assert result["status"] == "success"
+        assert result["entitiesExtracted"] >= 3
+        assert result["resolvedEntitiesCreated"] >= 1
+        assert result["relationshipsCreated"] >= 2
+        assert result["resolutionMethod"] in ["senzing", "text_based"]
 
         # Verify in Neo4j
         neo4j_client = Neo4jClient()
@@ -138,40 +135,40 @@ class TestSenzingEntityResolution:
         assert len(re_results) >= 1
 
         # Check graph isolation properties
-        re_node = re_results[0]['re']
-        assert '_upload_ids' in re_node
-        assert isinstance(re_node['_upload_ids'], list)
-        assert len(re_node['_upload_ids']) >= 2  # From 2 different uploads
+        re_node = re_results[0]["re"]
+        assert "_upload_ids" in re_node
+        assert isinstance(re_node["_upload_ids"], list)
+        assert len(re_node["_upload_ids"]) >= 2  # From 2 different uploads
 
-        assert '_schema_ids' in re_node
-        assert isinstance(re_node['_schema_ids'], list)
+        assert "_schema_ids" in re_node
+        assert isinstance(re_node["_schema_ids"], list)
 
-        assert 'sourceDocs' in re_node
-        assert isinstance(re_node['sourceDocs'], list)
-        assert len(re_node['sourceDocs']) >= 2  # From multiple source files
+        assert "sourceDocs" in re_node
+        assert isinstance(re_node["sourceDocs"], list)
+        assert len(re_node["sourceDocs"]) >= 2  # From multiple source files
 
         # Check RESOLVED_TO relationships
         rel_query = "MATCH ()-[r:RESOLVED_TO]->() RETURN count(r) as count"
         rel_results = neo4j_client.query(rel_query, {})
-        assert rel_results[0]['count'] >= 2  # At least 2 duplicates resolved
+        assert rel_results[0]["count"] >= 2  # At least 2 duplicates resolved
 
     def test_resolution_status(self, sample_entities):
         """Test resolution status endpoint."""
         # Run resolution first
-        handle_run_entity_resolution(['j:CrashDriver'])
+        handle_run_entity_resolution(["j:CrashDriver"])
 
         # Check status
         status = handle_get_resolution_status()
 
-        assert status['status'] == 'success'
-        assert status['is_active'] is True
-        assert status['resolved_entity_clusters'] >= 1
-        assert status['entities_resolved'] >= 2
+        assert status["status"] == "success"
+        assert status["is_active"] is True
+        assert status["resolved_entity_clusters"] >= 1
+        assert status["entities_resolved"] >= 2
 
     def test_reset_entity_resolution(self, sample_entities):
         """Test reset functionality."""
         # Run resolution first
-        handle_run_entity_resolution(['j:CrashDriver'])
+        handle_run_entity_resolution(["j:CrashDriver"])
 
         # Verify data exists
         neo4j_client = Neo4jClient()
@@ -181,15 +178,15 @@ class TestSenzingEntityResolution:
         RETURN count(DISTINCT re) as nodes, count(r) as rels
         """
         before_results = neo4j_client.query(before_query, {})
-        assert before_results[0]['nodes'] > 0
-        assert before_results[0]['rels'] > 0
+        assert before_results[0]["nodes"] > 0
+        assert before_results[0]["rels"] > 0
 
         # Reset
         reset_result = handle_reset_entity_resolution()
 
-        assert reset_result['status'] == 'success'
-        assert reset_result['resolved_entities_deleted'] > 0
-        assert reset_result['relationships_deleted'] >= 0
+        assert reset_result["status"] == "success"
+        assert reset_result["resolved_entities_deleted"] > 0
+        assert reset_result["relationships_deleted"] >= 0
 
         # Verify cleanup
         after_query = """
@@ -198,16 +195,16 @@ class TestSenzingEntityResolution:
         RETURN count(DISTINCT re) as nodes, count(r) as rels
         """
         after_results = neo4j_client.query(after_query, {})
-        assert after_results[0]['nodes'] == 0
-        assert after_results[0]['rels'] == 0
+        assert after_results[0]["nodes"] == 0
+        assert after_results[0]["rels"] == 0
 
         # Verify status reflects reset
         status = handle_get_resolution_status()
-        assert status['is_active'] is False
+        assert status["is_active"] is False
 
     def test_cross_document_resolution(self, sample_entities):
         """Test that entities from multiple source files are resolved together."""
-        result = handle_run_entity_resolution(['j:CrashDriver'])
+        result = handle_run_entity_resolution(["j:CrashDriver"])
 
         # Get ResolvedEntity node
         neo4j_client = Neo4jClient()
@@ -220,8 +217,8 @@ class TestSenzingEntityResolution:
         re_results = neo4j_client.query(re_query, {})
 
         if len(re_results) > 0:
-            docs = re_results[0]['docs']
-            count = re_results[0]['count']
+            docs = re_results[0]["docs"]
+            count = re_results[0]["count"]
 
             # Verify multiple source documents
             assert isinstance(docs, list)
@@ -232,27 +229,27 @@ class TestSenzingEntityResolution:
 
     def test_senzing_match_details(self, sample_entities):
         """Test that Senzing match details are populated."""
-        result = handle_run_entity_resolution(['j:CrashDriver'])
+        result = handle_run_entity_resolution(["j:CrashDriver"])
 
         # When using Senzing (not text-based), matchDetails should be present
-        if result.get('resolutionMethod') == 'senzing':
-            assert 'matchDetails' in result
-            match_details = result['matchDetails']
+        if result.get("resolutionMethod") == "senzing":
+            assert "matchDetails" in result
+            match_details = result["matchDetails"]
 
             # Verify structure
-            assert 'totalEntitiesMatched' in match_details
-            assert 'totalResolvedGroups' in match_details
-            assert 'matchQualityDistribution' in match_details
-            assert 'commonMatchKeys' in match_details
-            assert 'featureScores' in match_details
+            assert "totalEntitiesMatched" in match_details
+            assert "totalResolvedGroups" in match_details
+            assert "matchQualityDistribution" in match_details
+            assert "commonMatchKeys" in match_details
+            assert "featureScores" in match_details
 
             # Verify counts make sense
-            assert match_details['totalEntitiesMatched'] >= result['entitiesResolved']
-            assert match_details['totalResolvedGroups'] >= result['resolvedEntitiesCreated']
+            assert match_details["totalEntitiesMatched"] >= result["entitiesResolved"]
+            assert match_details["totalResolvedGroups"] >= result["resolvedEntitiesCreated"]
 
     def test_graph_isolation_properties(self, sample_entities):
         """Test that graph isolation properties are properly aggregated."""
-        result = handle_run_entity_resolution(['j:CrashDriver'])
+        result = handle_run_entity_resolution(["j:CrashDriver"])
 
         neo4j_client = Neo4jClient()
         re_query = """
@@ -268,15 +265,15 @@ class TestSenzingEntityResolution:
             re_node = re_results[0]
 
             # Verify all isolation properties are arrays
-            assert isinstance(re_node['uploads'], list)
-            assert isinstance(re_node['schemas'], list)
-            assert isinstance(re_node['docs'], list)
+            assert isinstance(re_node["uploads"], list)
+            assert isinstance(re_node["schemas"], list)
+            assert isinstance(re_node["docs"], list)
 
             # Verify they're not empty (if we have resolved entities)
-            if result['resolvedEntitiesCreated'] > 0:
-                assert len(re_node['uploads']) > 0
-                assert len(re_node['schemas']) > 0
-                assert len(re_node['docs']) > 0
+            if result["resolvedEntitiesCreated"] > 0:
+                assert len(re_node["uploads"]) > 0
+                assert len(re_node["schemas"]) > 0
+                assert len(re_node["docs"]) > 0
 
     def test_no_duplicates_scenario(self, neo4j_client):
         """Test resolution when there are no duplicates."""
@@ -299,13 +296,13 @@ class TestSenzingEntityResolution:
         neo4j_client.query(create_query, {})
 
         try:
-            result = handle_run_entity_resolution(['j:CrashDriver'])
+            result = handle_run_entity_resolution(["j:CrashDriver"])
 
             # Should succeed but create no ResolvedEntity nodes
-            assert result['status'] == 'success'
-            assert result['entitiesExtracted'] >= 1
-            assert result['resolvedEntitiesCreated'] == 0  # No duplicates
-            assert result['relationshipsCreated'] == 0
+            assert result["status"] == "success"
+            assert result["entitiesExtracted"] >= 1
+            assert result["resolvedEntitiesCreated"] == 0  # No duplicates
+            assert result["relationshipsCreated"] == 0
 
         finally:
             # Cleanup
@@ -319,27 +316,25 @@ class TestSenzingEntityResolution:
     def test_empty_dataset(self):
         """Test resolution with no entities."""
         # Try to resolve non-existent entity type
-        result = handle_run_entity_resolution(['non:Existent'])
+        result = handle_run_entity_resolution(["non:Existent"])
 
-        assert result['status'] == 'success'
-        assert result['entitiesExtracted'] == 0
-        assert result['resolvedEntitiesCreated'] == 0
+        assert result["status"] == "success"
+        assert result["entitiesExtracted"] == 0
+        assert result["resolvedEntitiesCreated"] == 0
 
 
 def _check_senzing_available():
     """Check if Senzing is fully available (SDK + license)."""
     try:
         from niem_api.clients.senzing_client import get_senzing_client
+
         client = get_senzing_client()
         return client.is_available()
     except:
         return False
 
 
-@pytest.mark.skipif(
-    not _check_senzing_available(),
-    reason="Senzing not available (missing SDK or license)"
-)
+@pytest.mark.skipif(not _check_senzing_available(), reason="Senzing not available (missing SDK or license)")
 class TestSenzingSpecificFeatures:
     """Tests that require actual Senzing (not text-based fallback)."""
 
@@ -363,9 +358,9 @@ class TestSenzingSpecificFeatures:
 
     def test_senzing_entity_id_tracking(self, sample_entities):
         """Test that Senzing entity IDs are properly stored."""
-        result = handle_run_entity_resolution(['j:CrashDriver'])
+        result = handle_run_entity_resolution(["j:CrashDriver"])
 
-        if result.get('resolutionMethod') == 'senzing':
+        if result.get("resolutionMethod") == "senzing":
             neo4j_client = Neo4jClient()
 
             # Check ResolvedEntity has senzing_entity_id
@@ -377,7 +372,7 @@ class TestSenzingSpecificFeatures:
             re_results = neo4j_client.query(re_query, {})
 
             if len(re_results) > 0:
-                senzing_id = re_results[0]['senzing_id']
+                senzing_id = re_results[0]["senzing_id"]
                 assert senzing_id is not None
                 assert isinstance(senzing_id, int)
                 assert senzing_id > 0
@@ -388,12 +383,12 @@ class TestSenzingSpecificFeatures:
                 WHERE re.senzing_entity_id = $senzing_id
                 RETURN r.senzing_entity_id as rel_senzing_id
                 """
-                rel_results = neo4j_client.query(rel_query, {'senzing_id': senzing_id})
+                rel_results = neo4j_client.query(rel_query, {"senzing_id": senzing_id})
 
                 for rel in rel_results:
-                    assert rel['rel_senzing_id'] == senzing_id
+                    assert rel["rel_senzing_id"] == senzing_id
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run tests
-    pytest.main([__file__, '-v', '--tb=short'])
+    pytest.main([__file__, "-v", "--tb=short"])

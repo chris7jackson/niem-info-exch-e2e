@@ -90,7 +90,7 @@ class TestDetectSparseConnectivity:
             {
                 "qname": "nc:Location",
                 "children": [],
-            }
+            },
         ]
 
         result = validator.validate(selections, element_tree)
@@ -116,7 +116,7 @@ class TestDetectSparseConnectivity:
             {
                 "qname": "nc:Location",
                 "children": [],
-            }
+            },
         ]
 
         result = validator.validate(selections, element_tree)
@@ -144,7 +144,7 @@ class TestDetectDeepFlattening:
             {
                 "qname": "nc:PersonName",
                 "depth": 4,  # Greater than threshold of 3
-            }
+            },
         ]
 
         result = validator.validate(selections, element_tree)
@@ -170,7 +170,7 @@ class TestDetectDeepFlattening:
             {
                 "qname": "nc:PersonName",
                 "depth": 2,  # Below threshold
-            }
+            },
         ]
 
         result = validator.validate(selections, element_tree)
@@ -206,7 +206,7 @@ class TestDetectInsufficientEndpoints:
                 "qname": "j:Crash",
                 "node_type": "object",
                 "children": [],
-            }
+            },
         ]
 
         result = validator.validate(selections, element_tree)
@@ -240,7 +240,7 @@ class TestDetectInsufficientEndpoints:
                 "qname": "j:Crash",
                 "node_type": "object",
                 "children": [],
-            }
+            },
         ]
 
         result = validator.validate(selections, element_tree)

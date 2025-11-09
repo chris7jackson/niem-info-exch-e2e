@@ -14,8 +14,8 @@ from niem_api.clients.cmf_client import run_cmf_command, CMFError
 class TestCMFSecurityValidation:
     """Test suite for CMF client security validation."""
 
-    @patch('niem_api.clients.cmf_client.subprocess.run')
-    @patch('niem_api.clients.cmf_client.CMF_TOOL_PATH', '/app/bin/cmftool')
+    @patch("niem_api.clients.cmf_client.subprocess.run")
+    @patch("niem_api.clients.cmf_client.CMF_TOOL_PATH", "/app/bin/cmftool")
     def test_working_dir_security_validation_with_tmp(self, mock_run):
         """Test that working_dir security validation is triggered with /tmp path."""
         # Create a real temp directory in /tmp
@@ -33,10 +33,10 @@ class TestCMFSecurityValidation:
 
             # Verify subprocess was called with the working directory
             mock_run.assert_called_once()
-            assert mock_run.call_args[1]['cwd'] == tmpdir
+            assert mock_run.call_args[1]["cwd"] == tmpdir
 
-    @patch('niem_api.clients.cmf_client.subprocess.run')
-    @patch('niem_api.clients.cmf_client.CMF_TOOL_PATH', '/app/bin/cmftool')
+    @patch("niem_api.clients.cmf_client.subprocess.run")
+    @patch("niem_api.clients.cmf_client.CMF_TOOL_PATH", "/app/bin/cmftool")
     def test_working_dir_validation_rejects_unsafe_path(self, mock_run):
         """Test that working_dir validation rejects paths outside allowed locations."""
         # Try to use /etc as working dir (should be rejected)
@@ -47,8 +47,8 @@ class TestCMFSecurityValidation:
         # Subprocess should never be called
         mock_run.assert_not_called()
 
-    @patch('niem_api.clients.cmf_client.subprocess.run')
-    @patch('niem_api.clients.cmf_client.CMF_TOOL_PATH', '/app/bin/cmftool')
+    @patch("niem_api.clients.cmf_client.subprocess.run")
+    @patch("niem_api.clients.cmf_client.CMF_TOOL_PATH", "/app/bin/cmftool")
     def test_working_dir_validation_rejects_nonexistent_path(self, mock_run):
         """Test that working_dir validation rejects non-existent directories."""
         with pytest.raises(CMFError) as exc_info:

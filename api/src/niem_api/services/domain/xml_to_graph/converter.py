@@ -8,8 +8,10 @@ reference relationships.
 import argparse
 import hashlib
 import re
+
 # Use defusedxml for secure XML parsing (prevents XXE attacks)
 import defusedxml.ElementTree as ET
+
 # Import Element type from standard library for type hints
 from xml.etree.ElementTree import Element
 from pathlib import Path
@@ -26,14 +28,14 @@ XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 
 # Cypher property name validation pattern - only alphanumeric and underscore are safe
 # Property names with dots, hyphens, or other special chars must be escaped with backticks
-CYPHER_SAFE_PROPERTY_NAME = r'^[a-zA-Z_][a-zA-Z0-9_]*$'
+CYPHER_SAFE_PROPERTY_NAME = r"^[a-zA-Z_][a-zA-Z0-9_]*$"
 
 # Known NIEM structures namespaces (for dynamic detection)
 KNOWN_STRUCT_NAMESPACES = [
     "https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/",  # NIEM Open 6.0
-    "http://release.niem.gov/niem/structures/5.0/",                    # NIEM 5.0
-    "http://release.niem.gov/niem/structures/4.0/",                    # NIEM 4.0
-    "http://release.niem.gov/niem/structures/3.0/",                    # NIEM 3.0
+    "http://release.niem.gov/niem/structures/5.0/",  # NIEM 5.0
+    "http://release.niem.gov/niem/structures/4.0/",  # NIEM 4.0
+    "http://release.niem.gov/niem/structures/3.0/",  # NIEM 3.0
 ]
 
 
@@ -51,7 +53,7 @@ def detect_structures_namespace(root: Element) -> str:
         Structures namespace URI, or NIEM 6.0 default if not found
     """
     # Check declared namespaces
-    if hasattr(root, 'nsmap') and root.nsmap:
+    if hasattr(root, "nsmap") and root.nsmap:
         for ns_uri in root.nsmap.values():
             if ns_uri and ns_uri in KNOWN_STRUCT_NAMESPACES:
                 logger.debug(f"Detected NIEM structures namespace: {ns_uri}")
@@ -59,8 +61,8 @@ def detect_structures_namespace(root: Element) -> str:
 
     # Fallback: check attributes for structures namespace
     for attr_key in root.attrib.keys():
-        if '{' in attr_key:
-            ns_uri = attr_key[1:attr_key.index('}')]
+        if "{" in attr_key:
+            ns_uri = attr_key[1 : attr_key.index("}")]
             if ns_uri in KNOWN_STRUCT_NAMESPACES:
                 logger.debug(f"Detected structures namespace from attributes: {ns_uri}")
                 return ns_uri
@@ -130,10 +132,10 @@ def detect_reference_by_heuristic(attr_qname: str, attr_value: str) -> dict | No
         {"cardinality": "single"|"multiple"|"auto", "edge_type": str, "confidence": str}
         or None if not detected as reference
     """
-    local_name = attr_qname.split(':')[-1] if ':' in attr_qname else attr_qname
+    local_name = attr_qname.split(":")[-1] if ":" in attr_qname else attr_qname
 
     # Pattern 1: Ends with "Ref" or "Reference"
-    if re.match(r'.*[Rr]ef(erence)?$', local_name):
+    if re.match(r".*[Rr]ef(erence)?$", local_name):
         # Auto-detect cardinality from value (space = multiple)
         cardinality = "auto"
         edge_type = "REFERS_TO"
@@ -144,16 +146,16 @@ def detect_reference_by_heuristic(attr_qname: str, attr_value: str) -> dict | No
         return {"cardinality": "multiple", "edge_type": "REFERS_TO", "confidence": "medium"}
 
     # Pattern 3: Value looks like ID(s) - alphanumeric with optional spaces
-    if attr_value and re.match(r'^[A-Za-z0-9_-]+(\s+[A-Za-z0-9_-]+)*$', attr_value):
+    if attr_value and re.match(r"^[A-Za-z0-9_-]+(\s+[A-Za-z0-9_-]+)*$", attr_value):
         # Very low confidence - only use as last resort
         return {"cardinality": "auto", "edge_type": "REFERS_TO", "confidence": "low"}
 
     return None
 
 
-def load_mapping_from_dict(mapping_dict: dict[str, Any]) -> tuple[
-    dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]
-]:
+def load_mapping_from_dict(
+    mapping_dict: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]]:
     """Load mapping from dictionary instead of file.
 
     Args:
@@ -169,9 +171,9 @@ def load_mapping_from_dict(mapping_dict: dict[str, Any]) -> tuple[
     return mapping_dict, obj_qnames, associations, references, namespaces
 
 
-def load_mapping(mapping_path: Path) -> tuple[
-    dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]
-]:
+def load_mapping(
+    mapping_path: Path,
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]]:
     """Load mapping from YAML file.
 
     Args:
@@ -293,8 +295,8 @@ def build_augmentation_index_from_mapping(mapping_dict: dict) -> dict[str, dict]
         Dictionary mapping augmentation element qname to augmentation definition
     """
     aug_index = {}
-    for aug in mapping_dict.get('augmentations', []):
-        aug_index[aug['augmentation_element_qname']] = aug
+    for aug in mapping_dict.get("augmentations", []):
+        aug_index[aug["augmentation_element_qname"]] = aug
     return aug_index
 
 
@@ -305,7 +307,7 @@ def process_reference_attributes(
     file_prefix: str,
     ns_map: dict,
     reference_registry: dict,
-    struct_ns: str
+    struct_ns: str,
 ) -> list:
     """
     Detect and process all reference attributes on element.
@@ -359,7 +361,7 @@ def process_reference_attributes(
         if ref_info["cardinality"] == "multiple":
             target_ids = value.split()  # Split on whitespace
         elif ref_info["cardinality"] == "auto":
-            target_ids = value.split() if ' ' in value else [value]
+            target_ids = value.split() if " " in value else [value]
         else:
             target_ids = [value]
 
@@ -367,19 +369,20 @@ def process_reference_attributes(
         for target_id in target_ids:
             target_id_prefixed = f"{file_prefix}_{target_id}"
 
-            edges.append((
-                node_id,
-                node_label,
-                target_id_prefixed,
-                None,  # Target label unknown (resolved later)
-                ref_info["edge_type"],
-                {
-                    "source_attribute": attr_qname,
-                    "confidence": ref_info.get("confidence", "high")
-                }
-            ))
+            edges.append(
+                (
+                    node_id,
+                    node_label,
+                    target_id_prefixed,
+                    None,  # Target label unknown (resolved later)
+                    ref_info["edge_type"],
+                    {"source_attribute": attr_qname, "confidence": ref_info.get("confidence", "high")},
+                )
+            )
 
-            logger.debug(f"Detected reference: {node_id} --{ref_info['edge_type']}--> {target_id_prefixed} (via {attr_qname})")
+            logger.debug(
+                f"Detected reference: {node_id} --{ref_info['edge_type']}--> {target_id_prefixed} (via {attr_qname})"
+            )
 
     return edges
 
@@ -398,10 +401,7 @@ def is_augmentation(element_qname: str, cmf_element_index: set) -> bool:
 
 
 def extract_unmapped_properties(
-    elem: Element,
-    ns_map: dict[str, str],
-    cmf_element_index: set,
-    struct_ns: str
+    elem: Element, ns_map: dict[str, str], cmf_element_index: set, struct_ns: str
 ) -> dict[str, Any]:
     """Extract augmentation properties to be added to edges (associations).
 
@@ -477,7 +477,7 @@ def _recursively_flatten_element(
     assoc_by_qn: dict[str, Any],
     cmf_element_index: set,
     path_prefix: str = "",
-    struct_ns: str = None
+    struct_ns: str = None,
 ) -> dict[str, Any]:
     """Recursively flatten an unselected element and all its descendants.
 
@@ -501,7 +501,7 @@ def _recursively_flatten_element(
 
     # Build property prefix for this level with double underscore delimiter
     # Single underscore for namespace colons, double underscore for hierarchy
-    elem_normalized = elem_qn.replace(':', '_')
+    elem_normalized = elem_qn.replace(":", "_")
     current_prefix = f"{path_prefix}__{elem_normalized}" if path_prefix else elem_normalized
 
     # Extract attributes (skip structural ones)
@@ -565,9 +565,7 @@ def _recursively_flatten_element(
     return properties
 
 
-def collect_scalar_setters(
-    obj_rule: dict[str, Any], elem: Element, ns_map: dict[str, str]
-) -> list[tuple[str, str]]:
+def collect_scalar_setters(obj_rule: dict[str, Any], elem: Element, ns_map: dict[str, str]) -> list[tuple[str, str]]:
     """Collect scalar property setters for an object element.
 
     Args:
@@ -699,19 +697,21 @@ def detect_associations_from_xml_data(root: Element, xml_ns_map: dict[str, str])
                 # This indicates it's an endpoint role, not just a property
                 has_ref = False
                 for attr in child.attrib.keys():
-                    if 'ref' in attr.lower() or 'uri' in attr.lower() or 'id' in attr.lower():
-                        if any(ns in attr for ns in ['structures', 's:']):
+                    if "ref" in attr.lower() or "uri" in attr.lower() or "id" in attr.lower():
+                        if any(ns in attr for ns in ["structures", "s:"]):
                             has_ref = True
                             break
 
                 if has_ref:
-                    endpoints.append({
-                        "role_qname": child_qn,
-                        "maps_to_label": child_qn.replace(":", "_"),
-                        "direction": "source" if len(endpoints) == 0 else "target",
-                        "via": "structures:ref",
-                        "cardinality": "0..*"
-                    })
+                    endpoints.append(
+                        {
+                            "role_qname": child_qn,
+                            "maps_to_label": child_qn.replace(":", "_"),
+                            "direction": "source" if len(endpoints) == 0 else "target",
+                            "via": "structures:ref",
+                            "cardinality": "0..*",
+                        }
+                    )
 
             # Valid association must have 2+ endpoints
             if len(endpoints) >= 2:
@@ -719,9 +719,11 @@ def detect_associations_from_xml_data(root: Element, xml_ns_map: dict[str, str])
                     "qname": elem_qn,
                     "rel_type": elem_qn.replace(":", "_").upper(),
                     "endpoints": endpoints,
-                    "rel_props": []
+                    "rel_props": [],
                 }
-                logger.info(f"Auto-detected association: {elem_qn} with {len(endpoints)} endpoints: {[ep['role_qname'] for ep in endpoints]}")
+                logger.info(
+                    f"Auto-detected association: {elem_qn} with {len(endpoints)} endpoints: {[ep['role_qname'] for ep in endpoints]}"
+                )
 
         # Recurse into children
         for child in elem:
@@ -734,7 +736,13 @@ def detect_associations_from_xml_data(root: Element, xml_ns_map: dict[str, str])
 
 
 def generate_for_xml_content(
-    xml_content: str, mapping_dict: dict[str, Any], filename: str = "memory", upload_id: str = None, schema_id: str = None, cmf_element_index: set = None, mode: str = "dynamic"
+    xml_content: str,
+    mapping_dict: dict[str, Any],
+    filename: str = "memory",
+    upload_id: str = None,
+    schema_id: str = None,
+    cmf_element_index: set = None,
+    mode: str = "dynamic",
 ) -> tuple[str, dict[str, Any], list[tuple], list[tuple]]:
     """Generate Cypher statements from XML content and mapping dictionary.
 
@@ -828,22 +836,15 @@ def generate_for_xml_content(
             # Check for ID collisions
             if prefixed_id in id_registry:
                 # ID collision detected - same structures:id used multiple times
-                existing_qn = id_registry[prefixed_id]['qname']
-                id_collisions.append({
-                    'id': sid,
-                    'first_qname': existing_qn,
-                    'second_qname': elem_qn,
-                    'prefixed_id': prefixed_id
-                })
+                existing_qn = id_registry[prefixed_id]["qname"]
+                id_collisions.append(
+                    {"id": sid, "first_qname": existing_qn, "second_qname": elem_qn, "prefixed_id": prefixed_id}
+                )
                 # Keep the first occurrence in the registry
                 # Later we can decide whether to error or warn
             else:
                 # Register new ID
-                id_registry[prefixed_id] = {
-                    'element': elem,
-                    'qname': elem_qn,
-                    'raw_id': sid
-                }
+                id_registry[prefixed_id] = {"element": elem, "qname": elem_qn, "raw_id": sid}
 
         # Process structures:uri - these also define identifiable resources
         # URI fragments (#P01) or full URIs can be used as identifiers
@@ -853,13 +854,13 @@ def generate_for_xml_content(
 
             # Extract fragment or basename from URI
             uri_id = None
-            if '#' in uri_ref:
-                uri_id = uri_ref.split('#')[-1]
+            if "#" in uri_ref:
+                uri_id = uri_ref.split("#")[-1]
             else:
                 # Use last path segment as ID
-                uri_parts = uri_ref.rstrip('/').split('/')
+                uri_parts = uri_ref.rstrip("/").split("/")
                 if uri_parts:
-                    uri_id = uri_parts[-1].replace(':', '_')
+                    uri_id = uri_parts[-1].replace(":", "_")
 
             if uri_id:
                 prefixed_id = f"{file_prefix}_{uri_id}"
@@ -876,12 +877,7 @@ def generate_for_xml_content(
                     pass
                 else:
                     # Register new URI-based ID
-                    id_registry[prefixed_id] = {
-                        'element': elem,
-                        'qname': elem_qn,
-                        'raw_id': uri_id,
-                        'source': 'uri'
-                    }
+                    id_registry[prefixed_id] = {"element": elem, "qname": elem_qn, "raw_id": uri_id, "source": "uri"}
 
         # Recurse to all children
         for child in elem:
@@ -918,7 +914,7 @@ def generate_for_xml_content(
         # - Simple properties → flattened into parent node properties
         # - Complex children → direct containment to parent (skip augmentation layer)
         # - Never create a node for the augmentation itself
-        if elem_qn.endswith('Augmentation'):
+        if elem_qn.endswith("Augmentation"):
             if parent_info:
                 parent_id, parent_label = parent_info
 
@@ -932,7 +928,7 @@ def generate_for_xml_content(
                         traverse(aug_child, parent_info=parent_info, path_stack=path_stack + [elem])
                     # If simple property, flatten into parent properties
                     elif aug_child.text and aug_child.text.strip() and len(list(aug_child)) == 0:
-                        prop_name = aug_child_qn.replace(':', '_')
+                        prop_name = aug_child_qn.replace(":", "_")
                         if parent_id in nodes:
                             nodes[parent_id][2][prop_name] = aug_child.text.strip()
                             nodes[parent_id][2][f"{prop_name}_isAugmentation"] = True
@@ -944,7 +940,7 @@ def generate_for_xml_content(
                         if parent_id in nodes and flattened:
                             for key, value in flattened.items():
                                 nodes[parent_id][2][key] = value
-                                if not key.endswith('_isAugmentation'):
+                                if not key.endswith("_isAugmentation"):
                                     nodes[parent_id][2][f"{key}_isAugmentation"] = True
 
             # Never create node for augmentation - return early
@@ -1010,11 +1006,7 @@ def generate_for_xml_content(
                 assoc_props["structures_ref"] = struct_ref
 
             # Register association node in id_registry for reference resolution
-            id_registry[assoc_node_id] = {
-                "qname": elem_qn,
-                "label": assoc_label,
-                "element": elem
-            }
+            id_registry[assoc_node_id] = {"qname": elem_qn, "label": assoc_label, "element": elem}
 
             # Create association node (nodes is a dict, not a list)
             nodes[assoc_node_id] = [assoc_label, elem_qn, assoc_props, aug_props]
@@ -1040,9 +1032,9 @@ def generate_for_xml_content(
                             if endpoint_uri:
                                 # Extract ID from URI - always use the fragment if present
                                 # This ensures different URI formats pointing to same ID resolve to same node
-                                if '#' in endpoint_uri:
+                                if "#" in endpoint_uri:
                                     # Fragment reference: "#P1" or "http://example.com#P1" -> "P1"
-                                    entity_id = endpoint_uri.split('#')[-1]
+                                    entity_id = endpoint_uri.split("#")[-1]
                                     # Check if this entity has a hub node (2+ role occurrences)
                                     if entity_id in hub_nodes_needed:
                                         endpoint_id = f"{file_prefix}_hub_{entity_id}"
@@ -1051,9 +1043,9 @@ def generate_for_xml_content(
                                 else:
                                     # Full URI without fragment - use basename or full sanitized URI
                                     # Try to extract a meaningful ID from the URI path
-                                    uri_parts = endpoint_uri.rstrip('/').split('/')
+                                    uri_parts = endpoint_uri.rstrip("/").split("/")
                                     if uri_parts:
-                                        entity_id = uri_parts[-1].replace(':', '_')
+                                        entity_id = uri_parts[-1].replace(":", "_")
                                         # Check for hub node
                                         if entity_id in hub_nodes_needed:
                                             endpoint_id = f"{file_prefix}_hub_{entity_id}"
@@ -1061,7 +1053,9 @@ def generate_for_xml_content(
                                             endpoint_id = f"{file_prefix}_{entity_id}"
                                     else:
                                         # Fallback: sanitize full URI
-                                        endpoint_id = f"{file_prefix}_{endpoint_uri.replace('/', '_').replace(':', '_')}"
+                                        endpoint_id = (
+                                            f"{file_prefix}_{endpoint_uri.replace('/', '_').replace(':', '_')}"
+                                        )
                             else:
                                 # Check for inline definition with structures:id
                                 endpoint_sid = get_structures_attr(ch, "id", struct_ns)
@@ -1083,25 +1077,26 @@ def generate_for_xml_content(
                                 id_registry[endpoint_id] = {
                                     "qname": qname_from_tag(endpoint_elem.tag, xml_ns_map),
                                     "label": ep["maps_to_label"],
-                                    "element": endpoint_elem
+                                    "element": endpoint_elem,
                                 }
                             else:
                                 # Inline element without ID - will be processed recursively
                                 # But track as pending in case it's not in the mapping
-                                pending_refs.append((elem_qn, endpoint_id, f"Association {elem_qn} endpoint {ep['role_qname']}"))
+                                pending_refs.append(
+                                    (elem_qn, endpoint_id, f"Association {elem_qn} endpoint {ep['role_qname']}")
+                                )
                         else:
                             # Pure reference (ref/uri) that doesn't exist yet - track it
-                            pending_refs.append((elem_qn, endpoint_id, f"Association {elem_qn} endpoint {ep['role_qname']}"))
+                            pending_refs.append(
+                                (elem_qn, endpoint_id, f"Association {elem_qn} endpoint {ep['role_qname']}")
+                            )
 
                     # Create edge from association node to endpoint
                     # Relationship type: ASSOCIATED_WITH
                     rel_type = "ASSOCIATED_WITH"
 
                     # Edge properties include role metadata
-                    edge_props = {
-                        "role_qname": ep["role_qname"],
-                        "direction": ep.get("direction", "")
-                    }
+                    edge_props = {"role_qname": ep["role_qname"], "direction": ep.get("direction", "")}
 
                     # Get endpoint label - use None to let resolution logic find actual node label
                     # This handles NIEM substitution where role type (nc:Person) differs from actual type (j:CrashDriver)
@@ -1134,7 +1129,7 @@ def generate_for_xml_content(
             return
 
         # Check if this is an augmentation element (never create nodes for augmentations)
-        is_augmentation = elem_qn.endswith('Augmentation')
+        is_augmentation = elem_qn.endswith("Augmentation")
 
         # Determine if element should become a node based on mode
         should_create_node = False
@@ -1154,14 +1149,14 @@ def generate_for_xml_content(
                 node_label = obj_rule["label"]
             else:
                 # Dynamic mode: generate label from qname
-                node_label = elem_qn.replace(':', '_')
+                node_label = elem_qn.replace(":", "_")
 
             # Generate node ID - use structures:id if present, otherwise structures:uri, otherwise synthetic
             if sid:
                 node_id = f"{file_prefix}_{sid}"
             elif uri_ref:
                 # Extract fragment for co-referencing: "#P01" -> "P01"
-                entity_id = uri_ref.lstrip('#')
+                entity_id = uri_ref.lstrip("#")
 
                 # Check if this URI needs a separate hub node (2+ role occurrences)
                 if entity_id in hub_nodes_needed:
@@ -1181,27 +1176,29 @@ def generate_for_xml_content(
                     if entity_id not in uri_entity_registry:
                         # First occurrence - register hub
                         uri_entity_registry[entity_id] = {
-                            'hub_id': hub_id,
-                            'uri_value': uri_ref,
-                            'role_qnames': [],
-                            'role_labels': []
+                            "hub_id": hub_id,
+                            "uri_value": uri_ref,
+                            "role_qnames": [],
+                            "role_labels": [],
                         }
 
                     # Track this role
-                    uri_entity_registry[entity_id]['role_qnames'].append(elem_qn)
-                    uri_entity_registry[entity_id]['role_labels'].append(node_label)
+                    uri_entity_registry[entity_id]["role_qnames"].append(elem_qn)
+                    uri_entity_registry[entity_id]["role_labels"].append(node_label)
 
                     # Create REPRESENTS edge: (role)-[REPRESENTS]->(hub)
                     # Use sanitized entity_id for label (no # or special chars)
                     hub_label = f"Entity_{entity_id}"
-                    edges.append((
-                        node_id,
-                        node_label,
-                        hub_id,
-                        hub_label,
-                        "REPRESENTS",
-                        {"id_value": uri_ref, "role_qname": elem_qn}  # Use id_value (matches JSON converter)
-                    ))
+                    edges.append(
+                        (
+                            node_id,
+                            node_label,
+                            hub_id,
+                            hub_label,
+                            "REPRESENTS",
+                            {"id_value": uri_ref, "role_qname": elem_qn},  # Use id_value (matches JSON converter)
+                        )
+                    )
                     logger.debug(f"Role node {elem_qn} REPRESENTS {hub_label} {hub_id} (via {uri_ref})")
                 else:
                     # SINGLE OCCURRENCE: Use URI as node ID (no hub needed)
@@ -1241,8 +1238,8 @@ def generate_for_xml_content(
                 if child_qn in augmentation_index:
                     # This is an augmentation element - flatten all its properties into parent
                     aug_def = augmentation_index[child_qn]
-                    for prop_def in aug_def['properties']:
-                        prop_qname = prop_def['qname']
+                    for prop_def in aug_def["properties"]:
+                        prop_qname = prop_def["qname"]
                         # Find child element matching this property
                         for aug_child in child:
                             aug_child_qn = qname_from_tag(aug_child.tag, xml_ns_map)
@@ -1250,7 +1247,7 @@ def generate_for_xml_content(
                                 # Extract value (simple text)
                                 if aug_child.text and aug_child.text.strip():
                                     # Flat naming: j:PersonAdultIndicator -> j_PersonAdultIndicator
-                                    prop_name = prop_qname.replace(':', '_')
+                                    prop_name = prop_qname.replace(":", "_")
                                     props[prop_name] = aug_child.text.strip()
                                     props[f"{prop_name}_isAugmentation"] = True
                                 break
@@ -1260,13 +1257,14 @@ def generate_for_xml_content(
                 # Check if child should become its own node
                 if mode == "mapping":
                     child_is_node = (
-                        child_qn in obj_rules or  # Explicitly selected in designer
-                        child_qn in assoc_by_qn    # Associations (handled separately)
+                        child_qn in obj_rules
+                        or child_qn  # Explicitly selected in designer
+                        in assoc_by_qn  # Associations (handled separately)
                     )
                 elif mode == "dynamic":
                     child_is_node = (
-                        _is_complex_element(child, xml_ns_map, struct_ns) or
-                        child_qn in assoc_by_qn    # Associations (handled separately)
+                        _is_complex_element(child, xml_ns_map, struct_ns)
+                        or child_qn in assoc_by_qn  # Associations (handled separately)
                     )
                 else:
                     child_is_node = False
@@ -1279,7 +1277,7 @@ def generate_for_xml_content(
                 # Child is NOT a node - flatten it and all its descendants
                 if child.text and child.text.strip() and len(list(child)) == 0:
                     # Simple text child - flatten directly
-                    prop_name = child_qn.replace(':', '_')
+                    prop_name = child_qn.replace(":", "_")
                     is_aug = cmf_element_index and is_augmentation(child_qn, cmf_element_index)
 
                     if is_aug:
@@ -1291,7 +1289,13 @@ def generate_for_xml_content(
                 elif len(list(child)) > 0:
                     # Complex child with nested elements - recursively flatten
                     flattened = _recursively_flatten_element(
-                        child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, path_prefix="", struct_ns=struct_ns
+                        child,
+                        xml_ns_map,
+                        obj_rules,
+                        assoc_by_qn,
+                        cmf_element_index,
+                        path_prefix="",
+                        struct_ns=struct_ns,
                     )
 
                     # Determine if this is augmentation data
@@ -1323,7 +1327,7 @@ def generate_for_xml_content(
                 file_prefix=file_prefix,
                 ns_map=xml_ns_map,
                 reference_registry=reference_registry,
-                struct_ns=struct_ns
+                struct_ns=struct_ns,
             )
             edges.extend(reference_edges)
 
@@ -1349,7 +1353,9 @@ def generate_for_xml_content(
                     edges.append((node_id, node_label, target_id, None, "REFERS_TO", {}))
             elif uri_ref:
                 # structures:uri - check if this is part of hub pattern
-                entity_id = uri_ref.lstrip('#').split('/')[-1].replace(':', '_') if '/' in uri_ref else uri_ref.lstrip('#')
+                entity_id = (
+                    uri_ref.lstrip("#").split("/")[-1].replace(":", "_") if "/" in uri_ref else uri_ref.lstrip("#")
+                )
 
                 # For hub pattern, REPRESENTS edge already created - no REFERS_TO needed
                 # For single occurrence, structures:uri is the node's identity, not a reference
@@ -1375,7 +1381,7 @@ def generate_for_xml_content(
                         traverse(aug_child, parent_info=parent_info, path_stack=path_stack + [elem])
                     # If simple property, flatten into parent properties
                     elif aug_child.text and aug_child.text.strip() and len(list(aug_child)) == 0:
-                        prop_name = aug_child_qn.replace(':', '_')
+                        prop_name = aug_child_qn.replace(":", "_")
                         if parent_id in nodes:
                             nodes[parent_id][2][prop_name] = aug_child.text.strip()
                             nodes[parent_id][2][f"{prop_name}_isAugmentation"] = True
@@ -1387,7 +1393,7 @@ def generate_for_xml_content(
                         if parent_id in nodes and flattened:
                             for key, value in flattened.items():
                                 nodes[parent_id][2][key] = value
-                                if not key.endswith('_isAugmentation'):
+                                if not key.endswith("_isAugmentation"):
                                     nodes[parent_id][2][f"{key}_isAugmentation"] = True
 
             # Unselected elements are already flattened by their parent (lines 1280-1305)
@@ -1425,10 +1431,10 @@ def generate_for_xml_content(
     # Generate EntityHub nodes for multi-occurrence URIs
     for entity_id, hub_info in uri_entity_registry.items():
         if entity_id in hub_nodes_needed and isinstance(hub_info, dict):
-            hub_id = hub_info['hub_id']
-            uri_value = hub_info['uri_value']
-            role_qnames = hub_info['role_qnames']
-            role_labels = hub_info['role_labels']
+            hub_id = hub_info["hub_id"]
+            uri_value = hub_info["uri_value"]
+            role_qnames = hub_info["role_qnames"]
+            role_labels = hub_info["role_labels"]
 
             # Create EntityHub node with sanitized label (no # or special chars)
             # Use entity_id which is already sanitized (e.g., "P01" not "#P01")
@@ -1440,7 +1446,7 @@ def generate_for_xml_content(
                 "role_count": len(role_qnames),
                 "role_types": role_qnames,
                 "_isHub": True,
-                "_source_file": filename
+                "_source_file": filename,
             }
 
             # Add upload_id for graph isolation (matches JSON converter)
@@ -1476,12 +1482,9 @@ def generate_for_xml_content(
                 label = "UnresolvedReference"
                 role_qname = "unresolved:Reference"
 
-            unresolved_refs.append({
-                'target_id': target_id,
-                'context': context,
-                'source': source_qn,
-                'expected_type': role_qname
-            })
+            unresolved_refs.append(
+                {"target_id": target_id, "context": context, "source": source_qn, "expected_type": role_qname}
+            )
 
             # Create placeholder node with the correct type label
             # This allows the graph to be created while flagging data quality issues
@@ -1489,12 +1492,12 @@ def generate_for_xml_content(
                 label,
                 role_qname,
                 {
-                    '_unresolved': True,
-                    '_error': f'Referenced ID not found in document',
-                    '_context': context,
-                    '_raw_id': target_id
+                    "_unresolved": True,
+                    "_error": f"Referenced ID not found in document",
+                    "_context": context,
+                    "_raw_id": target_id,
                 },
-                {}
+                {},
             ]
 
     # Log unresolved references for reporting (can be added to return value later)
@@ -1597,7 +1600,9 @@ def generate_for_xml_content(
     for pid, plabel, cid, clabel, rel in contains:
         parent_match = build_match_props(pid)
         child_match = build_match_props(cid)
-        lines.append(f"MATCH (p:`{plabel}` {{{parent_match}}}), (c:`{clabel}` {{{child_match}}}) MERGE (p)-[:`{rel}`]->(c);")
+        lines.append(
+            f"MATCH (p:`{plabel}` {{{parent_match}}}), (c:`{clabel}` {{{child_match}}}) MERGE (p)-[:`{rel}`]->(c);"
+        )
 
     # MERGE reference/association edges
     for fid, flabel, tid, tlabel, rel, rprops in edges:
@@ -1638,7 +1643,9 @@ def generate_for_xml_content(
             )
         else:
             # Simple edge without properties
-            lines.append(f"MATCH (a:`{flabel}` {{{from_match}}}), (b:`{tlabel}` {{{to_match}}}) MERGE (a)-[:`{rel}`]->(b);")
+            lines.append(
+                f"MATCH (a:`{flabel}` {{{from_match}}}), (b:`{tlabel}` {{{to_match}}}) MERGE (a)-[:`{rel}`]->(b);"
+            )
 
     return "\n".join(lines), nodes, contains, edges
 

@@ -16,8 +16,8 @@ class NiemNdrViolationFactory(factory.Factory):
     type = "warning"
     message = factory.Sequence(lambda n: f"Validation warning {n}")
     rule_id = factory.Sequence(lambda n: f"RULE-{n:03d}")
-    line_number = factory.Faker('random_int', min=1, max=1000)
-    column_number = factory.Faker('random_int', min=1, max=100)
+    line_number = factory.Faker("random_int", min=1, max=1000)
+    column_number = factory.Faker("random_int", min=1, max=100)
     xpath = factory.Sequence(lambda n: f"//xs:element[{n}]")
 
 
@@ -31,23 +31,17 @@ class NiemNdrReportFactory(factory.Factory):
     message = "Schema validation successful"
     conformance_target = "niem-6.0"
     violations = factory.SubFactory(factory.List, [])
-    summary = factory.LazyFunction(lambda: {
-        "total_violations": 0,
-        "error_count": 0,
-        "warning_count": 0
-    })
+    summary = factory.LazyFunction(lambda: {"total_violations": 0, "error_count": 0, "warning_count": 0})
 
     @factory.post_generation
     def create_violations(obj, create, extracted, **kwargs):
         """Create violations if specified"""
         if extracted:
-            obj.violations = [
-                NiemNdrViolationFactory() for _ in range(extracted)
-            ]
+            obj.violations = [NiemNdrViolationFactory() for _ in range(extracted)]
             obj.summary = {
                 "total_violations": len(obj.violations),
                 "error_count": len([v for v in obj.violations if v.type == "error"]),
-                "warning_count": len([v for v in obj.violations if v.type == "warning"])
+                "warning_count": len([v for v in obj.violations if v.type == "warning"]),
             }
 
 
@@ -80,7 +74,7 @@ class TestDataFactories:
     @staticmethod
     def sample_xsd_content(namespace: str = "http://example.com/test") -> str:
         """Generate sample XSD content"""
-        return f'''<?xml version="1.0" encoding="UTF-8"?>
+        return f"""<?xml version="1.0" encoding="UTF-8"?>
         <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
                    targetNamespace="{namespace}"
                    xmlns:tns="{namespace}"
@@ -106,12 +100,12 @@ class TestDataFactories:
                 <xs:attribute name="id" type="xs:ID"/>
             </xs:complexType>
 
-        </xs:schema>'''
+        </xs:schema>"""
 
     @staticmethod
     def sample_cmf_content(namespace: str = "http://example.com/test") -> str:
         """Generate sample CMF content"""
-        return f'''<?xml version="1.0" encoding="UTF-8"?>
+        return f"""<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
 
@@ -140,31 +134,20 @@ class TestDataFactories:
                 <cmf:Class structures:ref="test.PersonType"/>
             </cmf:ObjectProperty>
 
-        </cmf:Model>'''
+        </cmf:Model>"""
 
     @staticmethod
     def sample_mapping_yaml() -> dict[str, Any]:
         """Generate sample mapping YAML structure"""
         return {
-            "namespaces": {
-                "test": "http://example.com/test",
-                "nc": "http://release.niem.gov/niem/niem-core/5.0/"
-            },
+            "namespaces": {"test": "http://example.com/test", "nc": "http://release.niem.gov/niem/niem-core/5.0/"},
             "objects": [
-                {
-                    "qname": "test:Person",
-                    "label": "test_Person",
-                    "carries_structures_id": True,
-                    "scalar_props": []
-                }
+                {"qname": "test:Person", "label": "test_Person", "carries_structures_id": True, "scalar_props": []}
             ],
             "associations": [],
             "references": [],
             "augmentations": [],
-            "polymorphism": {
-                "strategy": "extraLabel",
-                "store_actual_type_property": "xsiType"
-            }
+            "polymorphism": {"strategy": "extraLabel", "store_actual_type_property": "xsiType"},
         }
 
     @staticmethod
@@ -175,27 +158,17 @@ class TestDataFactories:
             "type": "object",
             "title": "Test Schema",
             "properties": {
-                "id": {
-                    "type": "string",
-                    "description": "Unique identifier"
-                },
-                "name": {
-                    "type": "string",
-                    "description": "Person name"
-                },
-                "age": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 150
-                }
+                "id": {"type": "string", "description": "Unique identifier"},
+                "name": {"type": "string", "description": "Person name"},
+                "age": {"type": "integer", "minimum": 0, "maximum": 150},
             },
-            "required": ["id", "name"]
+            "required": ["id", "name"],
         }
 
     @staticmethod
     def sample_xml_data() -> str:
         """Generate sample XML data for ingestion"""
-        return '''<?xml version="1.0" encoding="UTF-8"?>
+        return """<?xml version="1.0" encoding="UTF-8"?>
         <TestDocument xmlns="http://example.com/test">
             <ID>DOC-001</ID>
             <Title>Sample Test Document</Title>
@@ -210,7 +183,7 @@ class TestDataFactories:
                 <Age>25</Age>
                 <Email>jane.smith@example.com</Email>
             </Person>
-        </TestDocument>'''
+        </TestDocument>"""
 
     @staticmethod
     def sample_json_data() -> dict[str, Any]:
@@ -220,19 +193,9 @@ class TestDataFactories:
             "title": "Sample JSON Document",
             "created_date": "2024-01-02",
             "people": [
-                {
-                    "id": "person-3",
-                    "name": "Bob Johnson",
-                    "age": 35,
-                    "email": "bob.johnson@example.com"
-                },
-                {
-                    "id": "person-4",
-                    "name": "Alice Brown",
-                    "age": 28,
-                    "email": "alice.brown@example.com"
-                }
-            ]
+                {"id": "person-3", "name": "Bob Johnson", "age": 35, "email": "bob.johnson@example.com"},
+                {"id": "person-4", "name": "Alice Brown", "age": 28, "email": "alice.brown@example.com"},
+            ],
         }
 
     @staticmethod
@@ -243,29 +206,14 @@ class TestDataFactories:
                 {
                     "id": 1,
                     "labels": ["Person"],
-                    "properties": {
-                        "name": "John Doe",
-                        "age": 30,
-                        "email": "john.doe@example.com"
-                    }
+                    "properties": {"name": "John Doe", "age": 30, "email": "john.doe@example.com"},
                 },
                 {
                     "id": 2,
                     "labels": ["Person"],
-                    "properties": {
-                        "name": "Jane Smith",
-                        "age": 25,
-                        "email": "jane.smith@example.com"
-                    }
+                    "properties": {"name": "Jane Smith", "age": 25, "email": "jane.smith@example.com"},
                 },
-                {
-                    "id": 3,
-                    "labels": ["Company"],
-                    "properties": {
-                        "name": "Acme Corp",
-                        "industry": "Technology"
-                    }
-                }
+                {"id": 3, "labels": ["Company"], "properties": {"name": "Acme Corp", "industry": "Technology"}},
             ],
             "relationships": [
                 {
@@ -273,21 +221,16 @@ class TestDataFactories:
                     "type": "WORKS_FOR",
                     "start_node_id": 1,
                     "end_node_id": 3,
-                    "properties": {
-                        "since": "2020-01-01",
-                        "position": "Developer"
-                    }
+                    "properties": {"since": "2020-01-01", "position": "Developer"},
                 },
                 {
                     "id": 11,
                     "type": "KNOWS",
                     "start_node_id": 1,
                     "end_node_id": 2,
-                    "properties": {
-                        "since": "2019-06-15"
-                    }
-                }
-            ]
+                    "properties": {"since": "2019-06-15"},
+                },
+            ],
         }
 
     @staticmethod
@@ -298,22 +241,14 @@ class TestDataFactories:
             "relationship_count": 75,
             "labels": ["Person", "Company", "Document"],
             "relationship_types": ["WORKS_FOR", "KNOWS", "CREATED"],
-            "node_counts_by_label": {
-                "Person": 100,
-                "Company": 25,
-                "Document": 25
-            },
-            "relationship_counts_by_type": {
-                "WORKS_FOR": 50,
-                "KNOWS": 20,
-                "CREATED": 5
-            }
+            "node_counts_by_label": {"Person": 100, "Company": 25, "Document": 25},
+            "relationship_counts_by_type": {"WORKS_FOR": 50, "KNOWS": 20, "CREATED": 5},
         }
 
     @staticmethod
     def invalid_xsd_content() -> str:
         """Generate invalid XSD content for testing error cases"""
-        return '''<?xml version="1.0" encoding="UTF-8"?>
+        return """<?xml version="1.0" encoding="UTF-8"?>
         <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <!-- Invalid: missing targetNamespace -->
             <xs:element name="InvalidElement" type="NonExistentType"/>
@@ -321,4 +256,4 @@ class TestDataFactories:
             <xs:complexType name="InvalidType">
                 <xs:sequence>
                     <xs:element name="UnclosedElement"
-        </xs:schema>'''
+        </xs:schema>"""

@@ -32,8 +32,9 @@ try:
     from ..services.entity_to_senzing import (
         batch_convert_to_senzing,
         senzing_result_to_neo4j_format,
-        extract_confidence_from_senzing
+        extract_confidence_from_senzing,
     )
+
     SENZING_AVAILABLE = True
     logger.info("Senzing integration available")
 except ImportError:
@@ -54,8 +55,8 @@ def _load_senzing_field_mappings() -> Dict[str, str]:
     try:
         # Look for config file in multiple locations
         config_paths = [
-            Path('/app/config/niem_senzing_mappings.yaml'),  # Docker
-            Path(__file__).parent.parent.parent.parent / 'config' / 'niem_senzing_mappings.yaml',  # Development
+            Path("/app/config/niem_senzing_mappings.yaml"),  # Docker
+            Path(__file__).parent.parent.parent.parent / "config" / "niem_senzing_mappings.yaml",  # Development
         ]
 
         config_path = None
@@ -69,12 +70,12 @@ def _load_senzing_field_mappings() -> Dict[str, str]:
             _SENZING_FIELD_MAPPINGS = {}
             return _SENZING_FIELD_MAPPINGS
 
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 
         # Extract field mappings
-        field_mappings = config.get('field_mappings', {})
-        custom_mappings = config.get('custom_mappings', {})
+        field_mappings = config.get("field_mappings", {})
+        custom_mappings = config.get("custom_mappings", {})
 
         # Merge mappings
         _SENZING_FIELD_MAPPINGS = {**field_mappings, **custom_mappings}
@@ -110,12 +111,12 @@ def _count_senzing_mappable_fields(node_keys: List[str]) -> int:
     count = 0
     for node_key in node_keys:
         # Normalize key by removing all separators for comparison
-        normalized_key = node_key.lower().replace('__', '').replace('_', '').replace('-', '')
+        normalized_key = node_key.lower().replace("__", "").replace("_", "").replace("-", "")
 
         # Check if this key contains any known NIEM field
         for niem_field in niem_fields:
             # Normalize NIEM field the same way
-            niem_field_normalized = niem_field.lower().replace('_', '')
+            niem_field_normalized = niem_field.lower().replace("_", "")
 
             # Match if the normalized node key ends with the normalized NIEM field
             if normalized_key.endswith(niem_field_normalized):
@@ -141,82 +142,74 @@ def _extract_match_details_from_senzing_results(resolved_entities: Dict) -> Dict
         - resolutionRules: Rules used for entity resolution
     """
     match_details = {
-        'totalEntitiesMatched': 0,
-        'totalResolvedGroups': 0,
-        'matchQualityDistribution': {
-            'high': 0,
-            'medium': 0,
-            'low': 0
-        },
-        'commonMatchKeys': {},
-        'featureScores': {},
-        'resolutionRules': {}
+        "totalEntitiesMatched": 0,
+        "totalResolvedGroups": 0,
+        "matchQualityDistribution": {"high": 0, "medium": 0, "low": 0},
+        "commonMatchKeys": {},
+        "featureScores": {},
+        "resolutionRules": {},
     }
 
     if not resolved_entities:
         return match_details
 
-    match_details['totalResolvedGroups'] = len(resolved_entities)
+    match_details["totalResolvedGroups"] = len(resolved_entities)
 
     # Aggregate data from each resolved entity group
     for senzing_entity_id, group_data in resolved_entities.items():
-        entities_in_group = group_data['entities']
-        senzing_data = group_data['senzing_data']
+        entities_in_group = group_data["entities"]
+        senzing_data = group_data["senzing_data"]
 
         # Count entities matched
-        match_details['totalEntitiesMatched'] += len(entities_in_group)
+        match_details["totalEntitiesMatched"] += len(entities_in_group)
 
         # Only process groups with duplicates (2+ entities)
         if len(entities_in_group) < 2:
             continue
 
-        records = senzing_data.get('RECORDS', [])
+        records = senzing_data.get("RECORDS", [])
 
         # Extract match quality from records
         for record in records:
-            match_level_code = record.get('MATCH_LEVEL_CODE', '').upper()
-            match_level = record.get('MATCH_LEVEL', 0)
+            match_level_code = record.get("MATCH_LEVEL_CODE", "").upper()
+            match_level = record.get("MATCH_LEVEL", 0)
 
             # Categorize match quality
-            if match_level_code in ['RESOLVED', 'EXACT_MATCH'] or match_level >= 3:
-                match_details['matchQualityDistribution']['high'] += 1
-            elif match_level_code in ['POSSIBLY_SAME', 'POSSIBLY_RELATED'] or match_level >= 2:
-                match_details['matchQualityDistribution']['medium'] += 1
+            if match_level_code in ["RESOLVED", "EXACT_MATCH"] or match_level >= 3:
+                match_details["matchQualityDistribution"]["high"] += 1
+            elif match_level_code in ["POSSIBLY_SAME", "POSSIBLY_RELATED"] or match_level >= 2:
+                match_details["matchQualityDistribution"]["medium"] += 1
             else:
-                match_details['matchQualityDistribution']['low'] += 1
+                match_details["matchQualityDistribution"]["low"] += 1
 
             # Track match keys
-            match_key = record.get('MATCH_KEY', '')
+            match_key = record.get("MATCH_KEY", "")
             if match_key:
-                match_details['commonMatchKeys'][match_key] = match_details['commonMatchKeys'].get(match_key, 0) + 1
+                match_details["commonMatchKeys"][match_key] = match_details["commonMatchKeys"].get(match_key, 0) + 1
 
             # Track resolution rules
-            errule_code = record.get('ERRULE_CODE', '')
+            errule_code = record.get("ERRULE_CODE", "")
             if errule_code:
-                match_details['resolutionRules'][errule_code] = match_details['resolutionRules'].get(errule_code, 0) + 1
+                match_details["resolutionRules"][errule_code] = match_details["resolutionRules"].get(errule_code, 0) + 1
 
         # Extract feature scores
         # NOTE: Senzing feature scores are only available with enhanced flags
         # The FEATURES object contains feature values, not scores by default
-        features = senzing_data.get('FEATURES', {})
+        features = senzing_data.get("FEATURES", {})
 
         # Try to get record-level feature details if available
-        records = senzing_data.get('RECORDS', [])
+        records = senzing_data.get("RECORDS", [])
         for record in records:
             # Check for FEATURE_DETAILS in records (available with enhanced flags)
-            if 'FEATURES' in record:
-                record_features = record['FEATURES']
+            if "FEATURES" in record:
+                record_features = record["FEATURES"]
                 for feature_type, feature_list in record_features.items():
                     if not feature_list:
                         continue
 
                     # Initialize feature score tracking
-                    if feature_type not in match_details['featureScores']:
-                        match_details['featureScores'][feature_type] = {
-                            'total': 0,
-                            'count': 0,
-                            'average': 0
-                        }
+                    if feature_type not in match_details["featureScores"]:
+                        match_details["featureScores"][feature_type] = {"total": 0, "count": 0, "average": 0}
 
                     # Aggregate scores from record features
                     for feature in feature_list:
@@ -224,37 +217,33 @@ def _extract_match_details_from_senzing_results(resolved_entities: Dict) -> Dict
                         score = 0
                         if isinstance(feature, dict):
                             # Try FEAT_DESC_VALUES structure
-                            if 'FEAT_DESC_VALUES' in feature and isinstance(feature['FEAT_DESC_VALUES'], list):
-                                if len(feature['FEAT_DESC_VALUES']) > 0:
-                                    score = feature['FEAT_DESC_VALUES'][0].get('FEAT_SCORE', 0)
+                            if "FEAT_DESC_VALUES" in feature and isinstance(feature["FEAT_DESC_VALUES"], list):
+                                if len(feature["FEAT_DESC_VALUES"]) > 0:
+                                    score = feature["FEAT_DESC_VALUES"][0].get("FEAT_SCORE", 0)
                             # Try direct USAGE_TYPE (can indicate match quality)
-                            elif 'USAGE_TYPE' in feature:
+                            elif "USAGE_TYPE" in feature:
                                 # USAGE_TYPE values like "FF" (full feature) indicate strong match
-                                usage = feature.get('USAGE_TYPE', '')
-                                if usage == 'FF':
+                                usage = feature.get("USAGE_TYPE", "")
+                                if usage == "FF":
                                     score = 100
-                                elif usage in ['FM', 'FME']:
+                                elif usage in ["FM", "FME"]:
                                     score = 75
-                                elif usage in ['FNF']:
+                                elif usage in ["FNF"]:
                                     score = 50
 
                         if score > 0:
-                            match_details['featureScores'][feature_type]['total'] += score
-                            match_details['featureScores'][feature_type]['count'] += 1
+                            match_details["featureScores"][feature_type]["total"] += score
+                            match_details["featureScores"][feature_type]["count"] += 1
 
         # If no record-level features, try entity-level features with count
-        if not match_details['featureScores'] and features:
+        if not match_details["featureScores"] and features:
             for feature_type, feature_list in features.items():
                 if not feature_list or not isinstance(feature_list, list):
                     continue
 
                 # Initialize tracking
-                if feature_type not in match_details['featureScores']:
-                    match_details['featureScores'][feature_type] = {
-                        'total': 0,
-                        'count': 0,
-                        'average': 0
-                    }
+                if feature_type not in match_details["featureScores"]:
+                    match_details["featureScores"][feature_type] = {"total": 0, "count": 0, "average": 0}
 
                 # Count features as a proxy for score (number of matching values)
                 # Normalize to 0-100 scale based on number of records
@@ -264,26 +253,22 @@ def _extract_match_details_from_senzing_results(resolved_entities: Dict) -> Dict
                 score = min(100, int((feature_count / num_records) * 100)) if num_records > 0 else 0
 
                 if score > 0:
-                    match_details['featureScores'][feature_type]['total'] = score
-                    match_details['featureScores'][feature_type]['count'] = 1
+                    match_details["featureScores"][feature_type]["total"] = score
+                    match_details["featureScores"][feature_type]["count"] = 1
 
     # Calculate average feature scores
-    for feature_type, scores in match_details['featureScores'].items():
-        if scores['count'] > 0:
-            scores['average'] = round(scores['total'] / scores['count'], 2)
+    for feature_type, scores in match_details["featureScores"].items():
+        if scores["count"] > 0:
+            scores["average"] = round(scores["total"] / scores["count"], 2)
 
     # Sort match keys and resolution rules by frequency
-    match_details['commonMatchKeys'] = dict(sorted(
-        match_details['commonMatchKeys'].items(),
-        key=lambda x: x[1],
-        reverse=True
-    )[:10])  # Top 10
+    match_details["commonMatchKeys"] = dict(
+        sorted(match_details["commonMatchKeys"].items(), key=lambda x: x[1], reverse=True)[:10]
+    )  # Top 10
 
-    match_details['resolutionRules'] = dict(sorted(
-        match_details['resolutionRules'].items(),
-        key=lambda x: x[1],
-        reverse=True
-    )[:10])  # Top 10
+    match_details["resolutionRules"] = dict(
+        sorted(match_details["resolutionRules"].items(), key=lambda x: x[1], reverse=True)[:10]
+    )  # Top 10
 
     return match_details
 
@@ -291,6 +276,7 @@ def _extract_match_details_from_senzing_results(resolved_entities: Dict) -> Dict
 # ============================================================================
 # Internal Helper Functions (Entity Resolution Logic)
 # ============================================================================
+
 
 def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types: List[str]) -> List[Dict]:
     """Extract entities from Neo4j for resolution.
@@ -437,31 +423,31 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
     """
 
     # Use query() instead of query_graph() for scalar results
-    results = neo4j_client.query(query, {'node_types': selected_node_types})
+    results = neo4j_client.query(query, {"node_types": selected_node_types})
     entities = []
 
     for record in results:
-        entity_props = dict(record['entity_node'].items()) if record.get('entity_node') else {}
+        entity_props = dict(record["entity_node"].items()) if record.get("entity_node") else {}
 
         # Extract all resolution attributes
-        full_name = str(record.get('PersonFullName') or '')
-        given_name = str(record.get('PersonGivenName') or '')
-        surname = str(record.get('PersonSurName') or '')
-        middle_name = str(record.get('PersonMiddleName') or '')
-        ssn = str(record.get('PersonSSN') or '')
-        driver_license = str(record.get('DriverLicense') or '')
-        person_id = str(record.get('PersonID') or '')
-        birth_date = str(record.get('BirthDate') or '')
-        address = str(record.get('Address') or '')
-        city = str(record.get('City') or '')
-        state = str(record.get('State') or '')
-        zip_code = str(record.get('ZipCode') or '')
-        phone = str(record.get('Phone') or '')
-        email = str(record.get('Email') or '')
+        full_name = str(record.get("PersonFullName") or "")
+        given_name = str(record.get("PersonGivenName") or "")
+        surname = str(record.get("PersonSurName") or "")
+        middle_name = str(record.get("PersonMiddleName") or "")
+        ssn = str(record.get("PersonSSN") or "")
+        driver_license = str(record.get("DriverLicense") or "")
+        person_id = str(record.get("PersonID") or "")
+        birth_date = str(record.get("BirthDate") or "")
+        address = str(record.get("Address") or "")
+        city = str(record.get("City") or "")
+        state = str(record.get("State") or "")
+        zip_code = str(record.get("ZipCode") or "")
+        phone = str(record.get("Phone") or "")
+        email = str(record.get("Email") or "")
 
         # Get source and entity type info
-        source = record.get('sourceDoc') or record.get('source_file') or 'unknown'
-        entity_type = record.get('qname') or 'Unknown'
+        source = record.get("sourceDoc") or record.get("source_file") or "unknown"
+        entity_type = record.get("qname") or "Unknown"
 
         # Build list of found attributes for logging
         found_attrs = []
@@ -486,36 +472,37 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
             )
         else:
             logger.warning(
-                f"⚠ Skipping {entity_type} - no resolution attributes found "
-                f"(neo4j_id={record.get('neo4j_id')})"
+                f"⚠ Skipping {entity_type} - no resolution attributes found " f"(neo4j_id={record.get('neo4j_id')})"
             )
             continue
 
-        entities.append({
-            'neo4j_id': record['neo4j_id'],
-            'entity_id': record.get('entity_id'),
-            'entity_type': entity_type,
-            'qname': record.get('qname'),
-            'labels': record.get('labels', []),
-            'source': source,
-            'properties': {
-                **entity_props,
-                'PersonFullName': full_name,
-                'PersonGivenName': given_name,
-                'PersonSurName': surname,
-                'PersonMiddleName': middle_name,
-                'PersonSSN': ssn,
-                'DriverLicense': driver_license,
-                'PersonID': person_id,
-                'BirthDate': birth_date,
-                'Address': address,
-                'City': city,
-                'State': state,
-                'ZipCode': zip_code,
-                'Phone': phone,
-                'Email': email
+        entities.append(
+            {
+                "neo4j_id": record["neo4j_id"],
+                "entity_id": record.get("entity_id"),
+                "entity_type": entity_type,
+                "qname": record.get("qname"),
+                "labels": record.get("labels", []),
+                "source": source,
+                "properties": {
+                    **entity_props,
+                    "PersonFullName": full_name,
+                    "PersonGivenName": given_name,
+                    "PersonSurName": surname,
+                    "PersonMiddleName": middle_name,
+                    "PersonSSN": ssn,
+                    "DriverLicense": driver_license,
+                    "PersonID": person_id,
+                    "BirthDate": birth_date,
+                    "Address": address,
+                    "City": city,
+                    "State": state,
+                    "ZipCode": zip_code,
+                    "Phone": phone,
+                    "Email": email,
+                },
             }
-        })
+        )
 
     logger.info(f"Extracted {len(entities)} entities from Neo4j")
     return entities
@@ -536,7 +523,7 @@ def _create_entity_key(entity: Dict) -> str:
     Returns:
         Matching key string, or empty string if insufficient data
     """
-    props = entity.get('properties', {})
+    props = entity.get("properties", {})
 
     # DEBUG: Show entity being processed for text-based matching
     print(f"\n[SENZING_DEBUG] TEXT-BASED MATCHING - Processing entity:")
@@ -545,16 +532,16 @@ def _create_entity_key(entity: Dict) -> str:
     print(f"[SENZING_DEBUG]   properties: {list(props.keys())}")
 
     # Try PersonFullName first (for Child entities from NEICE documents)
-    full_name = props.get('PersonFullName', '').strip().lower()
+    full_name = props.get("PersonFullName", "").strip().lower()
     if full_name:
         # Normalize: "Jason Ohlendorf" -> "jason_ohlendorf"
-        key = full_name.replace(' ', '_')
+        key = full_name.replace(" ", "_")
         print(f"[SENZING_DEBUG]   Matched on PersonFullName: '{full_name}' → key='{key}'")
         return key
 
     # Fall back to GivenName + SurName (for CrashDriver entities)
-    given_name = props.get('PersonGivenName', '').strip().lower()
-    surname = props.get('PersonSurName', '').strip().lower()
+    given_name = props.get("PersonGivenName", "").strip().lower()
+    surname = props.get("PersonSurName", "").strip().lower()
 
     if given_name and surname:
         # Create normalized key: "peter" + "wimsey" -> "peter_wimsey"
@@ -564,7 +551,7 @@ def _create_entity_key(entity: Dict) -> str:
 
     # Insufficient data for matching
     print(f"[SENZING_DEBUG]   ❌ Insufficient data for matching - no name fields found")
-    return ''
+    return ""
 
 
 def _group_entities_by_key(entities: List[Dict]) -> Dict[str, List[Dict]]:
@@ -596,16 +583,13 @@ def _group_entities_by_key(entities: List[Dict]) -> Dict[str, List[Dict]]:
     # Log detailed grouping information
     logger.info(f"Found {len(duplicate_groups)} duplicate entity groups from {len(entities)} total entities")
     for key, group in duplicate_groups.items():
-        sources = [e.get('source', 'unknown') for e in group]
+        sources = [e.get("source", "unknown") for e in group]
         logger.info(f"  Match key '{key}': {len(group)} entities from sources: {sources}")
 
     return duplicate_groups
 
 
-def _create_resolved_entity_nodes(
-    neo4j_client: Neo4jClient,
-    entity_groups: Dict[str, List[Dict]]
-) -> Tuple[int, int]:
+def _create_resolved_entity_nodes(neo4j_client: Neo4jClient, entity_groups: Dict[str, List[Dict]]) -> Tuple[int, int]:
     """Create ResolvedEntity nodes and relationships in Neo4j.
 
     Args:
@@ -626,26 +610,26 @@ def _create_resolved_entity_nodes(
 
         # Extract representative name from first entity
         first_entity = entities[0]
-        props = first_entity['properties']
+        props = first_entity["properties"]
 
         # Use PersonFullName if available (Child entity format)
-        full_name = props.get('PersonFullName', '').strip()
+        full_name = props.get("PersonFullName", "").strip()
 
         # Otherwise construct from name parts (CrashDriver format)
         if not full_name:
-            given_name = props.get('PersonGivenName', '')
-            middle_names = props.get('PersonMiddleName', [])
-            surname = props.get('PersonSurName', '')
+            given_name = props.get("PersonGivenName", "")
+            middle_names = props.get("PersonMiddleName", [])
+            surname = props.get("PersonSurName", "")
 
             # Handle middle names (can be list or string)
             if isinstance(middle_names, list):
-                middle_str = ' '.join(str(m) for m in middle_names if m)
+                middle_str = " ".join(str(m) for m in middle_names if m)
             else:
-                middle_str = str(middle_names) if middle_names else ''
+                middle_str = str(middle_names) if middle_names else ""
 
             full_name = f"{given_name} {middle_str} {surname}".strip()
 
-        birth_date = props.get('PersonBirthDate', '')
+        birth_date = props.get("PersonBirthDate", "")
 
         # Collect graph isolation properties from all entities in the group
         upload_ids = set()
@@ -653,20 +637,20 @@ def _create_resolved_entity_nodes(
         source_docs = set()
 
         for entity in entities:
-            entity_props = entity.get('properties', {})
+            entity_props = entity.get("properties", {})
 
             # Collect _upload_id
-            upload_id = entity_props.get('_upload_id')
+            upload_id = entity_props.get("_upload_id")
             if upload_id:
                 upload_ids.add(upload_id)
 
             # Collect _schema_id
-            schema_id = entity_props.get('_schema_id')
+            schema_id = entity_props.get("_schema_id")
             if schema_id:
                 schema_ids.add(schema_id)
 
             # Collect sourceDoc
-            source_doc = entity.get('source') or entity_props.get('sourceDoc')
+            source_doc = entity.get("source") or entity_props.get("sourceDoc")
             if source_doc:
                 source_docs.add(source_doc)
 
@@ -689,17 +673,20 @@ def _create_resolved_entity_nodes(
         RETURN re
         """
 
-        neo4j_client.query_graph(create_node_query, {
-            'entity_id': entity_id,
-            'name': full_name,
-            'birth_date': birth_date,
-            'resolved_count': len(entities),
-            'resolved_at': timestamp,
-            'match_key': match_key,
-            'upload_ids': upload_ids_list,
-            'schema_ids': schema_ids_list,
-            'source_docs': source_docs_list
-        })
+        neo4j_client.query_graph(
+            create_node_query,
+            {
+                "entity_id": entity_id,
+                "name": full_name,
+                "birth_date": birth_date,
+                "resolved_count": len(entities),
+                "resolved_at": timestamp,
+                "match_key": match_key,
+                "upload_ids": upload_ids_list,
+                "schema_ids": schema_ids_list,
+                "source_docs": source_docs_list,
+            },
+        )
 
         resolved_count += 1
 
@@ -715,19 +702,21 @@ def _create_resolved_entity_nodes(
             RETURN r
             """
 
-            neo4j_client.query_graph(create_rel_query, {
-                'neo4j_id': int(entity['neo4j_id']),
-                'entity_id': entity_id,
-                'confidence': 0.95,  # High confidence for text-based matching (name-only)
-                'matched_on': 'given_name+surname',
-                'resolved_at': timestamp
-            })
+            neo4j_client.query_graph(
+                create_rel_query,
+                {
+                    "neo4j_id": int(entity["neo4j_id"]),
+                    "entity_id": entity_id,
+                    "confidence": 0.95,  # High confidence for text-based matching (name-only)
+                    "matched_on": "given_name+surname",
+                    "resolved_at": timestamp,
+                },
+            )
 
             relationship_count += 1
 
     logger.info(
-        f"Created {resolved_count} ResolvedEntity nodes "
-        f"with {relationship_count} RESOLVED_TO relationships"
+        f"Created {resolved_count} ResolvedEntity nodes " f"with {relationship_count} RESOLVED_TO relationships"
     )
 
     return resolved_count, relationship_count
@@ -778,7 +767,7 @@ def _create_resolved_entity_relationships(neo4j_client: Neo4jClient) -> int:
     try:
         result = neo4j_client.query(query, {})
         if result and len(result) > 0:
-            count = result[0].get('relationships_created', 0)
+            count = result[0].get("relationships_created", 0)
             logger.info(f"Created {count} relationships between ResolvedEntity nodes")
             return count
         return 0
@@ -811,7 +800,7 @@ def _create_resolved_entity_relationships(neo4j_client: Neo4jClient) -> int:
 
         result = neo4j_client.query(fallback_query, {})
         if result and len(result) > 0:
-            count = result[0].get('relationships_created', 0)
+            count = result[0].get("relationships_created", 0)
             logger.info(f"Created {count} RESOLVED_RELATIONSHIP relationships (fallback mode)")
             return count
         return 0
@@ -860,17 +849,19 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
             logger.info(f"SOURCE_FILE: {record_dict.get('SOURCE_FILE', 'N/A')}")
 
             # Show name fields
-            name_fields = {k: v for k, v in record_dict.items() if 'NAME' in k}
+            name_fields = {k: v for k, v in record_dict.items() if "NAME" in k}
             if name_fields:
                 logger.info(f"NAME FIELDS: {json.dumps(name_fields, indent=2)}")
 
             # Show identifier fields
-            id_fields = {k: v for k, v in record_dict.items() if any(x in k for x in ['SSN', 'DOB', 'LICENSE', 'ID_NUMBER'])}
+            id_fields = {
+                k: v for k, v in record_dict.items() if any(x in k for x in ["SSN", "DOB", "LICENSE", "ID_NUMBER"])
+            }
             if id_fields:
                 logger.info(f"IDENTIFIER FIELDS: {json.dumps(id_fields, indent=2)}")
 
             # Show address fields
-            addr_fields = {k: v for k, v in record_dict.items() if 'ADDR' in k}
+            addr_fields = {k: v for k, v in record_dict.items() if "ADDR" in k}
             if addr_fields:
                 logger.info(f"ADDRESS FIELDS: {json.dumps(addr_fields, indent=2)}")
 
@@ -895,7 +886,7 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
 
         # Get resolution results for each entity
         for i, entity in enumerate(entities):
-            record_id = str(entity.get('entity_id') or entity.get('neo4j_id', ''))
+            record_id = str(entity.get("entity_id") or entity.get("neo4j_id", ""))
 
             # Get Senzing resolution result
             result = senzing_client.get_entity_by_record_id("NIEM_GRAPH", record_id)
@@ -904,40 +895,46 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
                 continue
 
             # DEBUG: Print raw Senzing response
-            resolved_entity = result.get('RESOLVED_ENTITY', {})
-            records = resolved_entity.get('RECORDS', [])
+            resolved_entity = result.get("RESOLVED_ENTITY", {})
+            records = resolved_entity.get("RECORDS", [])
             print(f"\n[SENZING_DEBUG] Senzing response for record_id={record_id}:")
             print(f"[SENZING_DEBUG]   ENTITY_ID: {resolved_entity.get('ENTITY_ID')}")
             print(f"[SENZING_DEBUG]   ENTITY_NAME: {resolved_entity.get('ENTITY_NAME')}")
             print(f"[SENZING_DEBUG]   Records matched: {len(records)}")
             for rec in records:
-                print(f"[SENZING_DEBUG]     - {rec.get('DATA_SOURCE')}/{rec.get('RECORD_ID')} (MATCH_KEY: {rec.get('MATCH_KEY', 'N/A')})")
+                print(
+                    f"[SENZING_DEBUG]     - {rec.get('DATA_SOURCE')}/{rec.get('RECORD_ID')} (MATCH_KEY: {rec.get('MATCH_KEY', 'N/A')})"
+                )
 
             # Extract Senzing entity ID
-            senzing_entity_id = result.get('RESOLVED_ENTITY', {}).get('ENTITY_ID')
+            senzing_entity_id = result.get("RESOLVED_ENTITY", {}).get("ENTITY_ID")
             if not senzing_entity_id:
                 logger.warning(f"No entity ID in Senzing result for record {record_id}")
                 continue
 
             # Log detailed Senzing output for first 5 entities
             if i < 5:
-                resolved_entity = result.get('RESOLVED_ENTITY', {})
+                resolved_entity = result.get("RESOLVED_ENTITY", {})
                 logger.info(f"\n--- Senzing Result {i+1}/{len(entities)} (Record ID: {record_id}) ---")
                 logger.info(f"SENZING ENTITY_ID: {senzing_entity_id}")
                 logger.info(f"ENTITY_NAME: {resolved_entity.get('ENTITY_NAME', 'N/A')}")
                 logger.info(f"RECORD_SUMMARY:")
 
                 # Show all records that resolved to this entity
-                records = resolved_entity.get('RECORDS', [])
+                records = resolved_entity.get("RECORDS", [])
                 for rec in records:
-                    logger.info(f"  - {rec.get('DATA_SOURCE')}/{rec.get('RECORD_ID')} (MATCH_KEY: {rec.get('MATCH_KEY', 'N/A')})")
+                    logger.info(
+                        f"  - {rec.get('DATA_SOURCE')}/{rec.get('RECORD_ID')} (MATCH_KEY: {rec.get('MATCH_KEY', 'N/A')})"
+                    )
 
                 # Show match details
                 if len(records) > 1:
                     logger.info(f"✓ DUPLICATE DETECTED: {len(records)} records resolve to same entity")
                     # DEBUG: Print duplicate detection
-                    record_ids = [rec.get('RECORD_ID') for rec in records]
-                    print(f"[SENZING_DEBUG] ✓ DUPLICATE FOUND: Records {record_ids} all resolve to Senzing ENTITY_ID={senzing_entity_id}")
+                    record_ids = [rec.get("RECORD_ID") for rec in records]
+                    print(
+                        f"[SENZING_DEBUG] ✓ DUPLICATE FOUND: Records {record_ids} all resolve to Senzing ENTITY_ID={senzing_entity_id}"
+                    )
                 else:
                     logger.info(f"  UNIQUE ENTITY: Only 1 record for this entity")
 
@@ -945,21 +942,23 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
             if senzing_entity_id not in resolved_entities:
                 # First time seeing this Senzing entity
                 resolved_entities[senzing_entity_id] = {
-                    'entities': [],
-                    'senzing_data': result.get('RESOLVED_ENTITY', {})
+                    "entities": [],
+                    "senzing_data": result.get("RESOLVED_ENTITY", {}),
                 }
 
-            resolved_entities[senzing_entity_id]['entities'].append(entity)
+            resolved_entities[senzing_entity_id]["entities"].append(entity)
 
         logger.info(f"\n--- Summary ---")
         logger.info(f"Total Senzing Entity IDs: {len(resolved_entities)}")
-        logger.info(f"Entities with duplicates (2+ records): {sum(1 for v in resolved_entities.values() if len(v['entities']) >= 2)}")
+        logger.info(
+            f"Entities with duplicates (2+ records): {sum(1 for v in resolved_entities.values() if len(v['entities']) >= 2)}"
+        )
         logger.info("=" * 80)
 
         # Create ResolvedEntity nodes for groups with duplicates
         for senzing_entity_id, group_data in resolved_entities.items():
-            entities_in_group = group_data['entities']
-            senzing_data = group_data['senzing_data']
+            entities_in_group = group_data["entities"]
+            senzing_data = group_data["senzing_data"]
 
             # Only create resolved entity if there are duplicates
             if len(entities_in_group) < 2:
@@ -970,19 +969,19 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
             neo4j_entity_id = f"SE_{entity_hash}"
 
             # Extract name from Senzing result
-            entity_name = senzing_data.get('ENTITY_NAME', '')
+            entity_name = senzing_data.get("ENTITY_NAME", "")
             if not entity_name:
                 # Fall back to first entity's name
                 first_entity = entities_in_group[0]
-                props = first_entity.get('properties', {})
-                entity_name = props.get('PersonFullName', '')
+                props = first_entity.get("properties", {})
+                entity_name = props.get("PersonFullName", "")
                 if not entity_name:
-                    given = props.get('PersonGivenName', '')
-                    surname = props.get('PersonSurName', '')
+                    given = props.get("PersonGivenName", "")
+                    surname = props.get("PersonSurName", "")
                     entity_name = f"{given} {surname}".strip()
 
             # Get match confidence from Senzing
-            confidence = extract_confidence_from_senzing({'RESOLVED_ENTITY': senzing_data})
+            confidence = extract_confidence_from_senzing({"RESOLVED_ENTITY": senzing_data})
 
             # Collect graph isolation properties from all entities in the group
             upload_ids = set()
@@ -990,20 +989,20 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
             source_docs = set()
 
             for entity in entities_in_group:
-                entity_props = entity.get('properties', {})
+                entity_props = entity.get("properties", {})
 
                 # Collect _upload_id
-                upload_id = entity_props.get('_upload_id')
+                upload_id = entity_props.get("_upload_id")
                 if upload_id:
                     upload_ids.add(upload_id)
 
                 # Collect _schema_id
-                schema_id = entity_props.get('_schema_id')
+                schema_id = entity_props.get("_schema_id")
                 if schema_id:
                     schema_ids.add(schema_id)
 
                 # Collect sourceDoc
-                source_doc = entity.get('source') or entity_props.get('sourceDoc')
+                source_doc = entity.get("source") or entity_props.get("sourceDoc")
                 if source_doc:
                     source_docs.add(source_doc)
 
@@ -1027,17 +1026,20 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
             RETURN re
             """
 
-            neo4j_client.query_graph(create_node_query, {
-                'entity_id': neo4j_entity_id,
-                'name': entity_name,
-                'senzing_entity_id': senzing_entity_id,
-                'resolved_count': len(entities_in_group),
-                'resolved_at': timestamp,
-                'confidence': confidence,
-                'upload_ids': upload_ids_list,
-                'schema_ids': schema_ids_list,
-                'source_docs': source_docs_list
-            })
+            neo4j_client.query_graph(
+                create_node_query,
+                {
+                    "entity_id": neo4j_entity_id,
+                    "name": entity_name,
+                    "senzing_entity_id": senzing_entity_id,
+                    "resolved_count": len(entities_in_group),
+                    "resolved_at": timestamp,
+                    "confidence": confidence,
+                    "upload_ids": upload_ids_list,
+                    "schema_ids": schema_ids_list,
+                    "source_docs": source_docs_list,
+                },
+            )
 
             resolved_count += 1
 
@@ -1054,17 +1056,22 @@ def _resolve_entities_with_senzing(neo4j_client: Neo4jClient, entities: List[Dic
                 RETURN r
                 """
 
-                neo4j_client.query_graph(create_rel_query, {
-                    'neo4j_id': int(entity['neo4j_id']),
-                    'entity_id': neo4j_entity_id,
-                    'confidence': confidence,
-                    'resolved_at': timestamp,
-                    'senzing_entity_id': senzing_entity_id
-                })
+                neo4j_client.query_graph(
+                    create_rel_query,
+                    {
+                        "neo4j_id": int(entity["neo4j_id"]),
+                        "entity_id": neo4j_entity_id,
+                        "confidence": confidence,
+                        "resolved_at": timestamp,
+                        "senzing_entity_id": senzing_entity_id,
+                    },
+                )
 
                 relationship_count += 1
 
-        logger.info(f"Senzing resolution created {resolved_count} resolved entities with {relationship_count} relationships")
+        logger.info(
+            f"Senzing resolution created {resolved_count} resolved entities with {relationship_count} relationships"
+        )
 
         # Extract match details from Senzing results
         match_details = _extract_match_details_from_senzing_results(resolved_entities)
@@ -1098,13 +1105,10 @@ def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
     node_count = 0
     rel_count = 0
     if result and len(result) > 0:
-        node_count = result[0].get('nodes_deleted', 0)
-        rel_count = result[0].get('rels_deleted', 0)
+        node_count = result[0].get("nodes_deleted", 0)
+        rel_count = result[0].get("rels_deleted", 0)
 
-    logger.info(
-        f"Reset entity resolution: deleted {node_count} nodes "
-        f"and {rel_count} relationships from Neo4j"
-    )
+    logger.info(f"Reset entity resolution: deleted {node_count} nodes " f"and {rel_count} relationships from Neo4j")
 
     # Also clear Senzing repository if available
     if SENZING_AVAILABLE:
@@ -1118,10 +1122,7 @@ def _reset_entity_resolution(neo4j_client: Neo4jClient) -> Dict[str, int]:
         except Exception as e:
             logger.warning(f"Could not purge Senzing repository: {e}")
 
-    return {
-        'resolved_entities_deleted': node_count,
-        'relationships_deleted': rel_count
-    }
+    return {"resolved_entities_deleted": node_count, "relationships_deleted": rel_count}
 
 
 def _get_resolution_status(neo4j_client: Neo4jClient) -> Dict:
@@ -1142,7 +1143,7 @@ def _get_resolution_status(neo4j_client: Neo4jClient) -> Dict:
     result = neo4j_client.query(count_query, {})
     resolved_count = 0
     if result and len(result) > 0:
-        resolved_count = result[0].get('resolved_entities', 0)
+        resolved_count = result[0].get("resolved_entities", 0)
 
     # Count RESOLVED_TO relationships
     rel_count_query = """
@@ -1153,13 +1154,9 @@ def _get_resolution_status(neo4j_client: Neo4jClient) -> Dict:
     rel_result = neo4j_client.query(rel_count_query, {})
     rel_count = 0
     if rel_result and len(rel_result) > 0:
-        rel_count = rel_result[0].get('relationships', 0)
+        rel_count = rel_result[0].get("relationships", 0)
 
-    return {
-        'resolved_entity_clusters': resolved_count,
-        'entities_resolved': rel_count,
-        'is_active': resolved_count > 0
-    }
+    return {"resolved_entity_clusters": resolved_count, "entities_resolved": rel_count, "is_active": resolved_count > 0}
 
 
 def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
@@ -1300,7 +1297,7 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
     seen_qnames = set()  # Track qnames to prevent duplicates
 
     for record in results:
-        qname = record['qname']
+        qname = record["qname"]
 
         # Skip if we've already seen this qname
         if qname in seen_qnames:
@@ -1308,40 +1305,41 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
         seen_qnames.add(qname)
 
         # Determine which resolution attributes are available
-        attr_count = record.get('attrCount', 0)
+        attr_count = record.get("attrCount", 0)
         if attr_count == 0:
             continue
 
         # Build list of available fields dynamically
         available_fields = []
-        if record.get('sampleName'):
-            available_fields.append('Name')
-        if record.get('sampleGivenName') or record.get('sampleSurName'):
-            available_fields.append('Given/Surname')
-        if record.get('sampleSSN'):
-            available_fields.append('SSN')
-        if record.get('sampleDOB'):
-            available_fields.append('DOB')
-        if record.get('sampleAddress'):
-            available_fields.append('Address')
+        if record.get("sampleName"):
+            available_fields.append("Name")
+        if record.get("sampleGivenName") or record.get("sampleSurName"):
+            available_fields.append("Given/Surname")
+        if record.get("sampleSSN"):
+            available_fields.append("SSN")
+        if record.get("sampleDOB"):
+            available_fields.append("DOB")
+        if record.get("sampleAddress"):
+            available_fields.append("Address")
 
         # Determine category
-        category = 'other'
+        category = "other"
         try:
             from ..services.entity_to_senzing import get_entity_category
-            entity_mock = {'qname': qname}
+
+            entity_mock = {"qname": qname}
             category = get_entity_category(entity_mock)
         except:
             pass
 
         # Filter: Include person, organization, and location entity types
         # (as requested by user - key entities for resolution)
-        if category not in ['person', 'organization', 'address']:
+        if category not in ["person", "organization", "address"]:
             logger.debug(f"Excluding {qname} from entity resolution (category: {category})")
             continue
 
         # Extract hierarchy path (list of qnames from root to this entity)
-        hierarchy_path = record.get('hierarchyPath', [])
+        hierarchy_path = record.get("hierarchyPath", [])
         if hierarchy_path and isinstance(hierarchy_path, list):
             # Filter out None values and ensure it's a list of strings
             hierarchy_path = [str(h) for h in hierarchy_path if h is not None]
@@ -1349,20 +1347,20 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
             hierarchy_path = []
 
         # Compute how many properties map to Senzing fields (for "recommended" types)
-        sample_keys = record.get('sampleKeys', [])
+        sample_keys = record.get("sampleKeys", [])
         senzing_mapped_count = _count_senzing_mappable_fields(sample_keys)
         is_recommended = senzing_mapped_count > 0
 
         node_type_info = {
-            'qname': qname,
-            'label': record['label'],
-            'count': record['count'],
-            'nameFields': available_fields,  # Changed from name_fields
-            'category': category,
-            'hierarchyPath': hierarchy_path,
-            'attributeCount': attr_count,
-            'senzingMappedFields': senzing_mapped_count,
-            'recommended': is_recommended
+            "qname": qname,
+            "label": record["label"],
+            "count": record["count"],
+            "nameFields": available_fields,  # Changed from name_fields
+            "category": category,
+            "hierarchyPath": hierarchy_path,
+            "attributeCount": attr_count,
+            "senzingMappedFields": senzing_mapped_count,
+            "recommended": is_recommended,
         }
 
         node_types.append(node_type_info)
@@ -1380,6 +1378,7 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
 # ============================================================================
 # Public Handler Functions (API Endpoints)
 # ============================================================================
+
 
 def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
     """Run entity resolution on the current Neo4j graph.
@@ -1399,13 +1398,13 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
     """
     if not selected_node_types:
         return {
-            'status': 'error',
-            'message': 'No node types selected for entity resolution',
-            'entitiesExtracted': 0,
-            'duplicateGroupsFound': 0,
-            'resolvedEntitiesCreated': 0,
-            'relationshipsCreated': 0,
-            'entitiesResolved': 0
+            "status": "error",
+            "message": "No node types selected for entity resolution",
+            "entitiesExtracted": 0,
+            "duplicateGroupsFound": 0,
+            "resolvedEntitiesCreated": 0,
+            "relationshipsCreated": 0,
+            "entitiesResolved": 0,
         }
 
     logger.info(f"Starting entity resolution for node types: {selected_node_types}")
@@ -1420,15 +1419,15 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
 
         if not entities:
             return {
-                'status': 'success',
-                'message': 'No entities found in the graph to resolve',
-                'entitiesExtracted': 0,
-                'duplicateGroupsFound': 0,
-                'resolvedEntitiesCreated': 0,
-                'relationshipsCreated': 0,
-                'entitiesResolved': 0,
-                'resolutionMethod': 'text_based',
-                'nodeTypesProcessed': selected_node_types
+                "status": "success",
+                "message": "No entities found in the graph to resolve",
+                "entitiesExtracted": 0,
+                "duplicateGroupsFound": 0,
+                "resolvedEntitiesCreated": 0,
+                "relationshipsCreated": 0,
+                "entitiesResolved": 0,
+                "resolutionMethod": "text_based",
+                "nodeTypesProcessed": selected_node_types,
             }
 
         # Step 2: Group entities by matching keys
@@ -1437,15 +1436,15 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
 
         if not entity_groups:
             return {
-                'status': 'success',
-                'message': 'No duplicate entities found - all entities are unique',
-                'entitiesExtracted': len(entities),
-                'duplicateGroupsFound': 0,
-                'resolvedEntitiesCreated': 0,
-                'relationshipsCreated': 0,
-                'entitiesResolved': 0,
-                'resolutionMethod': 'text_based',
-                'nodeTypesProcessed': selected_node_types
+                "status": "success",
+                "message": "No duplicate entities found - all entities are unique",
+                "entitiesExtracted": len(entities),
+                "duplicateGroupsFound": 0,
+                "resolvedEntitiesCreated": 0,
+                "relationshipsCreated": 0,
+                "entitiesResolved": 0,
+                "resolutionMethod": "text_based",
+                "nodeTypesProcessed": selected_node_types,
             }
 
         # Step 3: Perform entity resolution
@@ -1457,27 +1456,17 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
                 if senzing_client.is_available():
                     logger.info("Using Senzing SDK for entity resolution")
                     resolved_count, relationship_count, match_details = _resolve_entities_with_senzing(
-                        neo4j_client,
-                        entities
+                        neo4j_client, entities
                     )
                 else:
                     logger.info("Senzing not available (no license), falling back to text-based entity matching")
-                    resolved_count, relationship_count = _create_resolved_entity_nodes(
-                        neo4j_client,
-                        entity_groups
-                    )
+                    resolved_count, relationship_count = _create_resolved_entity_nodes(neo4j_client, entity_groups)
             except Exception as e:
                 logger.error(f"Senzing resolution failed, falling back to text-based entity matching: {e}")
-                resolved_count, relationship_count = _create_resolved_entity_nodes(
-                    neo4j_client,
-                    entity_groups
-                )
+                resolved_count, relationship_count = _create_resolved_entity_nodes(neo4j_client, entity_groups)
         else:
             logger.info("Using text-based entity matching (Senzing SDK not installed)")
-            resolved_count, relationship_count = _create_resolved_entity_nodes(
-                neo4j_client,
-                entity_groups
-            )
+            resolved_count, relationship_count = _create_resolved_entity_nodes(neo4j_client, entity_groups)
 
         # Step 4: Create relationships between ResolvedEntity nodes
         logger.info("Creating relationships between resolved entities")
@@ -1493,41 +1482,41 @@ def handle_run_entity_resolution(selected_node_types: List[str]) -> Dict:
         )
 
         # Determine which resolution method was used
-        resolution_method = 'text_based'
+        resolution_method = "text_based"
         if SENZING_AVAILABLE:
             try:
                 if get_senzing_client().is_available():
-                    resolution_method = 'senzing'
+                    resolution_method = "senzing"
             except:
                 pass
 
         response = {
-            'status': 'success',
-            'message': f'Successfully resolved {total_resolved_entities} entities into {resolved_count} clusters with {resolved_relationships_count} relationships',
-            'entitiesExtracted': len(entities),
-            'duplicateGroupsFound': len(entity_groups),
-            'resolvedEntitiesCreated': resolved_count,
-            'relationshipsCreated': relationship_count + resolved_relationships_count,
-            'entitiesResolved': total_resolved_entities,
-            'resolutionMethod': resolution_method,
-            'nodeTypesProcessed': selected_node_types
+            "status": "success",
+            "message": f"Successfully resolved {total_resolved_entities} entities into {resolved_count} clusters with {resolved_relationships_count} relationships",
+            "entitiesExtracted": len(entities),
+            "duplicateGroupsFound": len(entity_groups),
+            "resolvedEntitiesCreated": resolved_count,
+            "relationshipsCreated": relationship_count + resolved_relationships_count,
+            "entitiesResolved": total_resolved_entities,
+            "resolutionMethod": resolution_method,
+            "nodeTypesProcessed": selected_node_types,
         }
 
         # Include match details if using Senzing
-        if resolution_method == 'senzing' and match_details:
-            response['matchDetails'] = match_details
+        if resolution_method == "senzing" and match_details:
+            response["matchDetails"] = match_details
 
         return response
 
     except Exception as e:
         logger.error(f"Entity resolution failed: {e}", exc_info=True)
         return {
-            'status': 'error',
-            'message': f'Entity resolution failed: {str(e)}',
-            'entitiesExtracted': 0,
-            'duplicateGroupsFound': 0,
-            'resolvedEntitiesCreated': 0,
-            'relationshipsCreated': 0
+            "status": "error",
+            "message": f"Entity resolution failed: {str(e)}",
+            "entitiesExtracted": 0,
+            "duplicateGroupsFound": 0,
+            "resolvedEntitiesCreated": 0,
+            "relationshipsCreated": 0,
         }
 
 
@@ -1541,19 +1530,16 @@ def handle_get_resolution_status() -> Dict:
         neo4j_client = Neo4jClient()
         status = _get_resolution_status(neo4j_client)
 
-        return {
-            'status': 'success',
-            **status
-        }
+        return {"status": "success", **status}
 
     except Exception as e:
         logger.error(f"Failed to get resolution status: {e}", exc_info=True)
         return {
-            'status': 'error',
-            'message': f'Failed to get resolution status: {str(e)}',
-            'resolved_entity_clusters': 0,
-            'entities_resolved': 0,
-            'is_active': False
+            "status": "error",
+            "message": f"Failed to get resolution status: {str(e)}",
+            "resolved_entity_clusters": 0,
+            "entities_resolved": 0,
+            "is_active": False,
         }
 
 
@@ -1574,19 +1560,15 @@ def handle_reset_entity_resolution() -> Dict:
             f"and {counts['relationships_deleted']} relationships"
         )
 
-        return {
-            'status': 'success',
-            'message': 'Entity resolution reset successfully',
-            **counts
-        }
+        return {"status": "success", "message": "Entity resolution reset successfully", **counts}
 
     except Exception as e:
         logger.error(f"Failed to reset entity resolution: {e}", exc_info=True)
         return {
-            'status': 'error',
-            'message': f'Failed to reset entity resolution: {str(e)}',
-            'resolved_entities_deleted': 0,
-            'relationships_deleted': 0
+            "status": "error",
+            "message": f"Failed to reset entity resolution: {str(e)}",
+            "resolved_entities_deleted": 0,
+            "relationships_deleted": 0,
         }
 
 
@@ -1604,17 +1586,13 @@ def handle_get_available_node_types() -> Dict:
 
         logger.info(f"Found {len(node_types)} resolvable node types")
 
-        return {
-            'status': 'success',
-            'nodeTypes': node_types,
-            'totalTypes': len(node_types)
-        }
+        return {"status": "success", "nodeTypes": node_types, "totalTypes": len(node_types)}
 
     except Exception as e:
         logger.error(f"Failed to get available node types: {e}", exc_info=True)
         return {
-            'status': 'error',
-            'message': f'Failed to get available node types: {str(e)}',
-            'nodeTypes': [],
-            'totalTypes': 0
+            "status": "error",
+            "message": f"Failed to get available node types: {str(e)}",
+            "nodeTypes": [],
+            "totalTypes": 0,
         }

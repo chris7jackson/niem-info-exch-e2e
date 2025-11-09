@@ -101,6 +101,7 @@ class ResetResponse(BaseModel):
 
 class ValidationError(BaseModel):
     """Structured validation error from CMF tool or other validators."""
+
     file: str  # File being validated
     line: int | None = None  # Line number if available
     column: int | None = None  # Column number if available
@@ -112,6 +113,7 @@ class ValidationError(BaseModel):
 
 class ValidationResult(BaseModel):
     """Result of a validation operation."""
+
     valid: bool
     errors: list[ValidationError] = []
     warnings: list[ValidationError] = []
@@ -120,8 +122,10 @@ class ValidationResult(BaseModel):
 
 # Entity Resolution Models
 
+
 class NodeTypeInfo(BaseModel):
     """Information about a node type available for entity resolution."""
+
     qname: str  # Qualified name (e.g., 'j:CrashDriver')
     label: str  # Neo4j label (e.g., 'j_CrashDriver')
     count: int  # Number of entities of this type
@@ -132,11 +136,13 @@ class NodeTypeInfo(BaseModel):
 
 class EntityResolutionRequest(BaseModel):
     """Request to run entity resolution with selected node types."""
+
     selectedNodeTypes: list[str] = []  # List of qnames to resolve
 
 
 class EntityResolutionResponse(BaseModel):
     """Response from entity resolution operation."""
+
     status: str  # 'success' or 'error'
     message: str
     entitiesExtracted: int = 0

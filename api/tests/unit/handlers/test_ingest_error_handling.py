@@ -24,16 +24,10 @@ class TestIngestErrorHandling:
         validation_result = {
             "valid": False,
             "errors": [
-                {
-                    "file": "test.xml",
-                    "line": 10,
-                    "column": 5,
-                    "message": "Invalid element",
-                    "severity": "error"
-                }
+                {"file": "test.xml", "line": 10, "column": 5, "message": "Invalid element", "severity": "error"}
             ],
             "warnings": [],
-            "summary": "Validation failed with 1 error(s)"
+            "summary": "Validation failed with 1 error(s)",
         }
 
         result = _create_error_result("test.xml", "Validation failed", validation_result)
@@ -61,13 +55,7 @@ class TestIngestErrorHandling:
             mock_upload.return_value = None
 
             # Call the function
-            await _store_processed_files(
-                mock_s3,
-                test_content,
-                test_filename,
-                test_cypher,
-                "xml"
-            )
+            await _store_processed_files(mock_s3, test_content, test_filename, test_cypher, "xml")
 
             # Verify upload_file was called twice (once for data, once for cypher)
             assert mock_upload.call_count == 2

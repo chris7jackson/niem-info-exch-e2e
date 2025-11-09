@@ -35,16 +35,10 @@ class TestNeo4jIntegration:
             session.run("MATCH (n:IntegrationTest) DELETE n")
 
             # Create node
-            session.run(
-                "CREATE (n:IntegrationTest {name: $name, value: $value})",
-                name="test", value=42
-            )
+            session.run("CREATE (n:IntegrationTest {name: $name, value: $value})", name="test", value=42)
 
             # Retrieve node
-            result = session.run(
-                "MATCH (n:IntegrationTest {name: $name}) RETURN n",
-                name="test"
-            )
+            result = session.run("MATCH (n:IntegrationTest {name: $name}) RETURN n", name="test")
             node = result.single()["n"]
             assert node["name"] == "test"
             assert node["value"] == 42

@@ -25,7 +25,7 @@ class TestElementTree:
     @pytest.fixture
     def simple_cmf_content(self):
         """Simple CMF content for testing"""
-        return '''<?xml version="1.0" encoding="UTF-8"?>
+        return """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
             <cmf:Namespace>
@@ -53,12 +53,12 @@ class TestElementTree:
             <cmf:DataProperty structures:id="test.PersonSurName">
                 <cmf:Name>PersonSurName</cmf:Name>
             </cmf:DataProperty>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
     @pytest.fixture
     def nested_cmf_content(self):
         """CMF content with nested hierarchy for deep nesting detection"""
-        return '''<?xml version="1.0" encoding="UTF-8"?>
+        return """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
             <cmf:Namespace>
@@ -115,12 +115,12 @@ class TestElementTree:
             <cmf:DataProperty structures:id="test.DeepProp">
                 <cmf:Name>DeepProp</cmf:Name>
             </cmf:DataProperty>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
     @pytest.fixture
     def association_cmf_content(self):
         """CMF content with association type"""
-        return '''<?xml version="1.0" encoding="UTF-8"?>
+        return """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
             <cmf:Namespace>
@@ -158,7 +158,7 @@ class TestElementTree:
                 <cmf:Name>VehicleType</cmf:Name>
                 <cmf:Namespace structures:ref="test"/>
             </cmf:Class>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_build_element_tree_simple(self, simple_cmf_content):
@@ -221,7 +221,7 @@ class TestElementTree:
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_insufficient_endpoints_warning(self):
         """Test insufficient endpoints warning for associations"""
-        cmf_content = '''<?xml version="1.0" encoding="UTF-8"?>
+        cmf_content = """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
             <cmf:Namespace>
@@ -248,7 +248,7 @@ class TestElementTree:
                 <cmf:Name>PersonType</cmf:Name>
                 <cmf:Namespace structures:ref="test"/>
             </cmf:Class>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
         nodes = build_element_tree(cmf_content)
         flattened = flatten_tree_to_list(nodes)
@@ -262,7 +262,7 @@ class TestElementTree:
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_flatten_wrapper_suggestion(self):
         """Test flatten wrapper suggestion for simple container nodes"""
-        cmf_content = '''<?xml version="1.0" encoding="UTF-8"?>
+        cmf_content = """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
             <cmf:Namespace>
@@ -289,7 +289,7 @@ class TestElementTree:
             <cmf:DataProperty structures:id="test.Value">
                 <cmf:Name>Value</cmf:Name>
             </cmf:DataProperty>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
         nodes = build_element_tree(cmf_content)
         flattened = flatten_tree_to_list(nodes)

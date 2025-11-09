@@ -32,17 +32,23 @@ try:
     logger.info("Senzing gRPC SDK v4 modules imported successfully")
 except ImportError as e:
     logger.warning(f"Senzing gRPC SDK not available ({e}) - will use text-based entity matching")
+
     # Define mock classes for type hints
     class SzEngine:
         pass
+
     class SzConfig:
         pass
+
     class SzConfigManager:
         pass
+
     class SzDiagnostic:
         pass
+
     class SzError(Exception):
         pass
+
     class G2Exception(Exception):
         pass
 
@@ -77,10 +83,7 @@ class SenzingClient:
             config_path: Path to g2.ini configuration file.
                         If None, uses environment variable or default.
         """
-        self.config_path = config_path or os.getenv(
-            "SENZING_CONFIG_PATH",
-            "/app/config/g2.ini"
-        )
+        self.config_path = config_path or os.getenv("SENZING_CONFIG_PATH", "/app/config/g2.ini")
         self.factory: Optional[SzAbstractFactory] = None
         self.engine: Optional[SzEngine] = None
         self.config: Optional[SzConfig] = None
@@ -103,6 +106,7 @@ class SenzingClient:
 
         # Check for license file
         from ..core.config import senzing_config
+
         return senzing_config.is_available()
 
     def initialize(self, verbose_logging: bool = False) -> bool:
@@ -130,6 +134,7 @@ class SenzingClient:
 
             # Create gRPC channel
             import grpc
+
             channel = grpc.insecure_channel(grpc_url)
 
             # Create abstract factory with gRPC channel (ONLY parameter supported)
@@ -155,6 +160,7 @@ class SenzingClient:
         except Exception as e:
             logger.error(f"Failed to initialize Senzing engine: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
             return False
 
@@ -176,6 +182,7 @@ class SenzingClient:
                 sys.path.insert(0, str(config_dir))
 
             from senzing_simple_config import get_ini_json_params
+
             ini_params = get_ini_json_params()
 
             logger.info(f"Loaded Senzing configuration with SQLite at {ini_params['SQL']['CONNECTION']}")
@@ -186,19 +193,20 @@ class SenzingClient:
 
             # Fallback to minimal in-memory configuration
             logger.info("Using fallback minimal configuration")
-            return json.dumps({
-                "PIPELINE": {
-                    "CONFIGPATH": "/tmp/senzing/config/",  # nosec B108 - Senzing SDK standard config path
-                    "RESOURCEPATH": "/opt/senzing/g2/resources/",
-                    "SUPPORTPATH": "/tmp/senzing/"  # nosec B108 - Senzing SDK standard support path
-                },
-                "SQL": {
-                    "CONNECTION": "sqlite3://na:na@/tmp/senzing/g2.db"  # nosec B108 - Senzing SDK standard DB path
+            return json.dumps(
+                {
+                    "PIPELINE": {
+                        "CONFIGPATH": "/tmp/senzing/config/",  # nosec B108 - Senzing SDK standard config path
+                        "RESOURCEPATH": "/opt/senzing/g2/resources/",
+                        "SUPPORTPATH": "/tmp/senzing/",  # nosec B108 - Senzing SDK standard support path
+                    },
+                    "SQL": {
+                        "CONNECTION": "sqlite3://na:na@/tmp/senzing/g2.db"  # nosec B108 - Senzing SDK standard DB path
+                    },
                 }
-            })
+            )
 
-    def add_record(self, data_source: str, record_id: str, record_json: str,
-                   load_id: Optional[str] = None) -> bool:
+    def add_record(self, data_source: str, record_id: str, record_json: str, load_id: Optional[str] = None) -> bool:
         """
         Add a record to Senzing for entity resolution.
 
@@ -226,8 +234,7 @@ class SenzingClient:
             logger.error(f"Failed to add record {record_id}: {e}")
             return False
 
-    def get_entity_by_record_id(self, data_source: str, record_id: str,
-                                flags: Optional[int] = None) -> Optional[Dict]:
+    def get_entity_by_record_id(self, data_source: str, record_id: str, flags: Optional[int] = None) -> Optional[Dict]:
         """
         Get resolved entity information for a specific record.
 
@@ -246,12 +253,13 @@ class SenzingClient:
         try:
             # SDK v4 API: get_entity_by_record_id returns string directly
             from senzing import SzEngineFlags
+
             # Request enhanced match details including feature scores and matching info
             flags = flags or (
-                SzEngineFlags.SZ_ENTITY_DEFAULT_FLAGS |
-                SzEngineFlags.SZ_INCLUDE_FEATURE_SCORES |
-                SzEngineFlags.SZ_INCLUDE_MATCH_KEY_DETAILS |
-                SzEngineFlags.SZ_ENTITY_INCLUDE_RECORD_MATCHING_INFO
+                SzEngineFlags.SZ_ENTITY_DEFAULT_FLAGS
+                | SzEngineFlags.SZ_INCLUDE_FEATURE_SCORES
+                | SzEngineFlags.SZ_INCLUDE_MATCH_KEY_DETAILS
+                | SzEngineFlags.SZ_ENTITY_INCLUDE_RECORD_MATCHING_INFO
             )
             response = self.engine.get_entity_by_record_id(data_source, record_id, flags)
             return json.loads(response)
@@ -316,8 +324,7 @@ class SenzingClient:
             logger.error(f"Failed to get entity {entity_id}: {e}")
             return None
 
-    def find_path_by_entity_id(self, start_entity_id: int, end_entity_id: int,
-                               max_degrees: int = 3) -> Optional[Dict]:
+    def find_path_by_entity_id(self, start_entity_id: int, end_entity_id: int, max_degrees: int = 3) -> Optional[Dict]:
         """
         Find relationship path between two entities.
 
@@ -335,9 +342,7 @@ class SenzingClient:
 
         try:
             response = bytearray()
-            self.engine.findPathByEntityID(
-                start_entity_id, end_entity_id, max_degrees, response
-            )
+            self.engine.findPathByEntityID(start_entity_id, end_entity_id, max_degrees, response)
             return json.loads(response.decode())
 
         except G2Exception as e:
@@ -354,11 +359,7 @@ class SenzingClient:
         Returns:
             Dictionary with batch processing results
         """
-        results = {
-            "processed": 0,
-            "failed": 0,
-            "errors": []
-        }
+        results = {"processed": 0, "failed": 0, "errors": []}
 
         for data_source, record_id, record_json in records:
             if self.add_record(data_source, record_id, record_json):

@@ -31,7 +31,9 @@ else:
     # File is at: api/src/niem_api/clients/cmf_client.py -> need 4 .parent to reach api/
     # In Docker, the container is always Linux, so always use the shell script (not .bat)
     _CMF_SCRIPT_NAME = "cmftool"
-    _CMF_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / f"third_party/niem-cmf/cmftool-1.0/bin/{_CMF_SCRIPT_NAME}"
+    _CMF_DEFAULT_PATH = (
+        Path(__file__).parent.parent.parent.parent / f"third_party/niem-cmf/cmftool-1.0/bin/{_CMF_SCRIPT_NAME}"
+    )
 
     if _CMF_DEFAULT_PATH.exists():
         CMF_TOOL_PATH = str(_CMF_DEFAULT_PATH)
@@ -45,23 +47,28 @@ CMF_TIMEOUT = 30  # Default command timeout in seconds
 # Security: Allowlist of valid CMF tool subcommands
 # Only these commands can be executed via run_cmf_command()
 ALLOWED_CMF_COMMANDS = {
-    "x2m",      # XSD to CMF conversion
-    "m2jmsg",   # CMF to JSON Schema message conversion
-    "xval",     # XML validation
+    "x2m",  # XSD to CMF conversion
+    "m2jmsg",  # CMF to JSON Schema message conversion
+    "xval",  # XML validation
     "version",  # Get CMF tool version
-    "help",     # Help command
+    "help",  # Help command
 }
 
 # Security: Allowlist of valid CMF tool flags
 # Only these flags are allowed in command arguments
 ALLOWED_CMF_FLAGS = {
-    "-o", "--output",           # Output file specification
-    "-s", "--schema",           # Schema file specification
-    "-f", "--file",             # Input file specification
-    "-h", "--help",             # Help flag
-    "-v", "--version",          # Version flag
-    "--niem-version",           # NIEM version specification
-    "--no-validation",          # Skip validation
+    "-o",
+    "--output",  # Output file specification
+    "-s",
+    "--schema",  # Schema file specification
+    "-f",
+    "--file",  # Input file specification
+    "-h",
+    "--help",  # Help flag
+    "-v",
+    "--version",  # Version flag
+    "--niem-version",  # NIEM version specification
+    "--no-validation",  # Skip validation
 }
 
 
@@ -75,6 +82,7 @@ class CMFError(Exception):
     - Timeout errors
     - Invalid responses
     """
+
     pass
 
 
@@ -201,9 +209,9 @@ def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> dict
     # Pattern to match CMF error/warning lines
     # Format: [severity] filename:line:column: message
     # Or: [severity] message (without location)
-    pattern = r'\[(error|warning|info)\]\s+(?:([^:]+):(\d+):(\d+):\s*)?(.+)'
+    pattern = r"\[(error|warning|info)\]\s+(?:([^:]+):(\d+):(\d+):\s*)?(.+)"
 
-    for line in combined_output.split('\n'):
+    for line in combined_output.split("\n"):
         line = line.strip()
         if not line:
             continue
@@ -223,7 +231,7 @@ def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> dict
                 "message": message,
                 "severity": severity,
                 "rule": None,  # CMF doesn't always provide rule IDs
-                "context": None
+                "context": None,
             }
 
             if severity == "error":
@@ -236,31 +244,24 @@ def parse_cmf_validation_output(stdout: str, stderr: str, filename: str) -> dict
     if not errors and not warnings and combined_output.strip():
         output_lower = combined_output.lower()
         # Check for actual error indicators, but exclude success messages
-        has_error_indicator = (
-            "[error]" in output_lower or
-            ("error" in output_lower and "no error" not in output_lower)
-        )
+        has_error_indicator = "[error]" in output_lower or ("error" in output_lower and "no error" not in output_lower)
         # Don't create error if output indicates success
-        is_success = any(phrase in output_lower for phrase in [
-            "validation successful", "no errors", "successful"
-        ])
+        is_success = any(phrase in output_lower for phrase in ["validation successful", "no errors", "successful"])
 
         if has_error_indicator and not is_success:
-            errors.append({
-                "file": filename,
-                "line": None,
-                "column": None,
-                "message": combined_output.strip()[:500],  # Limit message length
-                "severity": "error",
-                "rule": None,
-                "context": None
-            })
+            errors.append(
+                {
+                    "file": filename,
+                    "line": None,
+                    "column": None,
+                    "message": combined_output.strip()[:500],  # Limit message length
+                    "severity": "error",
+                    "rule": None,
+                    "context": None,
+                }
+            )
 
-    return {
-        "errors": errors,
-        "warnings": warnings,
-        "has_errors": len(errors) > 0
-    }
+    return {"errors": errors, "warnings": warnings, "has_errors": len(errors) > 0}
 
 
 def _validate_cmf_command(cmd: list) -> None:
@@ -323,11 +324,7 @@ def _validate_cmf_command(cmd: list) -> None:
         i += 1
 
 
-def run_cmf_command(
-    cmd: list,
-    timeout: int = CMF_TIMEOUT,
-    working_dir: str | None = None
-) -> dict[str, Any]:
+def run_cmf_command(cmd: list, timeout: int = CMF_TIMEOUT, working_dir: str | None = None) -> dict[str, Any]:
     """
     Execute a CMF tool command with timeout and safety checks.
 
@@ -400,10 +397,7 @@ def run_cmf_command(
             if os.getenv("HOME"):
                 allowed_prefixes.append(Path(os.getenv("HOME")).resolve())
 
-            is_safe = any(
-                str(working_dir_path).startswith(str(prefix))
-                for prefix in allowed_prefixes
-            )
+            is_safe = any(str(working_dir_path).startswith(str(prefix)) for prefix in allowed_prefixes)
 
             if not is_safe:
                 logger.error(f"Working directory outside allowed paths: {working_dir_path}")
@@ -411,13 +405,7 @@ def run_cmf_command(
 
             working_dir = str(working_dir_path)
 
-        result = subprocess.run(
-            full_cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=working_dir
-        )
+        result = subprocess.run(full_cmd, capture_output=True, text=True, timeout=timeout, cwd=working_dir)
 
         logger.debug(f"CMF command result: returncode={result.returncode}")
         if result.stdout:
@@ -425,11 +413,7 @@ def run_cmf_command(
         if result.stderr:
             logger.debug(f"CMF stderr: {result.stderr}")
 
-        return {
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr
-        }
+        return {"returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}
     except subprocess.TimeoutExpired as e:
         logger.error(f"CMF command timed out after {timeout} seconds")
         raise CMFError(f"Operation timed out after {timeout} seconds") from e

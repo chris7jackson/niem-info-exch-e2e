@@ -21,12 +21,12 @@ class TestSchemaDesigner:
     def crash_driver_cmf(self):
         """Real CrashDriver CMF content for realistic testing"""
         cmf_path = Path(__file__).parent.parent.parent / "fixtures" / "CrashDriver.cmf"
-        return cmf_path.read_text(encoding='utf-8')
+        return cmf_path.read_text(encoding="utf-8")
 
     @pytest.fixture
     def simple_cmf_with_reference(self):
         """CMF content with object reference for flattening tests"""
-        return '''<?xml version="1.0" encoding="UTF-8"?>
+        return """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
             <cmf:Namespace>
@@ -69,12 +69,12 @@ class TestSchemaDesigner:
             <cmf:DataProperty structures:id="test.SurName">
                 <cmf:Name>SurName</cmf:Name>
             </cmf:DataProperty>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
     @pytest.fixture
     def association_cmf(self):
         """CMF content with association for endpoint filtering tests"""
-        return '''<?xml version="1.0" encoding="UTF-8"?>
+        return """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
             <cmf:Namespace>
@@ -123,15 +123,12 @@ class TestSchemaDesigner:
             <cmf:ObjectProperty structures:id="test.PersonVehicleAssociation">
                 <cmf:Class structures:ref="test.PersonVehicleAssociationType"/>
             </cmf:ObjectProperty>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_all_selected_creates_nodes(self, simple_cmf_with_reference):
         """Test that all selected nodes create Neo4j nodes"""
-        selections = {
-            "test:PersonType": True,
-            "test:PersonNameType": True
-        }
+        selections = {"test:PersonType": True, "test:PersonNameType": True}
 
         mapping = apply_schema_design(simple_cmf_with_reference, selections)
 
@@ -146,10 +143,7 @@ class TestSchemaDesigner:
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_unselected_target_flattens_properties(self, simple_cmf_with_reference):
         """Test that unselected target properties are flattened into source"""
-        selections = {
-            "test:PersonType": True,
-            "test:PersonNameType": False  # Not selected - should flatten
-        }
+        selections = {"test:PersonType": True, "test:PersonNameType": False}  # Not selected - should flatten
 
         mapping = apply_schema_design(simple_cmf_with_reference, selections)
 
@@ -160,8 +154,9 @@ class TestSchemaDesigner:
         assert "test:PersonName" not in object_qnames
 
         # Check that PersonType has flattened properties from PersonNameType
-        person_obj = next((obj for obj in mapping["objects"]
-                          if "Person" in obj["qname"] and "Name" not in obj["qname"]), None)
+        person_obj = next(
+            (obj for obj in mapping["objects"] if "Person" in obj["qname"] and "Name" not in obj["qname"]), None
+        )
 
         if person_obj:
             prop_names = [p["neo4j_property"] for p in person_obj["scalar_props"]]
@@ -175,7 +170,7 @@ class TestSchemaDesigner:
             "test:PersonType": True,
             "test:VehicleType": True,
             "test:DriverType": True,
-            "test:PersonVehicleAssociationType": True
+            "test:PersonVehicleAssociationType": True,
         }
 
         mapping = apply_schema_design(association_cmf, selections)
@@ -194,7 +189,7 @@ class TestSchemaDesigner:
             "test:PersonType": True,
             "test:VehicleType": True,
             "test:DriverType": False,  # Not selected
-            "test:PersonVehicleAssociationType": True
+            "test:PersonVehicleAssociationType": True,
         }
 
         mapping = apply_schema_design(association_cmf, selections)
@@ -211,8 +206,8 @@ class TestSchemaDesigner:
         selections = {
             "test:PersonType": False,  # Not selected
             "test:VehicleType": False,  # Not selected
-            "test:DriverType": True,   # Only 1 endpoint selected
-            "test:PersonVehicleAssociationType": True
+            "test:DriverType": True,  # Only 1 endpoint selected
+            "test:PersonVehicleAssociationType": True,
         }
 
         mapping = apply_schema_design(association_cmf, selections)
@@ -225,10 +220,7 @@ class TestSchemaDesigner:
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_namespace_filtering(self, simple_cmf_with_reference):
         """Test that only used namespaces are included"""
-        selections = {
-            "test:PersonType": True,
-            "test:PersonNameType": False
-        }
+        selections = {"test:PersonType": True, "test:PersonNameType": False}
 
         mapping = apply_schema_design(simple_cmf_with_reference, selections)
 
@@ -239,10 +231,7 @@ class TestSchemaDesigner:
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_references_only_between_selected_nodes(self, simple_cmf_with_reference):
         """Test that references only created between selected nodes"""
-        selections = {
-            "test:PersonType": True,
-            "test:PersonNameType": True
-        }
+        selections = {"test:PersonType": True, "test:PersonNameType": True}
 
         mapping = apply_schema_design(simple_cmf_with_reference, selections)
 
@@ -272,9 +261,7 @@ class TestSchemaDesigner:
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_mapping_structure_completeness(self, simple_cmf_with_reference):
         """Test that generated mapping has all required sections"""
-        selections = {
-            "test:PersonType": True
-        }
+        selections = {"test:PersonType": True}
 
         mapping = apply_schema_design(simple_cmf_with_reference, selections)
 
@@ -293,21 +280,18 @@ class TestSchemaDesigner:
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_scalar_property_flattening_path(self, simple_cmf_with_reference):
         """Test that flattened scalar properties have correct path prefix"""
-        selections = {
-            "test:PersonType": True,
-            "test:PersonNameType": False  # Flatten into Person
-        }
+        selections = {"test:PersonType": True, "test:PersonNameType": False}  # Flatten into Person
 
         mapping = apply_schema_design(simple_cmf_with_reference, selections)
 
         # Find Person object
-        person_obj = next((obj for obj in mapping["objects"]
-                          if "Person" in obj["qname"] and "Name" not in obj["qname"]), None)
+        person_obj = next(
+            (obj for obj in mapping["objects"] if "Person" in obj["qname"] and "Name" not in obj["qname"]), None
+        )
 
         if person_obj and len(person_obj["scalar_props"]) > 0:
             # Check that flattened properties have path with PersonName prefix
-            flattened_props = [p for p in person_obj["scalar_props"]
-                             if "person_name" in p["neo4j_property"].lower()]
+            flattened_props = [p for p in person_obj["scalar_props"] if "person_name" in p["neo4j_property"].lower()]
 
             # At least one flattened property should exist
             assert len(flattened_props) > 0
@@ -321,7 +305,7 @@ class TestSchemaDesigner:
             "j:CrashType": True,
             "j:CrashDriverType": True,
             "j:CrashVehicleType": True,
-            "j:CrashPersonType": True
+            "j:CrashPersonType": True,
         }
 
         mapping = apply_schema_design(crash_driver_cmf, selections)
@@ -339,7 +323,7 @@ class TestSchemaDesigner:
             "j:CrashType": True,
             "j:CrashPersonType": False,  # Flatten into Crash
             "j:CrashDriverType": False,
-            "j:CrashVehicleType": True
+            "j:CrashVehicleType": True,
         }
 
         mapping = apply_schema_design(crash_driver_cmf, selections)
@@ -351,9 +335,7 @@ class TestSchemaDesigner:
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_crash_driver_only_crash(self, crash_driver_cmf):
         """Test selecting only Crash entity"""
-        selections = {
-            "j:CrashType": True
-        }
+        selections = {"j:CrashType": True}
 
         mapping = apply_schema_design(crash_driver_cmf, selections)
 
@@ -369,10 +351,7 @@ class TestSchemaDesigner:
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_crash_driver_mapping_structure(self, crash_driver_cmf):
         """Test that CrashDriver generates valid mapping structure"""
-        selections = {
-            "j:CrashType": True,
-            "j:CrashDriverType": True
-        }
+        selections = {"j:CrashType": True, "j:CrashDriverType": True}
 
         mapping = apply_schema_design(crash_driver_cmf, selections)
 
@@ -393,9 +372,7 @@ class TestSchemaDesigner:
     @pytest.mark.skip(reason="Needs XSD fixtures")
     def test_crash_driver_namespace_filtering(self, crash_driver_cmf):
         """Test that only used namespaces are included"""
-        selections = {
-            "j:CrashType": True  # Only justice namespace
-        }
+        selections = {"j:CrashType": True}  # Only justice namespace
 
         mapping = apply_schema_design(crash_driver_cmf, selections)
 

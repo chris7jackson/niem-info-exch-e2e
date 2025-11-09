@@ -9,4 +9,4 @@ Handles Neo4j graph database schema management:
 
 from .schema_manager import GraphSchemaManager, get_graph_schema_manager
 
-__all__ = ['GraphSchemaManager', 'get_graph_schema_manager']
+__all__ = ["GraphSchemaManager", "get_graph_schema_manager"]

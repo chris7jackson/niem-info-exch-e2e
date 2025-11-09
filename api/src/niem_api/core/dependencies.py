@@ -20,16 +20,12 @@ def get_s3_client():
         endpoint = endpoint[8:]
         secure = True
 
-    return Minio(
-        endpoint,
-        access_key=access_key,
-        secret_key=secret_key,
-        secure=secure
-    )
+    return Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=secure)
 
 
 # Global Neo4j client instance
 _neo4j_client = None
+
 
 def get_neo4j_client():
     """Get or create global Neo4j client instance"""
@@ -52,5 +48,3 @@ def cleanup_connections():
     if _neo4j_client is not None:
         _neo4j_client.close()
         _neo4j_client = None
-
-

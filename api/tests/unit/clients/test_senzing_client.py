@@ -34,19 +34,19 @@ def mock_factory(mock_grpc_channel):
 class TestSenzingClientInitialization:
     """Test Senzing client initialization."""
 
-    @patch('niem_api.clients.senzing_client.SzAbstractFactory')
-    @patch('niem_api.clients.senzing_client.grpc')
+    @patch("niem_api.clients.senzing_client.SzAbstractFactory")
+    @patch("niem_api.clients.senzing_client.grpc")
     def test_initialize_success(self, mock_grpc, mock_factory_class, mock_factory):
         """Test successful initialization."""
         # Setup mocks
         mock_grpc.insecure_channel = Mock(return_value=Mock())
         mock_factory_class.return_value = mock_factory
 
-        with patch.dict('os.environ', {'SENZING_GRPC_URL': 'localhost:8261'}):
+        with patch.dict("os.environ", {"SENZING_GRPC_URL": "localhost:8261"}):
             client = SenzingClient()
 
             # Mock is_available to return True
-            with patch.object(client, 'is_available', return_value=True):
+            with patch.object(client, "is_available", return_value=True):
                 result = client.initialize()
 
                 assert result is True
@@ -58,13 +58,13 @@ class TestSenzingClientInitialization:
         """Test initialization when Senzing is not available."""
         client = SenzingClient()
 
-        with patch.object(client, 'is_available', return_value=False):
+        with patch.object(client, "is_available", return_value=False):
             result = client.initialize()
 
             assert result is False
             assert client.initialized is False
 
-    @patch('niem_api.clients.senzing_client.grpc')
+    @patch("niem_api.clients.senzing_client.grpc")
     def test_initialize_connection_failure(self, mock_grpc):
         """Test handling of gRPC connection failure."""
         # Simulate connection error
@@ -72,7 +72,7 @@ class TestSenzingClientInitialization:
 
         client = SenzingClient()
 
-        with patch.object(client, 'is_available', return_value=True):
+        with patch.object(client, "is_available", return_value=True):
             result = client.initialize()
 
             assert result is False
@@ -99,9 +99,7 @@ class TestSenzingClientOperations:
         result = initialized_client.add_record("TEST_SOURCE", "REC_001", record_json)
 
         assert result is True
-        initialized_client.engine.add_record.assert_called_once_with(
-            "TEST_SOURCE", "REC_001", record_json
-        )
+        initialized_client.engine.add_record.assert_called_once_with("TEST_SOURCE", "REC_001", record_json)
 
     def test_add_record_not_initialized(self):
         """Test adding record when client not initialized."""
@@ -123,22 +121,16 @@ class TestSenzingClientOperations:
     def test_get_entity_by_record_id_success(self, initialized_client):
         """Test retrieving entity successfully."""
         mock_response = {
-            'RESOLVED_ENTITY': {
-                'ENTITY_ID': 123,
-                'ENTITY_NAME': 'Test Person',
-                'RECORDS': [{'RECORD_ID': '001'}]
-            }
+            "RESOLVED_ENTITY": {"ENTITY_ID": 123, "ENTITY_NAME": "Test Person", "RECORDS": [{"RECORD_ID": "001"}]}
         }
 
-        initialized_client.engine.get_entity_by_record_id = Mock(
-            return_value=json.dumps(mock_response)
-        )
+        initialized_client.engine.get_entity_by_record_id = Mock(return_value=json.dumps(mock_response))
 
         result = initialized_client.get_entity_by_record_id("TEST_SOURCE", "001")
 
         assert result is not None
-        assert result['RESOLVED_ENTITY']['ENTITY_ID'] == 123
-        assert result['RESOLVED_ENTITY']['ENTITY_NAME'] == 'Test Person'
+        assert result["RESOLVED_ENTITY"]["ENTITY_ID"] == 123
+        assert result["RESOLVED_ENTITY"]["ENTITY_NAME"] == "Test Person"
 
     def test_get_entity_not_found(self, initialized_client):
         """Test handling when entity not found."""
@@ -185,21 +177,21 @@ class TestSenzingClientBatch:
         records = [
             ("SOURCE", "ID1", '{"name": "Person 1"}'),
             ("SOURCE", "ID2", '{"name": "Person 2"}'),
-            ("SOURCE", "ID3", '{"name": "Person 3"}')
+            ("SOURCE", "ID3", '{"name": "Person 3"}'),
         ]
 
         result = initialized_client.process_batch(records)
 
-        assert result['processed'] == 2
-        assert result['failed'] == 1
-        assert len(result['errors']) == 1
+        assert result["processed"] == 2
+        assert result["failed"] == 1
+        assert len(result["errors"]) == 1
 
     def test_process_empty_batch(self, initialized_client):
         """Test processing empty batch."""
         result = initialized_client.process_batch([])
 
-        assert result['processed'] == 0
-        assert result['failed'] == 0
+        assert result["processed"] == 0
+        assert result["failed"] == 0
 
 
 class TestSenzingClientCleanup:
@@ -231,5 +223,5 @@ class TestSenzingClientCleanup:
         assert client.initialized is False
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

@@ -19,12 +19,7 @@ class TestMinioIntegration:
         secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
         secure = os.getenv("MINIO_SECURE", "false").lower() == "true"
 
-        client = Minio(
-            endpoint,
-            access_key=access_key,
-            secret_key=secret_key,
-            secure=secure
-        )
+        client = Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=secure)
         return client
 
     def test_minio_connection(self, minio_client):
@@ -46,12 +41,7 @@ class TestMinioIntegration:
 
         # Upload a test object
         test_data = b"Hello MinIO Integration Test"
-        minio_client.put_object(
-            test_bucket,
-            "test-file.txt",
-            BytesIO(test_data),
-            len(test_data)
-        )
+        minio_client.put_object(test_bucket, "test-file.txt", BytesIO(test_data), len(test_data))
 
         # Verify object exists
         obj = minio_client.get_object(test_bucket, "test-file.txt")

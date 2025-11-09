@@ -19,15 +19,9 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
 
     # Warn if using default token
     if expected_token == DEFAULT_DEV_TOKEN:
-        logger.warning(
-            "⚠️  Using default DEV_TOKEN='devtoken'. "
-            "Set DEV_TOKEN environment variable for production!"
-        )
+        logger.warning("⚠️  Using default DEV_TOKEN='devtoken'. " "Set DEV_TOKEN environment variable for production!")
 
     if credentials.credentials != expected_token:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authentication token"
-        )
+        raise HTTPException(status_code=401, detail="Invalid authentication token")
 
     return credentials.credentials

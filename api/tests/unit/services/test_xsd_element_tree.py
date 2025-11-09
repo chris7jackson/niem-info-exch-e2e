@@ -17,7 +17,7 @@ class TestXSDElementTree:
     @pytest.fixture
     def simple_xsd(self):
         """Simple XSD with single element and type"""
-        return b'''<?xml version="1.0" encoding="UTF-8"?>
+        return b"""<?xml version="1.0" encoding="UTF-8"?>
         <xs:schema
           xmlns:xs="http://www.w3.org/2001/XMLSchema"
           xmlns:test="http://example.com/test"
@@ -33,12 +33,12 @@ class TestXSDElementTree:
               <xs:element name="Age" type="xs:int"/>
             </xs:sequence>
           </xs:complexType>
-        </xs:schema>'''
+        </xs:schema>"""
 
     @pytest.fixture
     def association_xsd(self):
         """XSD with association type"""
-        return b'''<?xml version="1.0" encoding="UTF-8"?>
+        return b"""<?xml version="1.0" encoding="UTF-8"?>
         <xs:schema
           xmlns:xs="http://www.w3.org/2001/XMLSchema"
           xmlns:test="http://example.com/test"
@@ -76,12 +76,12 @@ class TestXSDElementTree:
               <xs:element name="Make" type="xs:string"/>
             </xs:sequence>
           </xs:complexType>
-        </xs:schema>'''
+        </xs:schema>"""
 
     @pytest.fixture
     def multi_file_xsd(self):
         """Multiple XSD files with imports"""
-        primary = b'''<?xml version="1.0" encoding="UTF-8"?>
+        primary = b"""<?xml version="1.0" encoding="UTF-8"?>
         <xs:schema
           xmlns:xs="http://www.w3.org/2001/XMLSchema"
           xmlns:primary="http://example.com/primary"
@@ -98,9 +98,9 @@ class TestXSDElementTree:
               <xs:element ref="imported:Person"/>
             </xs:sequence>
           </xs:complexType>
-        </xs:schema>'''
+        </xs:schema>"""
 
-        imported = b'''<?xml version="1.0" encoding="UTF-8"?>
+        imported = b"""<?xml version="1.0" encoding="UTF-8"?>
         <xs:schema
           xmlns:xs="http://www.w3.org/2001/XMLSchema"
           xmlns:imported="http://example.com/imported"
@@ -114,17 +114,14 @@ class TestXSDElementTree:
               <xs:element name="Name" type="xs:string"/>
             </xs:sequence>
           </xs:complexType>
-        </xs:schema>'''
+        </xs:schema>"""
 
-        return {
-            'primary.xsd': primary,
-            'imported.xsd': imported
-        }
+        return {"primary.xsd": primary, "imported.xsd": imported}
 
     @pytest.fixture
     def nested_xsd(self):
         """Deeply nested XSD structure"""
-        return b'''<?xml version="1.0" encoding="UTF-8"?>
+        return b"""<?xml version="1.0" encoding="UTF-8"?>
         <xs:schema
           xmlns:xs="http://www.w3.org/2001/XMLSchema"
           xmlns:test="http://example.com/test"
@@ -170,18 +167,18 @@ class TestXSDElementTree:
               <xs:element name="Value" type="xs:string"/>
             </xs:sequence>
           </xs:complexType>
-        </xs:schema>'''
+        </xs:schema>"""
 
     def test_simple_xsd_parsing(self, simple_xsd):
         """Test parsing simple XSD with single element"""
-        xsd_files = {'test.xsd': simple_xsd}
-        nodes = build_element_tree_from_xsd('test.xsd', xsd_files)
+        xsd_files = {"test.xsd": simple_xsd}
+        nodes = build_element_tree_from_xsd("test.xsd", xsd_files)
 
         assert len(nodes) > 0
         person_node = nodes[0]
 
-        assert person_node.qname == 'test:Person'
-        assert person_node.label == 'test_Person'
+        assert person_node.qname == "test:Person"
+        assert person_node.label == "test_Person"
         assert person_node.node_type == NodeType.OBJECT
         assert person_node.depth == 0
         assert person_node.property_count == 3  # GivenName, SurName, Age
@@ -189,30 +186,30 @@ class TestXSDElementTree:
 
     def test_association_detection(self, association_xsd):
         """Test detection of association types"""
-        xsd_files = {'test.xsd': association_xsd}
-        nodes = build_element_tree_from_xsd('test.xsd', xsd_files)
+        xsd_files = {"test.xsd": association_xsd}
+        nodes = build_element_tree_from_xsd("test.xsd", xsd_files)
 
         # Find the association node
-        assoc_node = next((n for n in nodes if 'Association' in n.qname), None)
+        assoc_node = next((n for n in nodes if "Association" in n.qname), None)
         assert assoc_node is not None
         assert assoc_node.node_type == NodeType.ASSOCIATION
-        assert 'AssociationType' in assoc_node.qname
+        assert "AssociationType" in assoc_node.qname
 
     def test_multi_file_import_resolution(self, multi_file_xsd):
         """Test import resolution across multiple XSD files"""
-        nodes = build_element_tree_from_xsd('primary.xsd', multi_file_xsd)
+        nodes = build_element_tree_from_xsd("primary.xsd", multi_file_xsd)
 
         assert len(nodes) > 0
         doc_node = nodes[0]
 
-        assert doc_node.qname == 'primary:Document'
+        assert doc_node.qname == "primary:Document"
         # Should have child from imported schema
         assert len(doc_node.children) > 0
 
     def test_deep_nesting_warning(self, nested_xsd):
         """Test deep nesting warning detection"""
-        xsd_files = {'test.xsd': nested_xsd}
-        nodes = build_element_tree_from_xsd('test.xsd', xsd_files)
+        xsd_files = {"test.xsd": nested_xsd}
+        nodes = build_element_tree_from_xsd("test.xsd", xsd_files)
 
         # Find deeply nested nodes
         def find_deep_nodes(node, result=None):
@@ -235,8 +232,8 @@ class TestXSDElementTree:
 
     def test_property_relationship_counting(self, simple_xsd):
         """Test counting of properties vs relationships"""
-        xsd_files = {'test.xsd': simple_xsd}
-        nodes = build_element_tree_from_xsd('test.xsd', xsd_files)
+        xsd_files = {"test.xsd": simple_xsd}
+        nodes = build_element_tree_from_xsd("test.xsd", xsd_files)
 
         person_node = nodes[0]
         # Should have 3 scalar properties (string, string, int)
@@ -246,36 +243,36 @@ class TestXSDElementTree:
 
     def test_cardinality_extraction(self, association_xsd):
         """Test extraction of minOccurs/maxOccurs"""
-        xsd_files = {'test.xsd': association_xsd}
-        nodes = build_element_tree_from_xsd('test.xsd', xsd_files)
+        xsd_files = {"test.xsd": association_xsd}
+        nodes = build_element_tree_from_xsd("test.xsd", xsd_files)
 
-        assoc_node = next((n for n in nodes if 'Association' in n.qname), None)
+        assoc_node = next((n for n in nodes if "Association" in n.qname), None)
         assert assoc_node is not None
         # Check cardinality is extracted (default is 1..1)
         assert assoc_node.cardinality is not None
 
     def test_namespace_handling(self, simple_xsd):
         """Test namespace prefix handling"""
-        xsd_files = {'test.xsd': simple_xsd}
-        nodes = build_element_tree_from_xsd('test.xsd', xsd_files)
+        xsd_files = {"test.xsd": simple_xsd}
+        nodes = build_element_tree_from_xsd("test.xsd", xsd_files)
 
         person_node = nodes[0]
-        assert person_node.namespace == 'test'
-        assert 'test:' in person_node.qname
+        assert person_node.namespace == "test"
+        assert "test:" in person_node.qname
 
     def test_empty_xsd_files(self):
         """Test handling of empty XSD files dict"""
         with pytest.raises(ValueError, match="Primary schema file not found"):
-            build_element_tree_from_xsd('missing.xsd', {})
+            build_element_tree_from_xsd("missing.xsd", {})
 
     def test_malformed_xsd(self):
         """Test handling of malformed XSD"""
-        malformed = b'<not-valid-xml'
-        xsd_files = {'bad.xsd': malformed}
+        malformed = b"<not-valid-xml"
+        xsd_files = {"bad.xsd": malformed}
 
         # Should raise ParseError
         with pytest.raises(Exception):
-            build_element_tree_from_xsd('bad.xsd', xsd_files)
+            build_element_tree_from_xsd("bad.xsd", xsd_files)
 
     # Real-world test with CrashDriver schema
     def test_crash_driver_schema(self):

@@ -22,12 +22,7 @@ class TestAdminHandlers:
     @pytest.fixture
     def reset_request(self):
         """Sample reset request"""
-        return ResetRequest(
-            schemas=True,
-            data=True,
-            neo4j=True,
-            dry_run=False
-        )
+        return ResetRequest(schemas=True, data=True, neo4j=True, dry_run=False)
 
     def test_count_schemas_empty_bucket(self, mock_s3_client):
         """Test counting schemas when bucket is empty"""
@@ -75,13 +70,15 @@ class TestAdminHandlers:
         """Test reset handler dry run (no confirm token)"""
         reset_request = ResetRequest(schemas=True, data=True, neo4j=True, dry_run=True)
 
-        with patch('niem_api.handlers.admin.count_schemas', return_value=5), \
-             patch('niem_api.handlers.admin.count_data_files', return_value={"total_files": 10}), \
-             patch('niem_api.handlers.admin.count_neo4j_objects', return_value={
-                 "status": "success",
-                 "stats": {"nodes": 100, "relationships": 50, "indexes": 2, "constraints": 1}
-             }):
-
+        with patch("niem_api.handlers.admin.count_schemas", return_value=5), patch(
+            "niem_api.handlers.admin.count_data_files", return_value={"total_files": 10}
+        ), patch(
+            "niem_api.handlers.admin.count_neo4j_objects",
+            return_value={
+                "status": "success",
+                "stats": {"nodes": 100, "relationships": 50, "indexes": 2, "constraints": 1},
+            },
+        ):
             result = handle_reset(reset_request, mock_s3_client)
 
             assert result.confirm_token is not None
@@ -90,14 +87,14 @@ class TestAdminHandlers:
 
     def test_count_neo4j_objects(self):
         """Test counting Neo4j objects"""
-        with patch('niem_api.core.dependencies.get_neo4j_client') as mock_client:
+        with patch("niem_api.core.dependencies.get_neo4j_client") as mock_client:
             mock_neo4j = Mock()
             mock_client.return_value = mock_neo4j
             mock_neo4j.query.side_effect = [
                 [{"count": 100}],  # Node count
-                [{"count": 50}],   # Relationship count
+                [{"count": 50}],  # Relationship count
                 [{"name": "index1", "type": "BTREE"}, {"name": "lookup_index", "type": "LOOKUP"}],  # Indexes
-                [{"name": "constraint1"}]  # Constraints
+                [{"name": "constraint1"}],  # Constraints
             ]
 
             result = count_neo4j_objects()
@@ -110,7 +107,7 @@ class TestAdminHandlers:
 
     def test_reset_neo4j_error_handling(self):
         """Test Neo4j reset with error handling"""
-        with patch('niem_api.core.dependencies.get_neo4j_client') as mock_client:
+        with patch("niem_api.core.dependencies.get_neo4j_client") as mock_client:
             mock_neo4j = Mock()
             mock_client.return_value = mock_neo4j
             mock_neo4j.query.side_effect = Exception("Connection failed")

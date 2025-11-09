@@ -25,7 +25,9 @@ def assert_node_exists(nodes: Dict, label: str, properties: Optional[Dict] = Non
     """
     matching_nodes = [n for nid, n in nodes.items() if label in n[0]]
 
-    assert len(matching_nodes) > 0, f"No node found with label containing '{label}'. Available labels: {[n[0] for n in nodes.values()]}"
+    assert (
+        len(matching_nodes) > 0
+    ), f"No node found with label containing '{label}'. Available labels: {[n[0] for n in nodes.values()]}"
 
     node = matching_nodes[0]
 
@@ -33,7 +35,9 @@ def assert_node_exists(nodes: Dict, label: str, properties: Optional[Dict] = Non
         node_props = node[2]
         for key, expected_value in properties.items():
             assert key in node_props, f"Property '{key}' not found in node. Available: {list(node_props.keys())}"
-            assert node_props[key] == expected_value, f"Property '{key}' has value '{node_props[key]}', expected '{expected_value}'"
+            assert (
+                node_props[key] == expected_value
+            ), f"Property '{key}' has value '{node_props[key]}', expected '{expected_value}'"
 
     return node
 
@@ -55,7 +59,7 @@ def assert_relationship_exists(
     rel_type: str,
     from_label: Optional[str] = None,
     to_label: Optional[str] = None,
-    properties: Optional[Dict] = None
+    properties: Optional[Dict] = None,
 ) -> Tuple:
     """
     Assert that a relationship of the given type exists.
@@ -75,7 +79,9 @@ def assert_relationship_exists(
     """
     matching_edges = [e for e in edges if e[4] == rel_type]
 
-    assert len(matching_edges) > 0, f"No relationship found with type '{rel_type}'. Available types: {list(set(e[4] for e in edges))}"
+    assert (
+        len(matching_edges) > 0
+    ), f"No relationship found with type '{rel_type}'. Available types: {list(set(e[4] for e in edges))}"
 
     # If from_label or to_label specified, filter further
     if from_label or to_label:
@@ -85,7 +91,9 @@ def assert_relationship_exists(
         if to_label:
             matching_edges = [e for e in matching_edges if to_label in e[3]]
 
-        assert len(matching_edges) > 0, f"No {rel_type} relationship found matching labels from='{from_label}' to='{to_label}'"
+        assert (
+            len(matching_edges) > 0
+        ), f"No {rel_type} relationship found matching labels from='{from_label}' to='{to_label}'"
 
     edge = matching_edges[0]
 
@@ -93,7 +101,9 @@ def assert_relationship_exists(
         edge_props = edge[5]
         for key, expected_value in properties.items():
             assert key in edge_props, f"Edge property '{key}' not found. Available: {list(edge_props.keys())}"
-            assert edge_props[key] == expected_value, f"Edge property '{key}' has value '{edge_props[key]}', expected '{expected_value}'"
+            assert (
+                edge_props[key] == expected_value
+            ), f"Edge property '{key}' has value '{edge_props[key]}', expected '{expected_value}'"
 
     return edge
 
@@ -110,8 +120,12 @@ def assert_property_flattened(node_props: Dict, property_path: str, expected_val
     Raises:
         AssertionError: If property doesn't exist or value doesn't match
     """
-    assert property_path in node_props, f"Flattened property '{property_path}' not found. Available: {list(node_props.keys())}"
-    assert node_props[property_path] == expected_value, f"Property '{property_path}' has value '{node_props[property_path]}', expected '{expected_value}'"
+    assert (
+        property_path in node_props
+    ), f"Flattened property '{property_path}' not found. Available: {list(node_props.keys())}"
+    assert (
+        node_props[property_path] == expected_value
+    ), f"Property '{property_path}' has value '{node_props[property_path]}', expected '{expected_value}'"
 
 
 def count_nodes_by_label(nodes: Dict, label: str) -> int:

@@ -35,10 +35,7 @@ def execute_cypher_query(cypher_query: str = None, limit: int = None) -> dict[st
     client = get_neo4j_client()
     try:
         result = client.query_graph(cypher_query)
-        return {
-            "status": "success",
-            "data": result
-        }
+        return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"Error executing Cypher query: {e}")
         raise

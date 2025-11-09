@@ -11,6 +11,7 @@ from ..clients.neo4j_client import Neo4jClient
 
 logger = logging.getLogger(__name__)
 
+
 def _get_schema_id(s3: Minio, schema_id: str | None) -> str:
     """Get schema ID, using provided or active schema.
 
@@ -25,6 +26,7 @@ def _get_schema_id(s3: Minio, schema_id: str | None) -> str:
         return schema_id
 
     from .schema import get_active_schema_id
+
     active_schema_id = get_active_schema_id(s3)
     if not active_schema_id:
         raise HTTPException(status_code=400, detail="No active schema found and no schema_id provided")
@@ -42,6 +44,7 @@ def _load_mapping_from_s3(s3: Minio, schema_id: str) -> dict[str, Any]:
         Mapping dictionary
     """
     from ..clients.s3_client import get_yaml_content
+
     try:
         return get_yaml_content(s3, "niem-schemas", f"{schema_id}/mapping.yaml")
     except Exception as e:
@@ -72,7 +75,7 @@ async def _download_schema_files(s3: Minio, schema_id: str) -> str:
 
         xsd_count = 0
         for obj in objects:
-            if obj.object_name.endswith('.xsd'):
+            if obj.object_name.endswith(".xsd"):
                 # Download the file using helper
                 content = await download_file(s3, "niem-schemas", obj.object_name)
 
@@ -82,7 +85,7 @@ async def _download_schema_files(s3: Minio, schema_id: str) -> str:
                 target_path.parent.mkdir(parents=True, exist_ok=True)
 
                 # Write file
-                with open(target_path, 'wb') as f:
+                with open(target_path, "wb") as f:
                     f.write(content)
 
                 xsd_count += 1
@@ -95,8 +98,10 @@ async def _download_schema_files(s3: Minio, schema_id: str) -> str:
         logger.error(f"Failed to download schema files: {e}")
         # Clean up on error
         import shutil
+
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise HTTPException(status_code=500, detail=f"Failed to download schema files: {str(e)}") from e
+
 
 def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> None:
     """Validate XML content against XSD schemas using CMF tool.
@@ -121,7 +126,7 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
     # Write XML content to file in the schema directory
     xml_file = schema_path / filename
     try:
-        with open(xml_file, 'w', encoding='utf-8') as f:
+        with open(xml_file, "w", encoding="utf-8") as f:
             f.write(xml_content)
 
         # Find all XSD files in schema directory (skip directories with .xsd extension)
@@ -162,16 +167,16 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
                 valid=False,
                 errors=[ValidationError(**err) for err in error_list],
                 warnings=[ValidationError(**warn) for warn in warning_list],
-                summary=f"Validation failed with {len(error_list)} error(s) and {len(warning_list)} warning(s)"
+                summary=f"Validation failed with {len(error_list)} error(s) and {len(warning_list)} warning(s)",
             )
 
             # Build detailed error message for logging
             error_details = []
             for err in error_list[:5]:  # Show first 5 errors
                 loc = f"{err['file']}"
-                if err['line']:
+                if err["line"]:
                     loc += f":{err['line']}"
-                if err['column']:
+                if err["column"]:
                     loc += f":{err['column']}"
                 error_details.append(f"  - {loc}: {err['message']}")
 
@@ -188,8 +193,8 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
                 status_code=400,
                 detail={
                     "message": f"Validation error: {filename}",
-                    "validation_result": validation_result.model_dump()
-                }
+                    "validation_result": validation_result.model_dump(),
+                },
             )
 
         logger.info(f"Successfully validated {filename} against XSD schemas")
@@ -200,20 +205,12 @@ def _validate_xml_content(xml_content: str, schema_dir: str, filename: str) -> N
     except CMFError as e:
         logger.error(f"CMF tool error during validation: {e}")
         raise HTTPException(
-            status_code=500,
-            detail={
-                "message": f"CMF tool error: {str(e)}",
-                "validation_result": None
-            }
+            status_code=500, detail={"message": f"CMF tool error: {str(e)}", "validation_result": None}
         ) from e
     except Exception as e:
         logger.error(f"Unexpected error during XML validation: {e}")
         raise HTTPException(
-            status_code=500,
-            detail={
-                "message": f"Validation error: {str(e)}",
-                "validation_result": None
-            }
+            status_code=500, detail={"message": f"Validation error: {str(e)}", "validation_result": None}
         ) from e
     finally:
         # Clean up XML file from schema directory
@@ -242,16 +239,13 @@ def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> dict[str, Any]:
         # Get schema metadata to determine the JSON schema filename
         metadata = get_schema_metadata(s3, schema_id)
         if not metadata:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Schema metadata not found for schema {schema_id}"
-            )
+            raise HTTPException(status_code=404, detail=f"Schema metadata not found for schema {schema_id}")
 
         # Extract base name from primary filename and construct JSON schema filename
         # Handle both forward slashes (Unix/Mac) and backslashes (Windows)
         primary_filename = metadata.get("primary_filename", "")
-        filename_only = primary_filename.replace('\\', '/').split('/')[-1]
-        base_name = filename_only.rsplit('.xsd', 1)[0] if filename_only.endswith('.xsd') else filename_only
+        filename_only = primary_filename.replace("\\", "/").split("/")[-1]
+        base_name = filename_only.rsplit(".xsd", 1)[0] if filename_only.endswith(".xsd") else filename_only
         json_filename = f"{base_name}.json"
 
         json_schema = get_json_content(s3, "niem-schemas", f"{schema_id}/{json_filename}")
@@ -265,7 +259,7 @@ def _download_json_schema_from_s3(s3: Minio, schema_id: str) -> dict[str, Any]:
             detail=(
                 f"JSON Schema not found for schema {schema_id}. "
                 f"Schema may not have been converted to JSON format: {str(e)}"
-            )
+            ),
         ) from e
 
 
@@ -325,7 +319,7 @@ def _validate_json_content(json_content: str, json_schema: dict[str, Any], filen
                     message=err.message,
                     severity="error",
                     rule=err.validator,  # e.g., "required", "type", "pattern"
-                    context=json_path
+                    context=json_path,
                 )
                 errors.append(error)
 
@@ -333,7 +327,7 @@ def _validate_json_content(json_content: str, json_schema: dict[str, Any], filen
                 valid=False,
                 errors=errors,
                 warnings=[],
-                summary=f"Validation failed with {len(errors)} error(s) and 0 warning(s)"
+                summary=f"Validation failed with {len(errors)} error(s) and 0 warning(s)",
             )
 
             logger.error(f"JSON Schema validation failed for {filename} with {len(errors)} error(s)")
@@ -346,8 +340,8 @@ def _validate_json_content(json_content: str, json_schema: dict[str, Any], filen
                 status_code=400,
                 detail={
                     "message": f"Validation error: {filename}",
-                    "validation_result": validation_result.model_dump()
-                }
+                    "validation_result": validation_result.model_dump(),
+                },
             )
 
         logger.info(f"Successfully validated {filename} against JSON Schema")
@@ -356,25 +350,19 @@ def _validate_json_content(json_content: str, json_schema: dict[str, Any], filen
         logger.error(f"Invalid JSON syntax in {filename}: {e}")
         error = ValidationError(
             file=filename,
-            line=e.lineno if hasattr(e, 'lineno') else None,
-            column=e.colno if hasattr(e, 'colno') else None,
+            line=e.lineno if hasattr(e, "lineno") else None,
+            column=e.colno if hasattr(e, "colno") else None,
             message=f"Invalid JSON syntax: {e.msg}",
             severity="error",
             rule="json_syntax",
-            context=None
+            context=None,
         )
         validation_result = ValidationResult(
-            valid=False,
-            errors=[error],
-            warnings=[],
-            summary=f"JSON syntax error in {filename}"
+            valid=False, errors=[error], warnings=[], summary=f"JSON syntax error in {filename}"
         )
         raise HTTPException(
             status_code=400,
-            detail={
-                "message": f"Invalid JSON syntax: {filename}",
-                "validation_result": validation_result.model_dump()
-            }
+            detail={"message": f"Invalid JSON syntax: {filename}", "validation_result": validation_result.model_dump()},
         ) from e
 
     except HTTPException:
@@ -383,11 +371,7 @@ def _validate_json_content(json_content: str, json_schema: dict[str, Any], filen
     except Exception as e:
         logger.error(f"Unexpected error during JSON validation: {e}")
         raise HTTPException(
-            status_code=500,
-            detail={
-                "message": f"Validation error: {str(e)}",
-                "validation_result": None
-            }
+            status_code=500, detail={"message": f"Validation error: {str(e)}", "validation_result": None}
         ) from e
 
 
@@ -401,11 +385,11 @@ def _clean_cypher_statement(statement: str) -> str:
         Cleaned statement
     """
     clean_lines = []
-    for line in statement.split('\n'):
+    for line in statement.split("\n"):
         line = line.strip()
-        if line and not line.startswith('//'):
+        if line and not line.startswith("//"):
             clean_lines.append(line)
-    return '\n'.join(clean_lines)
+    return "\n".join(clean_lines)
 
 
 def _execute_cypher_statements(cypher_statements: str, neo4j_client) -> int:
@@ -424,7 +408,7 @@ def _execute_cypher_statements(cypher_statements: str, neo4j_client) -> int:
     Raises:
         Exception: If any Cypher statement fails (all changes rolled back)
     """
-    statements = [stmt.strip() for stmt in cypher_statements.split(';') if stmt.strip()]
+    statements = [stmt.strip() for stmt in cypher_statements.split(";") if stmt.strip()]
     clean_statements = []
 
     for statement in statements:
@@ -480,21 +464,21 @@ async def _store_processed_files(
         logger.info(f"Stored {file_type.upper()} file in niem-data after successful ingestion: {base_filename}")
     except Exception as e:
         logger.warning(
-            f"Graph ingestion succeeded but failed to store {file_type.upper()} "
-            f"file {filename} in niem-data: {e}"
+            f"Graph ingestion succeeded but failed to store {file_type.upper()} " f"file {filename} in niem-data: {e}"
         )
 
     # Store generated Cypher statements alongside the data file in the same folder
     try:
         logger.info(f"About to store Cypher file for {filename}")
         cypher_filename = f"{file_type}/{timestamp}_{file_hash}_{filename}.cypher"
-        cypher_content = cypher_statements.encode('utf-8')
+        cypher_content = cypher_statements.encode("utf-8")
         logger.info(f"Cypher content length: {len(cypher_content)} bytes, filename: {cypher_filename}")
         await upload_file(s3, "niem-data", cypher_filename, cypher_content, "text/plain")
         logger.info(f"Stored Cypher file in niem-data: {cypher_filename}")
     except Exception as e:
         logger.error(f"Graph ingestion succeeded but failed to store Cypher file {filename} in niem-data: {e}")
         import traceback
+
         logger.error(f"Traceback: {traceback.format_exc()}")
 
 
@@ -514,7 +498,7 @@ def _create_success_result(filename: str, statements_executed: int, stats: dict[
         "status": "success",
         "statements_executed": statements_executed,
         "nodes_created": stats.get("nodes_count", 0),
-        "relationships_created": stats.get("edges_count", 0) + stats.get("contains_count", 0)
+        "relationships_created": stats.get("edges_count", 0) + stats.get("contains_count", 0),
     }
 
 
@@ -529,11 +513,7 @@ def _create_error_result(filename: str, error_msg: str, validation_result: dict[
     Returns:
         Error result dictionary
     """
-    result = {
-        "filename": filename,
-        "status": "failed",
-        "error": error_msg
-    }
+    result = {"filename": filename, "status": "failed", "error": error_msg}
     if validation_result:
         result["validation_details"] = validation_result
     return result
@@ -547,7 +527,7 @@ async def _process_single_file(
     schema_dir: str,
     upload_id: str,
     schema_id: str,
-    mode: str = "dynamic"
+    mode: str = "dynamic",
 ) -> tuple[dict[str, Any], int]:
     """Process a single XML file.
 
@@ -566,7 +546,7 @@ async def _process_single_file(
     """
     try:
         content = await file.read()
-        xml_content = content.decode('utf-8')
+        xml_content = content.decode("utf-8")
 
         # Validate XML against XSD schemas
         _validate_xml_content(xml_content, schema_dir, file.filename)
@@ -596,19 +576,19 @@ async def _process_single_file(
 
     except HTTPException as e:
         # HTTPException from validation - extract detail message and validation result
-        if hasattr(e, 'detail') and isinstance(e.detail, dict):
-            error_msg = e.detail.get('message', str(e.detail))
-            validation_result = e.detail.get('validation_result')
+        if hasattr(e, "detail") and isinstance(e.detail, dict):
+            error_msg = e.detail.get("message", str(e.detail))
+            validation_result = e.detail.get("validation_result")
 
             # If no validation_result but message indicates validation failure, provide helpful default
-            if not validation_result and 'validation' in error_msg.lower():
+            if not validation_result and "validation" in error_msg.lower():
                 error_msg = f"{error_msg}. CMF validation failed - check that the XML conforms to the active schema."
         else:
-            error_msg = e.detail if hasattr(e, 'detail') else str(e)
+            error_msg = e.detail if hasattr(e, "detail") else str(e)
             validation_result = None
 
             # Provide helpful default message for validation errors
-            if 'validation' in error_msg.lower() and not validation_result:
+            if "validation" in error_msg.lower() and not validation_result:
                 error_msg = f"{error_msg}. Check that the XML file conforms to the active schema."
 
         logger.error(f"Failed to process file {file.filename}: {error_msg}")
@@ -619,11 +599,7 @@ async def _process_single_file(
         return _create_error_result(file.filename, error_msg), 0
 
 
-async def handle_xml_ingest(
-    files: list[UploadFile],
-    s3: Minio,
-    schema_id: str = None
-) -> dict[str, Any]:
+async def handle_xml_ingest(files: list[UploadFile], s3: Minio, schema_id: str = None) -> dict[str, Any]:
     """Handle XML file ingestion to Neo4j using import_xml_to_cypher service"""
     logger.info(f"Starting XML ingestion for {len(files)} files using import_xml_to_cypher service")
 
@@ -632,6 +608,7 @@ async def handle_xml_ingest(
         # Step 1: Generate unique upload ID for this ingestion batch
         import time
         import hashlib
+
         upload_id = f"upload_{int(time.time())}_{hashlib.sha1(str(time.time()).encode(), usedforsecurity=False).hexdigest()[:8]}"
         logger.info(f"Generated upload_id: {upload_id}")
 
@@ -643,12 +620,15 @@ async def handle_xml_ingest(
 
         # Step 3.5: Detect mode based on selections.json existence
         from .schema import handle_get_selections
+
         mode = "mapping"  # Default to mapping mode
         try:
             selections_data = await handle_get_selections(schema_id, s3)
             if selections_data and selections_data.get("selections"):
                 mode = "mapping"
-                logger.info(f"Using MAPPING mode (found selections.json with {len(selections_data['selections'])} selections)")
+                logger.info(
+                    f"Using MAPPING mode (found selections.json with {len(selections_data['selections'])} selections)"
+                )
             else:
                 mode = "dynamic"
                 logger.info("Using DYNAMIC mode (selections.json exists but has no selections)")
@@ -687,11 +667,12 @@ async def handle_xml_ingest(
             "total_nodes_created": total_nodes,
             "total_relationships_created": total_relationships,
             "total_statements_executed": total_statements_executed,
-            "results": results
+            "results": results,
         }
 
     except Exception as e:
         import traceback
+
         logger.error(f"XML ingestion failed: {e}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         if isinstance(e, HTTPException):
@@ -701,6 +682,7 @@ async def handle_xml_ingest(
         # Clean up schema directory
         if schema_dir:
             import shutil
+
             try:
                 shutil.rmtree(schema_dir, ignore_errors=True)
                 logger.info(f"Cleaned up schema directory: {schema_dir}")
@@ -716,7 +698,7 @@ async def _process_single_json_file(
     s3: Minio,
     upload_id: str,
     schema_id: str,
-    mode: str = "dynamic"
+    mode: str = "dynamic",
 ) -> tuple[dict[str, Any], int]:
     """Process a single NIEM JSON file.
 
@@ -737,7 +719,7 @@ async def _process_single_json_file(
 
     try:
         content = await file.read()
-        json_content = content.decode('utf-8')
+        json_content = content.decode("utf-8")
 
         # Log the current state of the flag for debugging
         logger.info(f"SKIP_JSON_VALIDATION flag is: {batch_config.SKIP_JSON_VALIDATION}")
@@ -774,22 +756,21 @@ async def _process_single_json_file(
 
     except HTTPException as e:
         # HTTPException from validation - extract detail message and validation result
-        if hasattr(e, 'detail') and isinstance(e.detail, dict):
-            error_msg = e.detail.get('message', str(e.detail))
-            validation_result = e.detail.get('validation_result')
+        if hasattr(e, "detail") and isinstance(e.detail, dict):
+            error_msg = e.detail.get("message", str(e.detail))
+            validation_result = e.detail.get("validation_result")
 
             # If no validation_result but message indicates validation failure, provide helpful default
-            if not validation_result and 'validation' in error_msg.lower():
+            if not validation_result and "validation" in error_msg.lower():
                 error_msg = (
-                    f"{error_msg}. NIEM JSON validation failed - check that the JSON "
-                    f"conforms to the active schema."
+                    f"{error_msg}. NIEM JSON validation failed - check that the JSON " f"conforms to the active schema."
                 )
         else:
-            error_msg = e.detail if hasattr(e, 'detail') else str(e)
+            error_msg = e.detail if hasattr(e, "detail") else str(e)
             validation_result = None
 
             # Provide helpful default message for validation errors
-            if 'validation' in error_msg.lower() and not validation_result:
+            if "validation" in error_msg.lower() and not validation_result:
                 error_msg = f"{error_msg}. Check that the NIEM JSON file conforms to the active schema."
 
         logger.error(f"Failed to process file {file.filename}: {error_msg}")
@@ -800,11 +781,7 @@ async def _process_single_json_file(
         return _create_error_result(file.filename, error_msg), 0
 
 
-async def handle_json_ingest(
-    files: list[UploadFile],
-    s3: Minio,
-    schema_id: str = None
-) -> dict[str, Any]:
+async def handle_json_ingest(files: list[UploadFile], s3: Minio, schema_id: str = None) -> dict[str, Any]:
     """Handle NIEM JSON file ingestion to Neo4j using json_to_graph service.
 
     NIEM JSON uses JSON-LD features (@context, @id, @type) with NIEM-specific conventions
@@ -817,6 +794,7 @@ async def handle_json_ingest(
         # Step 1: Generate unique upload ID for this ingestion batch
         import time
         import hashlib
+
         upload_id = f"upload_{int(time.time())}_{hashlib.sha1(str(time.time()).encode(), usedforsecurity=False).hexdigest()[:8]}"
         logger.info(f"Generated upload_id: {upload_id}")
 
@@ -825,6 +803,7 @@ async def handle_json_ingest(
 
         # Step 3: Validate JSON Schema exists for this schema
         from .schema import get_schema_metadata
+
         metadata = get_schema_metadata(s3, schema_id)
         if not metadata or not metadata.get("json_schema_filename"):
             raise HTTPException(
@@ -834,7 +813,7 @@ async def handle_json_ingest(
                     "The JSON schema was not successfully converted during XSD upload, "
                     "likely due to CMF tool conversion issues. "
                     "Please re-upload the XSD schema or use XML ingestion instead."
-                )
+                ),
             )
 
         # Step 4: Load mapping specification
@@ -842,12 +821,15 @@ async def handle_json_ingest(
 
         # Step 4.5: Detect mode based on selections.json existence
         from .schema import handle_get_selections
+
         mode = "mapping"  # Default to mapping mode
         try:
             selections_data = await handle_get_selections(schema_id, s3)
             if selections_data and selections_data.get("selections"):
                 mode = "mapping"
-                logger.info(f"Using MAPPING mode (found selections.json with {len(selections_data['selections'])} selections)")
+                logger.info(
+                    f"Using MAPPING mode (found selections.json with {len(selections_data['selections'])} selections)"
+                )
             else:
                 mode = "dynamic"
                 logger.info("Using DYNAMIC mode (selections.json exists but has no selections)")
@@ -886,18 +868,22 @@ async def handle_json_ingest(
             "total_nodes_created": total_nodes,
             "total_relationships_created": total_relationships,
             "total_statements_executed": total_statements_executed,
-            "results": results
+            "results": results,
         }
 
     except Exception as e:
         import traceback
+
         logger.error(f"NIEM JSON ingestion failed: {e}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(status_code=500, detail=f"NIEM JSON ingestion failed: {str(e)}") from e
 
-def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filename: str, upload_id: str, schema_id: str, mode: str = "dynamic") -> tuple[str, dict[str, Any]]:
+
+def _generate_cypher_from_xml(
+    xml_content: str, mapping: dict[str, Any], filename: str, upload_id: str, schema_id: str, mode: str = "dynamic"
+) -> tuple[str, dict[str, Any]]:
     """
     Generate Cypher statements from XML content using the import_xml_to_cypher service.
 
@@ -916,7 +902,9 @@ def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filenam
         from ..services.domain.xml_to_graph import generate_for_xml_content
 
         # Generate Cypher statements using in-memory processing (no temporary files needed)
-        cypher_statements, nodes, contains, edges = generate_for_xml_content(xml_content, mapping, filename, upload_id, schema_id, mode=mode)
+        cypher_statements, nodes, contains, edges = generate_for_xml_content(
+            xml_content, mapping, filename, upload_id, schema_id, mode=mode
+        )
 
         # Create stats dictionary from the returned data
         stats = {
@@ -925,7 +913,7 @@ def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filenam
             "containment_edges": len(contains),
             "contains_count": len(contains),
             "reference_edges": len(edges),
-            "edges_count": len(edges)
+            "edges_count": len(edges),
         }
 
         logger.info(
@@ -941,7 +929,9 @@ def _generate_cypher_from_xml(xml_content: str, mapping: dict[str, Any], filenam
         raise
 
 
-def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filename: str, upload_id: str, schema_id: str, mode: str = "dynamic") -> tuple[str, dict[str, Any]]:
+def _generate_cypher_from_json(
+    json_content: str, mapping: dict[str, Any], filename: str, upload_id: str, schema_id: str, mode: str = "dynamic"
+) -> tuple[str, dict[str, Any]]:
     """
     Generate Cypher statements from NIEM JSON content using the json_to_graph service.
 
@@ -962,7 +952,9 @@ def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filen
         from ..services.domain.json_to_graph import generate_for_json_content
 
         # Generate Cypher statements from NIEM JSON
-        cypher_statements, nodes, contains, edges = generate_for_json_content(json_content, mapping, filename, upload_id, schema_id, mode=mode)
+        cypher_statements, nodes, contains, edges = generate_for_json_content(
+            json_content, mapping, filename, upload_id, schema_id, mode=mode
+        )
 
         # Create stats dictionary from the returned data
         stats = {
@@ -971,7 +963,7 @@ def _generate_cypher_from_json(json_content: str, mapping: dict[str, Any], filen
             "containment_edges": len(contains),
             "contains_count": len(contains),
             "reference_edges": len(edges),
-            "edges_count": len(edges)
+            "edges_count": len(edges),
         }
 
         logger.info(
@@ -1012,33 +1004,33 @@ async def handle_get_uploaded_files(s3: Minio) -> dict[str, Any]:
             parts = name.split("_", 2)
             if len(parts) >= 3:
                 original_name = parts[2]  # Get the original filename
-                processed_files.append({
-                    "original_name": original_name,
-                    "stored_name": name,
-                    "size": file_info["size"],
-                    "last_modified": file_info["last_modified"],
-                    "content_type": file_info["content_type"]
-                })
+                processed_files.append(
+                    {
+                        "original_name": original_name,
+                        "stored_name": name,
+                        "size": file_info["size"],
+                        "last_modified": file_info["last_modified"],
+                        "content_type": file_info["content_type"],
+                    }
+                )
             else:
                 # Fallback for files that don't follow the naming convention
-                processed_files.append({
-                    "original_name": name,
-                    "stored_name": name,
-                    "size": file_info["size"],
-                    "last_modified": file_info["last_modified"],
-                    "content_type": file_info["content_type"]
-                })
+                processed_files.append(
+                    {
+                        "original_name": name,
+                        "stored_name": name,
+                        "size": file_info["size"],
+                        "last_modified": file_info["last_modified"],
+                        "content_type": file_info["content_type"],
+                    }
+                )
 
         # Sort by last modified (newest first)
         processed_files.sort(key=lambda x: x["last_modified"] or "", reverse=True)
 
         logger.info(f"Retrieved {len(processed_files)} uploaded files")
 
-        return {
-            "status": "success",
-            "files": processed_files,
-            "total_files": len(processed_files)
-        }
+        return {"status": "success", "files": processed_files, "total_files": len(processed_files)}
 
     except Exception as e:
         logger.error(f"Failed to get uploaded files: {e}")
