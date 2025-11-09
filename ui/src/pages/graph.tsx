@@ -1228,16 +1228,68 @@ export default function GraphPage() {
                   </h4>
                   <div className="space-y-2 text-xs max-h-48 overflow-y-auto">
                     {graphData.metadata.nodeLabels.map((label, index) => {
-                      const colors = generateDistinguishableColors(
-                        graphData.metadata.nodeLabels.length
+                      // Check for special node types
+                      const isResolvedEntity = label === 'ResolvedEntity';
+                      const isAssociation = graphData.nodes.some(
+                        (node) =>
+                          node.label === label &&
+                          (node.properties?._isAssociation === true ||
+                            node.properties?._isAssociation === 'True' ||
+                            node.properties?.qname?.endsWith('Association'))
                       );
-                      const color = colors[index];
+                      const isEntityHub =
+                        label.startsWith('Entity_') ||
+                        graphData.nodes.some(
+                          (node) => node.label === label && node.properties?._isHub === true
+                        );
+
+                      // Determine color and shape based on priority: EntityHub > Association > ResolvedEntity > default
+                      const nodeColor = isEntityHub
+                        ? '#14B8A6'
+                        : isAssociation
+                          ? '#FF8C00'
+                          : isResolvedEntity
+                            ? '#9333EA'
+                            : (() => {
+                                const colors = generateDistinguishableColors(
+                                  graphData.metadata.nodeLabels.length
+                                );
+                                return colors[index];
+                              })();
+
+                      // Determine shape
+                      const shape = isEntityHub
+                        ? 'triangle'
+                        : isResolvedEntity
+                          ? 'diamond'
+                          : isAssociation
+                            ? 'hexagon'
+                            : 'ellipse';
+
+                      // Create shape indicator based on shape type
+                      const shapeIndicator = (
+                        <div
+                          className="flex-shrink-0 border border-gray-300"
+                          style={{
+                            width: '12px',
+                            height: '12px',
+                            backgroundColor: nodeColor,
+                            clipPath:
+                              shape === 'triangle'
+                                ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
+                                : shape === 'diamond'
+                                  ? 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+                                  : shape === 'hexagon'
+                                    ? 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)'
+                                    : 'none',
+                            borderRadius: shape === 'ellipse' ? '50%' : '0',
+                          }}
+                        ></div>
+                      );
+
                       return (
                         <div key={label} className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full border border-gray-300 flex-shrink-0"
-                            style={{ backgroundColor: color }}
-                          ></div>
+                          {shapeIndicator}
                           <span className="truncate" title={label}>
                             {label}
                           </span>
@@ -1251,16 +1303,54 @@ export default function GraphPage() {
                   </h4>
                   <div className="space-y-2 text-xs max-h-40 overflow-y-auto">
                     {graphData.metadata.relationshipTypes.map((type, index) => {
-                      const colors = generateDistinguishableColors(
-                        graphData.metadata.relationshipTypes.length
+                      // Check for special relationship types
+                      const isResolvedTo = type === 'RESOLVED_TO';
+                      const isAssociatedWith = type === 'ASSOCIATED_WITH';
+                      const isRepresents = type === 'REPRESENTS';
+                      const isContains = type === 'CONTAINS';
+
+                      // Determine color, style, and width
+                      const edgeColor = isRepresents
+                        ? '#14B8A6'
+                        : isAssociatedWith
+                          ? '#FF8C00'
+                          : isResolvedTo
+                            ? '#9333EA'
+                            : isContains
+                              ? '#888888'
+                              : (() => {
+                                  const colors = generateDistinguishableColors(
+                                    graphData.metadata.relationshipTypes.length
+                                  );
+                                  return colors[index];
+                                })();
+
+                      const edgeWidth = isResolvedTo || isAssociatedWith || isRepresents ? 3 : 2;
+                      const edgeStyle = isResolvedTo
+                        ? 'dashed'
+                        : isAssociatedWith
+                          ? 'dotted'
+                          : 'solid'; // REPRESENTS and all others are solid
+
+                      // Create edge indicator with proper styling
+                      const edgeIndicator = (
+                        <div
+                          className="flex-shrink-0"
+                          style={{
+                            width: '16px',
+                            height: 0,
+                            borderTop: `${edgeWidth}px ${edgeStyle} ${edgeColor}`,
+                            borderBottom: 'none',
+                            borderLeft: 'none',
+                            borderRight: 'none',
+                            alignSelf: 'center',
+                          }}
+                        ></div>
                       );
-                      const color = colors[index];
+
                       return (
                         <div key={type} className="flex items-center gap-2">
-                          <div
-                            className="w-4 h-0.5 flex-shrink-0"
-                            style={{ backgroundColor: color }}
-                          ></div>
+                          {edgeIndicator}
                           <span className="truncate" title={type}>
                             {type}
                           </span>
