@@ -21,6 +21,39 @@ from enum import Enum
 ASSOCIATION_TYPE = "nc.AssociationType"
 DEEP_NESTING_THRESHOLD = 3
 
+# NIEM component types that should always be flattened (property containers, not entities)
+NIEM_COMPONENT_TYPES = {
+    "nc:PersonName",
+    "nc:OrganizationName",
+    "nc:PersonBirthDate",
+    "nc:PersonDeathDate",
+    "nc:PersonGivenName",
+    "nc:PersonSurName",
+    "nc:PersonMiddleName",
+    "nc:PersonFullName",
+    "nc:AddressFullText",
+    "nc:Date",
+    "nc:ActivityDate",
+    "nc:TelephoneNumber",
+    "nc:ContactInformation",
+}
+
+# Component types that contain resolution-relevant properties (for discovery queries)
+# Used when discovering which entity types have resolution attributes
+NIEM_RESOLUTION_COMPONENT_TYPES = [
+    "nc:PersonName",
+    "nc:OrganizationName",
+    "nc:PersonBirthDate",
+]
+
+# Types that may contain resolution-relevant properties (for entity resolution extraction queries)
+# Only component types that directly contain resolution attributes
+NIEM_RESOLUTION_RELATED_TYPES = [
+    "nc:PersonName",
+    "nc:OrganizationName",
+    "nc:PersonBirthDate",
+]
+
 
 class NodeType(str, Enum):
     """Type of node in the element tree."""
@@ -265,23 +298,7 @@ def is_entity_type(
     """
     # Explicitly exclude NIEM component types (these should ALWAYS be flattened)
     # These are property containers, not standalone entities
-    component_types = {
-        "nc:PersonName",
-        "nc:OrganizationName",
-        "nc:PersonBirthDate",
-        "nc:PersonDeathDate",
-        "nc:PersonGivenName",
-        "nc:PersonSurName",
-        "nc:PersonMiddleName",
-        "nc:PersonFullName",
-        "nc:AddressFullText",
-        "nc:Date",
-        "nc:ActivityDate",
-        "nc:TelephoneNumber",
-        "nc:ContactInformation",
-    }
-
-    if elem_name in component_types:
+    if elem_name in NIEM_COMPONENT_TYPES:
         return False
 
     # Schema-based entity detection (primary method)

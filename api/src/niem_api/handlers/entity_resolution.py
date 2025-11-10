@@ -22,7 +22,12 @@ from minio import Minio
 from minio.error import S3Error
 
 from ..clients.neo4j_client import Neo4jClient
-from ..services.domain.schema.xsd_element_tree import _build_indices
+from ..services.domain.schema.xsd_element_tree import (
+    _build_indices,
+    NIEM_COMPONENT_TYPES,
+    NIEM_RESOLUTION_RELATED_TYPES,
+    NIEM_RESOLUTION_COMPONENT_TYPES,
+)
 from ..services.domain.schema.type_discovery import build_entity_discovery_indices
 
 logger = logging.getLogger(__name__)
@@ -396,13 +401,16 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
 
     # Query to get entities with resolution attributes from entity OR related nodes
     # Handles both flattened and relationship-based structures
+    # Supports nested structures like cyfs:Child -> nc:RoleOfPerson -> nc:PersonName
     query = """
     MATCH (entity)
     WHERE entity.qname IN $node_types
 
     // Optionally match related name nodes (PersonName, OrganizationName, etc.)
-    OPTIONAL MATCH (entity)-[]->(relatedName)
-    WHERE relatedName.qname IN ['nc:PersonName', 'nc:OrganizationName', 'nc:PersonBirthDate']
+    // Go up to 3 hops to handle nested structures (e.g., Child -> RoleOfPerson -> PersonName)
+    // Only matches component types that directly contain resolution attributes
+    OPTIONAL MATCH (entity)-[:CONTAINS*1..3]->(relatedName)
+    WHERE relatedName.qname IN $resolution_related_types
 
     // Get keys from both entity and related nodes
     WITH entity,
@@ -415,26 +423,47 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
          reduce(allKeys = entityKeys, keyList IN relatedKeys | allKeys + keyList) as allKeys
 
     // Find resolution-relevant attributes by checking patterns (case-insensitive)
+    // Use ENDS WITH for flattened properties (e.g., role_of_person__nc_PersonName__nc_PersonFullName)
+    // and CONTAINS as fallback for other patterns
     WITH entity, entityKeys, relatedNodes, allKeys,
-         // Name fields
-         [key IN allKeys WHERE toLower(key) CONTAINS 'fullname' OR toLower(key) CONTAINS 'organizationname'][0] as nameKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'givenname' OR toLower(key) CONTAINS 'firstname'][0] as givenNameKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'surname' OR toLower(key) CONTAINS 'lastname'][0] as surNameKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'middlename'][0] as middleNameKey,
+         // Name fields - check suffix match for flattened properties first, then contains
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonFullName' OR key ENDS WITH 'PersonFullName'
+                            OR toLower(key) CONTAINS 'fullname' 
+                            OR key ENDS WITH 'nc_OrganizationName' OR key ENDS WITH 'OrganizationName'
+                            OR toLower(key) CONTAINS 'organizationname'][0] as nameKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonGivenName' OR key ENDS WITH 'PersonGivenName'
+                            OR toLower(key) CONTAINS 'givenname' OR toLower(key) CONTAINS 'firstname'][0] as givenNameKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonSurName' OR key ENDS WITH 'PersonSurName'
+                            OR toLower(key) CONTAINS 'surname' OR toLower(key) CONTAINS 'lastname'][0] as surNameKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonMiddleName' OR key ENDS WITH 'PersonMiddleName'
+                            OR toLower(key) CONTAINS 'middlename'][0] as middleNameKey,
          // Identifier fields
-         [key IN allKeys WHERE toLower(key) CONTAINS 'ssn' OR toLower(key) CONTAINS 'socialsecurity'][0] as ssnKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'driverslicense' OR toLower(key) CONTAINS 'dln'][0] as dlKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'identification' AND NOT toLower(key) CONTAINS 'driver'][0] as idKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonSSNIdentification' OR key ENDS WITH 'PersonSSNIdentification'
+                            OR toLower(key) ENDS WITH 'ssn' OR toLower(key) CONTAINS 'socialsecurity'][0] as ssnKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_DriverLicenseIdentification' OR key ENDS WITH 'DriverLicenseIdentification'
+                            OR key ENDS WITH 'DriverLicenseCardIdentification'
+                            OR toLower(key) CONTAINS 'driverslicense' OR toLower(key) CONTAINS 'dln'][0] as dlKey,
+         [key IN allKeys WHERE (key ENDS WITH 'nc_IdentificationID' OR key ENDS WITH 'IdentificationID')
+                            AND NOT toLower(key) CONTAINS 'driver'
+                            OR (toLower(key) CONTAINS 'identification' AND NOT toLower(key) CONTAINS 'driver')][0] as idKey,
          // Date fields
-         [key IN allKeys WHERE toLower(key) CONTAINS 'birthdate' OR toLower(key) CONTAINS 'dob'][0] as dobKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonBirthDate' OR key ENDS WITH 'PersonBirthDate'
+                            OR toLower(key) ENDS WITH 'birthdate' OR toLower(key) CONTAINS 'dob'][0] as dobKey,
          // Address fields
-         [key IN allKeys WHERE toLower(key) CONTAINS 'address' AND NOT toLower(key) CONTAINS 'email'][0] as addressKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'city'][0] as cityKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'state'][0] as stateKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'zip' OR toLower(key) CONTAINS 'postal'][0] as zipKey,
+         [key IN allKeys WHERE (key ENDS WITH 'nc_AddressFullText' OR key ENDS WITH 'AddressFullText')
+                            AND NOT toLower(key) CONTAINS 'email'
+                            OR (toLower(key) CONTAINS 'address' AND NOT toLower(key) CONTAINS 'email')][0] as addressKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_CityName' OR key ENDS WITH 'CityName'
+                            OR toLower(key) ENDS WITH 'city' OR toLower(key) CONTAINS 'city'][0] as cityKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_StateCode' OR key ENDS WITH 'StateName'
+                            OR toLower(key) ENDS WITH 'state' OR toLower(key) CONTAINS 'state'][0] as stateKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PostalCode' OR key ENDS WITH 'PostalCode'
+                            OR toLower(key) ENDS WITH 'zip' OR toLower(key) CONTAINS 'postal'][0] as zipKey,
          // Contact fields
-         [key IN allKeys WHERE toLower(key) CONTAINS 'phone' OR toLower(key) CONTAINS 'telephone'][0] as phoneKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'email'][0] as emailKey
+         [key IN allKeys WHERE key ENDS WITH 'nc_TelephoneNumberFullID' OR key ENDS WITH 'TelephoneNumber'
+                            OR toLower(key) CONTAINS 'phone' OR toLower(key) CONTAINS 'telephone'][0] as phoneKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_ElectronicAddressText' 
+                            OR toLower(key) ENDS WITH 'email' OR toLower(key) CONTAINS 'email'][0] as emailKey
 
     // Helper function to extract value from entity or related nodes
     WITH entity, relatedNodes, nameKey, givenNameKey, surNameKey, middleNameKey,
@@ -519,7 +548,11 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
     """
 
     # Use query() instead of query_graph() for scalar results
-    results = neo4j_client.query(query, {"node_types": selected_node_types})
+    # Pass resolution-related types as parameter (component types + wrapper types like RoleOfPerson)
+    results = neo4j_client.query(query, {
+        "node_types": selected_node_types,
+        "resolution_related_types": NIEM_RESOLUTION_RELATED_TYPES
+    })
     entities = []
 
     for record in results:
@@ -1291,9 +1324,7 @@ def _get_available_node_types(neo4j_client: Neo4jClient, s3: Optional[Minio] = N
     // Exclude component nodes (PersonName, OrganizationName, etc.) - only show actual entities
     MATCH (n)
     WHERE n.qname IS NOT NULL
-      AND NOT n.qname IN ['nc:PersonName', 'nc:OrganizationName', 'nc:PersonBirthDate',
-                          'nc:PersonGivenName', 'nc:PersonSurName', 'nc:PersonMiddleName',
-                          'nc:PersonFullName', 'nc:AddressFullText', 'nc:Date']
+      AND NOT n.qname IN $component_types
     WITH DISTINCT n.qname as qname, labels(n)[0] as label
 
     // Aggregate resolution properties from ALL entities of this qname
@@ -1303,7 +1334,7 @@ def _get_available_node_types(neo4j_client: Neo4jClient, s3: Optional[Minio] = N
 
     // For each entity, find property nodes up to 2 hops via CONTAINS
     OPTIONAL MATCH (entity)-[:CONTAINS*1..2]->(relatedName)
-    WHERE relatedName.qname IN ['nc:PersonName', 'nc:OrganizationName', 'nc:PersonBirthDate']
+    WHERE relatedName.qname IN $resolution_component_types
 
     // Collect keys from entity + children for THIS entity
     WITH qname, label, entity,
@@ -1317,7 +1348,7 @@ def _get_available_node_types(neo4j_client: Neo4jClient, s3: Optional[Minio] = N
 
     // For the sample, get its related nodes (for sample values later)
     OPTIONAL MATCH (sample)-[:CONTAINS*1..2]->(relatedName)
-    WHERE relatedName.qname IN ['nc:PersonName', 'nc:OrganizationName', 'nc:PersonBirthDate']
+    WHERE relatedName.qname IN $resolution_component_types
 
     WITH qname, label, count, sample, allKeys, collect(relatedName) as relatedNodes
 
@@ -1421,7 +1452,12 @@ def _get_available_node_types(neo4j_client: Neo4jClient, s3: Optional[Minio] = N
     ORDER BY count DESC
     """
 
-    results = neo4j_client.query(discovery_query, {})
+    # Convert component types set to list for Cypher query
+    component_types_list = list(NIEM_COMPONENT_TYPES)
+    results = neo4j_client.query(discovery_query, {
+        "component_types": component_types_list,
+        "resolution_component_types": NIEM_RESOLUTION_COMPONENT_TYPES
+    })
     node_types = []
     seen_qnames = set()  # Track qnames to prevent duplicates
 
