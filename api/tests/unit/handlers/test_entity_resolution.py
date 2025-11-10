@@ -15,6 +15,10 @@ from niem_api.handlers.entity_resolution import (
     _count_senzing_mappable_fields,
     _load_senzing_field_mappings,
 )
+from niem_api.services.entity_to_senzing import (
+    format_date_for_senzing,
+    extract_confidence_from_senzing,
+)
 
 
 class TestEntityKeyCreation:

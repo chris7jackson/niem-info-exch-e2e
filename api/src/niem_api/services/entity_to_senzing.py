@@ -67,7 +67,7 @@ def get_default_mapping_config() -> Dict:
                 "senzing_record_type": "PERSON",
             },
             "organization": {
-                "patterns": ["organization", "org", "company", "agency", "department"],
+                "patterns": ["organization", "org", "company", "agency", "department", "official", "enforcement"],
                 "senzing_record_type": "ORGANIZATION",
             },
             "address": {"patterns": ["address", "location", "place"], "senzing_record_type": "ADDRESS"},
@@ -77,6 +77,7 @@ def get_default_mapping_config() -> Dict:
             "nc_PersonFullName": "PRIMARY_NAME_FULL",
             "nc_PersonGivenName": "PRIMARY_NAME_FIRST",
             "nc_PersonSurName": "PRIMARY_NAME_LAST",
+            "nc_PersonMiddleName": "PRIMARY_NAME_MIDDLE",
             "nc_PersonBirthDate": "DATE_OF_BIRTH",
             "nc_PersonSSNIdentification": "SSN_NUMBER",
             "nc_OrganizationName": "ORG_NAME",

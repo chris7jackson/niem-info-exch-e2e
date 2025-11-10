@@ -35,11 +35,14 @@ class TestSenzingClientInitialization:
     """Test Senzing client initialization."""
 
     @patch("niem_api.clients.senzing_client.SzAbstractFactory")
-    @patch("niem_api.clients.senzing_client.grpc")
-    def test_initialize_success(self, mock_grpc, mock_factory_class, mock_factory):
+    def test_initialize_success(self, mock_factory_class):
         """Test successful initialization."""
         # Setup mocks
-        mock_grpc.insecure_channel = Mock(return_value=Mock())
+        mock_channel = Mock()
+        mock_factory = Mock()
+        mock_factory.create_engine = Mock(return_value=Mock())
+        mock_factory.create_configmanager = Mock(return_value=Mock())
+        mock_factory.create_diagnostic = Mock(return_value=Mock())
         mock_factory_class.return_value = mock_factory
 
         with patch.dict("os.environ", {"SENZING_GRPC_URL": "localhost:8261"}):
@@ -47,12 +50,14 @@ class TestSenzingClientInitialization:
 
             # Mock is_available to return True
             with patch.object(client, "is_available", return_value=True):
-                result = client.initialize()
+                # Patch grpc.insecure_channel where it's imported inside initialize()
+                with patch("grpc.insecure_channel", return_value=mock_channel):
+                    result = client.initialize()
 
-                assert result is True
-                assert client.initialized is True
-                assert client.factory is not None
-                assert client.engine is not None
+                    assert result is True
+                    assert client.initialized is True
+                    assert client.factory is not None
+                    assert client.engine is not None
 
     def test_initialize_without_senzing_available(self):
         """Test initialization when Senzing is not available."""
@@ -64,19 +69,18 @@ class TestSenzingClientInitialization:
             assert result is False
             assert client.initialized is False
 
-    @patch("niem_api.clients.senzing_client.grpc")
-    def test_initialize_connection_failure(self, mock_grpc):
+    def test_initialize_connection_failure(self):
         """Test handling of gRPC connection failure."""
         # Simulate connection error
-        mock_grpc.insecure_channel.side_effect = Exception("Connection failed")
-
         client = SenzingClient()
 
         with patch.object(client, "is_available", return_value=True):
-            result = client.initialize()
+            # Patch grpc.insecure_channel to raise an exception
+            with patch("grpc.insecure_channel", side_effect=Exception("Connection failed")):
+                result = client.initialize()
 
-            assert result is False
-            assert client.initialized is False
+                assert result is False
+                assert client.initialized is False
 
 
 class TestSenzingClientOperations:
