@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nibrs:Submission  xmlns:nibrs="http://fbi.gov/cjis/nibrs/2025.0" 
+    xmlns:cjis="http://fbi.gov/cjis/5.0"
+    xmlns:j="http://release.niem.gov/niem/domains/jxdm/7.2/" 
+    xmlns:s="http://release.niem.gov/niem/structures/5.0/"
+    xmlns:nc="http://release.niem.gov/niem/niem-core/5.0/"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+    xsi:schemaLocation="http://fbi.gov/cjis/nibrs/2025.0 ../base-xsd/nibrs/2025.0/nibrs.xsd">
+    <cjis:MessageMetadata>
+        <!-- Message Timestamp -->
+        <cjis:MessageDateTime>2017-03-23T03:00:00</cjis:MessageDateTime>
+        <!-- Message ID -->
+        <cjis:MessageIdentification>
+            <nc:IdentificationID>123456</nc:IdentificationID>
+        </cjis:MessageIdentification>
+        <!-- NIBRS IEPD Version -->
+        <cjis:MessageImplementationVersion>2025.0</cjis:MessageImplementationVersion>
+        <cjis:MessageSubmitter>
+            <cjis:MessageSubmittingOrganization>
+                <j:OrganizationAugmentation>
+                    <j:OrganizationORIIdentification>
+                        <!-- Submitting Agency ORI -->
+                        <nc:IdentificationID>FBI111111</nc:IdentificationID>
+                    </j:OrganizationORIIdentification>
+                </j:OrganizationAugmentation>
+            </cjis:MessageSubmittingOrganization>
+        </cjis:MessageSubmitter>
+    </cjis:MessageMetadata>
+    <nibrs:Report>
+        
+        <nibrs:ReportHeader>
+            <!-- Submission Type / Report Category -->
+            <nibrs:NIBRSReportCategoryCode>ZERO REPORT</nibrs:NIBRSReportCategoryCode>
+            <!-- Submission Action Type / Report Action -->
+            <nibrs:ReportActionCategoryCode>A</nibrs:ReportActionCategoryCode>
+            <!-- Year/Month Of Report -->
+            <nibrs:ReportDate>
+                <nc:YearMonthDate>2016-03</nc:YearMonthDate>
+            </nibrs:ReportDate>
+            <nibrs:ReportingAgency>
+                <j:OrganizationAugmentation>
+                    <j:OrganizationORIIdentification>
+                        <!-- Element 1, ORI Code -->
+                        <nc:IdentificationID>TSADMIN01</nc:IdentificationID>
+                    </j:OrganizationORIIdentification>
+                </j:OrganizationAugmentation>
+            </nibrs:ReportingAgency>
+        </nibrs:ReportHeader>
+        
+    </nibrs:Report>
+</nibrs:Submission>

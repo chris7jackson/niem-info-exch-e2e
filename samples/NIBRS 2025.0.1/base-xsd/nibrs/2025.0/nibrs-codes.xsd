@@ -1,0 +1,1743 @@
+<xsd:schema
+		xmlns:nibrs="http://fbi.gov/cjis/nibrs/2025.0"
+		xmlns:cjis="http://fbi.gov/cjis/5.0"
+		
+		xmlns:nc="http://release.niem.gov/niem/niem-core/5.0/"
+		xmlns:w="http://niem.gov/niem/wantlist/2.2"
+		xmlns:j="http://release.niem.gov/niem/domains/jxdm/7.2/"
+		xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+		xmlns:ndex="http://release.niem.gov/niem/codes/ndex/5.0/"
+		xmlns:s="http://release.niem.gov/niem/structures/5.0/"
+		xmlns:ucr="http://release.niem.gov/niem/codes/ucr/5.1/"
+		xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0"
+		xmlns:niem-xs="http://release.niem.gov/niem/proxy/niem-xs/5.0/"
+		xmlns:i="http://release.niem.gov/niem/appinfo/5.0/"
+		xmlns:ncic="http://release.niem.gov/niem/codes/ncic/5.2/"
+		xmlns:nibrscodes="http://fbi.gov/cjis/nibrs/nibrs-codes/2025.0" targetNamespace="http://fbi.gov/cjis/nibrs/nibrs-codes/2025.0" version="2025.0" ct:conformanceTargets="http://reference.niem.gov/niem/specification/naming-and-design-rules/3.0/#ExtensionSchemaDocument">
+	  
+	  <xsd:import namespace="http://fbi.gov/cjis/5.0" schemaLocation="../../cjis/5.0/cjis.xsd"/>
+	  <xsd:import namespace="http://release.niem.gov/niem/codes/ucr/5.1/" schemaLocation="../../niem/xsd/codes/ucr.xsd"/>
+	  <xsd:import namespace="http://release.niem.gov/niem/domains/jxdm/7.2/" schemaLocation="../../niem/xsd/domains/jxdm.xsd"/>
+	  <xsd:import namespace="http://release.niem.gov/niem/niem-core/5.0/" schemaLocation="../../niem/xsd/niem-core.xsd"/>
+	  <xsd:import namespace="http://release.niem.gov/niem/proxy/niem-xs/5.0/" schemaLocation="../../niem/xsd/adapters/niem-xs.xsd"/>
+	  <xsd:import namespace="http://release.niem.gov/niem/structures/5.0/" schemaLocation="../../niem/xsd/utility/structures.xsd"/>
+	  <xsd:import namespace="http://release.niem.gov/niem/conformanceTargets/3.0/" schemaLocation="../../niem/xsd/utility/conformanceTargets.xsd"/>
+	  <xsd:import namespace="http://release.niem.gov/niem/appinfo/5.0/" schemaLocation="../../niem/xsd/utility/appinfo.xsd"/>
+	
+  <xsd:annotation>
+    <xsd:documentation>A collection of code lists for use in the NIBRS 2025 IEPDs.</xsd:documentation>
+  </xsd:annotation>
+	
+	<!-- ============ A ============  -->
+  
+  <xsd:simpleType name="ArresteeWeaponCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for the kinds of measurements used to specify a quantity of drugs or narcotics.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="UNARMED">
+        <xsd:annotation>
+          <xsd:documentation>UNARMED</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FIREARM">
+        <xsd:annotation>
+          <xsd:documentation>Firearm</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="AUTOMATIC_FIREARM">
+        <xsd:annotation>
+          <xsd:documentation>Automatic Firearm</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="HANDGUN">
+        <xsd:annotation>
+          <xsd:documentation>Handgun</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="AUTOMATIC_HANDGUN">
+        <xsd:annotation>
+          <xsd:documentation>Automatic Handgun</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="RIFLE">
+        <xsd:annotation>
+          <xsd:documentation>Rifle</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="AUTOMATIC_RIFLE">
+        <xsd:annotation>
+          <xsd:documentation>Automatic Rifle</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="SHOTGUN">
+        <xsd:annotation>
+          <xsd:documentation>Shotgun</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="AUTOMATIC_SHOTGUN">
+        <xsd:annotation>
+          <xsd:documentation>Automatic Shotgun</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="OTHER_FIREARM">
+        <xsd:annotation>
+          <xsd:documentation>Other Firearm</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="OTHER_AUTOMATIC_FIREARM">
+        <xsd:annotation>
+          <xsd:documentation>Other Automatic Firearm</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="KNIFE-CUTTING_INSTRUMENT">
+        <xsd:annotation>
+          <xsd:documentation>Lethal Cutting Instrument</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="BLUNT_OBJECT">
+        <xsd:annotation>
+          <xsd:documentation>Club/ Blackjack/ Brass Knuckles</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <!-- ============ B ============  -->
+  
+  <!-- ============ C ============  -->
+  <xsd:simpleType name="CriminalActivityCategoryCodeSimpleType">
+    <xsd:annotation>
+      <xsd:appinfo>
+        <i:Base i:namespace="http://niem.gov/niem/structures/5.0" i:name="Object"/>
+      </xsd:appinfo>
+      <xsd:documentation>A data type for a code that identifies additional information on criminal
+        activity of offenders in the offense.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="A">
+        <xsd:annotation>
+          <xsd:documentation>Simple/Gross Neglect (unintentionally, intentionally, or knowingly failing to provide food, water, shelter, veterinary care, hoarding, etc.) (Only Animal Cruelty)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="B">
+        <xsd:annotation>
+          <xsd:documentation>Buying/Receiving</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="C">
+        <xsd:annotation>
+          <xsd:documentation>Cultivating/Manufacturing/Publishing (i.e., production of any type)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="D">
+        <xsd:annotation>
+          <xsd:documentation>Distributing/Selling</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="E">
+        <xsd:annotation>
+          <xsd:documentation>Exploiting Children</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="F">
+        <xsd:annotation>
+          <xsd:documentation>Organized Abuse (Dog Fighting and Cock Fighting) (Only Animal Cruelty</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="G">
+        <xsd:annotation>
+          <xsd:documentation>Other Gang (only violent crimes)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="I">
+        <xsd:annotation>
+          <xsd:documentation>Intentional Abuse and Torture (tormenting, mutilating, maiming,poisoning, or abandonment) (Only Animal Cruelty)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="J">
+        <xsd:annotation>
+          <xsd:documentation>Juvenile Gang (membership is predominantly juvenile [under 18 years of age])</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="N">
+        <xsd:annotation>
+          <xsd:documentation>None/Unknown (Mutually Exclusive)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="O">
+        <xsd:annotation>
+          <xsd:documentation>Operating/Promoting/Assisting/Abetting</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="P">
+        <xsd:annotation>
+          <xsd:documentation>Possessing/Concealing</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="R">
+        <xsd:annotation>
+          <xsd:documentation>Stolen Firearm</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="S">
+        <xsd:annotation>
+          <xsd:documentation>Animal Sexual Abuse (Bestiality) (Only Animal Cruelty)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="T">
+        <xsd:annotation>
+          <xsd:documentation>Transporting/Transmitting/Importing</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="U">
+        <xsd:annotation>
+          <xsd:documentation>Using/Consuming</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="W">
+        <xsd:annotation>
+          <xsd:documentation>Conspiracy</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <xsd:complexType name="CriminalActivityCategoryCodeType">
+    <xsd:annotation>
+      <xsd:appinfo>
+        <i:Base i:namespace="http://niem.gov/niem/structures/5.0" i:name="Object"/>
+      </xsd:appinfo>
+      <xsd:documentation>A data type for the activity type.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:CriminalActivityCategoryCodeSimpleType">
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>  
+  
+  <!-- ============ D ============  -->
+  <xsd:simpleType name="DrugMeasurementCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for the kinds of measurements used to specify a quantity of drugs or narcotics.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="DU">
+        <xsd:annotation>
+          <xsd:documentation>Dosage Units/ Items</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FO">
+        <xsd:annotation>
+          <xsd:documentation>Fluid Ounce</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="GL">
+        <xsd:annotation>
+          <xsd:documentation>Gallon</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="GM">
+        <xsd:annotation>
+          <xsd:documentation>Gram</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="KG">
+        <xsd:annotation>
+          <xsd:documentation>Kilogram</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="LB">
+        <xsd:annotation>
+          <xsd:documentation>Pound</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="LT">
+        <xsd:annotation>
+          <xsd:documentation>Liter</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ML">
+        <xsd:annotation>
+          <xsd:documentation>Milliliter</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="NP">
+        <xsd:annotation>
+          <xsd:documentation>Number of Plants</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="OZ">
+        <xsd:annotation>
+          <xsd:documentation>Ounce</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="XX">
+        <xsd:annotation>
+          <xsd:documentation>Not Reported</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <xsd:complexType name="DrugMeasurementCodeType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for the kinds of measurements used to specify a quantity of drugs or narcotics.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:DrugMeasurementCodeSimpleType">
+        <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  
+  <!-- ============ E ============  -->
+  <!-- ============ F ============  -->
+  
+  <xsd:complexType name="ForceCategoryCodeType">
+    <xsd:annotation>
+      <xsd:appinfo>
+        <i:Base i:namespace="http://niem.gov/niem/structures/5.0" i:name="Object"/>
+      </xsd:appinfo>
+      <xsd:documentation>A data type for the activity type.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:ForceCategoryCodeSimpleType">
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>  
+  
+  <xsd:simpleType name="ForceCategoryCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for the kinds of measurements used to specify a quantity of drugs or narcotics.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="FIREARM">
+        <xsd:annotation>
+          <xsd:documentation>Firearm (type not stated)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="AUTOMATIC_FIREARM">
+        <xsd:annotation>
+          <xsd:documentation>Automatic Firearm (type not stated)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="HANDGUN">
+        <xsd:annotation>
+          <xsd:documentation>Handgun</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="AUTOMATIC_HANDGUN">
+        <xsd:annotation>
+          <xsd:documentation>Automatic Handgun</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="SHOTGUN">
+        <xsd:annotation>
+          <xsd:documentation>Shotgun</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="AUTOMATIC_SHOTGUN">
+        <xsd:annotation>
+          <xsd:documentation>Automatic Shotgun</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="OTHER_FIREARM">
+        <xsd:annotation>
+          <xsd:documentation>Other Firearm</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="OTHER_AUTOMATIC_FIREARM">
+        <xsd:annotation>
+          <xsd:documentation>Other Automatic Firearm</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="AUTOMATIC_RIFLE">
+        <xsd:annotation>
+          <xsd:documentation>Automatic Rifle</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="RIFLE">
+        <xsd:annotation>
+          <xsd:documentation>Rifle</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="KNIFE-CUTTING_INSTRUMENT">
+        <xsd:annotation>
+          <xsd:documentation>Lethal Cutting Instrument</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="BLUNT_OBJECT">
+        <xsd:annotation>
+          <xsd:documentation>Club / Blackjack/ Brass Knuckles</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="MOTOR_VEHICLE-VESSEL">
+        <xsd:annotation>
+          <xsd:documentation>Motor Vehicle / Vessel</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="PERSONAL_WEAPONS">
+        <xsd:annotation>
+          <xsd:documentation>Personal Weapon</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="POISON">
+        <xsd:annotation>
+          <xsd:documentation>Poison</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="EXPLOSIVES">
+        <xsd:annotation>
+          <xsd:documentation>Explosives</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FIRE-INCENDIARY_DEVICE">
+        <xsd:annotation>
+          <xsd:documentation>Fire / Incindiary Device</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="DRUGS-NARCOTICS-SLEEPING_PILLS">
+        <xsd:annotation>
+          <xsd:documentation>Drugs / Narcotics / Sleeping Pills</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ASPHYXIATION">
+        <xsd:annotation>
+          <xsd:documentation>Asphyxiation</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="OTHER">
+        <xsd:annotation>
+          <xsd:documentation>Other</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="UNKNOWN">
+        <xsd:annotation>
+          <xsd:documentation>Unknown</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="NONE">
+        <xsd:annotation>
+          <xsd:documentation>None</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <!-- ============ G ============  -->
+  <!-- ============ H ============  -->
+  <!-- ============ I ============  -->
+  
+  <xsd:simpleType name="IncidentBiasMotivationCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for bias motivations for an incident.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="ANTI-AMERICAN_INDIAN-ALASKAN_NATIVE">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-AMERICAN INDIAN OR ALASKAN NATIVE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-ARAB">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-ARAB</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-ASIAN">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-ASIAN</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-ATHEISM-AGNOSTICISM">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-ATHEISM/ AGNOSTICISM</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-BISEXUAL">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-BISEXUAL</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-BLACK-AFRICAN_AMERICAN">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-BLACK OR AFRICAN AMERICAN</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-BUDDHIST">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-BUDDHIST</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-CATHOLIC">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-CATHOLIC</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-CHURCH_OF_JESUS_CHRIST">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-CHURCH OF JESUS CHRIST</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-EASTERN_ORTHODOX">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-EASTERN_ORTHODOX</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-FEMALE">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-FEMALE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-GAY">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-GAY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-GENDER_NON-CONFORMING">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-GENDER NON-CONFORMING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-HETEROSEXUAL">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-HETEROSEXUAL</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-HINDU">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-HINDU</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-HISPANIC-LATINO">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-HISPANIC OR LATINO</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-ISLAMIC">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-ISLAMIC (MUSLIM)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-JEHOVAH_WITNESS">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-JEHOVAH_WITNESS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-JEWISH">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-JEWISH</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-LESBIAN">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-LESBIAN</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-LESBIAN-GAY-BISEXUAL-TRANSGENDER">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-LESBIAN, GAY, BISEXUAL, OR TRANSGENDER (MIXED GROUP)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-MALE">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-MALE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-MENTAL_DISABILITY">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-MENTAL DISABILITY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-MULTIPLE_RACES-GROUP">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-MULTIPLE RACES, GROUP</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-MULTIPLE_RELIGIONS">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-MULTIPLE RELIGIONS, GROUP</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-NATIVE_HAWAIIAN-OTHER_PACIFIC_ISLANDER">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-OTHER_CHRISTIAN">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-OTHER_CHRISTIAN</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-OTHER_ETHNICITY_NATIONAL_ORIGIN">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-OTHER_ETHNICITY_NATIONAL_ORIGIN</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-OTHER_RELIGION">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-OTHER_RELIGION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-PHYSICAL_DISABILITY">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-PHYSICAL_DISABILITY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-PROTESTANT">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-PROTESTANT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-SIKH">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-SIKH</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-TRANSGENDER">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-TRANSGENDER</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ANTI-WHITE">
+        <xsd:annotation>
+          <xsd:documentation>ANTI-WHITE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="NONE">
+        <xsd:annotation>
+          <xsd:documentation>NONE (NO BIAS)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="UNKNOWN">
+        <xsd:annotation>
+          <xsd:documentation>UNKNOWN (OFFENDER'S MOTIVATION NOT KNOWN)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <xsd:complexType name="IncidentBiasMotivationCodeType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for bias motivations for an incident.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:IncidentBiasMotivationCodeSimpleType">
+        <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  
+  <xsd:simpleType name="IncidentExceptionalClearanceCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for ways in which an incident may be cleared exceptionally.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="A">
+        <xsd:annotation>
+          <xsd:documentation>Death of Offender</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="B">
+        <xsd:annotation>
+          <xsd:documentation>Prosecution Declined (by the prosecutor for other than lack of probable cause)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="C">
+        <xsd:annotation>
+          <xsd:documentation>In Custody of Other Jurisdiction</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="D">
+        <xsd:annotation>
+          <xsd:documentation>Victim Refused to Cooperate (in the prosecution)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="E">
+        <xsd:annotation>
+          <xsd:documentation>Juvenile/No Custody (the handling of a juvenile without taking him/her into custody, but rather by oral or written notice given to the parents or legal guardian in a case involving a minor offense, such as a petty larceny)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="N">
+        <xsd:annotation>
+          <xsd:documentation>Not Applicable (not cleared exceptionally)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <xsd:complexType name="IncidentExceptionalClearanceCodeType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for ways in which an incident may be cleared exceptionally.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:IncidentExceptionalClearanceCodeSimpleType">
+        <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  
+  <xsd:simpleType name="IncidentFactorCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for factors that may have been involved in or contributed to a subject committing an offense.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="ALCOHOL">
+        <xsd:annotation>
+          <xsd:documentation>ALCOHOL</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="COMPUTER_EQUIPMENT-HANDHELD_DEVICE">
+        <xsd:annotation>
+          <xsd:documentation>COMPUTER EQUIPMENT/HANDHELD DEVICE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="DRUGS-NARCOTICS">
+        <xsd:annotation>
+          <xsd:documentation>DRUGS OR NARCOTICS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="NOT_APPLICABLE">
+        <xsd:annotation>
+          <xsd:documentation>NOT APPLICABLE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="DRONE-UNMANNED_AIRCRAFT">
+        <xsd:annotation>
+          <xsd:documentation>DRONE/UNMANNED AIRCRAFT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <xsd:complexType name="IncidentFactorCodeType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for factors that may have been involved in or contributed to a subject committing an offense.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:IncidentFactorCodeSimpleType">
+        <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  
+  <xsd:simpleType name="InjuryCategoryCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for a general category of harm or injury.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="APPARENT_BROKEN_BONES">
+        <xsd:annotation>
+          <xsd:documentation>APPARENT BROKEN BONES</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="GUNSHOT_WOUND">
+        <xsd:annotation>
+          <xsd:documentation>GUNSHOT WOUND</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="POSSIBLE_INTERNAL_INJURY">
+        <xsd:annotation>
+          <xsd:documentation>POSSIBLE INTERNAL INJURY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="SEVERE_LACERATION">
+        <xsd:annotation>
+          <xsd:documentation>SEVERE LACERATION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="APPARENT_MINOR_INJURY">
+        <xsd:annotation>
+          <xsd:documentation>APPARENT MINOR INJURY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="NONE">
+        <xsd:annotation>
+          <xsd:documentation>NONE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="OTHER_MAJOR_INJURY">
+        <xsd:annotation>
+          <xsd:documentation>OTHER MAJOR INJURY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="LOSS_OF_TEETH">
+        <xsd:annotation>
+          <xsd:documentation>LOSS OF TEETH</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="UNCONCIOUSNESS">
+        <xsd:annotation>
+          <xsd:documentation>UNCOUNCIOUSNESS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <!-- ============ J ============  -->
+  <!-- ============ K ============  -->
+  <!-- ============ L ============  -->
+  <xsd:simpleType name="LocationCategoryCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for kinds or functional descriptions of a location.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="01">
+        <xsd:annotation>
+          <xsd:documentation>air/ bus/ train terminal</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="02">
+        <xsd:annotation>
+          <xsd:documentation>bank/ savings and loan</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="03">
+        <xsd:annotation>
+          <xsd:documentation>bar/ nightclub</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="04">
+        <xsd:annotation>
+          <xsd:documentation>church/ synagogue/ temple/ mosque</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="05">
+        <xsd:annotation>
+          <xsd:documentation>commercial/ office building</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="06">
+        <xsd:annotation>
+          <xsd:documentation>construction site</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="07">
+        <xsd:annotation>
+          <xsd:documentation>convenience store</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="08">
+        <xsd:annotation>
+          <xsd:documentation>department/ discount/ store</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="09">
+        <xsd:annotation>
+          <xsd:documentation>drug store/ doctor's office/ hospital</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="10">
+        <xsd:annotation>
+          <xsd:documentation>field/ woods</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="11">
+        <xsd:annotation>
+          <xsd:documentation>government/ public building</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="12">
+        <xsd:annotation>
+          <xsd:documentation>grocery/ supermarket</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="13">
+        <xsd:annotation>
+          <xsd:documentation>highway/ road/ alley/ street/ sidewalk</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="14">
+        <xsd:annotation>
+          <xsd:documentation>hotel/ motel/ etc.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="15">
+        <xsd:annotation>
+          <xsd:documentation>jail/ prison/ penetentiary/ corrections facility</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="16">
+        <xsd:annotation>
+          <xsd:documentation>lake/ waterway/ beach</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="17">
+        <xsd:annotation>
+          <xsd:documentation>liquor store</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="18">
+        <xsd:annotation>
+          <xsd:documentation>parking/ drop lot/ garage</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="19">
+        <xsd:annotation>
+          <xsd:documentation>rental storage facility</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="20">
+        <xsd:annotation>
+          <xsd:documentation>residence/ home</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="21">
+        <xsd:annotation>
+          <xsd:documentation>restaurant</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="23">
+        <xsd:annotation>
+          <xsd:documentation>service/ gas station</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="24">
+        <xsd:annotation>
+          <xsd:documentation>specialty store</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="25">
+        <xsd:annotation>
+          <xsd:documentation>other/ unknown</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="37">
+        <xsd:annotation>
+          <xsd:documentation>Abandoned/ Condemned Structure</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="38">
+        <xsd:annotation>
+          <xsd:documentation>Amusement Park</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="39">
+        <xsd:annotation>
+          <xsd:documentation>Arena/ Stadium/ Fairgrounds/Coliseum</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="40">
+        <xsd:annotation>
+          <xsd:documentation>ATM Separate from Bank</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="41">
+        <xsd:annotation>
+          <xsd:documentation>Auto Dealership New/Used</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="42">
+        <xsd:annotation>
+          <xsd:documentation>Camp/ Campground</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="44">
+        <xsd:annotation>
+          <xsd:documentation>Daycare Facility</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="45">
+        <xsd:annotation>
+          <xsd:documentation>Dock/ Wharf/ Freight/Modal Terminal</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="46">
+        <xsd:annotation>
+          <xsd:documentation>Farm Facility</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="47">
+        <xsd:annotation>
+          <xsd:documentation>Gambling Facility/ Casino/ Race Track</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="48">
+        <xsd:annotation>
+          <xsd:documentation>Industrial Site</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="49">
+        <xsd:annotation>
+          <xsd:documentation>Military Installation</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="50">
+        <xsd:annotation>
+          <xsd:documentation>Park/ Playground</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="51">
+        <xsd:annotation>
+          <xsd:documentation>Rest Area</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="52">
+        <xsd:annotation>
+          <xsd:documentation>School - College/ University</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="53">
+        <xsd:annotation>
+          <xsd:documentation>School - Elementary/ Secondary</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="54">
+        <xsd:annotation>
+          <xsd:documentation>Shelter - Mission/ Homeless</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="55">
+        <xsd:annotation>
+          <xsd:documentation>Shopping Mall</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="56">
+        <xsd:annotation>
+          <xsd:documentation>Tribal Lands</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="57">
+        <xsd:annotation>
+          <xsd:documentation>Community Center</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="58">
+        <xsd:annotation>
+          <xsd:documentation>Cyberspace</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <xsd:complexType name="LocationCategoryCodeType">
+    <xsd:annotation>
+      <xsd:appinfo>
+        <i:Base i:namespace="http://niem.gov/niem/structures/5.0" i:name="Object"/>
+      </xsd:appinfo>
+      <xsd:documentation>A data type for a location code</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:LocationCategoryCodeSimpleType">
+        <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  
+  <!-- ============ M ============  -->
+  <!-- ============ N ============  -->
+ 
+  <xsd:simpleType name="NIBRSReportCategoryCodeSimpleType">
+    <xsd:annotation>
+      <xsd:appinfo>
+        <i:Base i:namespace="http://niem.gov/niem/structures/5.0" i:name="Object"/>
+      </xsd:appinfo>
+      <xsd:documentation>A data type for a kind of report contained in the NIBRS
+        submission</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="GROUP A INCIDENT REPORT">
+        <xsd:annotation>
+          <xsd:documentation>Group A Incident Report</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="GROUP B ARREST REPORT">
+        <xsd:annotation>
+          <xsd:documentation>Group B Arrest Report</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ZERO REPORT">
+        <xsd:annotation>
+          <xsd:documentation>Zero Report</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <xsd:complexType name="NIBRSReportCategoryCodeType">
+    <xsd:annotation>
+      <xsd:appinfo>
+        <i:Base i:namespace="http://niem.gov/niem/structures/5.0" i:name="Object"/>
+      </xsd:appinfo>
+      <xsd:documentation>A data type for a kind of report contained in the NIBRS extracted Data
+        Item.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:NIBRSReportCategoryCodeSimpleType">
+        <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  
+  <!-- ============ O ============  -->
+  <xsd:complexType name="OffenseAttemptedIndicatorCodeType">
+    <xsd:annotation>
+      <xsd:documentation>Code to identify if an offense was either attempted, completed, or unfounded.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:OffenseAttemptedIndicatorCodeSimpleType">
+        <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  
+  <xsd:simpleType name="OffenseAttemptedIndicatorCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for a code to identify if an offense was either attempted, completed, or unfounded.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="ATTEMPTED">
+        <xsd:annotation>
+          <xsd:documentation>Attempted</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="COMPLETED">
+        <xsd:annotation>
+          <xsd:documentation>Completed</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="UNFOUNDED">
+        <xsd:annotation>
+          <xsd:documentation>Unfounded</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+   <xsd:simpleType name="OffenseCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for Uniform Crime Reporting (UCR) offense codes.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="AGGRAVATED_ASSAULT">
+        <xsd:annotation>
+          <xsd:documentation>AGGRAVATED ASSAULT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ALL_OTHER_OFFENSES">
+        <xsd:annotation>
+          <xsd:documentation>ALL OTHER OFFENSES</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ARSON">
+        <xsd:annotation>
+          <xsd:documentation>ARSON</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="BETTING-WAGERING">
+        <xsd:annotation>
+          <xsd:documentation>BETTING/WAGERING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="BRIBERY">
+        <xsd:annotation>
+          <xsd:documentation>BRIBERY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="BURGLARY-BREAKING_ENTERING">
+        <xsd:annotation>
+          <xsd:documentation>BURGLARY/BREAKING &amp; ENTERING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="COUNTERFEIT-FORGERY">
+        <xsd:annotation>
+          <xsd:documentation>COUNTERFEITING/FORGERY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="CRIMINAL_SEXUAL_CONTACT">
+        <xsd:annotation>
+          <xsd:documentation>CRIMINAL SEXUAL CONTACT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="CRUELTY_TO_ANIMALS">
+        <xsd:annotation>
+          <xsd:documentation>ANIMAL CRUELTY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="CURFEW-LOITERING-VAGRANCY_VIOLATIONS">
+        <xsd:annotation>
+          <xsd:documentation>CURFEW/LOITERING/VAGRANCY VIOLATIONS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="DAMAGE-DESTRUCTION-VANDALISM_OF_PROPERTY">
+        <xsd:annotation>
+          <xsd:documentation>DESTRUCTION/DAMAGE/VANDALISM OF PROPERTY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="DISORDERLY_CONDUCT">
+        <xsd:annotation>
+          <xsd:documentation>DISORDERLY CONDUCT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="DRIVING_UNDER_INFLUENCE">
+        <xsd:annotation>
+          <xsd:documentation>DRIVING UNDER THE INFLUENCE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="DRUG-NARCOTIC_VIOLATIONS">
+        <xsd:annotation>
+          <xsd:documentation>DRUG/NARCOTIC VIOLATIONS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="DRUG-EQUIPMENT_VIOLATIONS">
+        <xsd:annotation>
+          <xsd:documentation>DRUG EQUIPMENT VIOLATIONS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="EMBEZZLEMENT">
+        <xsd:annotation>
+          <xsd:documentation>EMBEZZLEMENT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ESPIONAGE">
+        <xsd:annotation>
+          <xsd:documentation>ESPIONAGE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="EXPLOSIVES">
+        <xsd:annotation>
+          <xsd:documentation>EXPLOSIVES</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="EXPORT_VIOLATIONS">
+        <xsd:annotation>
+          <xsd:documentation>EXPORT VIOLATIONS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="EXTORTION-BLACKMAIL">
+        <xsd:annotation>
+          <xsd:documentation>EXTORTION/BLACKMAIL</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FAILURE_TO_APPEAR">
+        <xsd:annotation>
+          <xsd:documentation>BOND FAILURE TO APPEAR</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FAMILY_OFFENSES-NONVIOLENT">
+        <xsd:annotation>
+          <xsd:documentation>FAMILY OFFENSES, NONVIOLENT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FEDERAL_LIQUOR_OFFENSES">
+        <xsd:annotation>
+          <xsd:documentation>FEDERAL LIQUOR OFFENSES</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FEDERAL_RESOURCE_VIOLATIONS">
+        <xsd:annotation>
+          <xsd:documentation>FEDERAL RESOURCE VIOLATIONS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FEDERAL_TOBACCO_OFFENSES">
+        <xsd:annotation>
+          <xsd:documentation>FEDERAL TOBACCO OFFENSES</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FIREARM_ACT_VIOLATION">
+        <xsd:annotation>
+          <xsd:documentation>FIREARM ACT VIOLATION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FRAUD-BY_WIRE">
+        <xsd:annotation>
+          <xsd:documentation>WIRE FRAUD</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FRAUD-CREDIT_CARD-AUTOMATIC_TELLER_MACHINE">
+        <xsd:annotation>
+          <xsd:documentation>CREDIT CARD/AUTOMATED TELLER MACHINE FRAUD</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FRAUD-FALSE_PRETENSES-SWINDLE-CONFIDENCE_GAME">
+        <xsd:annotation>
+          <xsd:documentation>FALSE PRETENSES/SWINDLE/CONFIDENCE GAME</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FRAUD-IMPERSONATION">
+        <xsd:annotation>
+          <xsd:documentation>IMPERSONATION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FRAUD-WELFARE_FRAUD">
+        <xsd:annotation>
+          <xsd:documentation>WELFARE FRAUD</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FUGITIVE-FLIGHT_TO_AVOID_DEPORTATION">
+        <xsd:annotation>
+          <xsd:documentation>FUGITIVE - FLIGHT TO AVOID DEPORTATION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FUGITIVE-FLIGHT_TO_AVOID_PROSECUTION">
+        <xsd:annotation>
+          <xsd:documentation>FUGITIVE - FLIGHT TO AVOID PROSECUTION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="FUGITIVE-HARBORING_ESCAPEE-CONCEALING_FROM_ARREST">
+        <xsd:annotation>
+          <xsd:documentation>FUGITIVE - HARBORING ESCAPEE - CONCEALING FROM ARREST</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="GAMBLING-EQUIPMENT_VIOLATION">
+        <xsd:annotation>
+          <xsd:documentation>GAMBLING EQUIPMENT VIOLATION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="GAMBLING-OPERATING_PROMOTING_ASSISTING">
+        <xsd:annotation>
+          <xsd:documentation>OPERATING/PROMOTING/ASSISTING GAMBLING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="HACKING-COMPUTER_INVASION">
+        <xsd:annotation>
+          <xsd:documentation>HACKING/COMPUTER INVASION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="HUMAN_TRAFFICKING-COMMERCIAL_SEX_ACTS">
+        <xsd:annotation>
+          <xsd:documentation>HUMAN TRAFFICKING, COMMERCIAL SEX ACTS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="HUMAN_TRAFFICKING-INVOLUNTARY_SERVITUDE">
+        <xsd:annotation>
+          <xsd:documentation>HUMAN TRAFFICKING, INVOLUNTARY SERVITUDE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="IDENTITY_THEFT">
+        <xsd:annotation>
+          <xsd:documentation>IDENTITY THEFT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="IMMIGRATION-FALSE_CITIZENSHIP">
+        <xsd:annotation>
+          <xsd:documentation>IMMIGRATION - FALSE CITIZENSHIP</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="IMMIGRATION-ILLEGAL_ENTRY_INTO_US">
+        <xsd:annotation>
+          <xsd:documentation>IMMIGRATION - ILLEGAL ENTRY INTO US</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="IMMIGRATION-RE_ENTRY_AFTER_DEPORTATION">
+        <xsd:annotation>
+          <xsd:documentation>IMMIGRATION - RE-ENTRY AFTER DEPORTATION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="IMMIGRATION-SMUGGLING_ALIENS">
+        <xsd:annotation>
+          <xsd:documentation>IMMIGRATION - SMUGGLING ALIENS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="IMPORT_VIOLATIONS">
+        <xsd:annotation>
+          <xsd:documentation>IMPORT VIOLATIONS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="INCEST">
+        <xsd:annotation>
+          <xsd:documentation>INCEST</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="INTIMIDATION">
+        <xsd:annotation>
+          <xsd:documentation>INTIMIDATION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="JUSTIFIABLE_HOMICIDE">
+        <xsd:annotation>
+          <xsd:documentation>JUSTIFIABLE HOMICIDE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="KIDNAPPING-ABDUCTION">
+        <xsd:annotation>
+          <xsd:documentation>KIDNAPPING/ABDUCTION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="LARCENY">
+        <xsd:annotation>
+          <xsd:documentation>ALL OTHER LARCENY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="LARCENY-FROM_AUTO">
+        <xsd:annotation>
+          <xsd:documentation>THEFT FROM MOTOR VEHICLE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="LARCENY-FROM_BUILDING">
+        <xsd:annotation>
+          <xsd:documentation>THEFT FROM BUILDING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="LARCENY-FROM_COIN_OPERATED_MACHINE">
+        <xsd:annotation>
+          <xsd:documentation>THEFT FROM COIN-OPERATED MACHINE OR DEVICE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="LARCENY-PARTS_FROM_VEHICLE">
+        <xsd:annotation>
+          <xsd:documentation>THEFT OF MOTOR VEHICLE PARTS OR ACCESSORIES</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="LIQUOR_LAW_VIOLATIONS">
+        <xsd:annotation>
+          <xsd:documentation>LIQUOR LAW VIOLATIONS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="MANSLAUGHTER_NEGLIGENT">
+        <xsd:annotation>
+          <xsd:documentation>NEGLIGENT MANSLAUGHTER</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="MANSLAUGHTER_NONNEGLIGENT-MURDER">
+        <xsd:annotation>
+          <xsd:documentation>MURDER &amp; NONNEGLIGENT MANSLAUGHTER</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="MONEY_LAUNDERING">
+        <xsd:annotation>
+          <xsd:documentation>MONEY LAUNDERING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="MOTOR_VEHICLE_THEFT">
+        <xsd:annotation>
+          <xsd:documentation>MOTOR VEHICLE THEFT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="OBSCENE_MATERIAL-PORNOGRAPHY">
+        <xsd:annotation>
+          <xsd:documentation>PORNOGRAPHY/OBSCENE MATERIAL</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="PERJURY">
+        <xsd:annotation>
+          <xsd:documentation>PERJURY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="POCKET_PICKING">
+        <xsd:annotation>
+          <xsd:documentation>POCKET-PICKING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="PROSTITUTION">
+        <xsd:annotation>
+          <xsd:documentation>PROSTITUTION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="PROSTITUTION-ASSISTING_OR_PROMOTING">
+        <xsd:annotation>
+          <xsd:documentation>ASSISTING OR PROMOTING PROSTITUTION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="PROSTITUTION-PURCHASING">
+        <xsd:annotation>
+          <xsd:documentation>PURCHASING PROSTITUTION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="PURSE_SNATCHING">
+        <xsd:annotation>
+          <xsd:documentation>PURSE-SNATCHING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="RAPE">
+        <xsd:annotation>
+          <xsd:documentation>RAPE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="RAPE-STATUTORY">
+        <xsd:annotation>
+          <xsd:documentation>STATUTORY RAPE</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ROBBERY">
+        <xsd:annotation>
+          <xsd:documentation>ROBBERY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="SEX_ASSAULT-OBJECT">
+        <xsd:annotation>
+          <xsd:documentation>SEXUAL ASSAULT WITH AN OBJECT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="SEX_OFFENDER_REGISTRATION_VIOLATION">
+        <xsd:annotation>
+          <xsd:documentation>FAILURE TO REGISTER AS SEX OFFENDER</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="SHOPLIFTING">
+        <xsd:annotation>
+          <xsd:documentation>SHOPLIFTING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ASSAULT-SIMPLE">
+        <xsd:annotation>
+          <xsd:documentation>SIMPLE ASSAULT</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="SODOMY">
+        <xsd:annotation>
+          <xsd:documentation>SODOMY</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="SPORTS_TAMPERING">
+        <xsd:annotation>
+          <xsd:documentation>SPORTS TAMPERING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="STOLEN_PROPERTY_OFFENSES">
+        <xsd:annotation>
+          <xsd:documentation>STOLEN OFFENSES</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="TREASON">
+        <xsd:annotation>
+          <xsd:documentation>TREASON</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="TRESPASSING">
+        <xsd:annotation>
+          <xsd:documentation>TRESPASS OF REAL</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="WEAPON_LAW_VIOLATIONS">
+        <xsd:annotation>
+          <xsd:documentation>WEAPON LAW VIOLATIONS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="WEAPONS_OF_MASS_DESTRUCTION">
+        <xsd:annotation>
+          <xsd:documentation>WEAPONS OF MASS DESTRUCTION</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="WILDLIFE_TRAFFICKING">
+        <xsd:annotation>
+          <xsd:documentation>WILDLIFE TRAFFICKING</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <!-- ============ P ============  -->
+  <!-- ============ Q ============  -->
+  <!-- ============ R ============  -->
+
+  <xsd:simpleType name="ReportActionCategoryCodeSimpleType">
+    <xsd:annotation>
+      <xsd:appinfo>
+        <i:Base i:namespace="http://release.niem.gov/niem/structures/5.0/" i:name="Object"/>
+      </xsd:appinfo>
+      <xsd:documentation>A data type for a kind of action to be taken on the
+        report</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="A">
+        <xsd:annotation>
+          <xsd:documentation>Add Report</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="I">
+        <xsd:annotation>
+          <xsd:documentation>Incident Report</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="D">
+        <xsd:annotation>
+          <xsd:documentation>Delete</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="R">
+        <xsd:annotation>
+          <xsd:documentation>Replace</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <xsd:complexType name="ReportActionCategoryCodeType">
+    <xsd:annotation>
+      <xsd:appinfo>
+        <i:Base i:namespace="http://niem.gov/niem/structures/5.0" i:name="Object"/>
+      </xsd:appinfo>
+      <xsd:documentation>A data type for a kind of action to be taken on the
+        report</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:ReportActionCategoryCodeSimpleType">
+        <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  
+  <!-- ============ S ============  -->
+  <!-- ============ T ============  -->
+  <!-- ============ U ============  -->
+  <!-- ============ V ============  -->
+  <xsd:simpleType name="VictimToSubjectRelationshipCodeSimpleType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for a code that identifies the victim's relationship to subject who perpetrated a crime against them, depicting who the victim was to the offender.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="Acquaintance">
+        <xsd:annotation>
+          <xsd:documentation>Acquaintance</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Babysittee">
+        <xsd:annotation>
+          <xsd:documentation>Babysittee</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Boyfriend_Girlfriend">
+        <xsd:annotation>
+          <xsd:documentation>Boyfriend/Girlfriend</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Child of Boyfriend_Girlfriend">
+        <xsd:annotation>
+          <xsd:documentation>Child of Boyfriend_Girlfriend</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Cohabitant">
+        <xsd:annotation>
+          <xsd:documentation>Cohabitant</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Employee">
+        <xsd:annotation>
+          <xsd:documentation>Employee</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Employer">
+        <xsd:annotation>
+          <xsd:documentation>Employer</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Ex_Relationship">
+        <xsd:annotation>
+          <xsd:documentation>Ex-Relationship (Ex-Boyfriend/Ex-Girlfriend)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Ex_Spouse">
+        <xsd:annotation>
+          <xsd:documentation>Ex_Spouse</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member">
+        <xsd:annotation>
+          <xsd:documentation>Family Member</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_Child">
+        <xsd:annotation>
+          <xsd:documentation>Child</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_Grandchild">
+        <xsd:annotation>
+          <xsd:documentation>Grandchild</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_Grandparent">
+        <xsd:annotation>
+          <xsd:documentation>Grandparent</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_In-Law">
+        <xsd:annotation>
+          <xsd:documentation>In-Law</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_Parent">
+        <xsd:annotation>
+          <xsd:documentation>Parent</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_Sibling">
+        <xsd:annotation>
+          <xsd:documentation>Sibling</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_Spouse">
+        <xsd:annotation>
+          <xsd:documentation>Family Member_Spouse </xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_Spouse_Common Law">
+        <xsd:annotation>
+          <xsd:documentation>Spouse_Common Law</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_Stepchild">
+        <xsd:annotation>
+          <xsd:documentation>Stepchild</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_Stepparent">
+        <xsd:annotation>
+          <xsd:documentation>Stepparent</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Family Member_Stepsibling">
+        <xsd:annotation>
+          <xsd:documentation>Stepsibling</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Foster Child">
+        <xsd:annotation>
+          <xsd:documentation>Victim was Foster Child</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Foster Parent">
+        <xsd:annotation>
+          <xsd:documentation>Victim was Foster Parent</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Friend">
+        <xsd:annotation>
+          <xsd:documentation>Friend</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Neighbor">
+        <xsd:annotation>
+          <xsd:documentation>Neighbor</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="NonFamily_Otherwise Known">
+        <xsd:annotation>
+          <xsd:documentation>NonFamily_Otherwise Known</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Relationship Unknown">
+        <xsd:annotation>
+          <xsd:documentation>Relationship Unknown </xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Stranger">
+        <xsd:annotation>
+          <xsd:documentation>Stranger</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="Victim Was Offender">
+        <xsd:annotation>
+          <xsd:documentation>Victim Was Offender</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+  <xsd:complexType name="VictimToSubjectRelationshipCodeType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for a code that identifies the victim's relationship to subject who perpetrated a crime against them, depicting who the victim was to the offender.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:VictimToSubjectRelationshipCodeSimpleType">
+        <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  
+  <!-- ============ W ============  -->
+  <!-- ============ X ============  -->
+  <!-- ============ Y ============  -->
+  <!-- ============ Z ============  -->
+	</xsd:schema>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Metadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://niem.gov/niem/metadata/1 metadata-schema.xsd"
+ xmlns="http://niem.gov/niem/metadata/1">
+    <URI>http://cb.acf.hhs.gov/neice/1.0/exchange/</URI>
+    <Name>NEICE - ICPC IEPD</Name>
+    <Summary>System to exchange ICPC case information to be exchanged between SACWIS / Child Welfare systems of 2 states</Summary>
+    <Description>TThe NEICE ICPC Case IEPD facilitates cross jurisdictional information sharing between the Child Welfare 
+        agencies of states.  This data exchange allows the Receiving State (state receiving the child) to obtain 
+        information required to evaluate the placement and let the Sending (agency sending the child) agency whether 
+        it is fine to transfer the child across state lines.</Description>
+    <Version>1.0</Version>
+    <URL>___TO_BE_FILLED_IN_WHEN_A_HOSTING_LOCATION_IS_DETERMINED___</URL>
+    <CreationDate>08/05/2015</CreationDate>
+    <Security>Public</Security>
+    <Maturity>1</Maturity>
+    <Status>Implemented in NIEM 3.0</Status>
+    <Keywords>ICPC, Interstate Child Placement, CB, ACF, HHS</Keywords>
+    <Domain>Health and Human Services</Domain>
+    <Sponsors>Children's Bureau, Administration for Children and Families, HHS</Sponsors>
+    <MessageExchangePatterns>message</MessageExchangePatterns>
+    <ExchangePartnerCategories>Child Welfare Agencies</ExchangePartnerCategories>
+    <AuthoritativeSource>
+        <Organization>
+            <Name>Children's Bureau, Administration for Children and Families, HHS</Name>
+            <Country>U.S.</Country>
+        </Organization>
+        <PointOfContact>
+            <Name>Marci Roth</Name>
+            <Country>U.S.</Country>
+        </PointOfContact>
+    </AuthoritativeSource>
+</Metadata>

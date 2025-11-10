@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="US-ASCII"?>
+<xs:schema targetNamespace="http://release.niem.gov/niem/domains/jxdm/5.0/" version="1" xsi:schemaLocation="http://release.niem.gov/niem/appinfo/3.0/ ../../../appinfo/3.0/appinfo.xsd http://release.niem.gov/niem/conformanceTargets/3.0/ ../../../conformanceTargets/3.0/conformanceTargets.xsd" ct:conformanceTargets="http://reference.niem.gov/niem/specification/naming-and-design-rules/3.0/#ReferenceSchemaDocument" xmlns:ncic="http://release.niem.gov/niem/codes/fbi_ncic/3.0/" xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/" xmlns:structures="http://release.niem.gov/niem/structures/3.0/" xmlns:ucr="http://release.niem.gov/niem/codes/fbi_ucr/3.0/" xmlns:appinfo="http://release.niem.gov/niem/appinfo/3.0/" xmlns:nc="http://release.niem.gov/niem/niem-core/3.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:j="http://release.niem.gov/niem/domains/jxdm/5.0/">
+  <xs:annotation>
+    <xs:documentation>Justice</xs:documentation>
+  </xs:annotation>
+  <xs:import schemaLocation="../../../codes/fbi_ncic/3.0/fbi_ncic.xsd" namespace="http://release.niem.gov/niem/codes/fbi_ncic/3.0/"/>
+  <xs:import schemaLocation="../../../codes/fbi_ucr/3.0/fbi_ucr.xsd" namespace="http://release.niem.gov/niem/codes/fbi_ucr/3.0/"/>
+  <xs:import schemaLocation="../../../niem-core/3.0/niem-core.xsd" namespace="http://release.niem.gov/niem/niem-core/3.0/"/>
+  <xs:import schemaLocation="../../../structures/3.0/structures.xsd" namespace="http://release.niem.gov/niem/structures/3.0/"/>
+  <xs:complexType name="ActivityAugmentationType">
+    <xs:annotation>
+      <xs:documentation>A data type for additional information about an activity.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="structures:AugmentationType">
+        <xs:sequence>
+          <xs:element ref="j:CaseLinkage" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="j:CaseNumberText" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ActivityLocationAssociationType">
+    <xs:annotation>
+      <xs:documentation>A data type for an association between an activity and a location.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:AssociationType">
+        <xs:sequence>
+          <xs:element ref="nc:Activity" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="nc:Location" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="j:ActivityLocationAssociationAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="CaseLinkageType">
+    <xs:annotation>
+      <xs:documentation>A data type for an identifying number for a case submitted by an agency which is known or believed to be related to the case of this activity.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="structures:ObjectType">
+        <xs:sequence>
+          <xs:element ref="j:CaseLinkageNumberText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="j:OrganizationORIIdentification" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="j:CaseLinkageAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:simpleType name="PersonNameCategoryCodeSimpleType">
+    <xs:annotation>
+      <xs:documentation>A data type for possible kinds of names.</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="aka">
+        <xs:annotation>
+          <xs:documentation>Also known as, e.g., a stage name</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="alias">
+        <xs:annotation>
+          <xs:documentation>An assumed or alternate name suspected to be in use for deception; usually involves criminal intent.  A term used in legal proceedings to connect the different names of anyone who has gone by two or more, and whose true name is for any cause doubtful.</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="call sign">
+        <xs:annotation>
+          <xs:documentation>A registered radio identifier used by amateur radio operators; usually a string of alpha-numeric characters.</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="dba">
+        <xs:annotation>
+          <xs:documentation>Doing business as</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="fka">
+        <xs:annotation>
+          <xs:documentation>Formerly known as</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="handle">
+        <xs:annotation>
+          <xs:documentation>An electronic pseudonym; intended to conceal the user's true identity.  Commonly used areas include the Internet, chatrooms, networks, bulletin board systems (BBS), and Citizen's Band (CB) radio; sometimes used by radio operators as an alternative to a call sign.  May or may not be used for criminal deception.  (also screen name)</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="moniker">
+        <xs:annotation>
+          <xs:documentation>A nickname specifically used by gang members or criminals to hide real identity for criminal purposes.</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="nickname">
+        <xs:annotation>
+          <xs:documentation>A descriptive name added to or replacing the actual name of a person, place, or thing.  A familiar or shortened form of a proper name.  (also street name)</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="other">
+        <xs:annotation>
+          <xs:documentation>None of the other types is appropriate.  (Explain in text field.)</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="provided">
+        <xs:annotation>
+          <xs:documentation>A name communicated by an individual directly or through documentation being carried; obtained from the source of the record and which is not known to be an alias or aka name.</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="pseudonym">
+        <xs:annotation>
+          <xs:documentation>A fictitious name, especially a pen name; not normally for criminal purposes.</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="unknown">
+        <xs:annotation>
+          <xs:documentation>Indefinite; unsure of this type of name.</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="user id">
+        <xs:annotation>
+          <xs:documentation>A number or name which is unique to a particular user of a computer or group of computers which share user information.  A user id is not normally used for criminal intent, unless it is being used without authorization.  An operating system uses the user id to represent the user in its data structures, e.g. the owner of a file or process, the person attempting to access a system resource. (also uid, userid)</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="PersonNameCategoryCodeType">
+    <xs:annotation>
+      <xs:documentation>A data type for possible kinds of names.</xs:documentation>
+    </xs:annotation>
+    <xs:simpleContent>
+      <xs:extension base="j:PersonNameCategoryCodeSimpleType">
+        <xs:attributeGroup ref="structures:SimpleObjectAttributeGroup"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:element name="ActivityAugmentation" type="j:ActivityAugmentationType" substitutionGroup="nc:ActivityAugmentationPoint">
+    <xs:annotation>
+      <xs:documentation>Additional information about an activity.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ActivityLocationAssociation" type="j:ActivityLocationAssociationType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>An association between an activity and a location.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ActivityLocationAssociationAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for ActivityLocationAssociationType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CaseLinkage" type="j:CaseLinkageType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>An identifying number for a case submitted by an agency which is known or believed to be related to the case of this activity.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CaseLinkageAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for CaseLinkageType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CaseLinkageNumberText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>An identifying number for a case which is known or believed to be related to the activity.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CaseNumberText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>An identifying number for a case that this activity is a part of, where the case number belongs to the agency that owns the activity information.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="OrganizationIdentification" abstract="true">
+    <xs:annotation>
+      <xs:documentation>A data concept for an identification for an organization.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="OrganizationORIIdentification" type="nc:IdentificationType" substitutionGroup="j:OrganizationIdentification" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A unique nine character NCIC identification (ORI) assigned to a justice-related organization by the FBI CJIS Division.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PersonEthnicityCode" type="ucr:EthnicityCodeType" substitutionGroup="nc:PersonEthnicity" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A cultural lineage of a person.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PersonNameCategoryCode" type="j:PersonNameCategoryCodeType" substitutionGroup="nc:PersonNameCategory" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A kind of name for a person.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PersonRaceCode" type="ncic:RACCodeType" substitutionGroup="nc:PersonRace" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A classification of a person based on factors such as geographical locations and genetics.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PersonSexCode" type="ncic:SEXCodeType" substitutionGroup="nc:PersonSex">
+    <xs:annotation>
+      <xs:documentation>A gender or sex of a person.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+</xs:schema>

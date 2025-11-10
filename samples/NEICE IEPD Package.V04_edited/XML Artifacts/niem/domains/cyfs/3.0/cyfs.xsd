@@ -1,0 +1,482 @@
+<?xml version="1.0" encoding="US-ASCII"?>
+<xs:schema targetNamespace="http://release.niem.gov/niem/domains/cyfs/3.0/" version="1" xsi:schemaLocation="http://release.niem.gov/niem/appinfo/3.0/ ../../../appinfo/3.0/appinfo.xsd http://release.niem.gov/niem/conformanceTargets/3.0/ ../../../conformanceTargets/3.0/conformanceTargets.xsd" ct:conformanceTargets="http://reference.niem.gov/niem/specification/naming-and-design-rules/3.0/#ReferenceSchemaDocument" xmlns:niem-xs="http://release.niem.gov/niem/proxy/xsd/3.0/" xmlns:structures="http://release.niem.gov/niem/structures/3.0/" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:appinfo="http://release.niem.gov/niem/appinfo/3.0/" xmlns:cyfs="http://release.niem.gov/niem/domains/cyfs/3.0/" xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/" xmlns:nc="http://release.niem.gov/niem/niem-core/3.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <xs:annotation>
+    <xs:documentation>Children, Youth, and Family Services</xs:documentation>
+  </xs:annotation>
+  <xs:import schemaLocation="../../../niem-core/3.0/niem-core.xsd" namespace="http://release.niem.gov/niem/niem-core/3.0/"/>
+  <xs:import schemaLocation="../../../proxy/xsd/3.0/xs.xsd" namespace="http://release.niem.gov/niem/proxy/xsd/3.0/"/>
+  <xs:import schemaLocation="../../../structures/3.0/structures.xsd" namespace="http://release.niem.gov/niem/structures/3.0/"/>
+  <xs:complexType name="AssociatedPersonChildAssociationType">
+    <xs:annotation>
+      <xs:documentation>A data type for a relationship between a person and the child.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:AssociationType">
+        <xs:sequence>
+          <xs:element ref="cyfs:Child" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:PersonAssociationCategory" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:AssociatedPersonChildAssociationAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ChildLegalCustodyPartyAssociationType">
+    <xs:annotation>
+      <xs:documentation>A data type for a relationship between a custodial person or organization and a child.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:AssociationType">
+        <xs:sequence>
+          <xs:element ref="cyfs:CustodialEntity" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:Child" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:ChildLegalCustodyPartyAssociationAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ChildType">
+    <xs:annotation>
+      <xs:documentation>A data type for information about a person who has not yet reached the age of legal majority (i.e., adulthood).</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="structures:ObjectType">
+        <xs:sequence>
+          <xs:element ref="nc:RoleOfPerson" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:ChildRemovalDate" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:CountyOfCustodyText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:ChildAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="FosterParentChildAssociationType">
+    <xs:annotation>
+      <xs:documentation>A data type for an association between a child and a foster parent.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="cyfs:ParentChildAssociationType">
+        <xs:sequence>
+          <xs:element ref="cyfs:OutOfStatePlacementIndicator" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="JuvenilePlacementType">
+    <xs:annotation>
+      <xs:documentation>A data type for information about where a juvenile is directed to reside during the pendency of a delinquency proceeding.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="cyfs:PlacementType">
+        <xs:sequence>
+          <xs:element ref="cyfs:JuvenilePlacementGoalText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:JuvenilePlacementSupervisorPerson" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:JuvenilePlacementAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="JuvenileType">
+    <xs:annotation>
+      <xs:documentation>A data type for a juvenile.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="structures:ObjectType">
+        <xs:sequence>
+          <xs:element ref="cyfs:JuvenileFosterCarePlacementIndicator" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="nc:RoleOfPerson" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:JuvenileAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ParentChildAssociationType">
+    <xs:annotation>
+      <xs:documentation>A data type for an association between a child and a person who is in a parent role toward that child.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:AssociationType">
+        <xs:sequence>
+          <xs:element ref="cyfs:Child" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:Parent" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:TerminationParentalRightsDate" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:TerminationParentalRightsIndicator" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:ParentChildAssociationAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="PersonCaseAssociationType">
+    <xs:annotation>
+      <xs:documentation>A data type for a relationship between a person and a case.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:AssociationType"/>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:simpleType name="PlacementLocationCodeSimpleType">
+    <xs:annotation>
+      <xs:documentation>A data type for a list that describes the location of a child or youth's placement.</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="Family">
+        <xs:annotation>
+          <xs:documentation>Family</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="Father">
+        <xs:annotation>
+          <xs:documentation>Father</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="Fictive Kin">
+        <xs:annotation>
+          <xs:documentation>Symbolic Relative (also known as Fictive Kin)</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="Foster Group Home">
+        <xs:annotation>
+          <xs:documentation>Foster Group Home</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="Foster Home">
+        <xs:annotation>
+          <xs:documentation>Foster Home</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="Foster Home Adoptive">
+        <xs:annotation>
+          <xs:documentation>Foster Home Adoptive</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="Habitative Foster Home">
+        <xs:annotation>
+          <xs:documentation>Habitative Foster Home</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="Mother">
+        <xs:annotation>
+          <xs:documentation>Mother</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="Psychiatric Hospital">
+        <xs:annotation>
+          <xs:documentation>Psychiatric Hospital</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="RSA">
+        <xs:annotation>
+          <xs:documentation>Residential Substance Abuse Treatment Center</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="RTC">
+        <xs:annotation>
+          <xs:documentation>Residential Treatment Center</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="TFH">
+        <xs:annotation>
+          <xs:documentation>Therapeutic Foster Home</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="PlacementLocationCodeType">
+    <xs:annotation>
+      <xs:documentation>A data type for a list that describes the location of a child or youth's placement.</xs:documentation>
+    </xs:annotation>
+    <xs:simpleContent>
+      <xs:extension base="cyfs:PlacementLocationCodeSimpleType">
+        <xs:attributeGroup ref="structures:SimpleObjectAttributeGroup"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="PlacementType">
+    <xs:annotation>
+      <xs:documentation>A data type for the placement history of a child or youth.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:ActivityType">
+        <xs:sequence>
+          <xs:element ref="cyfs:PlacementCategoryRestrictivenessText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:RelativePlacementResourcesDescriptionText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:AdoptionFosterCareHomeStudyText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:ChangeOfSchoolIndicator" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:ICPCPlacementApprovalIndicator" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:LevelOfCareCategory" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:PlacementChangeReason" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:PlacementCategory" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:PlacementAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ServiceType">
+    <xs:annotation>
+      <xs:documentation>A data type for describing the service that will be made available by the agency.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:ActivityType">
+        <xs:sequence>
+          <xs:element ref="cyfs:ResponsibilityForServiceCostText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:ResponsibleEntityDescriptionText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:ServiceCostValue" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:ServiceDescriptionText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:ServiceAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="TaskType">
+    <xs:annotation>
+      <xs:documentation>A data type for the details that describe the activity to be done to achieve a service plan objective.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:ActivityType">
+        <xs:sequence>
+          <xs:element ref="nc:ActivityPersonAssociation" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:TaskCriteriaForSuccessText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:TaskCurrentStatusSummaryText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:TimeframeDescription" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:TaskTimeframeDescriptionText" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:Service" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="cyfs:TaskAugmentationPoint" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="AdoptionFosterCareHomeStudyText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A set of other information the agency considers relevant that promotes safety, permanency and well-being of the child in determining appropriate foster care placement or adoption.  Examples would include relative placement, guardianship, family foster care, social</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="AssociatedPersonChildAssociation" type="cyfs:AssociatedPersonChildAssociationType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>An association between a person and a child.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="AssociatedPersonChildAssociationAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for AssociatedPersonChildAssociationType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ChangeOfSchoolIndicator" type="niem-xs:boolean" nillable="true">
+    <xs:annotation>
+      <xs:documentation>True if the child's school will change as the result of this placement; false otherwise.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="Child" type="cyfs:ChildType">
+    <xs:annotation>
+      <xs:documentation>A person who was an unmarried minor at the time of his or her involvement in a judicial proceeding or non-judicial program.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ChildAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for ChildType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ChildLegalCustodyPartyAssociation" type="cyfs:ChildLegalCustodyPartyAssociationType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A relationship between a custodial person or organization and a child.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ChildLegalCustodyPartyAssociationAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for ChildLegalCustodyPartyAssociationType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ChildRemovalDate" type="nc:DateType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A date the child was removed from caregiver's custody.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CountyOfCustodyText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A county in which a child resides.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CustodialEntity" type="nc:EntityType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A person or organization that has legal custody of a child.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="FosterParentChildAssociation" type="cyfs:ParentChildAssociationType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>An association between a child and a foster parent.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ICPCPlacementApprovalIndicator" type="niem-xs:boolean" nillable="true">
+    <xs:annotation>
+      <xs:documentation>True if the receiving state approved the placement under the terms of Interstate Compact on the Placement of Children (ICPC); false otherwise.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="JuvenileAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for JuvenileType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="JuvenileFosterCarePlacementIndicator" type="niem-xs:boolean" nillable="true">
+    <xs:annotation>
+      <xs:documentation>True if juvenile was ever placed in foster care home or group home; false otherwise.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="JuvenilePlacement" type="cyfs:JuvenilePlacementType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A description of the placement where a juvenile is directed to reside during the pendency of the delinquency proceeding.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="JuvenilePlacementAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for JuvenilePlacementType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="JuvenilePlacementGoalText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A description of the intended outcome of the placement (e.g., reunification, termination of parental rights, etc.).</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="JuvenilePlacementSupervisorPerson" type="nc:PersonType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>An agency's expert on out-of-home placement options, managing the process of matching a child with the most appropriate, available placement option in the locale.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="LevelOfCareCategory" abstract="true">
+    <xs:annotation>
+      <xs:documentation>A data concept for expressing the restrictiveness of a child or youth's placement, using the Adoption and Safe Families Act (ASFA) codes, a local enumeration, or text.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="OutOfStatePlacementIndicator" type="niem-xs:boolean" nillable="true">
+    <xs:annotation>
+      <xs:documentation>True if the juvenile is placed out of state; false otherwise.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="Parent" type="nc:PersonType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A father or mother of a person.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ParentChildAssociation" type="cyfs:ParentChildAssociationType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>An association between a child and a person who is in a parent role toward that child.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ParentChildAssociationAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for ParentChildAssociationType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PersonAssociationCategory" abstract="true">
+    <xs:annotation>
+      <xs:documentation>A data concept for a kind of association between persons.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="Placement" type="cyfs:PlacementType">
+    <xs:annotation>
+      <xs:documentation>A placement history of the child.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PlacementAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for PlacementType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PlacementCategory" abstract="true">
+    <xs:annotation>
+      <xs:documentation>A data concept for describing a child or youth's placement.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PlacementCategoryCode" type="cyfs:PlacementLocationCodeType" substitutionGroup="cyfs:PlacementCategory" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A list that describes the type of placement (e.g., adoption, relative, etc.)</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PlacementCategoryRestrictivenessText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A text field to indicate how the placement type is the least restrictive placement necessary.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PlacementCategoryText" type="nc:TextType" substitutionGroup="cyfs:PlacementCategory" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A kind of placement,</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PlacementChangeReason" abstract="true">
+    <xs:annotation>
+      <xs:documentation>A data concept for describing the reason a child or youth's placement was changed.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="RelativePlacementResourcesDescriptionText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A description of the relatives of a child or youth who might be available and able to provide some care.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ResponsibilityForServiceCostText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>An agency responsible for paying the cost of a service.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ResponsibleEntityDescriptionText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A description of the person or organization who will provide the service.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="Service" type="cyfs:ServiceType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A service  that will be made available by the agency.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ServiceAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for ServiceType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ServiceCostValue" type="nc:NumericType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A cost or estimated cost of the service.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ServiceDescriptionText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A description of the service that will be provided as part of a case plan.  Categories include:  assessment, treatment, program, benefit, education, transportation, respite care.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="Task" type="cyfs:TaskType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>An activity to be done to achieve a service plan objective.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="TaskAugmentationPoint" abstract="true">
+    <xs:annotation>
+      <xs:documentation>An augmentation point for TaskType.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="TaskCriteriaForSuccessText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A description of what needs to be done to successfully complete a task.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="TaskCurrentStatusSummaryText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A summary description of the progress toward accomplishment of this task.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="TaskTimeframeDescriptionText" type="nc:TextType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A description of the date range for the completion of a task.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="TerminationParentalRightsDate" type="nc:DateType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A date that legal rights between a parent and a child were terminated.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="TerminationParentalRightsIndicator" type="niem-xs:boolean" nillable="true">
+    <xs:annotation>
+      <xs:documentation>True if legal rights between the parent and child have been terminated; false otherwise.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="TimeframeDescription" type="nc:ActivityType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A date range a task needs to be completed by.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+</xs:schema>

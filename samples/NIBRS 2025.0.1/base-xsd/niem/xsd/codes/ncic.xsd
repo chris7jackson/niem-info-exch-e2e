@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema targetNamespace="http://release.niem.gov/niem/codes/ncic/5.2/" version="1" xml:lang="en-US" xsi:schemaLocation="http://release.niem.gov/niem/appinfo/5.0/ ../utility/appinfo.xsd http://release.niem.gov/niem/conformanceTargets/3.0/ ../utility/conformanceTargets.xsd" ct:conformanceTargets="http://reference.niem.gov/niem/specification/naming-and-design-rules/5.0/#ReferenceSchemaDocument" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:j="http://release.niem.gov/niem/domains/jxdm/7.2/" xmlns:structures="http://release.niem.gov/niem/structures/5.0/" xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/" xmlns:appinfo="http://release.niem.gov/niem/appinfo/5.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ncic="http://release.niem.gov/niem/codes/ncic/5.2/">
+  <xs:import namespace="http://release.niem.gov/niem/domains/jxdm/7.2/" schemaLocation="../domains/jxdm.xsd"/>
+  <xs:import namespace="http://release.niem.gov/niem/structures/5.0/" schemaLocation="../utility/structures.xsd"/>
+  <xs:simpleType name="ROVCodeSimpleType">
+    <xs:annotation>
+      <xs:documentation>A data type for 24 - Relationship of Victim (ROV) Field Codes</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="AQ">
+        <xs:annotation>
+          <xs:documentation>AQ - VICTIM WAS ACQUAINTANCE</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="BE">
+        <xs:annotation>
+          <xs:documentation>BE - VICTIM WAS BABYSITTEE (THE BABY)</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="BG">
+        <xs:annotation>
+          <xs:documentation>BG - VICTIM WAS BOYFRIEND/GIRLFRIEND</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="CF">
+        <xs:annotation>
+          <xs:documentation>CF - VICTIM WAS CHILD OF BOYFRIEND OR GIRLFRIEND</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="CH">
+        <xs:annotation>
+          <xs:documentation>CH - VICTIM WAS CHILD</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="CS">
+        <xs:annotation>
+          <xs:documentation>CS - VICTIM WAS COMMON-LAW-SPOUSE</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="EE">
+        <xs:annotation>
+          <xs:documentation>EE - VICTIM WAS EMPLOYEE</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="ER">
+        <xs:annotation>
+          <xs:documentation>ER - VICTIM WAS EMPLOYER</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="FR">
+        <xs:annotation>
+          <xs:documentation>FR - VICTIM WAS FRIEND</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="GC">
+        <xs:annotation>
+          <xs:documentation>GC - VICTIM WAS GRANDCHILD</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="GP">
+        <xs:annotation>
+          <xs:documentation>GP - VICTIM WAS GRANDPARENT</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="HR">
+        <xs:annotation>
+          <xs:documentation>HR - HOMOSEXUAL RELATIONSHIP</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="IL">
+        <xs:annotation>
+          <xs:documentation>IL - VICTIM WAS IN-LAW</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="NE">
+        <xs:annotation>
+          <xs:documentation>NE - VICTIM WAS NEIGHBOR</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="OF">
+        <xs:annotation>
+          <xs:documentation>OF - VICTIM WAS OTHER FAMILY MEMBER</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="OK">
+        <xs:annotation>
+          <xs:documentation>OK - VICTIM WAS OTHERWISE KNOWN</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="PA">
+        <xs:annotation>
+          <xs:documentation>PA - VICTIM WAS PARENT</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="RU">
+        <xs:annotation>
+          <xs:documentation>RU - RELATIONSHIP UNKNOWN</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="SB">
+        <xs:annotation>
+          <xs:documentation>SB - VICTIM WAS SIBLING</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="SC">
+        <xs:annotation>
+          <xs:documentation>SC - VICTIM WAS STEPCHILD</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="SE">
+        <xs:annotation>
+          <xs:documentation>SE - VICTIM WAS SPOUSE</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="SP">
+        <xs:annotation>
+          <xs:documentation>SP - VICTIM WAS STEPPARENT</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="SS">
+        <xs:annotation>
+          <xs:documentation>SS - VICTIM WAS STEPSIBLING</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="ST">
+        <xs:annotation>
+          <xs:documentation>ST - VICTIM WAS STRANGER</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="XS">
+        <xs:annotation>
+          <xs:documentation>XS - VICTIM WAS EX-SPOUSE</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="ROVCodeType">
+    <xs:annotation>
+      <xs:documentation>A data type for 24 - Relationship of Victim (ROV) Field Codes</xs:documentation>
+    </xs:annotation>
+    <xs:simpleContent>
+      <xs:extension base="ncic:ROVCodeSimpleType">
+        <xs:attributeGroup ref="structures:SimpleObjectAttributeGroup"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:element name="VictimToSubjectRelationshipCode" type="ncic:ROVCodeType" substitutionGroup="j:VictimToSubjectRelationshipAbstract">
+    <xs:annotation>
+      <xs:documentation>A code that identifies the victim's relationship to subject who perpetrated a crime against them, depicting who the victim was to the offender.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+</xs:schema>

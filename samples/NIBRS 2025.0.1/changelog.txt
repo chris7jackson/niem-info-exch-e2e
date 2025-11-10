@@ -1,0 +1,121 @@
+2016-10-26 
+*Initial Release NIBRS IEPD v4.0.
+2017-02-10 
+*Added Date element for incidents where time is unknown.
+*Added Facet "A" for Add based on TOU from legacy system.
+*Changed Person Age Measure to NIEM standard and removed from NIBRS.
+*Moved Location Category Code to NIBRS to add "58" Cyberspace Facet.
+2017-03-23
+*Changed to most current NIEM 3.2 release.
+2017-04-04
+*Updated sample iep files.
+*Added Facet "R" for Replace based on new system request.
+*Removed BiasMotivation codes: "Gender Bias" and "ANTIDISABLED" based on TOU.
+*Removed UCRCharge codes: "90I"  based on TOU.
+*Removed PropertyCategory code: "99" based on TOU.
+*Edited cardinality for all elements.
+*Updated documentation for all changes made.
+2017-04-21
+*removed NIEM LocationCategoryCode and VictimConnectedtoUCRCode Duplicate.
+*updated code tables to better match Technical Specification.
+2017-05-02
+*Release of NIBRS IEPD v4.1.
+2017-05-23
+*Changed cardinality to match or allow for Technical Specification rules. 
+*Removed Aggravated Assault codes: 09A, 09B, and 09C values.
+*Extended VictimToSubjectRelationshipCode removed "Girlfriend" and added "Boyfriend_Girlfriend" values.
+2017-06-06
+*Changed naming to 4.2.
+*Updated documentation to 4.2.
+2017-06-19
+*Release of NIBRS IEPD 4.2 DRAFT for User Review
+2017-07-20
+*removed unused schema elements.
+*matched all codes to 3.2 redlined technical specification.
+2017-08-23
+* removed appinfo tags and added conformance target domain import with new value; within the nibrs and cjis domains.
+* changed MessageImplementationVersion in cjis.xsd to nc:TextType for NIEM conformance.
+*packaged NIBRS IEPD 4.2 Release Candidate for Review.
+2017-09-08
+* updated JuvenileDispositionCode to reflect Technical Specification.
+* removed substitution group for VictimtoSubjectRelationshipCode.
+2017-09-26
+* set nillable to false to prevent blank tags generated from JaxB.
+* modified sample files to reflect change in VictimtoSubjectRelationshipCode.
+2018-02-09
+* added anti-homosexual back into code table spreadsheet
+2018-03-26
+* added Ex_Relationship facet to VictimtoSubjectRelationshipCode.
+* updated Group B sample to contain a Group B offense.
+2018-03-28
+* updated VictimAggravatedAssaultHomicideFactorCode facet "06" description from "Lovers' Quarrel" to "Domestic Violence" in code table spreadsheet.  ^
+* updated OffenseFactorCode facet "C" description from "Computer Equipment" to "Computer Equipment/Handheld Device" in code table spreadsheet. ^
+* updated ForceCategoryCode facet "35" description from "Motor Vehicle" to "Motor Vehicle/Vessel" in code table spreadsheet. ^
+* added VictimToSubjectRelationshipCode facet "Ex_Relationship" and description to code table spreadsheet.
+2018-06-18
+* removed multiple arrestee count from group B sample.
+* created subset to cjis_codes/cjis.xsd and updated to 2.0.
+* updated NIBRS namespace to 2019 in all sample files.
+* added Judicial District code to CJIS domain for Federal Submissions.
+* updated sample files with Judicial District Code for Federal Submissions.
+2018-07-24
+* Removed GROUP A INCIDENT REPORT_LEOKA from the NIBRSReportCategoryCode tab of the nibrs_codestable spreadsheet.
+* Removed j:ArresteeClearanceIndicator from nibrs_GroupBArrest_Sample.xml.
+* Removed Element 44 from the GroupBArrest table of the mapping spreadsheet.
+2018-08-15
+* Removed ChargeUCRCode element from wantlist.
+* Removed OffenseCodeSimpleType from wantlist.
+* Removed Judicial District code to CJIS domain for Federal Submissions.
+* updated sample files, removed Judicial District Code for Federal Submissions.
+2018-08-16
+* added nibrs:Submission element to xpaths in mapping spreadsheet.
+
+*** Version 2019.2 Updates ***
+2019-05-09
+* updated cjis schemas to version 2.1 to include Federal Judicial District
+* updated NIEM wantlist to add LocaleJudicialDistrict abstract
+* added Federal Offense Codes to nibrs_codes.xsd
+* updated nibrs_CodesTables.xlsx with new code values
+* updated nibrs_XMLMapping_Spreadsheet.xlsx with Federal Judicial District
+* corrected cardinality for Group A Incidents in nibrs_XMLMapping_Spreadsheet.xlsx
+* updated nibrs_MasterDocument to reflect changes
+* updated Offense Codes to use names instead of numbers in nibrs_codes.xsd, nibrs_CodesTables.xlsx, and samples 
+2021-01-21
+* Removal of the following codes from nibrs-codes.xsd and nibrs_CodeTables.xslx: Location code 22, Offense code BAD_CHECKS, Offense code DRUNKENNESS, Offense code PEEPING_TOM
+
+*** Version 2019.3 Updates ***
+* updated NIEM wantlist to remove Anti-Mormon Facet
+* added NIBRS Bias Motivation Codes to nibrs_codes.xsd
+* updated nibrs.xsd with new NIBRSBiasMotivationFactorCode
+* updated nibrs_CodesTables.xlsx with new code values Code: ANTICHURCH OF JESUS CHRIST; Description: NIBRS CODE: 28 | Anti-Church of Jesus Christ
+* updated nibrs_MasterDocument to reflect version change from 2019.2 to 2019.3
+* updated all sample files to reflect 2019.2 to 2019.3 references and new code values Code: ANTICHURCH OF JESUS CHRIST; Description: NIBRS CODE: 28 | Anti-Church of Jesus Christ
+
+*** Version 2023.0 Updates ***
+2023-08-30 
+* updated to 2023.0 in base_xsd, documents, iep_sample
+* removed mpd-catalog.xml and nibrs_ConformanceAssertion.txt
+* updated nibrs_Codes.Tables.xlxs (LocationCategoryCode sheet): remove Row "22 School/College".
+* remove these from nibrs_CodesTables.xlxs (OffenseCode sheet): IMMIGRATION-OTHER_IMMIGRATION_VIOLATIONS, PEEPING_TOM, BAD_CHECKS, DRUNKENNESS
+* changed code values Code: removed spaces in 'ANTIAMERICAN INDIAN_ ALASKAN NATIVE'
+* updated nibrs_Codes.Tables.xlxs (OffenseFactorBiasMotivationCode sheet): Change ANTIAMERICANINDIAN_ALASKANNATIVE to ANTIAMERICAN INDIAN_ALASKAN NATIVE - whitespace before INDIAN and before NATIVE.
+* updated nibrs-codes.xsd: Change ANTIAMERICAN INDIAN_ ALASKAN NATIVE to ANTIAMERICAN INDIAN_ALASKAN NATIVE - no whitespace after the underscore, leave the other whitespaces.
+* added new codes to VictimToSubjectRelationshipCode in nibrs_Codes.Tables.xlxs and nibrs-codes.xsd: Cohabitant, Foster Child, Foster Parent
+* removed from fbi_ndex.xsd and wantlist: BiasMotivationCodeSimpleType, CriminalActivityCategoryNDExCodeType, IncidentStatusCodeSimpleType
+
+*** Version 2025.0 Updates ***
+* updated to 2025.0 in base_xsd, documents, iep_sample
+* updated NIBRS UML diagram: now includes victim sequence number in people and roles diagram
+* updated following code lists to move away from single letter enumeration to full-name enumeration: ArrestSubjectJuvenileDispositionCode, ArrestCategoryCode, ArrestSubjectCountCode, EnfOfficialActivityCategory, EnfOfficialAssignmentCategory, ForceCategoryCode, IncidentExceptionalClearanceCode, InjuryCategoryCode, ItemCategoryNIBRSPropertyCategoryCode, MethodOfEntryCode, PersonEthnicityCode, PersonRaceCode, PersonResidentCode, PersonEthnicityCode, VictimCategoryCode, VictimJustifiableHomicideFactor, VictimAggravatedAssaultHomicideFactorCode
+* updated nibrs_Codes.Tables.xlxs: 
+	ArresteeArmedWithCode extended to nibrs.xsd and nibrs_codes.xsd
+	InjuryCategoryCode extended to nibrs.xsd and nibrs_codes.xsd
+	OffenseFactorCode extended to nibrs.xsd and nibrs_codes.xsd
+	Retired cjis:ItemStatusCode and replaced with j:ItemStatusCode
+	Retired PersonRaceNDEXCode and replaced with j:PersonRaceCode
+	Updated CriminalActivityCategoryCode: added (Only Animal Cruelty) to codes A, F, I, and S, added Abbeting to code O, added [under 18 years of age] to code I, added code W for Conspiracy
+	Updated OffenseFactorCode: added DRONE-UNMANNED_AIRCRAFT as possible factor
+	
+*** Version 2025.0.1 Updates ***
+* Fixed an error within cjis.xsd with a few missing directory levels in schemaLocations	
+	

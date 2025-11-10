@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema targetNamespace="http://release.niem.gov/niem/codes/ndex/5.0/" version="1" xml:lang="en-US" xsi:schemaLocation="http://release.niem.gov/niem/appinfo/5.0/ ../utility/appinfo.xsd http://release.niem.gov/niem/conformanceTargets/3.0/ ../utility/conformanceTargets.xsd" ct:conformanceTargets="http://reference.niem.gov/niem/specification/naming-and-design-rules/5.0/#ReferenceSchemaDocument" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:structures="http://release.niem.gov/niem/structures/5.0/" xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/" xmlns:ndex="http://release.niem.gov/niem/codes/ndex/5.0/" xmlns:appinfo="http://release.niem.gov/niem/appinfo/5.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <xs:import namespace="http://release.niem.gov/niem/structures/5.0/" schemaLocation="../utility/structures.xsd"/>
+  <xs:simpleType name="AggravatedAssaultCircumstanceCodeSimpleType">
+    <xs:annotation>
+      <xs:documentation>A data type for a code that describes the circumstances of either an aggravated assault or homicide. Includes all NIBRS codes, plus additional codes.</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="ARGUMENT">
+        <xs:annotation>
+          <xs:documentation>ARGUMENT</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="ASSAULT_ON_LAW_ENFORCEMENT_OFFICER">
+        <xs:annotation>
+          <xs:documentation>ASSAULT ON LAW ENFORCEMENT OFFICER(S)</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="CHILD_PLAYING_WITH_WEAPON">
+        <xs:annotation>
+          <xs:documentation>CHILD PLAYING WITH WEAPON</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="CRIMINAL_KILLED_BY_POLICE_OFFICER">
+        <xs:annotation>
+          <xs:documentation>CRIMINAL KILLED BY POLICE OFFICER</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="CRIMINAL_KILLED_BY_PRIVATE_CITIZEN">
+        <xs:annotation>
+          <xs:documentation>CRIMINAL KILLED BY PRIVATE CITIZEN</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="DOMESTIC_ARGUMENT">
+        <xs:annotation>
+          <xs:documentation>DOMESTIC ARGUMENT</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="DRUG_DEALING">
+        <xs:annotation>
+          <xs:documentation>DRUG DEALING</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="GANGLAND">
+        <xs:annotation>
+          <xs:documentation>GANGLANDORGANIZED CRIME INVOLVEMENT</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="GUN-CLEANING_ACCIDENT">
+        <xs:annotation>
+          <xs:documentation>GUN-CLEANING ACCIDENT</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="HUNTING_ACCIDENT">
+        <xs:annotation>
+          <xs:documentation>HUNTING ACCIDENT</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="JUVENILE_GANG">
+        <xs:annotation>
+          <xs:documentation>JUVENILE GANG</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="MERCY_KILLING">
+        <xs:annotation>
+          <xs:documentation>MERCY KILLING</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="OTHER_CIRCUMSTANCES">
+        <xs:annotation>
+          <xs:documentation>OTHER CIRCUMSTANCES</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="OTHER_FELONY_INVOLVED">
+        <xs:annotation>
+          <xs:documentation>OTHER FELONY INVOLVED</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="OTHER_NEGLIGENT_KILLINGS">
+        <xs:annotation>
+          <xs:documentation>OTHER NEGLIGENT KILLINGS</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="OTHER_NEGLIGENT_WEAPON_HANDLING">
+        <xs:annotation>
+          <xs:documentation>OTHER NEGLIGENT WEAPON HANDLING</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="UNKNOWN_CIRCUMSTANCES">
+        <xs:annotation>
+          <xs:documentation>UNKNOWN CIRCUMSTANCES</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="AggravatedAssaultCircumstanceCodeType">
+    <xs:annotation>
+      <xs:documentation>A data type for a code that describes the circumstances of either an aggravated assault or homicide. Includes all NIBRS codes, plus additional codes.</xs:documentation>
+    </xs:annotation>
+    <xs:simpleContent>
+      <xs:extension base="ndex:AggravatedAssaultCircumstanceCodeSimpleType">
+        <xs:attributeGroup ref="structures:SimpleObjectAttributeGroup"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:simpleType name="JuvenileDispositionCodeSimpleType">
+    <xs:annotation>
+      <xs:documentation>A data type for a code that identifies the disposition of the arrest if the arrestee was a juvenile at the time of arrest.</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="HANDLED_WITHIN_DEPARTMENT">
+        <xs:annotation>
+          <xs:documentation>HANDLED WITHIN DEPARTMENT</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:enumeration value="REFERRED_TO_OTHER_AUTHORITIES">
+        <xs:annotation>
+          <xs:documentation>REFERRED TO OTHER AUTHORITIES</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="JuvenileDispositionCodeType">
+    <xs:annotation>
+      <xs:documentation>A data type for a code that identifies the disposition of the arrest if the arrestee was a juvenile at the time of arrest.</xs:documentation>
+    </xs:annotation>
+    <xs:simpleContent>
+      <xs:extension base="ndex:JuvenileDispositionCodeSimpleType">
+        <xs:attributeGroup ref="structures:SimpleObjectAttributeGroup"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>

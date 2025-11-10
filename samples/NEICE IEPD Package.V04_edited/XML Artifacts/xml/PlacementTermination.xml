@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cb_exchange:NEICETransmittalDocument xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://cb.acf.hhs.gov/neice/1.0/exchange/ ../schema/neice_exchange.xsd"
+    xmlns:scr="http://release.niem.gov/niem/domains/screening/3.0/"
+    xmlns:s="http://release.niem.gov/niem/structures/3.0/"
+    xmlns:nc="http://release.niem.gov/niem/niem-core/3.0/"
+    xmlns:niem-xsd="http://release.niem.gov/niem/proxy/xsd/3.0/"
+    xmlns:cb_exchange="http://cb.acf.hhs.gov/neice/1.0/exchange/"
+    xmlns:cb_ext="http://cb.acf.hhs.gov/neice/1.0/ext/" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:cyfs="http://release.niem.gov/niem/domains/cyfs/3.0/"
+    xmlns:j="http://release.niem.gov/niem/domains/jxdm/5.0/"
+    xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/"
+    xmlns:i="http://release.niem.gov/niem/appinfo/3.0/">
+    <nc:DocumentCategoryText>APSHA Home Study Request</nc:DocumentCategoryText>
+    <nc:DocumentAlternativeTitleText>Placement Suitability Study Request</nc:DocumentAlternativeTitleText>
+    <nc:DocumentContentListText>Court Order Document</nc:DocumentContentListText>
+    <nc:DocumentContentListText>Financial Plan Document</nc:DocumentContentListText>
+    <nc:DocumentContentListText>Medical Plan Document</nc:DocumentContentListText>
+    <nc:DocumentCreationDate>
+        <nc:DateTime>2014-04-29T12:09:12.099</nc:DateTime>
+    </nc:DocumentCreationDate>
+    <nc:DocumentIdentification>
+        <nc:IdentificationID>___NEICE_SYSTEM_ID___</nc:IdentificationID>
+        <nc:IdentificationCategoryDescriptionText>NEICE System Generated ID</nc:IdentificationCategoryDescriptionText>
+    </nc:DocumentIdentification>
+    <nc:DocumentIdentification>
+        <nc:IdentificationID>___SENDING_AGENCY_REC_NUMBER___</nc:IdentificationID>
+        <nc:IdentificationJurisdiction>
+            <nc:LocationStateFIPS5-2AlphaCode>FL</nc:LocationStateFIPS5-2AlphaCode>
+        </nc:IdentificationJurisdiction>
+    </nc:DocumentIdentification>
+    <nc:DocumentLastModifiedDate>
+        <nc:DateTime>2014-04-29T11:49:12</nc:DateTime>
+    </nc:DocumentLastModifiedDate>
+    <nc:DocumentRecipient>
+        <nc:EntityOrganization>
+            <nc:OrganizationActivityText>State CYFS Agency</nc:OrganizationActivityText>
+            <nc:OrganizationIdentification>
+                <nc:IdentificationID>TN-CFYS</nc:IdentificationID>
+            </nc:OrganizationIdentification>
+            <nc:OrganizationLocation>
+                <nc:Address>
+                    <nc:AddressFullText>123, Market Street, Memphis, TN</nc:AddressFullText>
+                    <nc:LocationCityName>Memphis</nc:LocationCityName>
+                    <nc:LocationStateFIPS5-2AlphaCode>TN</nc:LocationStateFIPS5-2AlphaCode>
+                    <nc:LocationCountryFIPS10-4Code>US</nc:LocationCountryFIPS10-4Code>
+                </nc:Address>
+            </nc:OrganizationLocation>
+            <nc:OrganizationName>Tennessee Youth and Family Services</nc:OrganizationName>
+        </nc:EntityOrganization>
+    </nc:DocumentRecipient>
+    <nc:DocumentSequenceID>12</nc:DocumentSequenceID>
+    <nc:DocumentSource>
+        <nc:EntityOrganization s:id="SRC-ORG">
+            <nc:OrganizationActivityText>State CYFS Agency</nc:OrganizationActivityText>
+            <nc:OrganizationIdentification>
+                <nc:IdentificationID>FL-CFYS</nc:IdentificationID>
+            </nc:OrganizationIdentification>
+            <nc:OrganizationLocation>
+                <nc:Address>
+                    <nc:AddressFullText>123, Main Street, Tampa, FL</nc:AddressFullText>
+                    <nc:LocationCityName>Tampa</nc:LocationCityName>
+                    <nc:LocationStateFIPS5-2AlphaCode>FL</nc:LocationStateFIPS5-2AlphaCode>
+                    <nc:LocationCountryFIPS10-4Code>US</nc:LocationCountryFIPS10-4Code>
+                </nc:Address>
+            </nc:OrganizationLocation>
+            <nc:OrganizationName>Florida Department of Youth and Family Service</nc:OrganizationName>
+        </nc:EntityOrganization>
+    </nc:DocumentSource>
+    <nc:DocumentAuthor>
+        <nc:EntityPerson>
+            <nc:PersonName>
+                <nc:PersonFullName>Joe Smith</nc:PersonFullName>
+            </nc:PersonName>
+        </nc:EntityPerson>
+    </nc:DocumentAuthor>
+    <cb_exchange:TransmittalSummaryInformation>
+        <cb_ext:TransmittalRequestCategoryCode>Adoption</cb_ext:TransmittalRequestCategoryCode>
+        <cb_exchange:TransmittalSubjectChild>
+            <nc:RoleOfPerson>
+                <nc:PersonName>
+                    <nc:PersonFullName>Jason Ohlendorf</nc:PersonFullName>
+                </nc:PersonName>
+            </nc:RoleOfPerson>
+        </cb_exchange:TransmittalSubjectChild>
+    </cb_exchange:TransmittalSummaryInformation>
+    <cb_ext:PlacementDecision>
+        <cb_ext:NEICEChildInformation>
+            <cyfs:Child s:id="CHL-01">
+                <nc:RoleOfPerson>
+                    <nc:PersonBirthDate>
+                        <nc:Date>2008-04-01</nc:Date>
+                    </nc:PersonBirthDate>
+                    <nc:PersonBirthLocation>
+                        <nc:Address>
+                            <nc:LocationStateFIPS5-2AlphaCode>NM</nc:LocationStateFIPS5-2AlphaCode>
+                            <nc:LocationCountryFIPS10-4Code>US</nc:LocationCountryFIPS10-4Code>
+                        </nc:Address>
+                    </nc:PersonBirthLocation>
+                    <j:PersonEthnicityCode>N</j:PersonEthnicityCode>
+                    <nc:PersonName>
+                        <nc:PersonFullName>Jason Ohlendorf</nc:PersonFullName>
+                    </nc:PersonName>
+                    <j:PersonRaceCode>W</j:PersonRaceCode>
+                    <nc:PersonSSNIdentification>
+                        <nc:IdentificationID>123-45-7890</nc:IdentificationID>
+                    </nc:PersonSSNIdentification>
+                </nc:RoleOfPerson>
+                <cb_ext:ChildAugmentation>
+                    <cb_ext:ChildCurrentLegalPlacementStatusCode>ProtectiveSupervision</cb_ext:ChildCurrentLegalPlacementStatusCode>
+                    <cb_ext:ChildCurrentLegalPlacementStatusCode>SendingAgencyCustody</cb_ext:ChildCurrentLegalPlacementStatusCode>
+                </cb_ext:ChildAugmentation>
+            </cyfs:Child>
+            <cyfs:Parent s:id="PAR-Father">
+                <nc:PersonName>
+                    <nc:PersonFullName>Mark Ohlendorf</nc:PersonFullName>
+                </nc:PersonName>
+            </cyfs:Parent>
+            <cyfs:Parent s:id="PAR-Mother">
+                <nc:PersonName>
+                    <nc:PersonFullName>Melissa Ohlendorf</nc:PersonFullName>
+                </nc:PersonName>
+            </cyfs:Parent>
+            <cyfs:ParentChildAssociation>
+                <nc:AssociationDescriptionText>Father</nc:AssociationDescriptionText>
+                <cyfs:Child s:ref="CHL-01"/>
+                <cyfs:Parent s:ref="PAR-Father"/>
+            </cyfs:ParentChildAssociation>
+            <cyfs:ParentChildAssociation>
+                <nc:AssociationDescriptionText>Mother</nc:AssociationDescriptionText>
+                <cyfs:Child s:ref="CHL-01"/>
+                <cyfs:Parent s:ref="PAR-Mother"/>
+            </cyfs:ParentChildAssociation>
+        </cb_ext:NEICEChildInformation>
+        <cb_ext:NEICEDocument100b>
+            <cb_ext:NEICEChildInformation>
+                <cyfs:Child s:ref="CHL-01">
+                    <cb_ext:ChildAugmentation>
+                        <cb_ext:ChildCurrentLegalPlacementStatusCode>ProtectiveSupervision</cb_ext:ChildCurrentLegalPlacementStatusCode>
+                    </cb_ext:ChildAugmentation>
+                </cyfs:Child>
+                <cyfs:Parent s:ref="PAR-Father"/>
+                <cyfs:Parent s:ref="PAR-Mother"/>
+                <cyfs:ParentChildAssociation>
+                    <cyfs:Child s:ref="CHL-01"/>
+                    <cyfs:Parent s:ref="PAR-Mother"/>
+                </cyfs:ParentChildAssociation>
+                <cyfs:ParentChildAssociation>
+                    <cyfs:Child s:ref="CHL-01"/>
+                    <cyfs:Parent s:ref="PAR-Father"/>
+                </cyfs:ParentChildAssociation>
+            </cb_ext:NEICEChildInformation>
+            <cyfs:Placement>
+                <nc:ActivityDate>
+                    <nc:DateTime>2014-01-28T00:00:00</nc:DateTime>
+                </nc:ActivityDate>
+                <cyfs:PlacementCategoryCode>Foster Group Home</cyfs:PlacementCategoryCode>
+                <cb_ext:PlacementAugmentation>
+                    <cb_ext:IntendedPlacementResource s:id="PLACEMENT-RES">
+                        <nc:EntityOrganization>
+                            <nc:OrganizationName>Bright Valley Children's Home</nc:OrganizationName>
+                        </nc:EntityOrganization>
+                    </cb_ext:IntendedPlacementResource>
+                    <cb_ext:PlacementChangeIndicator>1</cb_ext:PlacementChangeIndicator>
+                    <cb_ext:PlacementTerminatedIndicator>1</cb_ext:PlacementTerminatedIndicator>
+                </cb_ext:PlacementAugmentation>
+            </cyfs:Placement>
+            <cb_ext:PlacementTermination>
+                <nc:ActivityDate>
+                    <nc:DateTime>2014-04-03T00:00:00</nc:DateTime>
+                </nc:ActivityDate>
+                <cb_ext:PlacementTerminationReasonCode>LegalCustodyReturnedToParent</cb_ext:PlacementTerminationReasonCode>
+            </cb_ext:PlacementTermination>
+        </cb_ext:NEICEDocument100b>
+    </cb_ext:PlacementDecision>
+</cb_exchange:NEICETransmittalDocument>

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified"
+    targetNamespace="http://cb.acf.hhs.gov/neice/1.0/exchange/"
+    xmlns:i="http://release.niem.gov/niem/appinfo/3.0/"
+    xmlns:s="http://release.niem.gov/niem/structures/3.0/"
+    xmlns:j="http://release.niem.gov/niem/domains/jxdm/5.0/"
+    xmlns:scr="http://release.niem.gov/niem/domains/screening/3.0/"
+    xmlns:cyfs="http://release.niem.gov/niem/domains/cyfs/3.0/"
+    xmlns:niem-xsd="http://release.niem.gov/niem/proxy/xsd/3.0/"
+    xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/"
+    xmlns:nc="http://release.niem.gov/niem/niem-core/3.0/"
+    xmlns:locTerm="http://release.niem.gov/niem/localTerminology/3.0/"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:cb_exch="http://cb.acf.hhs.gov/neice/1.0/exchange/"
+    xmlns:cb_ext="http://cb.acf.hhs.gov/neice/1.0/ext/">
+    <xs:import namespace="http://release.niem.gov/niem/appinfo/3.0/"
+        schemaLocation="../niem/appinfo/3.0/appinfo.xsd"/>
+    <xs:import namespace="http://release.niem.gov/niem/conformanceTargets/3.0/"
+        schemaLocation="../niem/conformanceTargets/3.0/conformanceTargets.xsd"/>
+    <xs:import namespace="http://release.niem.gov/niem/domains/cyfs/3.0/"
+        schemaLocation="../niem/domains/cyfs/3.0/cyfs.xsd"/>
+    <xs:import namespace="http://release.niem.gov/niem/domains/jxdm/5.0/"
+        schemaLocation="../niem/domains/jxdm/5.0/jxdm.xsd"/>
+    <xs:import namespace="http://release.niem.gov/niem/domains/screening/3.0/"
+        schemaLocation="../niem/domains/screening/3.0/screening.xsd"/>
+    <xs:import namespace="http://release.niem.gov/niem/localTerminology/3.0/"
+        schemaLocation="../niem/localTerminology/3.0/localTerminology.xsd"/>
+    <xs:import namespace="http://release.niem.gov/niem/niem-core/3.0/"
+        schemaLocation="../niem/niem-core/3.0/niem-core.xsd"/>
+    <xs:import namespace="http://release.niem.gov/niem/proxy/xsd/3.0/"
+        schemaLocation="../niem/proxy/xsd/3.0/xs.xsd"/>
+    <xs:import namespace="http://release.niem.gov/niem/structures/3.0/"
+        schemaLocation="../niem/structures/3.0/structures.xsd"/>
+    <xs:import namespace="http://cb.acf.hhs.gov/neice/1.0/ext/" schemaLocation="neice_extension.xsd"/>
+    <xs:complexType mixed="false" name="NEICETransmittalDocumentType">
+        <xs:annotation>
+            <xs:documentation>A data structure that describes a common container for all messages flowing through the NEICE system between states' child welfare systems</xs:documentation>
+        </xs:annotation>
+        <xs:complexContent>
+            <xs:extension base="nc:DocumentType">
+                <xs:sequence>
+                    <xs:element ref="cb_exch:TransmittalSummaryInformation"/>
+                    <xs:element ref="cb_ext:HomeStudyRequest" minOccurs="0"/>
+                    <xs:element ref="cb_ext:HomeStudyResponse" minOccurs="0"/>
+                    <xs:element ref="cb_ext:PlacementDecision" minOccurs="0"/>
+                    <xs:element minOccurs="0" ref="cb_ext:PlacementDecisionResponse"/>
+                    <xs:element ref="cb_ext:FollowupRequest" minOccurs="0"/>
+                    <xs:element ref="cb_ext:FollowupReport" minOccurs="0"/>
+                </xs:sequence>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+    <xs:element name="NEICETransmittalDocument" type="cb_exch:NEICETransmittalDocumentType">
+        <xs:annotation>
+            <xs:documentation>A common container for all messages flowing through the NEICE system between states' child welfare systems</xs:documentation>
+        </xs:annotation>
+    </xs:element>
+    <xs:complexType name="TransmittalSummaryInformationType">
+        <xs:annotation>
+            <xs:documentation>A data structure that provides context for a NEICE document transmittal</xs:documentation>
+        </xs:annotation>
+        <xs:complexContent>
+            <xs:extension base="s:ObjectType">
+                <xs:sequence>
+                    <xs:element ref="cb_ext:TransmittalRequestCategoryCode"/>
+                    <xs:element maxOccurs="unbounded" ref="cb_exch:TransmittalSubjectChild"/>
+                    <xs:element maxOccurs="unbounded" minOccurs="0"
+                        ref="cb_ext:HomeStudyCategoryCode"/>
+                </xs:sequence>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+    <xs:element name="TransmittalSubjectChild" type="cyfs:ChildType">
+        <xs:annotation>
+            <xs:documentation>A Child (or Children) to whom this transmittal pertains</xs:documentation>
+        </xs:annotation>
+    </xs:element>
+    <xs:element name="TransmittalSummaryInformation"
+        type="cb_exch:TransmittalSummaryInformationType">
+        <xs:annotation>
+            <xs:documentation>Context for this document transmittal</xs:documentation>
+        </xs:annotation>
+    </xs:element>
+</xs:schema>

@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Document: $Id: nibrs.xsd $
+    NIEM version    : 5.0
+    NIBRS version   : 2025.0
+    Namespace       : xmlns:nibrs="http://fbi.gov/cjis/nibrs/2025"
+    Description     : NIBRS 2025.0 Extension Schema
+-->
+
+<xsd:schema  xmlns:nibrs="http://fbi.gov/cjis/nibrs/2025.0" 
+    xmlns:cjis="http://fbi.gov/cjis/5.0"
+    xmlns:nc="http://release.niem.gov/niem/niem-core/5.0/"
+    xmlns:w="http://niem.gov/niem/wantlist/2.2"
+    xmlns:j="http://release.niem.gov/niem/domains/jxdm/7.2/"
+    xmlns:i="http://release.niem.gov/niem/appinfo/5.0/"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:ndex="http://release.niem.gov/niem/codes/ndex/5.0/"
+    xmlns:s="http://release.niem.gov/niem/structures/5.0/"
+    xmlns:ucr="http://release.niem.gov/niem/codes/ucr/5.1/"
+    xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0"
+    xmlns:niem-xs="http://release.niem.gov/niem/proxy/niem-xs/5.0/" 
+    xmlns:ncic="http://release.niem.gov/niem/codes/ncic/5.2/"
+    xmlns:nibrscodes="http://fbi.gov/cjis/nibrs/nibrs-codes/2025.0"
+    targetNamespace="http://fbi.gov/cjis/nibrs/2025.0" version="2025.0" 
+    ct:conformanceTargets="http://reference.niem.gov/niem/specification/naming-and-design-rules/3.0/#ExtensionSchemaDocument">
+    
+    <xsd:annotation>
+        <xsd:documentation>NIBRS Exchange Schema</xsd:documentation>
+    </xsd:annotation>
+    <xsd:import namespace="http://fbi.gov/cjis/nibrs/nibrs-codes/2025.0" schemaLocation="nibrs-codes.xsd"/>
+    <xsd:import namespace="http://fbi.gov/cjis/5.0" schemaLocation="../../cjis/5.0/cjis.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/codes/ucr/5.1/" schemaLocation="../../niem/xsd/codes/ucr.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/conformanceTargets/3.0/" schemaLocation="../../niem/xsd/utility/conformanceTargets.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/domains/jxdm/7.2/" schemaLocation="../../niem/xsd/domains/jxdm.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/niem-core/5.0/" schemaLocation="../../niem/xsd/niem-core.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/proxy/niem-xs/5.0/" schemaLocation="../../niem/xsd/adapters/niem-xs.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/structures/5.0/" schemaLocation="../../niem/xsd/utility/structures.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/appinfo/5.0/" schemaLocation="../../niem/xsd/utility/appinfo.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/codes/ndex/5.0/" schemaLocation="../../niem/xsd/codes/ndex.xsd"/>
+
+
+    <!-- ============ COMPLEX TYPES ============  -->
+    
+    <xsd:complexType name="ArresteeType">
+        <xsd:annotation>
+            <xsd:documentation>A data type for a person who is arrested for a violation of a criminal statute, ordinance or rule.</xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexContent>
+            <xsd:extension base="j:SubjectType">
+                <xsd:sequence>
+                    <xsd:element ref="j:ArrestSequenceID" minOccurs="0" maxOccurs="1"/>
+                    <xsd:element ref="nibrs:ArresteeArmedWith" minOccurs="0" maxOccurs="2"/>
+                    <xsd:element ref="j:ArrestSubjectJuvenileDispositionAbstract" minOccurs="0" maxOccurs="1"/>
+                    <xsd:element ref="j:ArrestSubjectCountCode" minOccurs="0" maxOccurs="1"/>
+                </xsd:sequence>
+            </xsd:extension>
+        </xsd:complexContent>
+    </xsd:complexType>
+    
+    <xsd:complexType name="ArresteeWeaponCodeType">
+        <xsd:annotation>
+            <xsd:documentation>A data type for weapons with which a subject may be armed with upon apprehension.</xsd:documentation>
+        </xsd:annotation>
+        <xsd:simpleContent>
+            <xsd:extension base="nibrscodes:ArresteeWeaponCodeSimpleType">
+                <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+            </xsd:extension>
+        </xsd:simpleContent>
+    </xsd:complexType>
+    
+    <xsd:complexType name="InjuryCategoryCodeType">
+        <xsd:annotation>
+            <xsd:documentation>A data type for a general category of harm or injury.</xsd:documentation>
+        </xsd:annotation>
+        <xsd:simpleContent>
+            <xsd:extension base="nibrscodes:InjuryCategoryCodeSimpleType">
+                <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+            </xsd:extension>
+        </xsd:simpleContent>
+    </xsd:complexType>
+
+  <xsd:complexType name="OffenseCodeType">
+    <xsd:annotation>
+      <xsd:documentation>A data type for Uniform Crime Reporting (UCR) offense codes.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:simpleContent>
+      <xsd:extension base="nibrscodes:OffenseCodeSimpleType">
+        <xsd:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+
+    <xsd:complexType name="SubmissionType">
+        <xsd:annotation>
+            <xsd:documentation>The root element for a NIBRS exchange</xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexContent>
+            <xsd:extension base="s:ObjectType">
+                <xsd:sequence>
+                    <xsd:element ref="cjis:MessageMetadata" minOccurs="1" maxOccurs="1"/>
+                    <xsd:element ref="nibrs:Report" minOccurs="1" maxOccurs="1"/>
+                </xsd:sequence>
+            </xsd:extension>
+        </xsd:complexContent>
+    </xsd:complexType> 
+    
+    <xsd:complexType name="ReportType">
+        <xsd:annotation>
+            <xsd:documentation>A data type for a CJIS report</xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexContent>
+            <xsd:extension base="s:ObjectType">
+                <xsd:sequence>  
+                    <xsd:element ref="nibrs:ReportHeader" minOccurs="1" maxOccurs="1"/>
+                    <xsd:element ref="nc:Incident" minOccurs="0" maxOccurs="1"/>
+                    <xsd:element ref="j:Offense" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="nc:Location" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="nc:Item" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="nc:Substance" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="nc:Person" minOccurs="0" maxOccurs="unbounded" />
+                    <xsd:element ref="j:EnforcementOfficial" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="j:Victim" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="j:Subject" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="nibrs:Arrestee" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="j:Arrest" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="j:ArrestSubjectAssociation" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="j:OffenseLocationAssociation" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="j:OffenseVictimAssociation" minOccurs="0" maxOccurs="unbounded"/>
+                    <xsd:element ref="j:SubjectVictimAssociation" minOccurs="0" maxOccurs="unbounded"/>
+                </xsd:sequence>
+            </xsd:extension>
+        </xsd:complexContent>
+    </xsd:complexType>
+    
+    <xsd:complexType name="ReportHeaderType">
+       <xsd:annotation>
+           <xsd:documentation>A data type for header information for the report.</xsd:documentation>
+       </xsd:annotation>
+       <xsd:complexContent>
+           <xsd:extension base="s:ObjectType">
+               <xsd:sequence>
+                   <xsd:element ref="nibrs:NIBRSReportCategoryCode" minOccurs="1" maxOccurs="1"/>
+                   <xsd:element ref="nibrs:ReportActionCategoryCode" minOccurs="1" maxOccurs="1"/>
+                   <xsd:element ref="nibrs:ReportDate" minOccurs="1" maxOccurs="1"/>
+                   <xsd:element ref="nibrs:ReportingAgency" minOccurs="1" maxOccurs="1"/>
+               </xsd:sequence>
+           </xsd:extension>
+       </xsd:complexContent>
+   </xsd:complexType>
+
+    <!-- ============ ELEMENTS ============  -->
+    <xsd:element name="Arrestee" type="nibrs:ArresteeType">
+        <xsd:annotation>
+            <xsd:documentation>A person who is arrested for a violation of a criminal statute, ordinance or rule.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="ArresteeArmedWith" abstract="true">
+        <xsd:annotation>
+            <xsd:documentation>A data concept for a weapon a subject was carrying.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="ArresteeArmedWithCode" type="nibrs:ArresteeWeaponCodeType" substitutionGroup="nibrs:ArresteeArmedWith">
+        <xsd:annotation>
+            <xsd:documentation>A weapon a subject was carrying.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="ArresteeClearanceIndicator" type="niem-xs:boolean">
+        <xsd:annotation>
+            <xsd:documentation>True if the arrest of this person clears the Incident; false if the Incident was cleared prior to the arrest of this person.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="ArrestSubjectCount" abstract="true">
+        <xsd:annotation>
+            <xsd:documentation>A data concept for an indication of whether or not to count or score an arrested subject in a system to avoid duplicate counts in the event that the subject may be a part of multiple arrests.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    <xsd:element name="ArrestSubjectCountCode" type="ucr:MultipleArresteeSegmentsCodeType" substitutionGroup="nibrs:ArrestSubjectCount">
+        <xsd:annotation>
+            <xsd:documentation>An indication of whether or not to count or score an arrested subject in a system to avoid duplicate counts in the event that the subject may be a part of multiple arrests.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="OffenseCargoTheftIndicator" type="niem-xs:boolean" substitutionGroup ="nc:IncidentAugmentationPoint">
+        <xsd:annotation>
+            <xsd:documentation>True if an offense involves the criminal taking of any cargo that constitutes, in whole or in part, a commercial shipment of freight moving in commerce; false otherwise.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>  
+    
+    <xsd:element name="ChargeUCRCode" type="nibrs:OffenseCodeType" nillable="false" substitutionGroup="j:ChargeUCRAbstract">
+        <xsd:annotation>
+            <xsd:documentation>An offense within the Uniform Crime Report (UCR) system.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="CriminalActivityCategoryCode" type="nibrscodes:CriminalActivityCategoryCodeType" substitutionGroup="j:CriminalActivityCategoryAbstract" nillable="false">
+        <xsd:annotation>
+            <xsd:documentation>A kind of criminal activity.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+
+    <xsd:element name="IncidentCargoTheftIndicator" type="niem-xs:boolean" substitutionGroup="j:OffenseCargoTheftIndicator"/>
+
+    <xsd:element name="IncidentExceptionalClearanceCode" type="nibrscodes:IncidentExceptionalClearanceCodeType" substitutionGroup="j:IncidentExceptionalClearanceAbstract">
+        <xsd:annotation>
+            <xsd:documentation>A reason why an incident has been cleared exceptionally.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+
+    <xsd:element name="IncidentReportDateIndicator" type="niem-xs:boolean"  nillable="false" substitutionGroup="nc:IncidentAugmentationPoint">
+        <xsd:annotation>
+            <xsd:documentation>True if the report date was used for the incident date; false otherwise</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+
+    <xsd:element name="InjuryCategoryCode" type="nibrs:InjuryCategoryCodeType" substitutionGroup="nc:InjuryCategoryAbstract">
+        <xsd:annotation>
+            <xsd:documentation>A general category of harm or injury.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+
+    <xsd:element name="LocationCategoryCode" type="nibrscodes:LocationCategoryCodeType" nillable="false" substitutionGroup="nc:LocationCategoryAbstract">
+        <xsd:annotation>
+            <xsd:documentation>A kind or functional description of a location.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="MeasureUnit" abstract="true">
+        <xsd:annotation>
+            <xsd:documentation>A data concept for a unit of measure of a measurement value.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="NIBRSReportCategoryCode" type="nibrscodes:NIBRSReportCategoryCodeType" nillable="false">
+        <xsd:annotation>
+            <xsd:documentation>A kind of Report for the National Incident Based Reporting System (NIBRS).</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="OffenseAttemptedIndicator" type="nibrscodes:OffenseAttemptedIndicatorCodeType" substitutionGroup="j:OffenseAugmentationPoint">
+        <xsd:annotation>
+            <xsd:documentation></xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>    
+    
+    <xsd:element name="OffenseCodeType" type="nibrscodes:OffenseCodeSimpleType" nillable="false" substitutionGroup="j:ChargeUCRAbstract">
+        <xsd:annotation>
+            <xsd:documentation>An offense within the Uniform Crime Report (UCR) system.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="OffenseFactorCode" type="nibrscodes:IncidentFactorCodeType" substitutionGroup="j:OffenseFactorDesignationAbstract">
+        <xsd:annotation>
+            <xsd:documentation>An offense factor designation.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="ForceCategoryCode" type="nibrscodes:ForceCategoryCodeType" substitutionGroup="j:ForceCategoryAbstract">
+        <xsd:annotation>
+            <xsd:documentation>A kind of force used.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element> 
+    
+    <xsd:element name="OffenseUCRCode" type="nibrs:OffenseCodeType" nillable="false" substitutionGroup="j:OffenseDesignationAbstract">
+        <xsd:annotation>
+            <xsd:documentation>An offense designation as specified by FBI's Uniform Crime Reporting (UCR) program.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="NIBRSBiasMotivationCode" type="nibrscodes:IncidentBiasMotivationCodeType" nillable="false" substitutionGroup="j:OffenseFactorBiasMotivationAbstract">
+        <xsd:annotation>
+            <xsd:documentation>A data type for a code that identifies the type of bias that motivated the offense, if any. Includes all NIBRS codes, plus additional codes.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="Report" type="nibrs:ReportType" nillable="false">
+        <xsd:annotation>
+            <xsd:documentation>A report being submitted tot he National Incident Based Report System (NIBRS) program.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="ReportActionCategoryCode" type="nibrscodes:ReportActionCategoryCodeType" nillable="false">
+        <xsd:annotation>
+            <xsd:documentation>A kind of action to be performed by the NIBRS system, on the submitted report.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="ReportDate" type="nc:DateType">
+        <xsd:annotation>
+            <xsd:documentation>The date the report was created.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="ReportingAgency" type="nc:OrganizationType">
+        <xsd:annotation>
+            <xsd:documentation>The agency that created the report.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="ReportHeader" type="nibrs:ReportHeaderType">
+        <xsd:annotation>
+            <xsd:documentation>A container for header information for the report.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="Submission" type="nibrs:SubmissionType">
+        <xsd:annotation>
+            <xsd:documentation>A NIBRS data submission.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+
+    <xsd:element name="SubstanceUnitCode" type="nibrscodes:DrugMeasurementCodeType" substitutionGroup="nc:SubstanceMeasureAugmentationPoint">
+        <xsd:annotation>
+            <xsd:documentation>A unit of measure for a quantity of a substance.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+    <xsd:element name="VictimToSubjectRelationshipCode" type="nibrscodes:VictimToSubjectRelationshipCodeType" substitutionGroup="j:VictimToSubjectRelationshipAbstract">
+        <xsd:annotation>
+            <xsd:documentation>A code that identifies the victim's relationship to subject who perpetrated a crime against them, depicting who the victim was to the offender.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+    
+</xsd:schema>
