@@ -371,6 +371,14 @@ def process_reference_attributes(
         for target_id in target_ids:
             target_id_prefixed = f"{file_prefix}_{target_id}"
 
+            # Skip self-referential edges (node referring to itself)
+            # REFERS_TO should only be used for id/ref relationships between different nodes
+            if node_id == target_id_prefixed:
+                logger.debug(
+                    f"Skipping self-referential REFERS_TO edge: {node_id} --{ref_info['edge_type']}--> {target_id_prefixed} (via {attr_qname})"
+                )
+                continue
+
             edges.append(
                 (
                     node_id,
@@ -932,6 +940,8 @@ def generate_for_xml_content(
     nodes = {}  # id -> (label, qname, props_dict, aug_props_dict)
     edges = []  # (from_id, from_label, to_id, to_label, rel_type, rel_props)
     contains = []  # (parent_id, parent_label, child_id, child_label, HAS_REL)
+    root_node_id = None  # Track root node ID to ensure all nodes connect to it
+    element_to_node = {}  # Map XML element -> node_id to find parent nodes in tree
 
     # ID registry for two-pass traversal
     # Collect all IDs in first pass to enable forward reference resolution
@@ -1018,6 +1028,7 @@ def generate_for_xml_content(
 
         This order ensures augmentations are completely invisible in the graph.
         """
+        nonlocal root_node_id, element_to_node
         if path_stack is None:
             path_stack = []
 
@@ -1133,6 +1144,9 @@ def generate_for_xml_content(
 
             # Create association node (nodes is a dict, not a list)
             nodes[assoc_node_id] = [assoc_label, elem_qn, assoc_props, aug_props]
+            
+            # Track this element -> node mapping for parent lookup
+            element_to_node[elem] = assoc_node_id
 
             # Create edges from association node to each endpoint
             for ep in endpoints:
@@ -1252,26 +1266,35 @@ def generate_for_xml_content(
             return
 
         # Check if this is an augmentation element (never create nodes for augmentations)
-        is_augmentation = elem_qn.endswith("Augmentation")
+        is_augmentation_elem = elem_qn.endswith("Augmentation")
 
         # Determine if element should become a node based on mode
         should_create_node = False
+        
+        # Special case: Root element (parent_info is None) should ALWAYS create a node if complex
+        # This ensures all nodes have a containment path back to the root
+        is_root = parent_info is None
 
         if mode == "mapping":
             # Mapping mode: Only create nodes for elements explicitly selected in designer
             # Skip augmentations even if they're in the mapping
-            should_create_node = obj_rule is not None and not is_augmentation
+            # EXCEPTION: Root element always creates a node if complex (ensures containment tree)
+            if is_root:
+                is_complex = _is_complex_element(elem, xml_ns_map, struct_ns)
+                should_create_node = is_complex and not is_augmentation_elem
+            else:
+                should_create_node = obj_rule is not None and not is_augmentation_elem
             if not should_create_node:
-                if is_augmentation:
+                if is_augmentation_elem:
                     logger.debug(f"Skipping {elem_qn} - is augmentation")
-                elif obj_rule is None:
+                elif obj_rule is None and not is_root:
                     logger.debug(f"Skipping {elem_qn} - not in mapping (obj_rule is None)")
         elif mode == "dynamic":
             # Dynamic mode: Create nodes for all complex elements EXCEPT augmentations
             is_complex = _is_complex_element(elem, xml_ns_map, struct_ns)
-            should_create_node = is_complex and not is_augmentation
+            should_create_node = is_complex and not is_augmentation_elem
             if not should_create_node:
-                if is_augmentation:
+                if is_augmentation_elem:
                     logger.debug(f"Skipping {elem_qn} - is augmentation")
                 elif not is_complex:
                     logger.debug(f"Skipping {elem_qn} - not a complex element")
@@ -1462,6 +1485,15 @@ def generate_for_xml_content(
                     nodes[node_id][3].update({k: v for k, v in aug_props.items() if k not in nodes[node_id][3]})
             else:
                 nodes[node_id] = [node_label, elem_qn, props, aug_props]
+            
+            # Track this element -> node mapping for parent lookup
+            element_to_node[elem] = node_id
+            
+            # Track root node (created when parent_info is None)
+            if is_root:
+                root_node_id = node_id
+                props["_isRoot"] = True
+                nodes[node_id][2]["_isRoot"] = True
 
             # Process dynamic reference attributes (nc:metadataRef, priv:privacyMetadataRef, etc.)
             # This handles IDREFS splitting and creates edges for custom reference attributes
@@ -1476,9 +1508,25 @@ def generate_for_xml_content(
             )
             edges.extend(reference_edges)
 
-            # Create containment edge
-            if parent_info:
-                p_id, p_label = parent_info
+            # Create containment edge - find nearest ancestor node if parent_info is None
+            actual_parent_info = parent_info
+            if not actual_parent_info and not is_root:
+                # Walk up path_stack to find nearest ancestor that created a node
+                for ancestor_elem in reversed(path_stack):
+                    if ancestor_elem in element_to_node:
+                        ancestor_node_id = element_to_node[ancestor_elem]
+                        if ancestor_node_id in nodes:
+                            ancestor_label = nodes[ancestor_node_id][0]
+                            actual_parent_info = (ancestor_node_id, ancestor_label)
+                            logger.debug(f"Found ancestor node for {elem_qn}: {ancestor_label} {ancestor_node_id}")
+                            break
+                # If still no parent and root exists, use root as fallback
+                if not actual_parent_info and root_node_id:
+                    actual_parent_info = (root_node_id, nodes[root_node_id][0])
+                    logger.debug(f"Using root as parent for {elem_qn}")
+            
+            if actual_parent_info:
+                p_id, p_label = actual_parent_info
                 # Look up actual parent label from nodes dict (handles co-referenced nodes)
                 if p_id in nodes:
                     p_label = nodes[p_id][0]  # Use actual label from node
@@ -1513,7 +1561,7 @@ def generate_for_xml_content(
             parent_ctx = parent_info
 
             # Special handling for augmentations - process children directly under parent
-            if is_augmentation and parent_info:
+            if is_augmentation_elem and parent_info:
                 parent_id, parent_label = parent_info
 
                 # Process each child of the augmentation
@@ -1669,6 +1717,67 @@ def generate_for_xml_content(
             clabel = nodes[cid][0]
         resolved_contains.append((pid, plabel, cid, clabel, rel))
     contains = resolved_contains
+    
+    # Ensure all nodes have a containment path back to root
+    # This is critical for NIEM instance documents - every node must be reachable from root
+    # Find orphaned nodes (nodes without incoming CONTAINS edges, excluding root itself)
+    if root_node_id and root_node_id in nodes:
+        nodes_with_parent = {cid for pid, plabel, cid, clabel, rel in contains}
+        orphaned_nodes = []
+        for node_id in nodes.keys():
+            if node_id != root_node_id and node_id not in nodes_with_parent:
+                orphaned_nodes.append(node_id)
+        
+        # For orphaned nodes, find their actual parent in the XML tree
+        # We need to track which element created which node and walk up the tree
+        # Since ElementTree doesn't have getparent(), we need to track parent relationships during traversal
+        if orphaned_nodes:
+            logger.warning(f"Found {len(orphaned_nodes)} orphaned nodes in {filename}, attempting to find parent")
+            # Build reverse mapping: node_id -> XML element  
+            node_to_element = {node_id: elem for elem, node_id in element_to_node.items()}
+            
+            # Build element -> parent element mapping by re-traversing the tree
+            # This is needed because ElementTree doesn't have getparent()
+            elem_to_parent = {}
+            def build_parent_map(elem, parent_elem=None):
+                elem_to_parent[elem] = parent_elem
+                for child in elem:
+                    build_parent_map(child, elem)
+            build_parent_map(root)
+            
+            for orphan_id in orphaned_nodes:
+                orphan_label = nodes[orphan_id][0]
+                orphan_elem = node_to_element.get(orphan_id)
+                
+                if orphan_elem is not None:
+                    # Walk up the XML tree to find nearest ancestor node
+                    parent_elem = elem_to_parent.get(orphan_elem)
+                    parent_node_id = None
+                    
+                    while parent_elem is not None:
+                        if parent_elem in element_to_node:
+                            parent_node_id = element_to_node[parent_elem]
+                            if parent_node_id in nodes:
+                                parent_label = nodes[parent_node_id][0]
+                                logger.debug(f"Connecting orphaned node {orphan_id} ({orphan_label}) to parent {parent_node_id} ({parent_label})")
+                                contains.append((parent_node_id, parent_label, orphan_id, orphan_label, "CONTAINS"))
+                                break
+                        parent_elem = elem_to_parent.get(parent_elem)
+                    
+                    # If no parent found in tree, use root as fallback (shouldn't happen)
+                    if not parent_node_id and root_node_id:
+                        root_label = nodes[root_node_id][0]
+                        logger.warning(f"Could not find parent in XML tree for {orphan_id} ({orphan_label}), using root as fallback")
+                        contains.append((root_node_id, root_label, orphan_id, orphan_label, "CONTAINS"))
+                else:
+                    # Node not in element_to_node mapping (e.g., hub node) - use root as fallback
+                    if root_node_id:
+                        root_label = nodes[root_node_id][0]
+                        logger.warning(f"Orphaned node {orphan_id} ({orphan_label}) not in element mapping, using root as fallback")
+                        contains.append((root_node_id, root_label, orphan_id, orphan_label, "CONTAINS"))
+    elif len(nodes) > 0:
+        # Root node not found but nodes exist - this shouldn't happen, but log a warning
+        logger.warning(f"Root node not found in {filename}, but {len(nodes)} nodes exist")
 
     # Build Cypher lines
     lines = [f"// Generated for {filename} using mapping"]
