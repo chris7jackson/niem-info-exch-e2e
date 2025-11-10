@@ -25,12 +25,17 @@ Example NIEM JSON:
 import hashlib
 import json
 import logging
+import re
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Cypher property name validation pattern - only alphanumeric and underscore are safe
+# Property names with dots, hyphens, or other special chars must be escaped with backticks
+CYPHER_SAFE_PROPERTY_NAME = r"^[a-zA-Z_][a-zA-Z0-9_]*$"
 
 
 def load_mapping_from_dict(
@@ -317,17 +322,22 @@ def _recursively_flatten_json_object(
                 if isinstance(item, (str, int, float, bool)):
                     simple_values.append(item)
                 elif isinstance(item, dict):
-                    # Check if this dict should be a node
-                    item_type = item.get("@type") or key
-                    if item_type not in obj_rules and item_type not in assoc_by_qn:
-                        # Recursively flatten nested object
-                        nested_props, nested_meta = _recursively_flatten_json_object(item, obj_rules, assoc_by_qn, "")
-                        # Combine metadata and data for this instance
-                        instance_obj = {}
-                        if nested_meta:
-                            instance_obj.update(nested_meta)
-                        instance_obj.update(nested_props)
-                        complex_instances.append(instance_obj)
+                    # Check if this is a TextLiteral wrapper - extract value directly
+                    text_value = _is_textliteral_wrapper(item)
+                    if text_value is not None:
+                        simple_values.append(text_value)
+                    else:
+                        # Check if this dict should be a node
+                        item_type = item.get("@type") or key
+                        if item_type not in obj_rules and item_type not in assoc_by_qn:
+                            # Recursively flatten nested object
+                            nested_props, nested_meta = _recursively_flatten_json_object(item, obj_rules, assoc_by_qn, "")
+                            # Combine metadata and data for this instance
+                            instance_obj = {}
+                            if nested_meta:
+                                instance_obj.update(nested_meta)
+                            instance_obj.update(nested_props)
+                            complex_instances.append(instance_obj)
 
             # Store simple values as array
             if simple_values:
@@ -339,8 +349,12 @@ def _recursively_flatten_json_object(
                 flattened[key_normalized] = json.dumps(complex_instances, separators=(',', ':'), ensure_ascii=False)
 
         elif isinstance(value, dict):
-            # Check if this is a reference
-            if is_reference(value):
+            # Check if this is a TextLiteral wrapper first - flatten it directly
+            text_value = _is_textliteral_wrapper(value)
+            if text_value is not None:
+                # Flatten TextLiteral: store the text value directly at prop_path
+                flattened[prop_path] = text_value
+            elif is_reference(value):
                 # Store reference ID
                 flattened[f"{prop_path}_ref"] = value["@id"]
             else:
@@ -453,6 +467,36 @@ def detect_associations_from_json_data(data: dict[str, Any]) -> dict[str, dict[s
     return auto_assocs
 
 
+def _is_textliteral_wrapper(obj: dict[str, Any]) -> str | None:
+    """Check if object is a nc:TextLiteral wrapper and extract its value.
+
+    TextLiteral wrappers have exactly one key "nc:TextLiteral" with a string value.
+    These should be flattened so the text value is assigned directly to the parent property.
+
+    Args:
+        obj: JSON object to check
+
+    Returns:
+        The extracted string value if it's a TextLiteral wrapper, None otherwise
+    """
+    if not isinstance(obj, dict):
+        return None
+
+    # Check if object has exactly one non-metadata key
+    non_metadata_keys = [k for k in obj.keys() if not k.startswith("@")]
+    if len(non_metadata_keys) != 1:
+        return None
+
+    # Check if the single key is "nc:TextLiteral" and value is a string
+    key = non_metadata_keys[0]
+    if key == "nc:TextLiteral":
+        value = obj[key]
+        if isinstance(value, str):
+            return value
+
+    return None
+
+
 def _is_complex_json_element(obj: dict[str, Any]) -> bool:
     """Determine if JSON object is complex (should become a node in dynamic mode).
 
@@ -475,6 +519,10 @@ def _is_complex_json_element(obj: dict[str, Any]) -> bool:
     # Has @id? → Complex (explicitly identifiable)
     if "@id" in obj:
         return True
+
+    # Check if it's a TextLiteral wrapper - these should be flattened, not nodes
+    if _is_textliteral_wrapper(obj) is not None:
+        return False
 
     # Count non-metadata properties
     non_metadata_keys = [k for k in obj.keys() if not k.startswith("@")]
@@ -1039,16 +1087,38 @@ def generate_for_json_content(
             # Check if this property should become a separate node
             should_be_node = False
             if isinstance(value, dict) and not is_reference(value):
+                # Check if it's a TextLiteral wrapper first - these should always be flattened
+                text_value = _is_textliteral_wrapper(value)
+                if text_value is not None:
+                    # Flatten TextLiteral directly
+                    prop_name = key.replace(":", "_")
+                    props_dict[prop_name] = text_value
+                    continue
+                
                 child_qname = value.get("@type") or key
                 # Check if it's selected as a node or is an association
                 should_be_node = (child_qname in obj_rules) or (child_qname in assoc_by_qn)
             elif isinstance(value, list):
-                # Check if array contains objects that should be nodes
+                # Check if array contains TextLiteral wrappers
+                text_values = []
+                has_textliterals = False
                 for item in value:
                     if isinstance(item, dict) and not is_reference(item):
-                        child_qname = item.get("@type") or key
-                        should_be_node = (child_qname in obj_rules) or (child_qname in assoc_by_qn)
-                        break
+                        text_value = _is_textliteral_wrapper(item)
+                        if text_value is not None:
+                            text_values.append(text_value)
+                            has_textliterals = True
+                        else:
+                            child_qname = item.get("@type") or key
+                            should_be_node = (child_qname in obj_rules) or (child_qname in assoc_by_qn)
+                            if should_be_node:
+                                break
+                
+                # If array contains only TextLiteral wrappers, flatten them
+                if has_textliterals and not should_be_node:
+                    prop_name = key.replace(":", "_")
+                    props_dict[prop_name] = text_values[0] if len(text_values) == 1 else text_values
+                    continue
 
             # If not a node, flatten it as a property
             if not should_be_node:
@@ -1153,21 +1223,73 @@ def generate_for_json_content(
                     edges.append((obj_id, label, target_id, None, "REFERS_TO", {}))
 
             elif isinstance(value, dict):
-                # Nested object (containment edge created automatically)
-                process_jsonld_object(value, obj_id, label, key)
+                # Check if this is a TextLiteral wrapper - flatten it instead of creating a node
+                text_value = _is_textliteral_wrapper(value)
+                if text_value is not None:
+                    # Flatten TextLiteral: add the text value directly to parent node properties
+                    prop_name = key.replace(":", "_")
+                    if obj_id in nodes:
+                        parent_props = nodes[obj_id][2]  # props_dict is at index 2
+                        parent_props[prop_name] = text_value
+                else:
+                    # Nested object (containment edge created automatically)
+                    process_jsonld_object(value, obj_id, label, key)
 
             elif isinstance(value, list):
                 # Array of objects or references
+                text_values = []
+                has_textliterals = False
+                has_other_items = False
+                
+                # First pass: check if array contains TextLiteral wrappers
                 for item in value:
                     if isinstance(item, dict):
                         if is_reference(item):
-                            # Pure reference in array - create REFERS_TO edge
-                            clean_target_id = item["@id"].lstrip("#")
-                            target_id = f"{file_prefix}_{clean_target_id}"
-                            if obj_id != target_id:
-                                edges.append((obj_id, label, target_id, None, "REFERS_TO", {}))
+                            has_other_items = True
                         else:
-                            process_jsonld_object(item, obj_id, label, key)
+                            text_value = _is_textliteral_wrapper(item)
+                            if text_value is not None:
+                                text_values.append(text_value)
+                                has_textliterals = True
+                            else:
+                                has_other_items = True
+                    else:
+                        # Simple value in array
+                        has_other_items = True
+                
+                # If array contains only TextLiteral wrappers, flatten them
+                if has_textliterals and not has_other_items:
+                    prop_name = key.replace(":", "_")
+                    if obj_id in nodes:
+                        parent_props = nodes[obj_id][2]  # props_dict is at index 2
+                        # Store as single value if one item, array if multiple
+                        parent_props[prop_name] = text_values[0] if len(text_values) == 1 else text_values
+                else:
+                    # Process array items normally (may contain references or complex objects)
+                    for item in value:
+                        if isinstance(item, dict):
+                            if is_reference(item):
+                                # Pure reference in array - create REFERS_TO edge
+                                clean_target_id = item["@id"].lstrip("#")
+                                target_id = f"{file_prefix}_{clean_target_id}"
+                                if obj_id != target_id:
+                                    edges.append((obj_id, label, target_id, None, "REFERS_TO", {}))
+                            else:
+                                # Check if this item is a TextLiteral wrapper
+                                text_value = _is_textliteral_wrapper(item)
+                                if text_value is not None:
+                                    # Flatten TextLiteral in array
+                                    prop_name = key.replace(":", "_")
+                                    if obj_id in nodes:
+                                        parent_props = nodes[obj_id][2]
+                                        if prop_name not in parent_props:
+                                            parent_props[prop_name] = []
+                                        if isinstance(parent_props[prop_name], list):
+                                            parent_props[prop_name].append(text_value)
+                                        else:
+                                            parent_props[prop_name] = [parent_props[prop_name], text_value]
+                                else:
+                                    process_jsonld_object(item, obj_id, label, key)
 
         return obj_id
 
@@ -1291,6 +1413,10 @@ def generate_cypher_from_structures(
             all_props["ingestDate"] = ingest_timestamp
 
         for key, value in all_props.items():
+            # Escape property names with special characters (dots, hyphens, etc.) using backticks
+            # Only alphanumeric and underscore are safe without backticks in Cypher
+            prop_key = f"`{key}`" if not re.match(CYPHER_SAFE_PROPERTY_NAME, key) else key
+            
             # Handle different value types properly
             if isinstance(value, (list, tuple)):
                 # Use Neo4j native array syntax
@@ -1304,21 +1430,21 @@ def generate_cypher_from_structures(
                     else:
                         escaped_item = str(item).replace("'", "\\'")
                         array_items.append(f"'{escaped_item}'")
-                props_parts.append(f"{key}: [{', '.join(array_items)}]")
+                props_parts.append(f"{prop_key}: [{', '.join(array_items)}]")
             elif isinstance(value, str):
                 # Escape single quotes in strings
                 escaped_value = value.replace("'", "\\'")
-                props_parts.append(f"{key}: '{escaped_value}'")
+                props_parts.append(f"{prop_key}: '{escaped_value}'")
             elif isinstance(value, (int, float, bool)):
                 # Numbers and booleans don't need quotes
-                props_parts.append(f"{key}: {str(value).lower() if isinstance(value, bool) else value}")
+                props_parts.append(f"{prop_key}: {str(value).lower() if isinstance(value, bool) else value}")
             elif value is None:
                 # Skip null values
                 continue
             else:
                 # Convert other types to string
                 escaped_value = str(value).replace("'", "\\'")
-                props_parts.append(f"{key}: '{escaped_value}'")
+                props_parts.append(f"{prop_key}: '{escaped_value}'")
 
         props_str = ", ".join(props_parts)
         cypher_lines.append(f"MERGE (n:{sanitized_label} {{id: '{node_id}', {props_str}}});")
