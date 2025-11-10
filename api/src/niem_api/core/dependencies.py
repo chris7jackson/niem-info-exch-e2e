@@ -4,13 +4,15 @@ import os
 
 from minio import Minio
 
+from .env_utils import getenv_clean, getenv_bool
+
 
 def get_s3_client():
     """Get MinIO/S3 client"""
-    endpoint = os.getenv("MINIO_ENDPOINT", "localhost:9000")
-    access_key = os.getenv("MINIO_ACCESS_KEY", "minio")
-    secret_key = os.getenv("MINIO_SECRET_KEY", "minio123")
-    secure = os.getenv("MINIO_SECURE", "false").lower() == "true"
+    endpoint = getenv_clean("MINIO_ENDPOINT", "localhost:9000")
+    access_key = getenv_clean("MINIO_ACCESS_KEY", "minio")
+    secret_key = getenv_clean("MINIO_SECRET_KEY", "minio123")
+    secure = getenv_bool("MINIO_SECURE", False)
 
     # Remove http:// or https:// from endpoint if present
     if endpoint.startswith("http://"):
@@ -33,9 +35,9 @@ def get_neo4j_client():
     if _neo4j_client is None:
         from ..clients.neo4j_client import Neo4jClient
 
-        neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        neo4j_user = os.getenv("NEO4J_USER", "neo4j")
-        neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
+        neo4j_uri = getenv_clean("NEO4J_URI", "bolt://localhost:7687")
+        neo4j_user = getenv_clean("NEO4J_USER", "neo4j")
+        neo4j_password = getenv_clean("NEO4J_PASSWORD", "password")
 
         _neo4j_client = Neo4jClient(neo4j_uri, neo4j_user, neo4j_password)
 

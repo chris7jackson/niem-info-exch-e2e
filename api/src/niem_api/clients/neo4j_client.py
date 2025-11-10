@@ -54,9 +54,11 @@ class Neo4jClient:
         Raises:
             neo4j.exceptions.ServiceUnavailable: If cannot connect to database
         """
-        self.uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        self.user = user or os.getenv("NEO4J_USER", "neo4j")
-        self.password = password or os.getenv("NEO4J_PASSWORD", "password")
+        from ..core.env_utils import getenv_clean
+        
+        self.uri = uri or getenv_clean("NEO4J_URI", "bolt://localhost:7687")
+        self.user = user or getenv_clean("NEO4J_USER", "neo4j")
+        self.password = password or getenv_clean("NEO4J_PASSWORD", "password")
         self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
 
     def query(self, cypher_query: str, parameters: dict | None = None) -> list[dict]:

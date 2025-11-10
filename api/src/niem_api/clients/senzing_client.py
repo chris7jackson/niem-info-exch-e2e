@@ -83,7 +83,9 @@ class SenzingClient:
             config_path: Path to g2.ini configuration file.
                         If None, uses environment variable or default.
         """
-        self.config_path = config_path or os.getenv("SENZING_CONFIG_PATH", "/app/config/g2.ini")
+        from ..core.env_utils import getenv_clean
+        
+        self.config_path = config_path or getenv_clean("SENZING_CONFIG_PATH", "/app/config/g2.ini")
         self.factory: Optional[SzAbstractFactory] = None
         self.engine: Optional[SzEngine] = None
         self.config: Optional[SzConfig] = None
@@ -129,7 +131,8 @@ class SenzingClient:
 
         try:
             # Get gRPC server URL from environment
-            grpc_url = os.getenv("SENZING_GRPC_URL", "localhost:8261")
+            from ..core.env_utils import getenv_clean
+            grpc_url = getenv_clean("SENZING_GRPC_URL", "localhost:8261")
             logger.info(f"Connecting to Senzing gRPC server at {grpc_url}...")
 
             # Create gRPC channel

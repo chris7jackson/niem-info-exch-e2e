@@ -11,6 +11,8 @@ import logging
 import os
 from pathlib import Path
 
+from .env_utils import getenv_bool, getenv_int, getenv_clean
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,20 +28,20 @@ class BatchConfig:
 
     # Concurrency: Max parallel operations across the system
     # Lower = safer for local dev, Higher = faster for production
-    MAX_CONCURRENT_OPERATIONS = int(os.getenv("BATCH_MAX_CONCURRENT_OPERATIONS", "3"))
+    MAX_CONCURRENT_OPERATIONS = getenv_int("BATCH_MAX_CONCURRENT_OPERATIONS", 3)
 
     # Timeout: Max seconds per individual file operation
-    OPERATION_TIMEOUT = int(os.getenv("BATCH_OPERATION_TIMEOUT", "60"))
+    OPERATION_TIMEOUT = getenv_int("BATCH_OPERATION_TIMEOUT", 60)
 
     # Operation-specific batch size limits
     # Schema uploads often have 25+ XSD files (NIEM references)
-    MAX_SCHEMA_FILES = int(os.getenv("BATCH_MAX_SCHEMA_FILES", "50"))
+    MAX_SCHEMA_FILES = getenv_int("BATCH_MAX_SCHEMA_FILES", 50)
 
     # XML/JSON conversions typically smaller batches
-    MAX_CONVERSION_FILES = int(os.getenv("BATCH_MAX_CONVERSION_FILES", "20"))
+    MAX_CONVERSION_FILES = getenv_int("BATCH_MAX_CONVERSION_FILES", 20)
 
     # XML/JSON ingestion to Neo4j
-    MAX_INGEST_FILES = int(os.getenv("BATCH_MAX_INGEST_FILES", "20"))
+    MAX_INGEST_FILES = getenv_int("BATCH_MAX_INGEST_FILES", 20)
 
     # JSON validation feature flag
     # Default: true (validation skipped)
@@ -50,7 +52,13 @@ class BatchConfig:
     # 3. Model schema validation cycle is separate from message validation
     #
     # Set to 'false' only if you have NIEM 6.0+ schemas AND valid message schemas
-    SKIP_JSON_VALIDATION = os.getenv("SKIP_JSON_VALIDATION", "true").lower() == "true"
+    SKIP_JSON_VALIDATION = getenv_bool("SKIP_JSON_VALIDATION", True)
+    
+    # Log the value at startup for debugging
+    raw_value = getenv_clean("SKIP_JSON_VALIDATION", "true", strip=False)
+    logger.info(
+        f"SKIP_JSON_VALIDATION: raw={repr(raw_value)}, final={SKIP_JSON_VALIDATION}"
+    )
 
     @classmethod
     def get_batch_limit(cls, operation_type: str) -> int:
@@ -84,11 +92,11 @@ class SenzingConfig:
     """
 
     # License file paths
-    LICENSE_PATH = Path(os.getenv("SENZING_LICENSE_PATH", "/app/secrets/senzing/g2.lic"))
+    LICENSE_PATH = Path(getenv_clean("SENZING_LICENSE_PATH", "/app/secrets/senzing/g2.lic"))
     LICENSE_SEARCH_PATTERN = "/app/licenses/g2license_*"  # Pattern to find license folders
 
     # Senzing data directory
-    DATA_DIR = Path(os.getenv("SENZING_DATA_DIR", "/data/senzing"))
+    DATA_DIR = Path(getenv_clean("SENZING_DATA_DIR", "/data/senzing"))
 
     @classmethod
     def ensure_license(cls) -> bool:

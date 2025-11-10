@@ -13,6 +13,7 @@ from neo4j import GraphDatabase
 
 from .core.auth import verify_token
 from .core.dependencies import get_s3_client
+from .core.env_utils import getenv_clean, getenv_int, getenv_list
 from .core.logging import setup_logging
 from .models.models import EntityResolutionRequest, ResetRequest, SchemaResponse
 
@@ -110,12 +111,12 @@ async def startup_tasks():
 app = FastAPI(
     title="NIEM Information Exchange API",
     description="API for managing NIEM schemas and data ingestion",
-    version=os.getenv("APP_VERSION", "unknown"),
+    version=getenv_clean("APP_VERSION", "unknown"),
     lifespan=lifespan,
 )
 
 # CORS middleware
-allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+allowed_origins = getenv_list("CORS_ORIGINS", ["http://localhost:3000"])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -130,7 +131,7 @@ app.add_middleware(
 async def add_version_header(request, call_next):
     """Add version information to response headers"""
     response = await call_next(request)
-    response.headers["X-API-Version"] = os.getenv("APP_VERSION", "unknown")
+    response.headers["X-API-Version"] = getenv_clean("APP_VERSION", "unknown")
     return response
 
 
@@ -143,9 +144,9 @@ async def health_check():
         "status": "healthy",
         "timestamp": current_time,
         "uptime": current_time - _app_start_time,
-        "api_version": os.getenv("APP_VERSION", "unknown"),
-        "git_commit": os.getenv("GIT_COMMIT", "unknown"),
-        "build_date": os.getenv("BUILD_DATE", "unknown"),
+        "api_version": getenv_clean("APP_VERSION", "unknown"),
+        "git_commit": getenv_clean("GIT_COMMIT", "unknown"),
+        "build_date": getenv_clean("BUILD_DATE", "unknown"),
         "niem_version": "6.0",
     }
 
@@ -159,9 +160,9 @@ async def readiness_check():
         list(s3_client.list_buckets())
 
         # Quick Neo4j connectivity test
-        neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        neo4j_user = os.getenv("NEO4J_USER", "neo4j")
-        neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
+        neo4j_uri = getenv_clean("NEO4J_URI", "bolt://localhost:7687")
+        neo4j_user = getenv_clean("NEO4J_USER", "neo4j")
+        neo4j_password = getenv_clean("NEO4J_PASSWORD", "password")
 
         driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
         with driver.session() as session:
@@ -563,7 +564,7 @@ async def get_senzing_health(token: str = Depends(verify_token)):
     health_info["license"] = license_info
 
     # === Component 3: gRPC Server ===
-    grpc_url = os.getenv("SENZING_GRPC_URL", "localhost:8261")
+    grpc_url = getenv_clean("SENZING_GRPC_URL", "localhost:8261")
     grpc_info = {"name": "Senzing gRPC Server", "url": grpc_url, "status": "unknown", "connected": False}
 
     if SENZING_AVAILABLE:
@@ -657,6 +658,6 @@ async def get_senzing_health(token: str = Depends(verify_token)):
 if __name__ == "__main__":
     import uvicorn
 
-    host = os.getenv("API_HOST", "0.0.0.0")  # nosec B104
-    port = int(os.getenv("API_PORT", "8000"))
+    host = getenv_clean("API_HOST", "0.0.0.0")  # nosec B104
+    port = getenv_int("API_PORT", 8000)
     uvicorn.run(app, host=host, port=port)

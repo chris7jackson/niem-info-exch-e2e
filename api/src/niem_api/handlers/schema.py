@@ -398,7 +398,9 @@ async def _validate_and_read_files(
     primary_file = xsd_files[0]
 
     # Validate total file size (configurable limit, defaults to 20MB)
-    max_file_size_mb = int(os.getenv("MAX_SCHEMA_FILE_SIZE_MB", "20"))
+    from ..core.env_utils import getenv_int
+    
+    max_file_size_mb = getenv_int("MAX_SCHEMA_FILE_SIZE_MB", 20)
     max_file_size_bytes = max_file_size_mb * 1024 * 1024
     if total_size > max_file_size_bytes:
         raise HTTPException(status_code=400, detail=f"Total file size exceeds {max_file_size_mb}MB limit")

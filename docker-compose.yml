@@ -148,7 +148,8 @@ services:
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
       # JSON validation feature flag
-      SKIP_JSON_VALIDATION: ${SKIP_JSON_VALIDATION:-false}
+      # Default: true (validation skipped) - matches config.py default
+      SKIP_JSON_VALIDATION: ${SKIP_JSON_VALIDATION:-true}
       # Batch processing configuration
       BATCH_MAX_CONCURRENT_OPERATIONS: ${BATCH_MAX_CONCURRENT_OPERATIONS:-3}
       BATCH_OPERATION_TIMEOUT: ${BATCH_OPERATION_TIMEOUT:-60}
