@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:cjis="http://fbi.gov/cjis/5.0"
+    xmlns:i="http://release.niem.gov/niem/appinfo/5.0/"
+    xmlns:s="http://release.niem.gov/niem/structures/5.0/"
+    xmlns:nc="http://release.niem.gov/niem/niem-core/5.0/"
+    xmlns:niem-xs="http://release.niem.gov/niem/proxy/niem-xs/5.0/"
+    xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/"
+    xmlns:j="http://release.niem.gov/niem/domains/jxdm/7.2/"
+
+    targetNamespace="http://fbi.gov/cjis/5.0" version="5.0"
+    ct:conformanceTargets="http://reference.niem.gov/niem/specification/naming-and-design-rules/3.0/#ExtensionSchemaDocument">
+    <xsd:annotation>
+        <xsd:documentation>CJIS Message Metadata Schema</xsd:documentation>
+        <xsd:appinfo>
+            <i:ConformantIndicator>true</i:ConformantIndicator>
+        </xsd:appinfo>
+    </xsd:annotation>
+
+    <xsd:import namespace="http://release.niem.gov/niem/appinfo/5.0/"
+        schemaLocation="../../niem/xsd/utility/appinfo.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/conformanceTargets/3.0/"
+        schemaLocation="../../niem/xsd/utility/conformanceTargets.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/niem-core/5.0/"
+        schemaLocation="../../niem/xsd/niem-core.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/proxy/niem-xs/5.0/"
+        schemaLocation="../../niem/xsd/adapters/niem-xs.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/structures/5.0/"
+        schemaLocation="../../niem/xsd/utility/structures.xsd"/>
+    <xsd:import namespace="http://release.niem.gov/niem/domains/jxdm/7.2/"
+        schemaLocation="../../niem/xsd/domains/jxdm.xsd"/>
+
+    <!-- Complex Elements -->
+    <xsd:complexType name="IncidentAugmentationType">
+        <xsd:annotation>
+            <xsd:documentation>A data type that supplements nc:IncidentType.</xsd:documentation>
+            <xsd:appinfo>
+                <i:Base i:namespace="http://niem.gov/niem/structures/2.0" i:name="AugmentationType"/>
+            </xsd:appinfo>
+        </xsd:annotation>
+        <xsd:complexContent>
+            <xsd:extension base="s:AugmentationType">
+                <xsd:sequence>
+                    <xsd:element ref="cjis:IncidentReportDateIndicator" minOccurs="0" maxOccurs="1"/>
+                    <xsd:element ref="j:OffenseCargoTheftIndicator" minOccurs="0" maxOccurs="1"/>
+                </xsd:sequence>
+            </xsd:extension>
+        </xsd:complexContent>
+    </xsd:complexType>
+
+    <xsd:complexType name="MessageMetadataType">
+        <xsd:annotation>
+            <xsd:documentation>A data type for Metadata for a message.</xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexContent>
+            <xsd:extension base="s:MetadataType">
+                <xsd:sequence>
+                   <!-- <xsd:element ref="cjis:MessageDataSensitivityText" minOccurs="0"/>-->
+                    <xsd:element ref="cjis:MessageDateTime" minOccurs="0"/>
+                    <xsd:element ref="cjis:MessageIdentification" minOccurs="0"/>
+                    <xsd:element ref="cjis:MessageImplementationVersion" minOccurs="0"/>
+                    <xsd:element ref="cjis:MessageSubmitter" minOccurs="0"/>
+                </xsd:sequence>
+            </xsd:extension>
+        </xsd:complexContent>
+    </xsd:complexType>
+
+    <xsd:complexType name="MessageSubmitterType">
+        <xsd:annotation>
+            <xsd:documentation>A data type that describes the metadata for Organization submitting the submission.</xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexContent>
+            <xsd:extension base="s:ObjectType">
+                <xsd:sequence>
+                    <xsd:element ref="cjis:MessageSubmittingOrganization"/>
+                </xsd:sequence>
+            </xsd:extension>
+        </xsd:complexContent>
+    </xsd:complexType>
+	
+	<!-- Elements -->
+    <xsd:element name="IncidentAugmentation" type="cjis:IncidentAugmentationType"
+        substitutionGroup="nc:IncidentAugmentationPoint">
+        <xsd:annotation>
+            <xsd:documentation>Additional information about an incident</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element> 
+    
+    <xsd:element name="IncidentReportDateIndicator" type="niem-xs:boolean" nillable="false">
+        <xsd:annotation>
+            <xsd:documentation>True if the report date was used for the incident date; false otherwise</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+
+    <xsd:element name="MessageMetadata" type="cjis:MessageMetadataType">
+        <xsd:annotation>
+            <xsd:documentation>Metadata for the CJIS message.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+	
+    <xsd:element name="MessageDateTime" type="niem-xs:dateTime">
+        <xsd:annotation>
+            <xsd:documentation>The date and time the message was created.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+	
+    <xsd:element name="MessageIdentification" type="nc:IdentificationType">
+        <xsd:annotation>
+            <xsd:documentation>A number that uniquely identifies a message from a specific application or service provider.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+	
+    <xsd:element name="MessageImplementationVersion" type="niem-xs:string">
+        <xsd:annotation>
+            <xsd:documentation>The version of the implementation of the CJIS IEPD used for the message.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+	
+    <xsd:element name="MessageSubmittingOrganization" type="nc:OrganizationType">
+        <xsd:annotation>
+            <xsd:documentation>The organization submitting the message.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+	
+    <xsd:element name="MessageSubmitter" type="cjis:MessageSubmitterType">
+        <xsd:annotation>
+            <xsd:documentation>A data type that describes the metadata for Organization submitting the submission.</xsd:documentation>
+        </xsd:annotation>
+    </xsd:element>
+</xsd:schema>

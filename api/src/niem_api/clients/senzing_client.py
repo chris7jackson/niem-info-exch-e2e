@@ -19,21 +19,36 @@ logger = logging.getLogger(__name__)
 
 # Try to import Senzing modules - will fail if not installed
 SENZING_AVAILABLE = False
+SzAbstractFactory = None
 try:
-    from senzing import G2Engine, G2Config, G2ConfigMgr, G2Diagnostic, G2Exception
+    # Senzing SDK v4+ uses abstract factory pattern
+    # Import the gRPC implementation (note: class name has Grpc suffix)
+    from senzing_grpc import SzAbstractFactoryGrpc
+    from senzing import SzEngine, SzConfig, SzConfigManager, SzDiagnostic, SzError, SzEngineFlags
+
+    SzAbstractFactory = SzAbstractFactoryGrpc
+    G2Exception = SzError
     SENZING_AVAILABLE = True
-    logger.info("Senzing SDK modules imported successfully")
-except ImportError:
-    logger.warning("Senzing SDK not available - will use text-based entity matching")
+    logger.info("Senzing gRPC SDK v4 modules imported successfully")
+except ImportError as e:
+    logger.warning(f"Senzing gRPC SDK not available ({e}) - will use text-based entity matching")
+
     # Define mock classes for type hints
-    class G2Engine:
+    class SzEngine:
         pass
-    class G2Config:
+
+    class SzConfig:
         pass
-    class G2ConfigMgr:
+
+    class SzConfigManager:
         pass
-    class G2Diagnostic:
+
+    class SzDiagnostic:
         pass
+
+    class SzError(Exception):
+        pass
+
     class G2Exception(Exception):
         pass
 
@@ -68,14 +83,14 @@ class SenzingClient:
             config_path: Path to g2.ini configuration file.
                         If None, uses environment variable or default.
         """
-        self.config_path = config_path or os.getenv(
-            "SENZING_CONFIG_PATH",
-            "/app/config/g2.ini"
-        )
-        self.engine: Optional[G2Engine] = None
-        self.config: Optional[G2Config] = None
-        self.config_mgr: Optional[G2ConfigMgr] = None
-        self.diagnostic: Optional[G2Diagnostic] = None
+        from ..core.env_utils import getenv_clean
+        
+        self.config_path = config_path or getenv_clean("SENZING_CONFIG_PATH", "/app/config/g2.ini")
+        self.factory: Optional[SzAbstractFactory] = None
+        self.engine: Optional[SzEngine] = None
+        self.config: Optional[SzConfig] = None
+        self.config_mgr: Optional[SzConfigManager] = None
+        self.diagnostic: Optional[SzDiagnostic] = None
         self.initialized = False
 
         # Module name for Senzing initialization
@@ -93,6 +108,7 @@ class SenzingClient:
 
         # Check for license file
         from ..core.config import senzing_config
+
         return senzing_config.is_available()
 
     def initialize(self, verbose_logging: bool = False) -> bool:
@@ -109,35 +125,46 @@ class SenzingClient:
             logger.error("Cannot initialize Senzing - SDK not available or not licensed")
             return False
 
+        if not SENZING_AVAILABLE or SzAbstractFactory is None:
+            logger.error("Cannot initialize Senzing - gRPC implementation not available")
+            return False
+
         try:
-            # Load INI parameters
-            ini_params = self._load_ini_params()
+            # Get gRPC server URL from environment
+            from ..core.env_utils import getenv_clean
+            grpc_url = getenv_clean("SENZING_GRPC_URL", "localhost:8261")
+            logger.info(f"Connecting to Senzing gRPC server at {grpc_url}...")
 
-            # Initialize G2Engine
-            self.engine = G2Engine()
-            self.engine.init(self.module_name, ini_params, verbose_logging)
+            # Create gRPC channel
+            import grpc
 
-            # Initialize G2Config for configuration management
-            self.config = G2Config()
-            self.config.init(self.module_name, ini_params, verbose_logging)
+            channel = grpc.insecure_channel(grpc_url)
 
-            # Initialize G2ConfigMgr for configuration updates
-            self.config_mgr = G2ConfigMgr()
-            self.config_mgr.init(self.module_name, ini_params, verbose_logging)
+            # Create abstract factory with gRPC channel (ONLY parameter supported)
+            logger.info("Creating Senzing abstract factory...")
+            self.factory = SzAbstractFactory(channel)
 
-            # Initialize G2Diagnostic for monitoring
-            self.diagnostic = G2Diagnostic()
-            self.diagnostic.init(self.module_name, ini_params, verbose_logging)
+            # Create engine from factory
+            logger.info("Creating Senzing engine from factory...")
+            self.engine = self.factory.create_engine()
+
+            # Create config manager from factory
+            logger.info("Creating Senzing config manager from factory...")
+            self.config_mgr = self.factory.create_configmanager()
+
+            # Create diagnostic from factory
+            logger.info("Creating Senzing diagnostic from factory...")
+            self.diagnostic = self.factory.create_diagnostic()
 
             self.initialized = True
-            logger.info("Senzing engine initialized successfully")
+            logger.info(f"✓ Senzing engine initialized successfully (connected to {grpc_url})")
             return True
 
-        except G2Exception as e:
-            logger.error(f"Failed to initialize Senzing engine: {e}")
-            return False
         except Exception as e:
-            logger.error(f"Unexpected error initializing Senzing: {e}")
+            logger.error(f"Failed to initialize Senzing engine: {e}")
+            import traceback
+
+            logger.error(traceback.format_exc())
             return False
 
     def _load_ini_params(self) -> str:
@@ -158,6 +185,7 @@ class SenzingClient:
                 sys.path.insert(0, str(config_dir))
 
             from senzing_simple_config import get_ini_json_params
+
             ini_params = get_ini_json_params()
 
             logger.info(f"Loaded Senzing configuration with SQLite at {ini_params['SQL']['CONNECTION']}")
@@ -168,19 +196,20 @@ class SenzingClient:
 
             # Fallback to minimal in-memory configuration
             logger.info("Using fallback minimal configuration")
-            return json.dumps({
-                "PIPELINE": {
-                    "CONFIGPATH": "/tmp/senzing/config/",  # nosec B108 - Senzing SDK standard config path
-                    "RESOURCEPATH": "/opt/senzing/g2/resources/",
-                    "SUPPORTPATH": "/tmp/senzing/"  # nosec B108 - Senzing SDK standard support path
-                },
-                "SQL": {
-                    "CONNECTION": "sqlite3://na:na@/tmp/senzing/g2.db"  # nosec B108 - Senzing SDK standard DB path
+            return json.dumps(
+                {
+                    "PIPELINE": {
+                        "CONFIGPATH": "/tmp/senzing/config/",  # nosec B108 - Senzing SDK standard config path
+                        "RESOURCEPATH": "/opt/senzing/g2/resources/",
+                        "SUPPORTPATH": "/tmp/senzing/",  # nosec B108 - Senzing SDK standard support path
+                    },
+                    "SQL": {
+                        "CONNECTION": "sqlite3://na:na@/tmp/senzing/g2.db"  # nosec B108 - Senzing SDK standard DB path
+                    },
                 }
-            })
+            )
 
-    def add_record(self, data_source: str, record_id: str, record_json: str,
-                   load_id: Optional[str] = None) -> bool:
+    def add_record(self, data_source: str, record_id: str, record_json: str, load_id: Optional[str] = None) -> bool:
         """
         Add a record to Senzing for entity resolution.
 
@@ -198,19 +227,17 @@ class SenzingClient:
             return False
 
         try:
-            if load_id:
-                self.engine.addRecordWithInfo(data_source, record_id, record_json, load_id)
-            else:
-                self.engine.addRecord(data_source, record_id, record_json)
+            # SDK v4 API: add_record(data_source_code, record_id, record_definition, flags)
+            # Returns string with info if flags request it, empty string otherwise
+            self.engine.add_record(data_source, record_id, record_json)
             logger.debug(f"Added record {record_id} from {data_source}")
             return True
 
-        except G2Exception as e:
+        except Exception as e:
             logger.error(f"Failed to add record {record_id}: {e}")
             return False
 
-    def get_entity_by_record_id(self, data_source: str, record_id: str,
-                                flags: Optional[int] = None) -> Optional[Dict]:
+    def get_entity_by_record_id(self, data_source: str, record_id: str, flags: Optional[int] = None) -> Optional[Dict]:
         """
         Get resolved entity information for a specific record.
 
@@ -227,15 +254,20 @@ class SenzingClient:
             return None
 
         try:
-            response = bytearray()
-            if flags is not None:
-                self.engine.getEntityByRecordID(data_source, record_id, response, flags)
-            else:
-                self.engine.getEntityByRecordID(data_source, record_id, response)
+            # SDK v4 API: get_entity_by_record_id returns string directly
+            from senzing import SzEngineFlags
 
-            return json.loads(response.decode())
+            # Request enhanced match details including feature scores and matching info
+            flags = flags or (
+                SzEngineFlags.SZ_ENTITY_DEFAULT_FLAGS
+                | SzEngineFlags.SZ_INCLUDE_FEATURE_SCORES
+                | SzEngineFlags.SZ_INCLUDE_MATCH_KEY_DETAILS
+                | SzEngineFlags.SZ_ENTITY_INCLUDE_RECORD_MATCHING_INFO
+            )
+            response = self.engine.get_entity_by_record_id(data_source, record_id, flags)
+            return json.loads(response)
 
-        except G2Exception as e:
+        except Exception as e:
             logger.error(f"Failed to get entity for record {record_id}: {e}")
             return None
 
@@ -295,8 +327,7 @@ class SenzingClient:
             logger.error(f"Failed to get entity {entity_id}: {e}")
             return None
 
-    def find_path_by_entity_id(self, start_entity_id: int, end_entity_id: int,
-                               max_degrees: int = 3) -> Optional[Dict]:
+    def find_path_by_entity_id(self, start_entity_id: int, end_entity_id: int, max_degrees: int = 3) -> Optional[Dict]:
         """
         Find relationship path between two entities.
 
@@ -314,9 +345,7 @@ class SenzingClient:
 
         try:
             response = bytearray()
-            self.engine.findPathByEntityID(
-                start_entity_id, end_entity_id, max_degrees, response
-            )
+            self.engine.findPathByEntityID(start_entity_id, end_entity_id, max_degrees, response)
             return json.loads(response.decode())
 
         except G2Exception as e:
@@ -333,11 +362,7 @@ class SenzingClient:
         Returns:
             Dictionary with batch processing results
         """
-        results = {
-            "processed": 0,
-            "failed": 0,
-            "errors": []
-        }
+        results = {"processed": 0, "failed": 0, "errors": []}
 
         for data_source, record_id, record_json in records:
             if self.add_record(data_source, record_id, record_json):
@@ -365,14 +390,12 @@ class SenzingClient:
             return False
 
         try:
-            if load_id:
-                self.engine.deleteRecordWithInfo(data_source, record_id, load_id)
-            else:
-                self.engine.deleteRecord(data_source, record_id)
+            # SDK v4 API: delete_record(data_source_code, record_id, flags)
+            self.engine.delete_record(data_source, record_id)
             logger.debug(f"Deleted record {record_id} from {data_source}")
             return True
 
-        except G2Exception as e:
+        except Exception as e:
             logger.error(f"Failed to delete record {record_id}: {e}")
             return False
 
@@ -389,11 +412,12 @@ class SenzingClient:
             return False
 
         try:
-            self.engine.purgeRepository()
+            # SDK v4 API: purge_repository()
+            self.engine.purge_repository()
             logger.info("Purged all data from Senzing repository")
             return True
 
-        except G2Exception as e:
+        except Exception as e:
             logger.error(f"Failed to purge repository: {e}")
             return False
 
@@ -404,16 +428,16 @@ class SenzingClient:
         Returns:
             Dictionary with engine statistics, or None if error
         """
-        if not self.initialized or not self.diagnostic:
-            logger.error("Senzing diagnostic not initialized")
+        if not self.initialized:
+            logger.error("Senzing engine not initialized")
             return None
 
         try:
-            response = bytearray()
-            self.diagnostic.getDBInfo(response)
-            return json.loads(response.decode())
+            # SDK v4 API: get_stats() returns string directly
+            response = self.engine.get_stats()
+            return json.loads(response)
 
-        except G2Exception as e:
+        except Exception as e:
             logger.error(f"Failed to get statistics: {e}")
             return None
 
@@ -421,31 +445,21 @@ class SenzingClient:
         """
         Clean up and destroy Senzing engine resources.
         """
-        if self.engine:
+        # In SDK v4 with factory pattern, we just destroy the factory
+        # which will clean up all created resources
+        if self.factory:
             try:
-                self.engine.destroy()
-                logger.info("Senzing engine destroyed")
+                self.factory.destroy()
+                logger.info("Senzing factory destroyed (engine, config, diagnostic all cleaned up)")
             except Exception as e:
-                logger.error(f"Error destroying engine: {e}")
+                logger.error(f"Error destroying factory: {e}")
 
-        if self.config:
-            try:
-                self.config.destroy()
-            except Exception as e:
-                logger.error(f"Error destroying config: {e}")
-
-        if self.config_mgr:
-            try:
-                self.config_mgr.destroy()
-            except Exception as e:
-                logger.error(f"Error destroying config manager: {e}")
-
-        if self.diagnostic:
-            try:
-                self.diagnostic.destroy()
-            except Exception as e:
-                logger.error(f"Error destroying diagnostic: {e}")
-
+        # Clear references
+        self.engine = None
+        self.config = None
+        self.config_mgr = None
+        self.diagnostic = None
+        self.factory = None
         self.initialized = False
 
 

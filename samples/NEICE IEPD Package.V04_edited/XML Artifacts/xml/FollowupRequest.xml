@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cb_exchange:NEICETransmittalDocument xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://cb.acf.hhs.gov/neice/1.0/exchange/ ../schema/neice_exchange.xsd"
+    xmlns:scr="http://release.niem.gov/niem/domains/screening/3.0/"
+    xmlns:s="http://release.niem.gov/niem/structures/3.0/"
+    xmlns:nc="http://release.niem.gov/niem/niem-core/3.0/"
+    xmlns:niem-xsd="http://release.niem.gov/niem/proxy/xsd/3.0/"
+    xmlns:cb_exchange="http://cb.acf.hhs.gov/neice/1.0/exchange/"
+    xmlns:cb_ext="http://cb.acf.hhs.gov/neice/1.0/ext/" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:cyfs="http://release.niem.gov/niem/domains/cyfs/3.0/"
+    xmlns:j="http://release.niem.gov/niem/domains/jxdm/5.0/"
+    xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/"
+    xmlns:i="http://release.niem.gov/niem/appinfo/3.0/">
+    <nc:DocumentCategoryText>APSHA Home Study Request</nc:DocumentCategoryText>
+    <nc:DocumentAlternativeTitleText>Placement Suitability Study Request</nc:DocumentAlternativeTitleText>
+    <nc:DocumentContentListText>Court Order Document</nc:DocumentContentListText>
+    <nc:DocumentContentListText>Financial Plan Document</nc:DocumentContentListText>
+    <nc:DocumentContentListText>Medical Plan Document</nc:DocumentContentListText>
+    <nc:DocumentCreationDate>
+        <nc:DateTime>2014-04-29T12:09:12.099</nc:DateTime>
+    </nc:DocumentCreationDate>
+    <nc:DocumentIdentification>
+        <nc:IdentificationID>___NEICE_SYSTEM_ID___</nc:IdentificationID>
+        <nc:IdentificationCategoryDescriptionText>NEICE System Generated ID</nc:IdentificationCategoryDescriptionText>
+    </nc:DocumentIdentification>
+    <nc:DocumentIdentification>
+        <nc:IdentificationID>___SENDING_AGENCY_REC_NUMBER___</nc:IdentificationID>
+        <nc:IdentificationJurisdiction>
+            <nc:LocationStateFIPS5-2AlphaCode>FL</nc:LocationStateFIPS5-2AlphaCode>
+        </nc:IdentificationJurisdiction>
+    </nc:DocumentIdentification>
+    <nc:DocumentLastModifiedDate>
+        <nc:DateTime>2014-04-29T11:49:12</nc:DateTime>
+    </nc:DocumentLastModifiedDate>
+    <nc:DocumentRecipient>
+        <nc:EntityOrganization>
+            <nc:OrganizationActivityText>State CYFS Agency</nc:OrganizationActivityText>
+            <nc:OrganizationIdentification>
+                <nc:IdentificationID>TN-CFYS</nc:IdentificationID>
+            </nc:OrganizationIdentification>
+            <nc:OrganizationLocation>
+                <nc:Address>
+                    <nc:AddressFullText>123, Market Street, Memphis, TN</nc:AddressFullText>
+                    <nc:LocationCityName>Memphis</nc:LocationCityName>
+                    <nc:LocationStateFIPS5-2AlphaCode>TN</nc:LocationStateFIPS5-2AlphaCode>
+                    <nc:LocationCountryFIPS10-4Code>US</nc:LocationCountryFIPS10-4Code>
+                </nc:Address>
+            </nc:OrganizationLocation>
+            <nc:OrganizationName>Tennessee Youth and Family Services</nc:OrganizationName>
+        </nc:EntityOrganization>
+    </nc:DocumentRecipient>
+    <nc:DocumentSequenceID>12</nc:DocumentSequenceID>
+    <nc:DocumentSource>
+        <nc:EntityOrganization s:id="SRC-ORG">
+            <nc:OrganizationActivityText>State CYFS Agency</nc:OrganizationActivityText>
+            <nc:OrganizationIdentification>
+                <nc:IdentificationID>FL-CFYS</nc:IdentificationID>
+            </nc:OrganizationIdentification>
+            <nc:OrganizationLocation>
+                <nc:Address>
+                    <nc:AddressFullText>123, Main Street, Tampa, FL</nc:AddressFullText>
+                    <nc:LocationCityName>Tampa</nc:LocationCityName>
+                    <nc:LocationStateFIPS5-2AlphaCode>FL</nc:LocationStateFIPS5-2AlphaCode>
+                    <nc:LocationCountryFIPS10-4Code>US</nc:LocationCountryFIPS10-4Code>
+                </nc:Address>
+            </nc:OrganizationLocation>
+            <nc:OrganizationName>Florida Department of Youth and Family Service</nc:OrganizationName>
+        </nc:EntityOrganization>
+    </nc:DocumentSource>
+    <nc:DocumentAuthor>
+        <nc:EntityPerson>
+            <nc:PersonName>
+                <nc:PersonFullName>Joe Smith</nc:PersonFullName>
+            </nc:PersonName>
+        </nc:EntityPerson>
+    </nc:DocumentAuthor>
+    <cb_exchange:TransmittalSummaryInformation>
+        <cb_ext:TransmittalRequestCategoryCode>Adoption</cb_ext:TransmittalRequestCategoryCode>
+        <cb_exchange:TransmittalSubjectChild>
+            <nc:RoleOfPerson>
+                <nc:PersonName>
+                    <nc:PersonFullName>Jason Ohlendorf</nc:PersonFullName>
+                </nc:PersonName>
+            </nc:RoleOfPerson>
+        </cb_exchange:TransmittalSubjectChild>
+    </cb_exchange:TransmittalSummaryInformation>
+    <cb_ext:FollowupRequest>
+        <cyfs:Child s:id="CHL-01">
+            <nc:RoleOfPerson>
+                <nc:PersonBirthDate>
+                    <nc:Date>2008-04-01</nc:Date>
+                </nc:PersonBirthDate>
+                <nc:PersonBirthLocation>
+                    <nc:Address>
+                        <nc:LocationStateFIPS5-2AlphaCode>NM</nc:LocationStateFIPS5-2AlphaCode>
+                        <nc:LocationCountryFIPS10-4Code>US</nc:LocationCountryFIPS10-4Code>
+                    </nc:Address>
+                </nc:PersonBirthLocation>
+                <j:PersonEthnicityCode>N</j:PersonEthnicityCode>
+                <nc:PersonName>
+                    <nc:PersonFullName>Jason Ohlendorf</nc:PersonFullName>
+                </nc:PersonName>
+                <j:PersonRaceCode>W</j:PersonRaceCode>
+                <nc:PersonSSNIdentification>
+                    <nc:IdentificationID>123-45-7890</nc:IdentificationID>
+                </nc:PersonSSNIdentification>
+            </nc:RoleOfPerson>
+            <cb_ext:ChildAugmentation>
+                <cb_ext:ChildCurrentLegalPlacementStatusCode>ProtectiveSupervision</cb_ext:ChildCurrentLegalPlacementStatusCode>
+                <cb_ext:ChildCurrentLegalPlacementStatusCode>SendingAgencyCustody</cb_ext:ChildCurrentLegalPlacementStatusCode>
+            </cb_ext:ChildAugmentation>
+        </cyfs:Child>
+        <cb_ext:NEICEDocument100a>
+            <nc:DocumentAuthor>
+                <nc:EntityPerson>
+                    <nc:PersonName>
+                        <nc:PersonFullName>Jason Bourne</nc:PersonFullName>
+                    </nc:PersonName>
+                </nc:EntityPerson>
+            </nc:DocumentAuthor>
+            <cyfs:Child>
+                <nc:RoleOfPerson s:ref="CHL-01"/>
+                <cb_ext:ChildAugmentation>
+                    <cb_ext:ChildCurrentLegalPlacementStatusCode>Other</cb_ext:ChildCurrentLegalPlacementStatusCode>
+                    <cb_ext:ChildCurrentLegalPlacementStatusOtherText>UnaccompaniedRefugeeMinor</cb_ext:ChildCurrentLegalPlacementStatusOtherText>
+                </cb_ext:ChildAugmentation>
+            </cyfs:Child>
+            <cb_ext:IntendedPlacement>
+                <nc:ActivityName>Child Placement</nc:ActivityName>
+                <cyfs:PlacementCategoryCode>Foster Group Home</cyfs:PlacementCategoryCode>
+                <cb_ext:PlacementAugmentation>
+                    <cb_ext:IntendedPlacementResource s:id="PLACEMENT-RES">
+                        <nc:EntityOrganization>
+                            <nc:OrganizationName>Bright Valley Children's Home</nc:OrganizationName>
+                        </nc:EntityOrganization>
+                    </cb_ext:IntendedPlacementResource>
+                    <cb_ext:PlacementUnderEmergencyConditionsIndicator>0</cb_ext:PlacementUnderEmergencyConditionsIndicator>
+                    <cb_ext:PlacementByPriorityIndicator>1</cb_ext:PlacementByPriorityIndicator>
+                    <cb_ext:PlacementAdoptionIVESubsidyIndicator>0</cb_ext:PlacementAdoptionIVESubsidyIndicator>
+                </cb_ext:PlacementAugmentation>
+            </cb_ext:IntendedPlacement>
+            <cb_ext:IntendedPlacementPlanningResponsibleParty s:id="PLAN-PRTY">
+                <nc:EntityOrganization>
+                    <nc:OrganizationName>FL - DYFS</nc:OrganizationName>
+                </nc:EntityOrganization>
+            </cb_ext:IntendedPlacementPlanningResponsibleParty>
+            <cb_ext:IntendedPlacementFinanceResponsibleParty s:id="FIN-PRTY">
+                <nc:EntityOrganization>
+                    <nc:OrganizationName>Henry Ford Foundation for Refugees</nc:OrganizationName>
+                </nc:EntityOrganization>
+            </cb_ext:IntendedPlacementFinanceResponsibleParty>
+            <cb_ext:ResponsiblePartyContactInformation s:id="PLAN-PRTY-CONTACT">
+                <nc:ContactTelephoneNumber>
+                    <nc:FullTelephoneNumber>
+                        <nc:TelephoneNumberFullID>786-555-1234</nc:TelephoneNumberFullID>
+                    </nc:FullTelephoneNumber>
+                </nc:ContactTelephoneNumber>
+                <nc:ContactEntity>
+                    <nc:EntityOrganization s:ref="PLAN-PRTY"/>
+                </nc:ContactEntity>
+            </cb_ext:ResponsiblePartyContactInformation>
+            <cb_ext:ResponsiblePartyContactInformation s:id="FIN-PRTY-CONTACT">
+                <nc:ContactTelephoneNumber>
+                    <nc:FullTelephoneNumber>
+                        <nc:TelephoneNumberFullID>978-555-1234</nc:TelephoneNumberFullID>
+                    </nc:FullTelephoneNumber>
+                </nc:ContactTelephoneNumber>
+                <nc:ContactEntity s:ref="FIN-PRTY"/>
+            </cb_ext:ResponsiblePartyContactInformation>
+            <cb_ext:ResponsiblePartyLocation s:id="PLAN-PRTY-LOC">
+                <nc:Address>
+                    <nc:AddressFullText>123, Sunrise Circle</nc:AddressFullText>
+                    <nc:LocationCityName>Tallahassee</nc:LocationCityName>
+                    <nc:LocationStateFIPS5-2AlphaCode>FL</nc:LocationStateFIPS5-2AlphaCode>
+                    <nc:LocationPostalCode>63578</nc:LocationPostalCode>
+                </nc:Address>
+            </cb_ext:ResponsiblePartyLocation>
+            <cb_ext:ResponsiblePartyLocation s:id="FIN-PRTY-LOC">
+                <nc:Address>
+                    <nc:AddressFullText>801, F Street, NW</nc:AddressFullText>
+                    <nc:LocationCityName>Washington DC</nc:LocationCityName>
+                    <nc:LocationStateFIPS5-2AlphaCode>DC</nc:LocationStateFIPS5-2AlphaCode>
+                    <nc:LocationPostalCode>27810</nc:LocationPostalCode>
+                </nc:Address>
+            </cb_ext:ResponsiblePartyLocation>
+            <cb_ext:ResponsiblePartyLocationAssociation>
+                <nc:Entity>
+                    <nc:EntityOrganization s:ref="FIN-PRTY"/>
+                </nc:Entity>
+                <nc:Location s:ref="FIN-PRTY-LOC"/>
+            </cb_ext:ResponsiblePartyLocationAssociation>
+            <cb_ext:ResponsiblePartyLocationAssociation>
+                <nc:Entity>
+                    <nc:EntityOrganization s:ref="PLAN-PRTY"/>
+                </nc:Entity>
+                <nc:Location s:ref="PLAN-PRTY-LOC"/>
+            </cb_ext:ResponsiblePartyLocationAssociation>
+            <cb_ext:SupervisingAgencyRoleCode>RECEIVING_AGENCY</cb_ext:SupervisingAgencyRoleCode>
+            <cb_ext:ProposedSupervisoryAgency s:id="RCV-SUP">
+                <nc:OrganizationName>TN - DYFS</nc:OrganizationName>
+            </cb_ext:ProposedSupervisoryAgency>
+            <cb_ext:ProposedSupervisoryAgencyLocation s:id="RCV-SUP-LOC">
+                <nc:Address>
+                    <nc:AddressFullText>278, Market Street, Suite 300</nc:AddressFullText>
+                    <nc:LocationCityName>Memphis</nc:LocationCityName>
+                    <nc:LocationCountyName>Shelby</nc:LocationCountyName>
+                    <nc:LocationStateFIPS5-2AlphaCode>TN</nc:LocationStateFIPS5-2AlphaCode>
+                </nc:Address>
+            </cb_ext:ProposedSupervisoryAgencyLocation>
+            <cb_ext:PlacementResource s:ref="PLACEMENT-RES">
+                <cb_ext:EntityAugmentation>
+                    <cb_ext:PlacementResourceStateIdentification>
+                        <nc:IdentificationID>ID-PLACEMENT-RES</nc:IdentificationID>
+                    </cb_ext:PlacementResourceStateIdentification>
+                </cb_ext:EntityAugmentation>
+            </cb_ext:PlacementResource>
+            <cb_ext:PlacementResourceLocation s:id="PLCMNT-RES-LOC">
+                <nc:Address>
+                    <nc:AddressFullText>123, Sunrise Circle</nc:AddressFullText>
+                    <nc:LocationCityName>Tallahassee</nc:LocationCityName>
+                    <nc:LocationStateFIPS5-2AlphaCode>FL</nc:LocationStateFIPS5-2AlphaCode>
+                    <nc:LocationPostalCode>63578</nc:LocationPostalCode>
+                </nc:Address>
+            </cb_ext:PlacementResourceLocation>
+            <cb_ext:PlacementResourceContactInformation s:id="PLCMNT-RES-CONT">
+                <nc:ContactTelephoneNumber>
+                    <nc:FullTelephoneNumber>
+                        <nc:TelephoneNumberFullID>786-555-1234</nc:TelephoneNumberFullID>
+                    </nc:FullTelephoneNumber>
+                </nc:ContactTelephoneNumber>
+            </cb_ext:PlacementResourceContactInformation>
+            <cb_ext:PlacementResourceContactInformationAssociation>
+                <nc:ContactEntity>
+                    <nc:EntityOrganization s:ref="PLACEMENT-RES"/>
+                </nc:ContactEntity>
+                <nc:ContactInformation s:ref="PLCMNT-RES-CONT"/>
+            </cb_ext:PlacementResourceContactInformationAssociation>
+            <cb_ext:PlacementResourceLocationAssociation>
+                <nc:Entity>
+                    <nc:EntityOrganization s:ref="PLACEMENT-RES"/>
+                </nc:Entity>
+                <nc:Location s:ref="PLCMNT-RES-LOC"/>
+            </cb_ext:PlacementResourceLocationAssociation>
+            <cb_ext:SupervisoryAgencyLocationAssociation>
+                <nc:Entity>
+                    <nc:EntityOrganization s:ref="RCV-SUP"/>
+                </nc:Entity>
+                <nc:Location s:ref="RCV-SUP-LOC"/>
+            </cb_ext:SupervisoryAgencyLocationAssociation>
+            <cb_ext:SupervisoryReportPeriodicityCode>UPON_REQUEST</cb_ext:SupervisoryReportPeriodicityCode>
+            <cb_ext:NEICEDocument100aAttachmentItemName 
+                s:id="CRT-ORD">CourtOrder</cb_ext:NEICEDocument100aAttachmentItemName>
+            <cb_ext:NEICEDocument100aAttachmentItemName 
+                s:id="ICWA">ICWAEnclosure</cb_ext:NEICEDocument100aAttachmentItemName>
+            <cb_ext:NEICEDocument100aAttachments s:ref="CRT-ORD">
+                <nc:DocumentCategoryName>Court Order</nc:DocumentCategoryName>
+                <nc:DocumentBinary>
+                    <nc:Base64BinaryObject>
+                        VGhlIGRlY2FkZXMtb2xkIG11cmRlciBjb252aWN0aW9ucyBvZiB0aHJlZSBoYWxmIGJyb3RoZXJz
+                        IHdob3NlIGFycmVzdHMgd2VyZSBmYWNpbGl0YXRlZCBieSBhIG5vdyBkaXNjcmVkaXRlZCBob21p
+                        Y2lkZSBkZXRlY3RpdmUgd2VyZSB2YWNhdGVkIGluIFN0YXRlIFN1cHJlbWUgQ291cnQgaW4gQnJv
+                        b2tseW4gb24gVHVlc2RheSwgYXMgcHJvc2VjdXRvcnMgYWNrbm93bGVkZ2VkIHRoYXQgdGhlIG1l
+                        biBoYWQgYmVlbiBkZXByaXZlZCBvZiBmYWlyIHRyaWFscyBiZWNhdXNlIG9mIGEgcXVlc3Rpb25h
+                        YmxlIHdpdG5lc3MuDQoNClRoZSB3aXRuZXNzIHdhcyByZXBlYXRlZGx5IHVzZWQgYnkgdGhlIGRl
+                        dGVjdGl2ZSwgTG91aXMgU2NhcmNlbGxhLCB3aG9zZSB3b3JrIGlzIG5vdyBiZWluZyBpbnZlc3Rp
+                        Z2F0ZWQu</nc:Base64BinaryObject>
+                </nc:DocumentBinary>
+            </cb_ext:NEICEDocument100aAttachments>
+            <cb_ext:NEICEDocument100aAttachments s:ref="ICWA">
+                <nc:DocumentCategoryName>ICWAEnclosure</nc:DocumentCategoryName>
+                <nc:DocumentBinary>
+                    <nc:Base64BinaryObject>
+                        VGhlIGRlY2FkZXMtb2xkIG11cmRlciBjb252aWN0aW9ucyBvZiB0aHJlZSBoYWxmIGJyb3RoZXJz
+                        IHdob3NlIGFycmVzdHMgd2VyZSBmYWNpbGl0YXRlZCBieSBhIG5vdyBkaXNjcmVkaXRlZCBob21p
+                        Y2lkZSBkZXRlY3RpdmUgd2VyZSB2YWNhdGVkIGluIFN0YXRlIFN1cHJlbWUgQ291cnQgaW4gQnJv
+                        b2tseW4gb24gVHVlc2RheSwgYXMgcHJvc2VjdXRvcnMgYWNrbm93bGVkZ2VkIHRoYXQgdGhlIG1l
+                        biBoYWQgYmVlbiBkZXByaXZlZCBvZiBmYWlyIHRyaWFscyBiZWNhdXNlIG9mIGEgcXVlc3Rpb25h
+                        YmxlIHdpdG5lc3MuDQoNClRoZSB3aXRuZXNzIHdhcyByZXBlYXRlZGx5IHVzZWQgYnkgdGhlIGRl
+                        dGVjdGl2ZSwgTG91aXMgU2NhcmNlbGxhLCB3aG9zZSB3b3JrIGlzIG5vdyBiZWluZyBpbnZlc3Rp
+                        Z2F0ZWQu</nc:Base64BinaryObject>
+                </nc:DocumentBinary>
+            </cb_ext:NEICEDocument100aAttachments>
+            <cb_ext:SendingAgencySignatory>
+                <nc:EntityPerson>
+                    <nc:PersonName>
+                        <nc:PersonFullName>John Sender</nc:PersonFullName>
+                    </nc:PersonName>
+                </nc:EntityPerson>
+            </cb_ext:SendingAgencySignatory>
+        </cb_ext:NEICEDocument100a>
+    </cb_ext:FollowupRequest>
+</cb_exchange:NEICETransmittalDocument>

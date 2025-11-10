@@ -12,10 +12,7 @@ from ..models.models import ResetRequest, ResetResponse
 logger = logging.getLogger(__name__)
 
 
-def handle_reset(
-    request: ResetRequest,
-    s3: Minio
-) -> ResetResponse:
+def handle_reset(request: ResetRequest, s3: Minio) -> ResetResponse:
     """Handle system reset"""
     try:
         counts = {}
@@ -34,13 +31,12 @@ def handle_reset(
             if "stats" in neo4j_result:
                 counts.update({f"neo4j_{k}": v for k, v in neo4j_result["stats"].items()})
 
-
         if request.dry_run:
             confirm_token = secrets.token_urlsafe(32)
             return ResetResponse(
                 counts=counts,
                 confirm_token=confirm_token,
-                message="Dry run completed. Use confirm_token to execute reset."
+                message="Dry run completed. Use confirm_token to execute reset.",
             )
 
         # Validate confirm token
@@ -57,10 +53,7 @@ def handle_reset(
         if request.neo4j:
             reset_neo4j()
 
-        return ResetResponse(
-            counts=counts,
-            message="Reset completed successfully"
-        )
+        return ResetResponse(counts=counts, message="Reset completed successfully")
 
     except Exception as e:
         logger.error(f"Reset failed: {e}")
@@ -75,6 +68,7 @@ def count_minio_objects(s3: Minio) -> dict[str, int]:
         total_objects = 0
         bucket_count = 0
         from ..clients.s3_client import BUCKETS
+
         for bucket in BUCKETS:
             if s3.bucket_exists(bucket):
                 bucket_count += 1
@@ -86,12 +80,11 @@ def count_minio_objects(s3: Minio) -> dict[str, int]:
         return {"objects": 0, "buckets": 0}
 
 
-
-
 def reset_minio(s3: Minio):
     """Reset MinIO buckets - remove all objects and delete the buckets themselves, then recreate them"""
     try:
         from ..clients.s3_client import BUCKETS
+
         for bucket in BUCKETS:
             if s3.bucket_exists(bucket):
                 # First remove all objects
@@ -115,8 +108,6 @@ def reset_minio(s3: Minio):
         raise
 
 
-
-
 def count_schemas(s3: Minio) -> int:
     """Count schema folders in niem-schemas bucket"""
     try:
@@ -128,8 +119,8 @@ def count_schemas(s3: Minio) -> int:
         for obj in objects:
             # Each object_name is a path like "schema-name/file.xsd"
             # Extract the folder name (first part before /)
-            if obj.is_dir or '/' in obj.object_name:
-                folder = obj.object_name.split('/')[0]
+            if obj.is_dir or "/" in obj.object_name:
+                folder = obj.object_name.split("/")[0]
                 folders.add(folder)
         return len(folders)
     except Exception as e:
@@ -149,16 +140,12 @@ def count_data_files(s3: Minio) -> dict[str, int]:
 
         for obj in objects:
             name_lower = obj.object_name.lower()
-            if name_lower.endswith('.xml'):
+            if name_lower.endswith(".xml"):
                 xml_count += 1
-            elif name_lower.endswith('.json'):
+            elif name_lower.endswith(".json"):
                 json_count += 1
 
-        return {
-            "xml_files": xml_count,
-            "json_files": json_count,
-            "total_files": xml_count + json_count
-        }
+        return {"xml_files": xml_count, "json_files": json_count, "total_files": xml_count + json_count}
     except Exception as e:
         logger.error(f"Failed to count data files: {e}")
         return {"xml_files": 0, "json_files": 0, "total_files": 0}
@@ -207,6 +194,24 @@ def reset_neo4j():
         neo4j_client.query("MATCH (n) DETACH DELETE n")
         logger.info("Deleted all nodes and relationships from Neo4j")
 
+        # Also clear Senzing entity resolution data to prevent orphaned records
+        # Since Senzing stores references to Neo4j node IDs, clearing Neo4j
+        # makes Senzing data stale and should be removed
+        try:
+            from ..handlers.entity_resolution import _reset_entity_resolution
+            from ..clients.senzing_client import SENZING_AVAILABLE
+
+            if SENZING_AVAILABLE:
+                senzing_result = _reset_entity_resolution(neo4j_client)
+                logger.info(
+                    f"Cleared Senzing entity resolution data: "
+                    f"{senzing_result.get('resolved_entities_deleted', 0)} nodes, "
+                    f"{senzing_result.get('relationships_deleted', 0)} relationships"
+                )
+        except Exception as e:
+            logger.warning(f"Could not clear Senzing data during Neo4j reset: {e}")
+            # Don't fail the entire reset if Senzing cleanup fails
+
     except Exception as e:
         logger.error(f"Neo4j reset failed: {e}")
         raise
@@ -247,13 +252,9 @@ def count_neo4j_objects() -> dict[str, Any]:
                 "nodes": node_count,
                 "relationships": rel_count,
                 "indexes": len(user_indexes),
-                "constraints": len(constraints)
-            }
+                "constraints": len(constraints),
+            },
         }
     except Exception as e:
         logger.error(f"Failed to count Neo4j objects: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get Neo4j stats: {str(e)}") from e
-
-
-
-

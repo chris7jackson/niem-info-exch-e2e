@@ -22,8 +22,10 @@ def initialize_senzing():
     """
     logger.info("Checking Senzing configuration...")
 
+    from ..core.env_utils import getenv_clean
+    
     # Check license
-    license_path = Path(os.getenv("SENZING_LICENSE_PATH", "/app/secrets/senzing/g2.lic"))
+    license_path = Path(getenv_clean("SENZING_LICENSE_PATH", "/app/secrets/senzing/g2.lic"))
     if not license_path.exists():
         # Try local development path
         license_path = Path("./api/secrets/senzing/g2.lic")
@@ -37,7 +39,7 @@ def initialize_senzing():
     # Setup SQLite configuration
     try:
         # Import configuration helper
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "config"))
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "config"))
         from senzing_simple_config import ensure_sqlite_setup
 
         config = ensure_sqlite_setup()

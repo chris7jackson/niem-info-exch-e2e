@@ -97,7 +97,6 @@ data/redis/
 
 # Development overrides
 .env.override
-docker-compose.override.yml
 
 # Temporary directories
 tmp/

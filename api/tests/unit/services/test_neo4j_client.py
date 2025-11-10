@@ -28,22 +28,19 @@ class TestNeo4jClient:
     def neo4j_client(self, mock_driver):
         """Neo4j client with mocked driver"""
         driver, session = mock_driver
-        with patch('niem_api.clients.neo4j_client.GraphDatabase.driver', return_value=driver):
+        with patch("niem_api.clients.neo4j_client.GraphDatabase.driver", return_value=driver):
             client = Neo4jClient("bolt://localhost:7687", "neo4j", "password")
             return client, session
 
     def test_neo4j_client_initialization(self):
         """Test Neo4j client initialization"""
-        with patch('niem_api.clients.neo4j_client.GraphDatabase.driver') as mock_driver:
+        with patch("niem_api.clients.neo4j_client.GraphDatabase.driver") as mock_driver:
             client = Neo4jClient("bolt://localhost:7687", "neo4j", "password")
 
             assert client.uri == "bolt://localhost:7687"
             assert client.user == "neo4j"
             assert client.password == "password"
-            mock_driver.assert_called_once_with(
-                "bolt://localhost:7687",
-                auth=("neo4j", "password")
-            )
+            mock_driver.assert_called_once_with("bolt://localhost:7687", auth=("neo4j", "password"))
 
     def test_query_success(self, neo4j_client):
         """Test successful query execution"""
@@ -70,10 +67,7 @@ class TestNeo4jClient:
 
         client.query("MATCH (n {name: $name}) RETURN n", params)
 
-        mock_session.run.assert_called_once_with(
-            "MATCH (n {name: $name}) RETURN n",
-            params
-        )
+        mock_session.run.assert_called_once_with("MATCH (n {name: $name}) RETURN n", params)
 
     def test_query_error_handling(self, neo4j_client):
         """Test query error handling"""
@@ -159,13 +153,13 @@ class TestNeo4jClient:
         # Mock labels result
         mock_labels_result = [
             MagicMock(**{"__getitem__": lambda self, key: "Person"}),
-            MagicMock(**{"__getitem__": lambda self, key: "Company"})
+            MagicMock(**{"__getitem__": lambda self, key: "Company"}),
         ]
 
         # Mock relationship types result
         mock_rel_types_result = [
             MagicMock(**{"__getitem__": lambda self, key: "WORKS_FOR"}),
-            MagicMock(**{"__getitem__": lambda self, key: "KNOWS"})
+            MagicMock(**{"__getitem__": lambda self, key: "KNOWS"}),
         ]
 
         mock_session.run.side_effect = [mock_labels_result, mock_rel_types_result]
@@ -192,7 +186,7 @@ class TestNeo4jClient:
         # Mock multiple records
         mock_records = [
             MagicMock(data=lambda: {"name": "Alice", "age": 30}),
-            MagicMock(data=lambda: {"name": "Bob", "age": 25})
+            MagicMock(data=lambda: {"name": "Bob", "age": 25}),
         ]
         mock_session.run.return_value = mock_records
 
@@ -215,7 +209,7 @@ class TestNeo4jClient:
             ("int_prop", 42),
             ("bool_prop", True),
             ("list_prop", [1, 2, 3]),
-            ("null_prop", None)
+            ("null_prop", None),
         ]
 
         mock_record.values.return_value = [mock_node]

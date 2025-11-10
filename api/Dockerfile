@@ -31,9 +31,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY api/src/ ./src/
+COPY api/config/ ./config/
 
 # Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+
+# Create data directories with correct ownership
+RUN mkdir -p /data/senzing && chown -R appuser:appgroup /data
 
 # Copy third-party tools (embedded in api directory) and set ownership
 COPY --chown=appuser:appgroup api/third_party/niem-ndr /app/third_party/niem-ndr

@@ -25,15 +25,22 @@ Example NIEM JSON:
 import hashlib
 import json
 import logging
+import re
 import time
+from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Cypher property name validation pattern - only alphanumeric and underscore are safe
+# Property names with dots, hyphens, or other special chars must be escaped with backticks
+CYPHER_SAFE_PROPERTY_NAME = r"^[a-zA-Z_][a-zA-Z0-9_]*$"
 
-def load_mapping_from_dict(mapping_dict: dict[str, Any]) -> tuple[
-    dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]
-]:
+
+def load_mapping_from_dict(
+    mapping_dict: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, str]]:
     """Load mapping from dictionary.
 
     Args:
@@ -125,11 +132,22 @@ def build_assoc_index(associations: list[dict[str, Any]]) -> dict[str, dict[str,
     return {assoc["qname"]: assoc for assoc in associations}
 
 
-def extract_properties(
-    obj: dict[str, Any],
-    obj_rule: dict[str, Any],
-    context: dict[str, Any]
-) -> list[tuple[str, str]]:
+def build_augmentation_index_from_mapping(mapping_dict: dict) -> dict[str, dict]:
+    """Build index: augmentation_element_qname → definition from mapping.
+
+    Args:
+        mapping_dict: The mapping dictionary containing augmentations
+
+    Returns:
+        Dictionary mapping augmentation element qname to augmentation definition
+    """
+    aug_index = {}
+    for aug in mapping_dict.get("augmentations", []):
+        aug_index[aug["augmentation_element_qname"]] = aug
+    return aug_index
+
+
+def extract_properties(obj: dict[str, Any], obj_rule: dict[str, Any], context: dict[str, Any]) -> list[tuple[str, Any]]:
     """Extract properties from JSON-LD object based on mapping rules.
 
     Args:
@@ -138,69 +156,409 @@ def extract_properties(
         context: JSON-LD @context
 
     Returns:
-        List of (property_name, value) tuples
+        List of (property_name, value) tuples (value can be string or list)
     """
     setters = []
-    properties = obj_rule.get("properties", [])
+    scalar_props = obj_rule.get("scalar_props", [])
 
-    for prop_def in properties:
-        key = prop_def["neo4j_key"]
-        json_path = prop_def.get("json_path") or prop_def.get("xml_path", "")
+    for prop_def in scalar_props:
+        # Use correct field names from mapping structure
+        path = prop_def.get("path", "")
+        key = prop_def.get("neo4j_property") or prop_def.get("prop", path.replace(":", "_").replace("/", "__"))
 
         value = None
 
-        if "/" in json_path:
+        if "/" in path:
             # Nested path like "nc:PersonName/nc:PersonGivenName"
-            parts = json_path.split("/")
+            parts = path.split("/")
             current = obj
             for part in parts:
                 if isinstance(current, dict):
                     current = current.get(part)
                     if current is None:
                         break
+                elif isinstance(current, list):
+                    # For arrays, try to extract from all items
+                    results = []
+                    for item in current:
+                        if isinstance(item, dict):
+                            val = item.get(part)
+                            if val is not None:
+                                results.append(val)
+                    current = results if results else None
+                    break
                 else:
                     current = None
                     break
-            if current:
-                if isinstance(current, str):
-                    value = current
-                elif isinstance(current, list) and len(current) > 0:
-                    # Handle array values - take first element if single item, join if multiple
-                    if len(current) == 1:
-                        value = current[0] if isinstance(current[0], str) else str(current[0])
-                    else:
-                        # Multiple values - join with space (e.g., middle names)
-                        value = ' '.join(str(item) for item in current if item)
+
+            if current is not None:
+                value = current
         else:
             # Direct property
-            if json_path.startswith("@"):
+            if path.startswith("@"):
                 # JSON-LD keyword
-                value = obj.get(json_path)
+                value = obj.get(path)
             else:
                 # Regular property
-                value = obj.get(json_path)
-
-            # Handle array values for direct properties too
-            if isinstance(value, list) and len(value) > 0:
-                if len(value) == 1:
-                    value = value[0] if isinstance(value[0], str) else str(value[0])
-                else:
-                    # Multiple values - join with space
-                    value = ' '.join(str(item) for item in value if item)
+                value = obj.get(path)
 
         if value is not None:
-            # Escape single quotes for Cypher
-            escaped_value = str(value).replace("'", "\\'")
-            setters.append((key, escaped_value))
+            # Store raw value (string or list) - handle arrays natively
+            setters.append((key, value))
 
     return setters
+
+
+def _merge_flattened_instances(child_instances: dict[str, list[dict]]) -> dict[str, Any]:
+    """Merge flattened child instances, JSON-encoding duplicates.
+
+    When multiple instances of the same element are flattened, they need to be
+    combined. Single instances remain as flat properties. Multiple instances
+    are JSON-encoded as an array to preserve all data and maintain grouping.
+
+    Args:
+        child_instances: Dict mapping child qname to list of instance dicts
+            Each instance dict has: {"data": {...props...}, "metadata": {...}}
+
+    Returns:
+        Dict of properties ready for Neo4j, with duplicates JSON-encoded
+
+    Example:
+        Input: {
+            "j:CrashPerson": [
+                {"data": {"nc_PersonName__nc_PersonGivenName": "Alice"}, "metadata": {"@id": "#P1"}},
+                {"data": {"nc_PersonName__nc_PersonGivenName": "Bob"}, "metadata": {"@id": "#P2"}}
+            ]
+        }
+        Output: {
+            "j_CrashPerson": '[{"@id":"#P1","nc_PersonName__nc_PersonGivenName":"Alice"},'
+                            '{"@id":"#P2","nc_PersonName__nc_PersonGivenName":"Bob"}]'
+        }
+    """
+    merged_props = {}
+
+    for child_qn, instances in child_instances.items():
+        if len(instances) == 1:
+            # Single instance - flatten properties normally
+            instance = instances[0]
+
+            # Type safety: ensure instance is a dict with "data" key
+            if not isinstance(instance, dict):
+                logger.error(f"Instance for {child_qn} is not a dict: {type(instance)} = {instance}")
+                continue
+
+            # Merge data properties directly into parent
+            data = instance.get("data", {})
+            if isinstance(data, dict):
+                merged_props.update(data)
+            else:
+                # If data is not a dict (shouldn't happen), log and skip
+                logger.warning(f"Expected dict for instance data in {child_qn}, got {type(data)}: {data}")
+            # Note: metadata is discarded for single instances (no array needed)
+        else:
+            # Multiple instances - JSON-encode as array
+            # Normalize child qname to property name
+            prop_name = child_qn.replace(":", "_")
+
+            # Build array of instance objects (metadata + data)
+            instance_array = []
+            for instance in instances:
+                # Combine metadata and data for this instance
+                instance_obj = {}
+                if instance["metadata"]:
+                    instance_obj.update(instance["metadata"])
+                instance_obj.update(instance["data"])
+                instance_array.append(instance_obj)
+
+            # JSON-encode the array
+            merged_props[prop_name] = json.dumps(instance_array, separators=(',', ':'), ensure_ascii=False)
+
+    return merged_props
+
+
+def _recursively_flatten_json_object(
+    obj: dict[str, Any], obj_rules: dict[str, Any], assoc_by_qn: dict[str, Any], path_prefix: str = ""
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Recursively flatten an unselected JSON object and all its descendants.
+
+    Args:
+        obj: JSON object to flatten
+        obj_rules: Object rules from mapping
+        assoc_by_qn: Association rules index
+        path_prefix: Prefix for property paths
+
+    Returns:
+        Tuple of (flattened_properties, metadata) where metadata contains @id/@type
+    """
+    flattened = {}
+
+    # Extract metadata (@id, @type) from this object
+    metadata = {}
+    if "@id" in obj:
+        metadata["@id"] = obj["@id"]
+    if "@type" in obj:
+        metadata["@type"] = obj["@type"]
+
+    for key, value in obj.items():
+        # Skip JSON-LD keywords (already extracted as metadata)
+        if key.startswith("@"):
+            continue
+
+        # Build property path with double underscore delimiter for hierarchy
+        # Single underscore for namespace colons, double underscore for nesting
+        key_normalized = key.replace(":", "_")
+        prop_path = f"{path_prefix}__{key_normalized}" if path_prefix else key_normalized
+
+        if isinstance(value, (str, int, float, bool)):
+            # Simple value - add directly
+            flattened[prop_path] = value
+
+        elif isinstance(value, list):
+            # Handle arrays
+            simple_values = []
+            complex_instances = []  # Accumulate complex objects for JSON encoding
+
+            for item in value:
+                if isinstance(item, (str, int, float, bool)):
+                    simple_values.append(item)
+                elif isinstance(item, dict):
+                    # Check if this is a TextLiteral wrapper - extract value directly
+                    text_value = _is_textliteral_wrapper(item)
+                    if text_value is not None:
+                        simple_values.append(text_value)
+                    else:
+                        # Check if this dict should be a node
+                        item_type = item.get("@type") or key
+                        if item_type not in obj_rules and item_type not in assoc_by_qn:
+                            # Recursively flatten nested object
+                            nested_props, nested_meta = _recursively_flatten_json_object(item, obj_rules, assoc_by_qn, "")
+                            # Combine metadata and data for this instance
+                            instance_obj = {}
+                            if nested_meta:
+                                instance_obj.update(nested_meta)
+                            instance_obj.update(nested_props)
+                            complex_instances.append(instance_obj)
+
+            # Store simple values as array
+            if simple_values:
+                flattened[prop_path] = simple_values
+
+            # Store complex instances as JSON-encoded array
+            if complex_instances:
+                # Use the key (not prop_path with prefix) since we're at the root level
+                flattened[key_normalized] = json.dumps(complex_instances, separators=(',', ':'), ensure_ascii=False)
+
+        elif isinstance(value, dict):
+            # Check if this is a TextLiteral wrapper first - flatten it directly
+            text_value = _is_textliteral_wrapper(value)
+            if text_value is not None:
+                # Flatten TextLiteral: store the text value directly at prop_path
+                flattened[prop_path] = text_value
+            elif is_reference(value):
+                # Store reference ID
+                flattened[f"{prop_path}_ref"] = value["@id"]
+            else:
+                # Check if nested object should be a node
+                nested_type = value.get("@type") or key
+                if nested_type not in obj_rules and nested_type not in assoc_by_qn:
+                    # Recursively flatten nested object
+                    nested_props, _nested_meta = _recursively_flatten_json_object(value, obj_rules, assoc_by_qn, prop_path)
+                    flattened.update(nested_props)
+                    # Note: nested metadata discarded for single objects (no array needed)
+
+    return flattened, metadata
+
+
+def detect_associations_from_json_data(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Auto-detect association patterns in JSON data for dynamic mode.
+
+    NIEM associations follow naming convention: elements ending with "Association"
+    that have 2+ object properties with @id references (endpoints).
+
+    Args:
+        data: Parsed JSON-LD data
+
+    Returns:
+        Dictionary mapping association QName to association rule
+    """
+    auto_assocs = {}
+
+    def scan_object_for_associations(obj: dict[str, Any], parent_key: str = None):
+        """Recursively scan object for association patterns."""
+        if not isinstance(obj, dict):
+            return
+
+        for key, value in obj.items():
+            # Skip JSON-LD keywords
+            if key.startswith("@"):
+                continue
+
+            # Check if this looks like an association (ends with "Association")
+            if key.endswith("Association"):
+                # Get sample instance (handle arrays)
+                sample = value[0] if isinstance(value, list) and value else value
+
+                if not isinstance(sample, dict):
+                    continue
+
+                # Extract potential endpoints (properties with @id references)
+                # Count total number of entity references, not just role properties
+                endpoints = []
+                total_entity_refs = 0
+
+                for prop_key, prop_val in sample.items():
+                    if prop_key.startswith("@"):
+                        continue
+
+                    # Skip metadata - not an entity endpoint
+                    if "Metadata" in prop_key:
+                        continue
+
+                    # Check if this is a reference to another object
+                    is_ref = False
+                    ref_count = 0
+
+                    if isinstance(prop_val, dict) and "@id" in prop_val and len(prop_val) <= 2:
+                        # Direct reference like {"@id": "#P01"} or with @type
+                        is_ref = True
+                        ref_count = 1
+                    elif isinstance(prop_val, list):
+                        # Array of references - count how many @id refs
+                        refs = [item for item in prop_val if isinstance(item, dict) and "@id" in item]
+                        if refs:
+                            is_ref = True
+                            ref_count = len(refs)
+
+                    if is_ref:
+                        endpoints.append(
+                            {
+                                "role_qname": prop_key,
+                                "maps_to_label": prop_key.replace(":", "_"),
+                                "direction": "source" if len(endpoints) == 0 else "target",
+                                "via": "@id",
+                                "cardinality": "0..*",
+                            }
+                        )
+                        total_entity_refs += ref_count
+
+                # Valid association must have 2+ entity references (could be multiple roles or one role with multiple refs)
+                if total_entity_refs >= 2 and len(endpoints) >= 1:
+                    auto_assocs[key] = {
+                        "qname": key,
+                        "rel_type": key.replace(":", "_").upper(),
+                        "endpoints": endpoints,
+                        "rel_props": [],
+                    }
+                    logger.info(
+                        f"Auto-detected association: {key} with {len(endpoints)} endpoints: {[ep['role_qname'] for ep in endpoints]}"
+                    )
+
+            # Recurse into nested objects
+            if isinstance(value, dict):
+                scan_object_for_associations(value, key)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        scan_object_for_associations(item, key)
+
+    # Scan top-level and nested objects
+    scan_object_for_associations(data)
+
+    return auto_assocs
+
+
+def _is_textliteral_wrapper(obj: dict[str, Any]) -> str | None:
+    """Check if object is a nc:TextLiteral wrapper and extract its value.
+
+    TextLiteral wrappers have exactly one key "nc:TextLiteral" with a string value.
+    These should be flattened so the text value is assigned directly to the parent property.
+
+    Args:
+        obj: JSON object to check
+
+    Returns:
+        The extracted string value if it's a TextLiteral wrapper, None otherwise
+    """
+    if not isinstance(obj, dict):
+        return None
+
+    # Check if object has exactly one non-metadata key
+    non_metadata_keys = [k for k in obj.keys() if not k.startswith("@")]
+    if len(non_metadata_keys) != 1:
+        return None
+
+    # Check if the single key is "nc:TextLiteral" and value is a string
+    key = non_metadata_keys[0]
+    if key == "nc:TextLiteral":
+        value = obj[key]
+        if isinstance(value, str):
+            return value
+
+    return None
+
+
+def _is_complex_json_element(obj: dict[str, Any]) -> bool:
+    """Determine if JSON object is complex (should become a node in dynamic mode).
+
+    Complex objects have:
+    1. @id attribute (explicitly identifiable), OR
+    2. Nested object properties (not just simple values), OR
+    3. Multiple properties (beyond @type and simple text)
+
+    Simple objects with only text values → flattened as properties
+
+    Args:
+        obj: JSON object to check
+
+    Returns:
+        True if object should become a node
+    """
+    if not isinstance(obj, dict):
+        return False
+
+    # Has @id? → Complex (explicitly identifiable)
+    if "@id" in obj:
+        return True
+
+    # Check if it's a TextLiteral wrapper - these should be flattened, not nodes
+    if _is_textliteral_wrapper(obj) is not None:
+        return False
+
+    # Count non-metadata properties
+    non_metadata_keys = [k for k in obj.keys() if not k.startswith("@")]
+
+    # No properties beyond metadata → Not complex
+    if len(non_metadata_keys) == 0:
+        return False
+
+    # Check if has nested objects or arrays
+    for key in non_metadata_keys:
+        value = obj[key]
+        if isinstance(value, dict):
+            # Nested object (not just a reference)
+            if not is_reference(value):
+                return True
+        elif isinstance(value, list):
+            # Array property
+            return True
+
+    # Any properties → Complex (matches XML behavior: any child element = complex)
+    # This ensures JSON creates same nodes as XML for 1:1 parity
+    if len(non_metadata_keys) >= 1:
+        return True
+
+    # No properties → Not complex
+    return False
 
 
 def generate_for_json_content(
     json_content: str,
     mapping_dict: dict[str, Any],
     filename: str = "memory",
-    cmf_element_index: set = None
+    upload_id: str = None,
+    schema_id: str = None,
+    cmf_element_index: set = None,
+    mode: str = "dynamic",
 ) -> tuple[str, dict[str, Any], list[tuple], list[tuple]]:
     """Generate Cypher statements from NIEM JSON content and mapping dictionary.
 
@@ -212,7 +570,10 @@ def generate_for_json_content(
         json_content: NIEM JSON content as string
         mapping_dict: Mapping dictionary (same as used for XML)
         filename: Source filename for provenance
+        upload_id: Unique identifier for this upload batch (for graph isolation)
+        schema_id: Schema identifier (for graph isolation)
         cmf_element_index: Set of known CMF element QNames
+        mode: Converter mode - "mapping" (use selections) or "dynamic" (all complex elements)
 
     Returns:
         Tuple of (cypher_statements, nodes_dict, contains_list, edges_list)
@@ -224,7 +585,20 @@ def generate_for_json_content(
     context = data.get("@context", {})
 
     # Load mapping
-    _, obj_rules, _, _, _ = load_mapping_from_dict(mapping_dict)
+    _, obj_rules, associations, references, _ = load_mapping_from_dict(mapping_dict)
+
+    # Build association index for quick lookup
+    assoc_by_qn = build_assoc_index(associations)
+    logger.info(f"Loaded {len(assoc_by_qn)} associations from mapping: {list(assoc_by_qn.keys())}")
+
+    # Build augmentation index from mapping
+    augmentation_index = build_augmentation_index_from_mapping(mapping_dict)
+
+    # In dynamic mode, auto-detect associations from data structure
+    if mode == "dynamic":
+        auto_detected_assocs = detect_associations_from_json_data(data)
+        assoc_by_qn.update(auto_detected_assocs)
+        logger.info(f"Dynamic mode: Total associations (mapping + auto-detected): {len(assoc_by_qn)}")
 
     # Extract CMF element index from mapping metadata if not provided
     if cmf_element_index is None:
@@ -232,34 +606,129 @@ def generate_for_json_content(
         cmf_elements_list = metadata.get("cmf_element_index", [])
         cmf_element_index = set(cmf_elements_list) if cmf_elements_list else set()
 
+    # In dynamic mode, disable augmentation detection (all properties are standard)
+    if mode == "dynamic":
+        cmf_element_index = set()
+        logger.info("Dynamic mode: Augmentation detection disabled")
+
     # Generate file-specific prefix for node IDs
     # SHA1 used for ID generation only, not cryptographic security
     file_prefix = hashlib.sha1(f"{filename}_{time.time()}".encode(), usedforsecurity=False).hexdigest()[:8]
+    ingest_timestamp = datetime.now(timezone.utc).isoformat()
 
     nodes = {}  # id -> (label, qname, props_dict, aug_props_dict)
     edges = []  # (from_id, from_label, to_id, to_label, rel_type, rel_props)
     contains = []  # (parent_id, parent_label, child_id, child_label, HAS_REL)
 
+    # Hub node tracking for co-referencing
+    id_occurrence_count = {}  # Count non-reference occurrences of each @id (for hub detection)
+    hub_nodes_needed = set()  # Set of @id values that need separate hub nodes
+    id_entity_registry = {}  # Track @id-based entities for co-referencing
+
     # Get objects from @graph or treat data as single object
     has_content = "@type" in data or any(k for k in data.keys() if not k.startswith("@"))
     objects = data.get("@graph", [data] if has_content else [])
 
+    # Pre-scan: Count @id occurrences to determine which need hub nodes
+    def count_id_occurrences(obj: dict[str, Any]):
+        """Recursively count non-reference @id occurrences."""
+        if not isinstance(obj, dict):
+            return
+
+        # Check if this object has @id and is not a pure reference
+        obj_id = obj.get("@id")
+        if obj_id and not is_reference(obj):
+            # This object OWNS the id (not just referencing it)
+            clean_id = obj_id.lstrip("#")
+            id_occurrence_count[clean_id] = id_occurrence_count.get(clean_id, 0) + 1
+
+        # Recurse into nested objects
+        for key, value in obj.items():
+            if key.startswith("@"):
+                continue
+            if isinstance(value, dict):
+                count_id_occurrences(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        count_id_occurrences(item)
+
+    # Run pre-scan
+    for obj in objects:
+        if isinstance(obj, dict):
+            count_id_occurrences(obj)
+
+    # Determine which @ids need hub nodes (2+ non-reference occurrences)
+    for id_value, count in id_occurrence_count.items():
+        if count >= 2:
+            hub_nodes_needed.add(id_value)
+            logger.info(f"Hub node needed for @id {id_value} ({count} role occurrences)")
+
     # Process each object
     object_counter = 0
+
+    # Track flattened instances to handle duplicates (multiple objects flattened onto same parent)
+    # Structure: {(parent_id, qname): [{"data": {...}, "metadata": {...}}, ...]}
+    flattened_accumulator = defaultdict(list)
 
     def process_jsonld_object(
         obj: dict[str, Any], parent_id: str = None, parent_label: str = None, property_name: str = None
     ):
-        """Process a JSON-LD object and generate nodes/relationships."""
+        """Process a JSON-LD object and generate nodes/relationships.
+
+        CRITICAL: Augmentations are processed FIRST to ensure they never create nodes.
+
+        Processing order:
+        1. Augmentations (transparent - flatten children into parent)
+        2. Associations (create intermediate hypergraph nodes)
+        3. Objects (create entity nodes)
+
+        This order ensures augmentations are completely invisible in the graph.
+        """
         nonlocal object_counter
 
         # Skip if not a dict
         if not isinstance(obj, dict):
             return None
 
-        # Extract @id (if present)
-        obj_id = obj.get("@id")
-        has_id = obj_id is not None
+        # Extract @id (if present) and prefix with file_prefix for isolation
+        raw_id = obj.get("@id")
+        has_id = raw_id is not None
+
+        # Determine if this is a hub-pattern scenario
+        if raw_id and not is_reference(obj):
+            clean_id = raw_id.lstrip("#")
+
+            # Check if this @id needs a separate hub node (2+ role occurrences)
+            if clean_id in hub_nodes_needed:
+                # SEPARATE HUB PATTERN: Create role node + hub node
+                # Always create role node with synthetic ID (for ALL occurrences)
+                object_counter += 1
+                obj_id = f"{file_prefix}_obj{object_counter}"
+                is_role_node = True
+
+                # Get/register hub node ID
+                hub_id = f"{file_prefix}_hub_{clean_id}"
+                if clean_id not in id_entity_registry:
+                    # First occurrence - register hub
+                    id_entity_registry[clean_id] = {
+                        "hub_id": hub_id,
+                        "id_value": raw_id,
+                        "role_qnames": [],
+                        "role_labels": [],
+                    }
+            else:
+                # SINGLE OCCURRENCE: Use @id as node ID (no hub needed)
+                obj_id = f"{file_prefix}_{clean_id}"
+                is_role_node = False
+        elif raw_id:
+            # Pure reference - prefix ID
+            clean_id = raw_id.lstrip("#")
+            obj_id = f"{file_prefix}_{clean_id}"
+            is_role_node = False
+        else:
+            obj_id = None
+            is_role_node = False
 
         # Extract @type to determine object type
         obj_type = obj.get("@type")
@@ -267,32 +736,314 @@ def generate_for_json_content(
         # Determine QName - prefer @type, fall back to property name
         qname = obj_type if obj_type else property_name
 
+        # ============================================================================
+        # AUGMENTATION HANDLING (MUST BE FIRST!)
+        # ============================================================================
+        # Check for augmentation FIRST (before associations or objects)
+        # Augmentations are NIEM schema constructs that should NEVER become nodes.
+        # They exist only to extend types from other namespaces without modification.
+        #
+        # Detection: qname or property_name ending in "Augmentation"
+        # Examples: j:MetadataAugmentation, exch:ChargeAugmentation
+        #
+        # Processing:
+        # - Simple properties → flattened into parent node properties
+        # - Complex children → direct children of parent (skip augmentation layer)
+        # - Never create a node for the augmentation itself
+        is_augmentation = (qname and qname.endswith("Augmentation")) or (
+            property_name and property_name.endswith("Augmentation")
+        )
+
+        if is_augmentation:
+            # Process augmentation children directly under parent (augmentation is transparent)
+            if parent_id and parent_id in nodes:
+                parent_props = nodes[parent_id][2]
+
+                for key, value in obj.items():
+                    # Skip JSON-LD metadata
+                    if key.startswith("@"):
+                        continue
+
+                    # If complex object, process as direct child of PARENT
+                    if isinstance(value, dict) and _is_complex_json_element(value):
+                        # Process as child of parent (not augmentation)
+                        process_jsonld_object(value, parent_id, parent_label, key)
+                    # If simple value, flatten into parent properties
+                    elif isinstance(value, (str, int, float, bool)):
+                        prop_name = key.replace(":", "_")
+                        parent_props[prop_name] = value
+                        parent_props[f"{prop_name}_isAugmentation"] = True
+                    # If array, process each item
+                    elif isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, dict) and _is_complex_json_element(item):
+                                # Complex objects become children of parent
+                                process_jsonld_object(item, parent_id, parent_label, key)
+                            elif isinstance(item, (str, int, float, bool)):
+                                # Simple values get flattened (as arrays)
+                                prop_name = key.replace(":", "_")
+                                if prop_name not in parent_props:
+                                    parent_props[prop_name] = []
+                                if isinstance(parent_props[prop_name], list):
+                                    parent_props[prop_name].append(item)
+                                else:
+                                    parent_props[prop_name] = [parent_props[prop_name], item]
+                                parent_props[f"{prop_name}_isAugmentation"] = True
+
+            # Never create node for augmentation itself - return early
+            return None
+
+        # Check if this is an association (process before checking for object rule)
+        assoc_rule = assoc_by_qn.get(qname) if qname else None
+
+        if assoc_rule:
+            logger.info(f"Processing association: {qname} with {len(assoc_rule.get('endpoints', []))} endpoints")
+            # Handle Association objects (create intermediate nodes with hypergraph pattern)
+            # Generate association node ID - use @id if present, otherwise synthetic
+            if not obj_id:
+                object_counter += 1
+                obj_id = f"{file_prefix}_obj{object_counter}"
+
+            # Skip if already processed
+            if obj_id in nodes:
+                return obj_id
+
+            # Create label for association node (normalize qname)
+            assoc_label = qname.replace(":", "_")
+
+            # Extract properties from association object and flatten them
+            assoc_props = {}
+            aug_props = {}
+
+            # Get role qnames to skip them during property extraction
+            endpoints = assoc_rule.get("endpoints", [])
+            role_qnames = {ep["role_qname"] for ep in endpoints}
+
+            # Flatten all non-role children onto association node
+            for key, value in obj.items():
+                # Skip JSON-LD keywords
+                if key.startswith("@"):
+                    continue
+
+                # Skip role elements (these become edges, not properties)
+                if key in role_qnames:
+                    continue
+
+                # Check if value is a selected object or association (becomes a node, not property)
+                value_qname = None
+                if isinstance(value, dict):
+                    value_qname = value.get("@type") or key
+                if value_qname and (value_qname in obj_rules or value_qname in assoc_by_qn):
+                    # This will be processed recursively
+                    continue
+
+                # Flatten property
+                if isinstance(value, dict) and not is_reference(value):
+                    prefix = key.replace(":", "_")
+                    flattened, _meta = _recursively_flatten_json_object(value, obj_rules, assoc_by_qn, prefix)
+                    aug_props.update(flattened)
+                elif isinstance(value, (str, int, float, bool)):
+                    prop_key = key.replace(":", "_")
+                    aug_props[prop_key] = value
+                elif isinstance(value, list):
+                    prop_key = key.replace(":", "_")
+                    aug_props[prop_key] = value
+
+            # Add metadata
+            assoc_props["qname"] = qname
+            assoc_props["_isAssociation"] = True
+            assoc_props["_source_file"] = filename
+
+            # Capture NIEM structures attributes as metadata (original @id before prefixing)
+            if has_id:
+                assoc_props["structures_id"] = raw_id
+
+            # Check for structures:uri in the object (support multiple prefix variants)
+            struct_uri = obj.get("structures:uri") or obj.get("s:uri")
+            if struct_uri:
+                assoc_props["structures_uri"] = struct_uri
+
+            # Check for structures:ref in the object (though in JSON-LD this would be an @id reference)
+            # Support multiple prefix variants (structures:, s:)
+            struct_ref = obj.get("structures:ref") or obj.get("s:ref")
+            if struct_ref:
+                assoc_props["structures_ref"] = struct_ref
+
+            # Create association node
+            nodes[obj_id] = (assoc_label, qname, assoc_props, aug_props)
+
+            # Create edges from association node to each endpoint
+            for ep in endpoints:
+                # Find the role property and extract its @id reference(s)
+                endpoint_refs = []
+                role_value = obj.get(ep["role_qname"])
+                logger.debug(f"  Looking for endpoint role: {ep['role_qname']}, found value: {role_value}")
+
+                if role_value:
+                    if is_reference(role_value):
+                        # Direct reference: {"@id": "P1"}
+                        endpoint_refs.append(role_value["@id"])
+                    elif isinstance(role_value, dict) and role_value.get("@id"):
+                        # Nested object with @id
+                        endpoint_refs.append(role_value["@id"])
+                    elif isinstance(role_value, list) and len(role_value) > 0:
+                        # Array of references - process ALL items, not just first
+                        for item in role_value:
+                            if isinstance(item, dict) and item.get("@id"):
+                                endpoint_refs.append(item["@id"])
+
+                if endpoint_refs:
+                    # Create edges for all endpoint references
+                    for endpoint_ref in endpoint_refs:
+                        # Create edge from association node to endpoint
+                        # Relationship type: ASSOCIATED_WITH
+                        rel_type = "ASSOCIATED_WITH"
+
+                        # Edge properties include role metadata
+                        edge_props = {"role_qname": ep["role_qname"], "direction": ep.get("direction", "")}
+
+                        # Get endpoint label - use None to let resolution logic find actual node label
+                        # This handles NIEM substitution where role type (nc:Person) differs from actual type (j:CrashDriver)
+                        endpoint_label = None
+
+                        # Prefix endpoint reference for file-level isolation
+                        # Strip leading # from @id references (JSON-LD fragment identifiers)
+                        clean_endpoint_ref = endpoint_ref.lstrip("#")
+
+                        # Check if this entity has a hub node (2+ role occurrences)
+                        if clean_endpoint_ref in hub_nodes_needed:
+                            prefixed_endpoint_ref = f"{file_prefix}_hub_{clean_endpoint_ref}"
+                        else:
+                            prefixed_endpoint_ref = f"{file_prefix}_{clean_endpoint_ref}"
+
+                        logger.info(f"  Creating association edge: ({obj_id})-[:{rel_type}]->({prefixed_endpoint_ref})")
+                        edges.append((obj_id, assoc_label, prefixed_endpoint_ref, endpoint_label, rel_type, edge_props))
+                else:
+                    logger.warning(f"  Endpoint {ep['role_qname']} has no reference - skipping edge")
+
+            # Create REFERS_TO edges for structures:ref and structures:uri on the association itself
+            # Note: struct_ref and struct_uri already checked for both prefixes above
+            if struct_ref:
+                # structures:ref - direct reference to an ID (prefix for file-level isolation)
+                # Strip leading # from references
+                clean_struct_ref = struct_ref.lstrip("#")
+                prefixed_struct_ref = f"{file_prefix}_{clean_struct_ref}"
+                # Skip self-referential edges (node referring to itself)
+                if obj_id != prefixed_struct_ref:
+                    edges.append((obj_id, assoc_label, prefixed_struct_ref, None, "REFERS_TO", {}))
+            elif struct_uri:
+                # structures:uri - resolve to target ID
+                target_ref = None
+                if "#" in struct_uri:
+                    target_ref = struct_uri.split("#")[-1]
+                else:
+                    # Use last path segment as ID
+                    uri_parts = struct_uri.rstrip("/").split("/")
+                    if uri_parts:
+                        target_ref = uri_parts[-1].replace(":", "_")
+                if target_ref:
+                    # Prefix target reference for file-level isolation
+                    prefixed_target_ref = f"{file_prefix}_{target_ref}"
+                    # Skip self-referential edges (node referring to itself)
+                    if obj_id != prefixed_target_ref:
+                        edges.append((obj_id, assoc_label, prefixed_target_ref, None, "REFERS_TO", {}))
+
+            # Recursively process children (for nested objects within association)
+            for key, value in obj.items():
+                if key.startswith("@") or key in role_qnames:
+                    continue
+                if isinstance(value, dict) and not is_reference(value):
+                    process_jsonld_object(value, obj_id, assoc_label, key)
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, dict) and not is_reference(item):
+                            process_jsonld_object(item, obj_id, assoc_label, key)
+
+            return obj_id
+
         # Find matching object rule
         obj_rule = obj_rules.get(qname) if qname else None
-        in_mapping = obj_rule is not None
 
-        # Decision: Create node only if has @id OR in mapping
-        should_create_node = has_id or in_mapping
+        # Check if this is an augmentation (never create nodes for augmentations)
+        is_augmentation = property_name and property_name.endswith("Augmentation")
+
+        # Determine if object should become a node based on mode
+        should_create_node = False
+
+        if mode == "mapping":
+            # Mapping mode: Only create nodes for elements explicitly selected in designer
+            # Skip augmentations even if they're in the mapping
+            should_create_node = obj_rule is not None and not is_augmentation
+        elif mode == "dynamic":
+            # Dynamic mode: Create nodes for all complex objects EXCEPT augmentations
+            # BUT skip anonymous root dict (no qname, no parent, no @id)
+            is_anonymous_root = parent_id is None and not has_id and not qname
+
+            if is_anonymous_root or is_augmentation:
+                # Skip anonymous root dict and augmentations - just process their children
+                should_create_node = False
+            else:
+                should_create_node = _is_complex_json_element(obj)
 
         if not should_create_node:
-            # Flatten properties onto parent node (if parent exists)
-            if parent_id and parent_id in nodes:
-                parent_node = nodes[parent_id]
-                parent_props = parent_node[2]  # props_dict is at index 2
+            # Special handling for augmentations - process children directly under parent
+            if is_augmentation and parent_id and parent_id in nodes:
+                parent_props = nodes[parent_id][2]
 
-                # Flatten simple properties with property_name prefix
+                for key, value in obj.items():
+                    # Skip JSON-LD metadata
+                    if key.startswith("@"):
+                        continue
+
+                    # If complex object, process as direct child of PARENT
+                    if isinstance(value, dict) and _is_complex_json_element(value):
+                        # Process as child of parent (not augmentation)
+                        process_jsonld_object(value, parent_id, parent_label, key)
+                    # If simple value, flatten into parent properties
+                    elif isinstance(value, (str, int, float, bool)):
+                        prop_name = key.replace(":", "_")
+                        parent_props[prop_name] = value
+                        parent_props[f"{prop_name}_isAugmentation"] = True
+                    # If array, process each item
+                    elif isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, dict) and _is_complex_json_element(item):
+                                # Complex objects become children of parent
+                                process_jsonld_object(item, parent_id, parent_label, key)
+                            elif isinstance(item, (str, int, float, bool)):
+                                # Simple values get flattened (as arrays)
+                                prop_name = key.replace(":", "_")
+                                if prop_name not in parent_props:
+                                    parent_props[prop_name] = []
+                                if isinstance(parent_props[prop_name], list):
+                                    parent_props[prop_name].append(item)
+                                else:
+                                    parent_props[prop_name] = [parent_props[prop_name], item]
+                                parent_props[f"{prop_name}_isAugmentation"] = True
+
+            # Flatten properties onto parent node (if parent exists)
+            elif parent_id and parent_id in nodes:
+                # Recursively flatten all properties from this unselected object
+                prefix = property_name.replace(":", "_") if property_name else ""
+                flattened, metadata = _recursively_flatten_json_object(obj, obj_rules, assoc_by_qn, prefix)
+
+                # Accumulate this instance (handles multiple objects with same qname)
+                qname = obj.get("@type") or property_name
+                flattened_accumulator[(parent_id, qname)].append({
+                    "data": flattened,
+                    "metadata": metadata
+                })
+            else:
+                # Process children even if no parent to create nodes for
                 for key, value in obj.items():
                     if key.startswith("@"):
                         continue
-                    if isinstance(value, (str, int, float, bool)):
-                        safe_key = key.replace(":", "_")
-                        parent_props[safe_key] = value
+                    if isinstance(value, dict):
+                        process_jsonld_object(value, parent_id, parent_label, key)
                     elif isinstance(value, list):
-                        # Flatten list values
-                        safe_key = key.replace(":", "_")
-                        simple_values = [v for v in value if isinstance(v, (str, int, float, bool))]
-                        if simple_values:
-                            parent_props[safe_key] = simple_values
+                        for item in value:
+                            if isinstance(item, dict):
+                                process_jsonld_object(item, parent_id, parent_label, key)
 
             # Don't create a node, return None
             return None
@@ -304,72 +1055,329 @@ def generate_for_json_content(
 
         # Skip if already processed
         if obj_id in nodes:
-            # Create reference edge if this is a nested occurrence
-            if parent_id and property_name:
-                edges.append((parent_id, parent_label, obj_id, qname, property_name, {}))
+            # Object already exists - no need to create duplicate edge
+            # The CONTAINS edge was already created on first occurrence
             return obj_id
 
+        # Generate label and properties
         if obj_rule:
-            # Extract label and properties
+            # Mapping mode: Use label from mapping
             label = obj_rule.get("label", local_from_qname(qname))
             props = extract_properties(obj, obj_rule, context)
             props_dict = dict(props)
+        else:
+            # Dynamic mode: Generate label from qname
+            # Sanitize label: Neo4j labels cannot contain hyphens, colons (except namespace separator), or other special chars
+            label = qname.replace(":", "_").replace("-", "_") if qname else "Unknown"
+            props_dict = {}
 
-            # Add source provenance
-            props_dict["_source_file"] = filename
+        # Add source provenance and isolation properties
+        props_dict["_source_file"] = filename
+        if upload_id:
+            props_dict["_upload_id"] = upload_id
+        if schema_id:
+            props_dict["_schema_id"] = schema_id
 
-            # Create node
-            nodes[obj_id] = (label, qname, props_dict, {})
+        # Flatten unselected child properties onto this node (matches XML converter behavior)
+        # This ensures j:Charge nodes have j_ChargeDescriptionText etc. as properties
+        for key, value in obj.items():
+            if key.startswith("@"):
+                continue  # Skip JSON-LD keywords
 
-            # Create containment edge if nested
-            if parent_id:
-                rel_type = (
-                    f"HAS_{local_from_qname(property_name)}"
-                    if property_name else 'HAS_CHILD'
+            # Check if this property should become a separate node
+            should_be_node = False
+            if isinstance(value, dict) and not is_reference(value):
+                # Check if it's a TextLiteral wrapper first - these should always be flattened
+                text_value = _is_textliteral_wrapper(value)
+                if text_value is not None:
+                    # Flatten TextLiteral directly
+                    prop_name = key.replace(":", "_")
+                    props_dict[prop_name] = text_value
+                    continue
+                
+                child_qname = value.get("@type") or key
+                # Check if it's selected as a node or is an association
+                should_be_node = (child_qname in obj_rules) or (child_qname in assoc_by_qn)
+            elif isinstance(value, list):
+                # Check if array contains TextLiteral wrappers
+                text_values = []
+                has_textliterals = False
+                for item in value:
+                    if isinstance(item, dict) and not is_reference(item):
+                        text_value = _is_textliteral_wrapper(item)
+                        if text_value is not None:
+                            text_values.append(text_value)
+                            has_textliterals = True
+                        else:
+                            child_qname = item.get("@type") or key
+                            should_be_node = (child_qname in obj_rules) or (child_qname in assoc_by_qn)
+                            if should_be_node:
+                                break
+                
+                # If array contains only TextLiteral wrappers, flatten them
+                if has_textliterals and not should_be_node:
+                    prop_name = key.replace(":", "_")
+                    props_dict[prop_name] = text_values[0] if len(text_values) == 1 else text_values
+                    continue
+
+            # If not a node, flatten it as a property
+            if not should_be_node:
+                prop_name = key.replace(":", "_")
+                if isinstance(value, (str, int, float, bool)):
+                    # Simple scalar value
+                    props_dict[prop_name] = value
+                elif isinstance(value, list):
+                    # Array - extract simple values
+                    simple_values = [item for item in value if isinstance(item, (str, int, float, bool))]
+                    if simple_values:
+                        props_dict[prop_name] = simple_values[0] if len(simple_values) == 1 else simple_values
+
+        # Capture NIEM structures attributes as metadata (original @id before prefixing)
+        if has_id:
+            props_dict["structures_id"] = raw_id
+
+        # Hub pattern: Track role nodes and create REPRESENTS edges
+        if is_role_node and raw_id:
+            clean_id = raw_id.lstrip("#")
+            hub_id = f"{file_prefix}_hub_{clean_id}"
+
+            # Mark as role node (structures_id already contains the @id value)
+            props_dict["_isRole"] = True
+
+            # Track this role
+            if clean_id in id_entity_registry:
+                id_entity_registry[clean_id]["role_qnames"].append(qname)
+                id_entity_registry[clean_id]["role_labels"].append(label)
+
+            # Create REPRESENTS edge: (role)-[REPRESENTS]->(hub)
+            # Use sanitized clean_id for label (no # or special chars)
+            hub_label = f"Entity_{clean_id}"
+            edges.append(
+                (
+                    obj_id,
+                    label,
+                    hub_id,
+                    hub_label,
+                    "REPRESENTS",
+                    {"id_value": raw_id, "role_qname": qname},  # Use id_value not @id (@ invalid in property names)
                 )
-                contains.append((parent_id, parent_label, obj_id, label, rel_type))
+            )
+            logger.debug(f"Role node {qname} REPRESENTS {hub_label} {hub_id} (via {raw_id})")
 
-            # Process nested properties
-            for key, value in obj.items():
-                if key.startswith("@"):
-                    continue  # Skip JSON-LD keywords
+        # Check for structures:uri in the object (support multiple prefix variants)
+        struct_uri = obj.get("structures:uri") or obj.get("s:uri")
+        if struct_uri:
+            props_dict["structures_uri"] = struct_uri
 
-                if is_reference(value):
-                    # Reference edge
-                    target_id = value["@id"]
-                    edges.append((obj_id, label, target_id, None, key, {}))
+        # Check for structures:ref in the object (support multiple prefix variants)
+        struct_ref = obj.get("structures:ref") or obj.get("s:ref")
+        if struct_ref:
+            props_dict["structures_ref"] = struct_ref
 
-                elif isinstance(value, dict):
+        # Create node
+        nodes[obj_id] = (label, qname, props_dict, {})
+
+        # Create containment edge if nested
+        if parent_id:
+            rel_type = "CONTAINS"
+            contains.append((parent_id, parent_label, obj_id, label, rel_type))
+
+        # Create REFERS_TO edges for structures:ref and structures:uri on the object itself
+        # Note: struct_ref and struct_uri already checked for both prefixes above
+        if struct_ref:
+            # structures:ref - direct reference to an ID (prefix for file-level isolation)
+            # Strip leading # from references (JSON-LD fragment identifiers)
+            clean_struct_ref = struct_ref.lstrip("#")
+            prefixed_struct_ref = f"{file_prefix}_{clean_struct_ref}"
+            # Skip self-referential edges (node referring to itself)
+            if obj_id != prefixed_struct_ref:
+                edges.append((obj_id, label, prefixed_struct_ref, None, "REFERS_TO", {}))
+        elif struct_uri:
+            # structures:uri - resolve to target ID
+            target_ref = None
+            if "#" in struct_uri:
+                target_ref = struct_uri.split("#")[-1]
+            else:
+                # Use last path segment as ID
+                uri_parts = struct_uri.rstrip("/").split("/")
+                if uri_parts:
+                    target_ref = uri_parts[-1].replace(":", "_")
+            if target_ref:
+                # Prefix target reference for file-level isolation
+                prefixed_target_ref = f"{file_prefix}_{target_ref}"
+                # Skip self-referential edges (node referring to itself)
+                if obj_id != prefixed_target_ref:
+                    edges.append((obj_id, label, prefixed_target_ref, None, "REFERS_TO", {}))
+
+        # Process nested properties
+        for key, value in obj.items():
+            if key.startswith("@"):
+                continue  # Skip JSON-LD keywords
+
+            if is_reference(value):
+                # Pure reference {"@id": "..."} - create REFERS_TO edge (not property-name edge)
+                clean_target_id = value["@id"].lstrip("#")
+                target_id = f"{file_prefix}_{clean_target_id}"
+                # Skip self-referential edges
+                if obj_id != target_id:
+                    edges.append((obj_id, label, target_id, None, "REFERS_TO", {}))
+
+            elif isinstance(value, dict):
+                # Check if this is a TextLiteral wrapper - flatten it instead of creating a node
+                text_value = _is_textliteral_wrapper(value)
+                if text_value is not None:
+                    # Flatten TextLiteral: add the text value directly to parent node properties
+                    prop_name = key.replace(":", "_")
+                    if obj_id in nodes:
+                        parent_props = nodes[obj_id][2]  # props_dict is at index 2
+                        parent_props[prop_name] = text_value
+                else:
                     # Nested object (containment edge created automatically)
                     process_jsonld_object(value, obj_id, label, key)
 
-                elif isinstance(value, list):
-                    # Array of objects or references
+            elif isinstance(value, list):
+                # Array of objects or references
+                text_values = []
+                has_textliterals = False
+                has_other_items = False
+                
+                # First pass: check if array contains TextLiteral wrappers
+                for item in value:
+                    if isinstance(item, dict):
+                        if is_reference(item):
+                            has_other_items = True
+                        else:
+                            text_value = _is_textliteral_wrapper(item)
+                            if text_value is not None:
+                                text_values.append(text_value)
+                                has_textliterals = True
+                            else:
+                                has_other_items = True
+                    else:
+                        # Simple value in array
+                        has_other_items = True
+                
+                # If array contains only TextLiteral wrappers, flatten them
+                if has_textliterals and not has_other_items:
+                    prop_name = key.replace(":", "_")
+                    if obj_id in nodes:
+                        parent_props = nodes[obj_id][2]  # props_dict is at index 2
+                        # Store as single value if one item, array if multiple
+                        parent_props[prop_name] = text_values[0] if len(text_values) == 1 else text_values
+                else:
+                    # Process array items normally (may contain references or complex objects)
                     for item in value:
                         if isinstance(item, dict):
                             if is_reference(item):
-                                target_id = item["@id"]
-                                edges.append((obj_id, label, target_id, None, key, {}))
+                                # Pure reference in array - create REFERS_TO edge
+                                clean_target_id = item["@id"].lstrip("#")
+                                target_id = f"{file_prefix}_{clean_target_id}"
+                                if obj_id != target_id:
+                                    edges.append((obj_id, label, target_id, None, "REFERS_TO", {}))
                             else:
-                                process_jsonld_object(item, obj_id, label, key)
+                                # Check if this item is a TextLiteral wrapper
+                                text_value = _is_textliteral_wrapper(item)
+                                if text_value is not None:
+                                    # Flatten TextLiteral in array
+                                    prop_name = key.replace(":", "_")
+                                    if obj_id in nodes:
+                                        parent_props = nodes[obj_id][2]
+                                        if prop_name not in parent_props:
+                                            parent_props[prop_name] = []
+                                        if isinstance(parent_props[prop_name], list):
+                                            parent_props[prop_name].append(text_value)
+                                        else:
+                                            parent_props[prop_name] = [parent_props[prop_name], text_value]
+                                else:
+                                    process_jsonld_object(item, obj_id, label, key)
 
-            return obj_id
+        return obj_id
 
     # Process all top-level objects
     for obj in objects:
         if isinstance(obj, dict):
             process_jsonld_object(obj)
 
+    # Merge accumulated flattened instances onto their parent nodes
+    # This handles cases where multiple unselected objects with the same qname
+    # were flattened onto the same parent (prevents data loss from overwrites)
+    for (parent_id, qname), instances in flattened_accumulator.items():
+        if parent_id in nodes:
+            parent_props = nodes[parent_id][2]  # props_dict is at index 2
+            merged = _merge_flattened_instances({qname: instances})
+            parent_props.update(merged)
+
+    # Generate EntityHub nodes for multi-occurrence @ids
+    for entity_id, hub_info in id_entity_registry.items():
+        if entity_id in hub_nodes_needed and isinstance(hub_info, dict):
+            hub_id = hub_info["hub_id"]
+            id_value = hub_info["id_value"]
+            role_qnames = hub_info["role_qnames"]
+            role_labels = hub_info["role_labels"]
+
+            # Create EntityHub node with sanitized label (no # or special chars)
+            # Use entity_id which is already sanitized (e.g., "P01" not "#P01")
+            hub_label = f"Entity_{entity_id}"
+            hub_props = {
+                "qname": hub_label,
+                "uri_value": id_value,
+                "entity_id": entity_id,
+                "role_count": len(role_qnames),
+                "role_types": role_qnames,
+                "_isHub": True,
+                "_source_file": filename,
+            }
+            if upload_id:
+                hub_props["_upload_id"] = upload_id
+
+            nodes[hub_id] = (hub_label, hub_label, hub_props, {})
+            logger.info(f"Created {hub_label} {hub_id} with {len(role_qnames)} roles: {role_qnames}")
+
     # Generate Cypher statements
-    cypher_statements = generate_cypher_from_structures(nodes, edges, contains)
+    cypher_statements = generate_cypher_from_structures(nodes, edges, contains, upload_id, filename, ingest_timestamp)
 
     return cypher_statements, nodes, contains, edges
+
+
+def _sanitize_neo4j_relationship_type(rel_type: str) -> str:
+    """Sanitize relationship type for Neo4j compatibility.
+
+    Neo4j relationship types must:
+    - Start with a letter or underscore
+    - Contain only letters, numbers, and underscores
+    - Cannot contain: hyphens, colons, slashes, dots, etc.
+
+    Args:
+        rel_type: Raw relationship type (may contain URLs, namespaces, etc.)
+
+    Returns:
+        Sanitized relationship type safe for Neo4j
+    """
+    import re
+
+    # Replace common invalid characters with underscores
+    sanitized = rel_type.replace(":", "_").replace("/", "_").replace(".", "_").replace("-", "_")
+    # Remove any remaining non-alphanumeric chars (except underscores)
+    sanitized = re.sub(r"[^A-Za-z0-9_]", "_", sanitized)
+    # Remove consecutive underscores
+    sanitized = re.sub(r"_+", "_", sanitized)
+    # Remove leading/trailing underscores
+    sanitized = sanitized.strip("_")
+    # Ensure uppercase (Neo4j convention)
+    sanitized = sanitized.upper()
+    # Ensure starts with letter or underscore (prepend if needed)
+    if sanitized and not sanitized[0].isalpha() and sanitized[0] != "_":
+        sanitized = f"REL_{sanitized}"
+    return sanitized or "RELATED_TO"
 
 
 def generate_cypher_from_structures(
     nodes: dict[str, tuple],
     edges: list[tuple],
-    contains: list[tuple]
+    contains: list[tuple],
+    upload_id: str = None,
+    filename: str = None,
+    ingest_timestamp: str = None,
 ) -> str:
     """Generate Cypher statements from node and edge structures.
 
@@ -377,6 +1385,9 @@ def generate_cypher_from_structures(
         nodes: Dictionary of node structures
         edges: List of edge tuples
         contains: List of containment edge tuples
+        upload_id: Unique identifier for this upload batch (for graph isolation)
+        filename: Source filename (for graph isolation)
+        ingest_timestamp: ISO timestamp of ingestion (for provenance)
 
     Returns:
         Cypher statements as string
@@ -385,37 +1396,147 @@ def generate_cypher_from_structures(
 
     # Generate MERGE statements for nodes
     for node_id, (label, qname, props, aug_props) in nodes.items():
+        # Sanitize label for Neo4j (labels cannot contain hyphens or other special chars)
+        sanitized_label = label.replace("-", "_").replace(".", "_")
+
         # Build properties string - include qname for display consistency with XML
+        # Also include upload_id, source_file, and ingestDate for provenance
         props_parts = []
-        all_props = {**props, **aug_props, "qname": qname}  # Add qname to properties
+        all_props = {**props, **aug_props, "qname": qname}
+
+        # Add provenance and graph isolation metadata (consistent with XML converter)
+        if upload_id:
+            all_props["_upload_id"] = upload_id
+        if filename:
+            all_props["_source_file"] = filename
+        if ingest_timestamp:
+            all_props["ingestDate"] = ingest_timestamp
+
         for key, value in all_props.items():
-            props_parts.append(f"{key}: '{value}'")
+            # Escape property names with special characters (dots, hyphens, etc.) using backticks
+            # Only alphanumeric and underscore are safe without backticks in Cypher
+            prop_key = f"`{key}`" if not re.match(CYPHER_SAFE_PROPERTY_NAME, key) else key
+            
+            # Handle different value types properly
+            if isinstance(value, (list, tuple)):
+                # Use Neo4j native array syntax
+                array_items = []
+                for item in value:
+                    if isinstance(item, str):
+                        escaped_item = item.replace("'", "\\'")
+                        array_items.append(f"'{escaped_item}'")
+                    elif isinstance(item, (int, float, bool)):
+                        array_items.append(str(item).lower() if isinstance(item, bool) else str(item))
+                    else:
+                        escaped_item = str(item).replace("'", "\\'")
+                        array_items.append(f"'{escaped_item}'")
+                props_parts.append(f"{prop_key}: [{', '.join(array_items)}]")
+            elif isinstance(value, str):
+                # Escape single quotes in strings
+                escaped_value = value.replace("'", "\\'")
+                props_parts.append(f"{prop_key}: '{escaped_value}'")
+            elif isinstance(value, (int, float, bool)):
+                # Numbers and booleans don't need quotes
+                props_parts.append(f"{prop_key}: {str(value).lower() if isinstance(value, bool) else value}")
+            elif value is None:
+                # Skip null values
+                continue
+            else:
+                # Convert other types to string
+                escaped_value = str(value).replace("'", "\\'")
+                props_parts.append(f"{prop_key}: '{escaped_value}'")
 
         props_str = ", ".join(props_parts)
-        cypher_lines.append(f"MERGE (n:{label} {{id: '{node_id}', {props_str}}});")
+        cypher_lines.append(f"MERGE (n:{sanitized_label} {{id: '{node_id}', {props_str}}});")
+
+    # Helper function to build match properties for a specific node ID
+    def build_node_match_props(node_id: str) -> str:
+        """Build match properties for graph isolation."""
+        props = f"id: '{node_id}'"
+        if upload_id:
+            props += f", _upload_id: '{upload_id}'"
+        if filename:
+            props += f", _source_file: '{filename}'"
+        return props
 
     # Generate MERGE statements for containment relationships
     for parent_id, parent_label, child_id, child_label, rel_type in contains:
+        # Sanitize labels for Neo4j
+        sanitized_parent_label = parent_label.replace("-", "_").replace(".", "_")
+        sanitized_child_label = child_label.replace("-", "_").replace(".", "_")
+        sanitized_rel_type = _sanitize_neo4j_relationship_type(rel_type)
+
+        parent_match = build_node_match_props(parent_id)
+        child_match = build_node_match_props(child_id)
+
         cypher_lines.append(
-            f"MATCH (parent:{parent_label} {{id: '{parent_id}'}}), (child:{child_label} {{id: '{child_id}'}}) "
-            f"MERGE (parent)-[:{rel_type}]->(child);"
+            f"MATCH (parent:{sanitized_parent_label} {{{parent_match}}}), (child:{sanitized_child_label} {{{child_match}}}) "
+            f"MERGE (parent)-[:{sanitized_rel_type}]->(child);"
         )
 
     # Generate MERGE statements for reference/association edges
-    for from_id, from_label, to_id, to_label, rel_type, _ in edges:
-        # Clean relationship type
-        clean_rel_type = rel_type.replace(":", "_").upper()
+    for from_id, from_label, to_id, to_label, rel_type, edge_props in edges:
+        # Sanitize labels and relationship type for Neo4j
+        sanitized_from_label = from_label.replace("-", "_").replace(".", "_")
+        sanitized_to_label = to_label.replace("-", "_").replace(".", "_") if to_label else None
+        clean_rel_type = _sanitize_neo4j_relationship_type(rel_type)
 
-        if to_label:
-            cypher_lines.append(
-                f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to:{to_label} {{id: '{to_id}'}}) "
-                f"MERGE (from)-[:{clean_rel_type}]->(to);"
-            )
+        # Build match properties for graph isolation
+        from_match = build_node_match_props(from_id)
+        to_match = build_node_match_props(to_id)
+
+        # Build relationship properties if any
+        if edge_props:
+            # Build property setters for rich edges (e.g., association endpoint metadata)
+            prop_setters = []
+            for key, value in sorted(edge_props.items()):
+                if isinstance(value, str):
+                    escaped_value = value.replace("'", "\\'")
+                    prop_setters.append(f"r.{key}='{escaped_value}'")
+                elif isinstance(value, (int, float, bool)):
+                    prop_setters.append(f"r.{key}={str(value).lower() if isinstance(value, bool) else value}")
+                elif isinstance(value, list):
+                    # Handle array properties on edges
+                    array_items = []
+                    for item in value:
+                        if isinstance(item, str):
+                            escaped_item = item.replace("'", "\\'")
+                            array_items.append(f"'{escaped_item}'")
+                        elif isinstance(item, (int, float, bool)):
+                            array_items.append(str(item).lower() if isinstance(item, bool) else str(item))
+                        else:
+                            escaped_item = str(item).replace("'", "\\'")
+                            array_items.append(f"'{escaped_item}'")
+                    prop_setters.append(f"r.{key}=[{', '.join(array_items)}]")
+                else:
+                    escaped_value = str(value).replace("'", "\\'")
+                    prop_setters.append(f"r.{key}='{escaped_value}'")
+
+            props_clause = ", ".join(prop_setters)
+
+            if sanitized_to_label:
+                cypher_lines.append(
+                    f"MATCH (from:{sanitized_from_label} {{{from_match}}}), (to:{sanitized_to_label} {{{to_match}}}) "
+                    f"MERGE (from)-[r:{clean_rel_type}]->(to) ON CREATE SET {props_clause};"
+                )
+            else:
+                # Find target by ID only
+                cypher_lines.append(
+                    f"MATCH (from:{sanitized_from_label} {{{from_match}}}), (to {{{to_match}}}) "
+                    f"MERGE (from)-[r:{clean_rel_type}]->(to) ON CREATE SET {props_clause};"
+                )
         else:
-            # Find target by ID only
-            cypher_lines.append(
-                f"MATCH (from:{from_label} {{id: '{from_id}'}}), (to {{id: '{to_id}'}}) "
-                f"MERGE (from)-[:{clean_rel_type}]->(to);"
-            )
+            # Simple edge without properties
+            if sanitized_to_label:
+                cypher_lines.append(
+                    f"MATCH (from:{sanitized_from_label} {{{from_match}}}), (to:{sanitized_to_label} {{{to_match}}}) "
+                    f"MERGE (from)-[:{clean_rel_type}]->(to);"
+                )
+            else:
+                # Find target by ID only
+                cypher_lines.append(
+                    f"MATCH (from:{sanitized_from_label} {{{from_match}}}), (to {{{to_match}}}) "
+                    f"MERGE (from)-[:{clean_rel_type}]->(to);"
+                )
 
     return "\n".join(cypher_lines)

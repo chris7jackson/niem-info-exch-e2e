@@ -11,6 +11,8 @@ import logging
 import os
 from pathlib import Path
 
+from .env_utils import getenv_bool, getenv_int, getenv_clean
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,20 +28,37 @@ class BatchConfig:
 
     # Concurrency: Max parallel operations across the system
     # Lower = safer for local dev, Higher = faster for production
-    MAX_CONCURRENT_OPERATIONS = int(os.getenv('BATCH_MAX_CONCURRENT_OPERATIONS', '3'))
+    MAX_CONCURRENT_OPERATIONS = getenv_int("BATCH_MAX_CONCURRENT_OPERATIONS", 3)
 
     # Timeout: Max seconds per individual file operation
-    OPERATION_TIMEOUT = int(os.getenv('BATCH_OPERATION_TIMEOUT', '60'))
+    OPERATION_TIMEOUT = getenv_int("BATCH_OPERATION_TIMEOUT", 60)
 
     # Operation-specific batch size limits
     # Schema uploads often have 25+ XSD files (NIEM references)
-    MAX_SCHEMA_FILES = int(os.getenv('BATCH_MAX_SCHEMA_FILES', '50'))
+    MAX_SCHEMA_FILES = getenv_int("BATCH_MAX_SCHEMA_FILES", 50)
 
     # XML/JSON conversions typically smaller batches
-    MAX_CONVERSION_FILES = int(os.getenv('BATCH_MAX_CONVERSION_FILES', '20'))
+    MAX_CONVERSION_FILES = getenv_int("BATCH_MAX_CONVERSION_FILES", 20)
 
     # XML/JSON ingestion to Neo4j
-    MAX_INGEST_FILES = int(os.getenv('BATCH_MAX_INGEST_FILES', '20'))
+    MAX_INGEST_FILES = getenv_int("BATCH_MAX_INGEST_FILES", 20)
+
+    # JSON validation feature flag
+    # Default: true (validation skipped)
+    #
+    # Reasons for default=true:
+    # 1. CMF tool cannot generate JSON schemas for NIEM < 6.0 (e.g., NIECE 3.0, NIBRS 5.0)
+    # 2. JSON schemas from model.xsd don't validate message instances correctly
+    # 3. Model schema validation cycle is separate from message validation
+    #
+    # Set to 'false' only if you have NIEM 6.0+ schemas AND valid message schemas
+    SKIP_JSON_VALIDATION = getenv_bool("SKIP_JSON_VALIDATION", True)
+    
+    # Log the value at startup for debugging
+    raw_value = getenv_clean("SKIP_JSON_VALIDATION", "true", strip=False)
+    logger.info(
+        f"SKIP_JSON_VALIDATION: raw={repr(raw_value)}, final={SKIP_JSON_VALIDATION}"
+    )
 
     @classmethod
     def get_batch_limit(cls, operation_type: str) -> int:
@@ -52,9 +71,9 @@ class BatchConfig:
             Maximum files allowed for this operation
         """
         limits = {
-            'schema': cls.MAX_SCHEMA_FILES,
-            'conversion': cls.MAX_CONVERSION_FILES,
-            'ingest': cls.MAX_INGEST_FILES,
+            "schema": cls.MAX_SCHEMA_FILES,
+            "conversion": cls.MAX_CONVERSION_FILES,
+            "ingest": cls.MAX_INGEST_FILES,
         }
         return limits.get(operation_type, 10)  # Default fallback
 
@@ -73,19 +92,11 @@ class SenzingConfig:
     """
 
     # License file paths
-    LICENSE_PATH = Path(os.getenv('SENZING_LICENSE_PATH', '/app/secrets/senzing/g2.lic'))
-    LICENSE_SEARCH_PATTERN = '/app/licenses/g2license_*'  # Pattern to find license folders
+    LICENSE_PATH = Path(getenv_clean("SENZING_LICENSE_PATH", "/app/secrets/senzing/g2.lic"))
+    LICENSE_SEARCH_PATTERN = "/app/licenses/g2license_*"  # Pattern to find license folders
 
     # Senzing data directory
-    DATA_DIR = Path(os.getenv('SENZING_DATA_DIR', '/data/senzing'))
-
-    # Target node labels for entity resolution (NIEM Person/Organization entities)
-    TARGET_LABELS = [
-        'nc:Person',
-        'nc:Organization',
-        'j:CrashDriver',
-        'j:CrashPerson',
-    ]
+    DATA_DIR = Path(getenv_clean("SENZING_DATA_DIR", "/data/senzing"))
 
     @classmethod
     def ensure_license(cls) -> bool:
@@ -101,6 +112,7 @@ class SenzingConfig:
 
         # Try to find and decode base64 license from any g2license_* folder
         import glob
+
         license_dirs = glob.glob(cls.LICENSE_SEARCH_PATTERN)
 
         if not license_dirs:
@@ -115,7 +127,7 @@ class SenzingConfig:
         # Search all license folders for base64 files
         base64_files = []
         for license_dir in sorted(license_dirs, reverse=True):  # Most recent first
-            base64_files.extend(Path(license_dir).glob('*.lic_base64'))
+            base64_files.extend(Path(license_dir).glob("*.lic_base64"))
 
         if not base64_files:
             logger.warning(
@@ -134,13 +146,13 @@ class SenzingConfig:
             cls.LICENSE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
             # Read and decode
-            with open(base64_path, 'r') as f:
+            with open(base64_path, "r") as f:
                 encoded = f.read().strip()
 
             decoded = base64.b64decode(encoded)
 
             # Write decoded license
-            with open(cls.LICENSE_PATH, 'wb') as f:
+            with open(cls.LICENSE_PATH, "wb") as f:
                 f.write(decoded)
 
             logger.info(f"✅ Senzing license decoded successfully to {cls.LICENSE_PATH}")

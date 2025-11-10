@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Load mapping configuration from YAML file
 _mapping_config: Optional[Dict] = None
 
+
 def load_mapping_config() -> Dict:
     """
     Load NIEM to Senzing mapping configuration from YAML file.
@@ -35,13 +36,11 @@ def load_mapping_config() -> Dict:
         return _mapping_config
 
     config_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        'config',
-        'niem_senzing_mappings.yaml'
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config", "niem_senzing_mappings.yaml"
     )
 
     try:
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             _mapping_config = yaml.safe_load(f)
             logger.info(f"Loaded mapping configuration from {config_path}")
     except FileNotFoundError:
@@ -62,63 +61,77 @@ def get_default_mapping_config() -> Dict:
         Default mapping configuration dictionary
     """
     return {
-        'entity_categories': {
-            'person': {
-                'patterns': ['person', 'driver', 'child', 'parent', 'witness', 'victim', 'subject'],
-                'senzing_record_type': 'PERSON'
+        "entity_categories": {
+            "person": {
+                "patterns": ["person", "driver", "child", "parent", "witness", "victim", "subject"],
+                "senzing_record_type": "PERSON",
             },
-            'organization': {
-                'patterns': ['organization', 'org', 'company', 'agency', 'department'],
-                'senzing_record_type': 'ORGANIZATION'
+            "organization": {
+                "patterns": ["organization", "org", "company", "agency", "department", "official", "enforcement"],
+                "senzing_record_type": "ORGANIZATION",
             },
-            'address': {
-                'patterns': ['address', 'location', 'place'],
-                'senzing_record_type': 'ADDRESS'
-            },
-            'vehicle': {
-                'patterns': ['vehicle', 'conveyance', 'car'],
-                'senzing_record_type': 'VEHICLE'
-            }
+            "address": {"patterns": ["address", "location", "place"], "senzing_record_type": "ADDRESS"},
+            "vehicle": {"patterns": ["vehicle", "conveyance", "car"], "senzing_record_type": "VEHICLE"},
         },
-        'field_mappings': {
-            'nc_PersonFullName': 'PRIMARY_NAME_FULL',
-            'nc_PersonGivenName': 'PRIMARY_NAME_FIRST',
-            'nc_PersonSurName': 'PRIMARY_NAME_LAST',
-            'nc_PersonBirthDate': 'DATE_OF_BIRTH',
-            'nc_PersonSSNIdentification': 'SSN_NUMBER',
-            'nc_OrganizationName': 'ORG_NAME',
-            'nc_AddressFullText': 'ADDR_FULL',
-            'nc_VehicleIdentification': 'VIN_NUMBER'
+        "field_mappings": {
+            "nc_PersonFullName": "PRIMARY_NAME_FULL",
+            "nc_PersonGivenName": "PRIMARY_NAME_FIRST",
+            "nc_PersonSurName": "PRIMARY_NAME_LAST",
+            "nc_PersonMiddleName": "PRIMARY_NAME_MIDDLE",
+            "nc_PersonBirthDate": "DATE_OF_BIRTH",
+            "nc_PersonSSNIdentification": "SSN_NUMBER",
+            "nc_OrganizationName": "ORG_NAME",
+            "nc_AddressFullText": "ADDR_FULL",
+            "nc_VehicleIdentification": "VIN_NUMBER",
         },
-        'multi_value_fields': ['PRIMARY_NAME_MIDDLE', 'PHONE_NUMBER', 'EMAIL_ADDRESS'],
-        'date_formats': {
-            'input_formats': ['%Y-%m-%d', '%m/%d/%Y', '%Y%m%d'],
-            'output_format': '%Y-%m-%d'
-        },
-        'recommended_types': []
+        "multi_value_fields": ["PRIMARY_NAME_MIDDLE", "PHONE_NUMBER", "EMAIL_ADDRESS"],
+        "date_formats": {"input_formats": ["%Y-%m-%d", "%m/%d/%Y", "%Y%m%d"], "output_format": "%Y-%m-%d"},
+        "recommended_types": [],
     }
 
 
-def get_entity_category(entity: Dict) -> str:
+def get_entity_category(
+    entity: Dict,
+    discovery_indices: Optional[Dict] = None
+) -> str:
     """
     Determine the category of a NIEM entity for Senzing processing.
 
+    Uses schema-based discovery (if provided) with fallback to pattern matching.
+
     Args:
         entity: Entity dictionary from Neo4j
+        discovery_indices: Optional dict with 'person_types' and 'organization_types' sets
+                          from schema-based discovery
 
     Returns:
         Entity category: 'person', 'organization', 'address', 'vehicle', or 'other'
     """
+    qname = entity.get("qname", "")
+
+    # Try schema-based categorization first (if indices provided)
+    if discovery_indices:
+        from ..services.domain.schema.type_discovery import get_entity_category_from_schema
+
+        schema_category = get_entity_category_from_schema(
+            qname,
+            discovery_indices.get("person_types", set()),
+            discovery_indices.get("organization_types", set())
+        )
+        if schema_category:
+            return schema_category
+
+    # Fall back to pattern-based categorization
     config = load_mapping_config()
-    qname = entity.get('qname', '').lower()
+    qname_lower = qname.lower()
 
     # Check each category's patterns from configuration
-    for category, category_config in config.get('entity_categories', {}).items():
-        patterns = category_config.get('patterns', [])
-        if any(pattern in qname for pattern in patterns):
+    for category, category_config in config.get("entity_categories", {}).items():
+        patterns = category_config.get("patterns", [])
+        if any(pattern in qname_lower for pattern in patterns):
             return category
 
-    return 'other'
+    return "other"
 
 
 def get_senzing_record_type(entity_category: str) -> str:
@@ -132,8 +145,76 @@ def get_senzing_record_type(entity_category: str) -> str:
         Senzing record type
     """
     config = load_mapping_config()
-    category_config = config.get('entity_categories', {}).get(entity_category, {})
-    return category_config.get('senzing_record_type', 'GENERIC')
+    category_config = config.get("entity_categories", {}).get(entity_category, {})
+    return category_config.get("senzing_record_type", "GENERIC")
+
+
+def normalize_multi_value_field(value: Any) -> list:
+    """
+    Normalize a multi-value field to a consistent list format.
+
+    Handles various input formats:
+    - Python list: ['Death', 'Bredon']
+    - JSON array string: '["Death", "Bredon"]'
+    - JSON object array: '[{"nc_PersonMiddleName":"Death"},{"nc_PersonMiddleName":"Bredon"}]'
+    - Single value: 'Death'
+
+    Args:
+        value: The value to normalize (can be list, string, dict, etc.)
+
+    Returns:
+        List of normalized string values
+    """
+    # Already a list
+    if isinstance(value, list):
+        # Check if list contains dicts (e.g., [{"nc_PersonMiddleName":"Death"}])
+        if value and isinstance(value[0], dict):
+            # Extract values from dict objects
+            # Assume the dict has a single key-value pair or take first value
+            normalized = []
+            for item in value:
+                if isinstance(item, dict):
+                    # Get first non-empty value from the dict
+                    vals = [v for v in item.values() if v]
+                    if vals:
+                        normalized.append(str(vals[0]))
+                else:
+                    normalized.append(str(item))
+            return normalized
+        else:
+            # Simple list of values
+            return [str(v) for v in value if v]
+
+    # String value - might be JSON-encoded or Python repr
+    if isinstance(value, str):
+        value = value.strip()
+
+        # Try to parse as JSON or Python literal
+        if value.startswith('[') and value.endswith(']'):
+            try:
+                # Try JSON first (double quotes)
+                parsed = json.loads(value)
+                # Recursively normalize (handles nested objects)
+                return normalize_multi_value_field(parsed)
+            except json.JSONDecodeError:
+                # Try Python literal_eval (single quotes)
+                try:
+                    import ast
+                    parsed = ast.literal_eval(value)
+                    # Recursively normalize
+                    return normalize_multi_value_field(parsed)
+                except (ValueError, SyntaxError):
+                    # Not valid JSON or Python literal, treat as single value
+                    return [value] if value else []
+        else:
+            # Single string value
+            return [value] if value else []
+
+    # Other types (int, bool, etc.) - convert to string
+    if value is not None:
+        return [str(value)]
+
+    return []
 
 
 def neo4j_entity_to_senzing_record(entity: Dict, data_source: str = "NIEM_GRAPH") -> str:
@@ -147,13 +228,18 @@ def neo4j_entity_to_senzing_record(entity: Dict, data_source: str = "NIEM_GRAPH"
     Returns:
         JSON string formatted for Senzing ingestion
     """
-    props = entity.get('properties', {})
+    props = entity.get("properties", {})
+
+    # DEBUG: Print entity being processed
+    print(
+        f"\n[SENZING_DEBUG] Processing entity: neo4j_id={entity.get('neo4j_id')}, qname={entity.get('qname')}, properties_count={len(props)}"
+    )
 
     # Start with base record structure
     senzing_record = {
         "DATA_SOURCE": data_source,
-        "RECORD_ID": str(entity.get('entity_id') or entity.get('neo4j_id', '')),
-        "ENTITY_TYPE": get_entity_category(entity).upper()
+        "RECORD_ID": str(entity.get("entity_id") or entity.get("neo4j_id", "")),
+        "ENTITY_TYPE": get_entity_category(entity).upper(),
     }
 
     # Determine and add record type
@@ -161,17 +247,17 @@ def neo4j_entity_to_senzing_record(entity: Dict, data_source: str = "NIEM_GRAPH"
     senzing_record["RECORD_TYPE"] = get_senzing_record_type(entity_category)
 
     # Add metadata
-    senzing_record["SOURCE_FILE"] = entity.get('source', entity.get('sourceDoc', 'unknown'))
-    senzing_record["QNAME"] = entity.get('qname', 'unknown')
+    senzing_record["SOURCE_FILE"] = entity.get("source", entity.get("sourceDoc", "unknown"))
+    senzing_record["QNAME"] = entity.get("qname", "unknown")
     senzing_record["LOADED_DATE"] = datetime.utcnow().isoformat()
 
     # Load configuration
     config = load_mapping_config()
-    field_mappings = config.get('field_mappings', {})
-    multi_value_fields = config.get('multi_value_fields', [])
+    field_mappings = config.get("field_mappings", {})
+    multi_value_fields = config.get("multi_value_fields", [])
 
     # Add custom mappings if present
-    custom_mappings = config.get('custom_mappings', {})
+    custom_mappings = config.get("custom_mappings", {})
     field_mappings.update(custom_mappings)
 
     # Map NIEM properties to Senzing attributes
@@ -184,36 +270,41 @@ def neo4j_entity_to_senzing_record(entity: Dict, data_source: str = "NIEM_GRAPH"
         if niem_field in props:
             value = props[niem_field]
         # Without prefix (e.g., PersonFullName instead of nc_PersonFullName)
-        elif niem_field.replace('nc_', '').replace('j_', '').replace('cyfs_', '') in props:
-            value = props[niem_field.replace('nc_', '').replace('j_', '').replace('cyfs_', '')]
+        elif niem_field.replace("nc_", "").replace("j_", "").replace("cyfs_", "") in props:
+            value = props[niem_field.replace("nc_", "").replace("j_", "").replace("cyfs_", "")]
         # Try alternate naming conventions
-        elif niem_field.replace('_', '') in props:
-            value = props[niem_field.replace('_', '')]
+        elif niem_field.replace("_", "") in props:
+            value = props[niem_field.replace("_", "")]
 
-        if value is not None:
-            # Handle different value types
-            if isinstance(value, list):
-                # For lists, join with semicolon or take first value
-                if len(value) > 0:
-                    if senzing_field in multi_value_fields:
-                        # These fields can have multiple values
-                        senzing_record[senzing_field] = ';'.join(str(v) for v in value)
-                    else:
-                        # Take first value for single-value fields
-                        senzing_record[senzing_field] = str(value[0])
-            elif value != '':
-                senzing_record[senzing_field] = str(value)
+        if value is not None and value != "":
+            # Normalize the value to handle various formats (lists, JSON strings, dicts, etc.)
+            normalized_values = normalize_multi_value_field(value)
+
+            # DEBUG: Print each field mapping
+            print(f"[SENZING_DEBUG]   Mapped: {niem_field} → {senzing_field} = {repr(value)} → normalized: {normalized_values}")
+
+            # Convert normalized list to Senzing format
+            if normalized_values:
+                if senzing_field in multi_value_fields:
+                    # Multi-value fields: join with semicolon
+                    senzing_record[senzing_field] = ";".join(normalized_values)
+                else:
+                    # Single-value fields: take first value only
+                    senzing_record[senzing_field] = normalized_values[0]
 
     # Special handling for dates - ensure proper format
-    if 'DATE_OF_BIRTH' in senzing_record:
-        senzing_record['DATE_OF_BIRTH'] = format_date_for_senzing(senzing_record['DATE_OF_BIRTH'])
-    if 'DATE_OF_DEATH' in senzing_record:
-        senzing_record['DATE_OF_DEATH'] = format_date_for_senzing(senzing_record['DATE_OF_DEATH'])
+    if "DATE_OF_BIRTH" in senzing_record:
+        senzing_record["DATE_OF_BIRTH"] = format_date_for_senzing(senzing_record["DATE_OF_BIRTH"])
+    if "DATE_OF_DEATH" in senzing_record:
+        senzing_record["DATE_OF_DEATH"] = format_date_for_senzing(senzing_record["DATE_OF_DEATH"])
 
     # Add relationship information if available
-    relationships = entity.get('relationships', [])
+    relationships = entity.get("relationships", [])
     if relationships:
-        senzing_record['RELATIONSHIPS'] = json.dumps(relationships)
+        senzing_record["RELATIONSHIPS"] = json.dumps(relationships)
+
+    # DEBUG: Print final Senzing record
+    print(f"[SENZING_DEBUG] Final Senzing record: {json.dumps(senzing_record, indent=2)}\n")
 
     return json.dumps(senzing_record)
 
@@ -232,9 +323,9 @@ def format_date_for_senzing(date_str: str) -> str:
         return date_str
 
     config = load_mapping_config()
-    date_config = config.get('date_formats', {})
-    input_formats = date_config.get('input_formats', ['%Y-%m-%d', '%m/%d/%Y', '%Y%m%d'])
-    output_format = date_config.get('output_format', '%Y-%m-%d')
+    date_config = config.get("date_formats", {})
+    input_formats = date_config.get("input_formats", ["%Y-%m-%d", "%m/%d/%Y", "%Y%m%d"])
+    output_format = date_config.get("output_format", "%Y-%m-%d")
 
     for fmt in input_formats:
         try:
@@ -257,40 +348,42 @@ def senzing_result_to_neo4j_format(senzing_result: Dict) -> Dict:
     Returns:
         Dictionary formatted for Neo4j ResolvedEntity creation
     """
-    resolved_entity = senzing_result.get('RESOLVED_ENTITY', {})
+    resolved_entity = senzing_result.get("RESOLVED_ENTITY", {})
 
     neo4j_data = {
-        'entity_id': f"SE_{resolved_entity.get('ENTITY_ID', '')}",
-        'senzing_entity_id': resolved_entity.get('ENTITY_ID'),
-        'entity_name': resolved_entity.get('ENTITY_NAME', ''),
-        'match_key': resolved_entity.get('MATCH_KEY', ''),
-        'match_level': resolved_entity.get('MATCH_LEVEL', 0),
-        'match_score': resolved_entity.get('MATCH_SCORE', 0.0),
-        'resolved_at': datetime.utcnow().isoformat()
+        "entity_id": f"SE_{resolved_entity.get('ENTITY_ID', '')}",
+        "senzing_entity_id": resolved_entity.get("ENTITY_ID"),
+        "entity_name": resolved_entity.get("ENTITY_NAME", ""),
+        "match_key": resolved_entity.get("MATCH_KEY", ""),
+        "match_level": resolved_entity.get("MATCH_LEVEL", 0),
+        "match_score": resolved_entity.get("MATCH_SCORE", 0.0),
+        "resolved_at": datetime.utcnow().isoformat(),
     }
 
     # Add feature scores if available
-    features = resolved_entity.get('FEATURES', {})
+    features = resolved_entity.get("FEATURES", {})
     if features:
-        neo4j_data['name_score'] = features.get('NAME', [{}])[0].get('SCORE', 0)
-        neo4j_data['address_score'] = features.get('ADDRESS', [{}])[0].get('SCORE', 0)
-        neo4j_data['dob_score'] = features.get('DOB', [{}])[0].get('SCORE', 0)
-        neo4j_data['id_score'] = features.get('IDENTIFIER', [{}])[0].get('SCORE', 0)
+        neo4j_data["name_score"] = features.get("NAME", [{}])[0].get("SCORE", 0)
+        neo4j_data["address_score"] = features.get("ADDRESS", [{}])[0].get("SCORE", 0)
+        neo4j_data["dob_score"] = features.get("DOB", [{}])[0].get("SCORE", 0)
+        neo4j_data["id_score"] = features.get("IDENTIFIER", [{}])[0].get("SCORE", 0)
 
     # Extract records that were matched
-    records = resolved_entity.get('RECORDS', [])
-    neo4j_data['matched_records'] = []
+    records = resolved_entity.get("RECORDS", [])
+    neo4j_data["matched_records"] = []
 
     for record in records:
-        neo4j_data['matched_records'].append({
-            'data_source': record.get('DATA_SOURCE'),
-            'record_id': record.get('RECORD_ID'),
-            'match_key': record.get('MATCH_KEY'),
-            'match_type': record.get('MATCH_TYPE'),
-            'confidence': record.get('CONFIDENCE', 0)
-        })
+        neo4j_data["matched_records"].append(
+            {
+                "data_source": record.get("DATA_SOURCE"),
+                "record_id": record.get("RECORD_ID"),
+                "match_key": record.get("MATCH_KEY"),
+                "match_type": record.get("MATCH_TYPE"),
+                "confidence": record.get("CONFIDENCE", 0),
+            }
+        )
 
-    neo4j_data['record_count'] = len(records)
+    neo4j_data["record_count"] = len(records)
 
     return neo4j_data
 
@@ -310,7 +403,7 @@ def batch_convert_to_senzing(entities: List[Dict], data_source: str = "NIEM_GRAP
 
     for entity in entities:
         try:
-            record_id = str(entity.get('entity_id') or entity.get('neo4j_id', ''))
+            record_id = str(entity.get("entity_id") or entity.get("neo4j_id", ""))
             record_json = neo4j_entity_to_senzing_record(entity, data_source)
             senzing_records.append((data_source, record_id, record_json))
 
@@ -332,10 +425,10 @@ def extract_confidence_from_senzing(senzing_result: Dict) -> float:
     Returns:
         Confidence score between 0.0 and 1.0
     """
-    resolved_entity = senzing_result.get('RESOLVED_ENTITY', {})
+    resolved_entity = senzing_result.get("RESOLVED_ENTITY", {})
 
     # Get match score if available
-    match_score = resolved_entity.get('MATCH_SCORE', 0)
+    match_score = resolved_entity.get("MATCH_SCORE", 0)
 
     # Normalize to 0-1 range (Senzing scores can vary)
     if match_score > 100:

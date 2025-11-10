@@ -16,7 +16,7 @@ from minio.error import S3Error
 # Use defusedxml for secure XML parsing (prevents XXE attacks)
 import defusedxml.ElementTree as ET
 
-from ..clients.s3_client import upload_file
+from ..clients.s3_client import download_file, upload_file
 from ..clients.scheval_client import is_scheval_available
 from ..models.models import SchevalIssue, SchevalReport, SchemaResponse
 from ..services.cmf_tool import (
@@ -41,22 +41,16 @@ def _detect_niem_schema_type(xsd_content: str) -> str:
     """
     try:
         # Parse the XSD to find conformanceTargets attribute
-        root = ET.fromstring(xsd_content.encode('utf-8'))
+        root = ET.fromstring(xsd_content.encode("utf-8"))
 
         # Define namespace for conformance targets
-        ct_ns = (
-            "https://docs.oasis-open.org/niemopen/ns/specification/"
-            "conformanceTargets/6.0/"
-        )
+        ct_ns = "https://docs.oasis-open.org/niemopen/ns/specification/" "conformanceTargets/6.0/"
 
         # Get conformanceTargets attribute
         conformance_attr = root.get(f"{{{ct_ns}}}conformanceTargets")
 
         if not conformance_attr:
-            logger.warning(
-                "No ct:conformanceTargets attribute found in schema, "
-                "defaulting to subset"
-            )
+            logger.warning("No ct:conformanceTargets attribute found in schema, " "defaulting to subset")
             return "sub"
 
         # Parse space-separated conformance target URIs
@@ -79,10 +73,7 @@ def _detect_niem_schema_type(xsd_content: str) -> str:
                 return "sub"
 
         # Found conformanceTargets but no recognized schema type
-        logger.warning(
-            f"Unknown conformance targets: {conformance_attr}, "
-            f"defaulting to subset"
-        )
+        logger.warning(f"Unknown conformance targets: {conformance_attr}, " f"defaulting to subset")
         return "sub"
 
     except ET.ParseError as e:
@@ -106,14 +97,11 @@ def _extract_schema_imports(xsd_content: str) -> list[dict[str, Any]]:
     try:
         root = ET.fromstring(xsd_content)
         for elem in root.iter():
-            if elem.tag.endswith('}import') or elem.tag == 'import':
-                namespace = elem.get('namespace', '')
-                schema_location = elem.get('schemaLocation', '')
+            if elem.tag.endswith("}import") or elem.tag == "import":
+                namespace = elem.get("namespace", "")
+                schema_location = elem.get("schemaLocation", "")
                 if schema_location:
-                    imports.append({
-                        'namespace': namespace,
-                        'schema_location': schema_location
-                    })
+                    imports.append({"namespace": namespace, "schema_location": schema_location})
     except Exception as e:
         logger.warning(f"Failed to parse schema imports: {e}")
 
@@ -133,7 +121,7 @@ def _read_local_schemas(source_dir: Path) -> dict[str, str]:
     if source_dir and source_dir.exists():
         for xsd_file in source_dir.glob("*.xsd"):
             try:
-                with open(xsd_file, encoding='utf-8') as f:
+                with open(xsd_file, encoding="utf-8") as f:
                     local_schemas[xsd_file.name] = f.read()
             except Exception as e:
                 logger.warning(f"Failed to read local schema {xsd_file}: {e}")
@@ -159,6 +147,11 @@ def _setup_resolved_directory(source_dir: Path, schema_filename: str, xsd_conten
     if source_dir and source_dir.exists():
         # Copy all XSD files, preserving directory structure
         for schema_file in source_dir.rglob("*.xsd"):
+            # Skip directories that end with .xsd (like model.xsd folder)
+            if not schema_file.is_file():
+                logger.debug(f"Skipping directory with .xsd extension: {schema_file}")
+                continue
+
             rel_path = schema_file.relative_to(source_dir)
             target_path = resolved_dir / rel_path
 
@@ -166,22 +159,18 @@ def _setup_resolved_directory(source_dir: Path, schema_filename: str, xsd_conten
             shutil.copy2(schema_file, target_path)
             logger.info(f"Added local schema: {rel_path}")
 
-            if str(rel_path).startswith('niem/'):
+            if str(rel_path).startswith("niem/"):
                 logger.debug(f"Added NIEM schema to correct path: {rel_path}")
             else:
                 logger.debug(f"Added main/local schema: {rel_path}")
     else:
         # Single schema case
         main_schema_path = resolved_dir / schema_filename
-        with open(main_schema_path, 'w', encoding='utf-8') as f:
+        with open(main_schema_path, "w", encoding="utf-8") as f:
             f.write(xsd_content)
         logger.info(f"Added main schema: {schema_filename}")
 
     return resolved_dir
-
-
-
-
 
 
 def _create_error_response(error_type: str, error_msg: str, imports: list[dict[str, Any]]) -> dict[str, Any]:
@@ -202,7 +191,7 @@ def _create_error_response(error_type: str, error_msg: str, imports: list[dict[s
         "satisfied_imports": [],
         "missing_imports": imports,
         "blocking_issues": [f"{error_type}: {error_msg}"],
-        "resolved_schemas_count": 0
+        "resolved_schemas_count": 0,
     }
 
 
@@ -227,10 +216,15 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
         uploaded_schemas = {}
         if source_dir and source_dir.exists():
             for xsd_file in source_dir.rglob("*.xsd"):
+                # Skip directories that end with .xsd (like model.xsd folder)
+                if not xsd_file.is_file():
+                    logger.debug(f"Skipping directory with .xsd extension: {xsd_file}")
+                    continue
+
                 try:
                     # Use relative path as key to match import schemaLocation references
                     rel_path = str(xsd_file.relative_to(source_dir))
-                    with open(xsd_file, encoding='utf-8') as f:
+                    with open(xsd_file, encoding="utf-8") as f:
                         uploaded_schemas[rel_path] = f.read()
                     logger.info(f"Read schema with key: {rel_path}")
                 except Exception as e:
@@ -240,6 +234,7 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
 
         # Step 3: Validate dependencies using the new resolver
         from ..services.domain.schema import validate_schema_dependencies
+
         validation_result = validate_schema_dependencies(uploaded_schemas)
 
         # Step 4: Build ImportValidationReport from file_details
@@ -249,71 +244,69 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
         total_imports_count = 0
         total_namespaces_count = 0
 
-        for file_detail in validation_result.get('file_details', []):
+        for file_detail in validation_result.get("file_details", []):
             # Build ImportInfo objects
             imports = [
                 ImportInfo(
-                    schema_location=imp['schema_location'],
-                    namespace=imp.get('namespace', ''),
-                    status=imp['status'],
-                    expected_filename=imp.get('expected_filename')
+                    schema_location=imp["schema_location"],
+                    namespace=imp.get("namespace", ""),
+                    status=imp["status"],
+                    expected_filename=imp.get("expected_filename"),
                 )
-                for imp in file_detail.get('imports', [])
+                for imp in file_detail.get("imports", [])
             ]
             total_imports_count += len(imports)
 
             # Build NamespaceUsage objects
             namespaces = [
-                NamespaceUsage(
-                    prefix=ns['prefix'],
-                    namespace_uri=ns['namespace_uri'],
-                    status=ns['status']
-                )
-                for ns in file_detail.get('namespaces_used', [])
+                NamespaceUsage(prefix=ns["prefix"], namespace_uri=ns["namespace_uri"], status=ns["status"])
+                for ns in file_detail.get("namespaces_used", [])
             ]
             total_namespaces_count += len(namespaces)
 
-            file_import_infos.append(FileImportInfo(
-                filename=file_detail['filename'],
-                imports=imports,
-                namespaces_used=namespaces
-            ))
+            file_import_infos.append(
+                FileImportInfo(filename=file_detail["filename"], imports=imports, namespaces_used=namespaces)
+            )
 
         import_validation_report = ImportValidationReport(
-            status='pass' if validation_result['valid'] else 'fail',
+            status="pass" if validation_result["valid"] else "fail",
             files=file_import_infos,
-            summary=validation_result['summary'],
-            total_files=validation_result['total_schemas'],
+            summary=validation_result["summary"],
+            total_files=validation_result["total_schemas"],
             total_imports=total_imports_count,
             total_namespaces=total_namespaces_count,
-            missing_count=validation_result.get('total_missing_count', 0)
+            missing_count=validation_result.get("total_missing_count", 0),
         )
 
         # Step 5: Build legacy response for backward compatibility
-        can_convert = validation_result['valid']
+        can_convert = validation_result["valid"]
         missing_deps = []
         blocking_issues = []
 
         # Format missing imports for response
-        for missing_import in validation_result.get('missing_imports', []):
-            missing_deps.append({
-                'schema_location': missing_import['schema_location'],
-                'source_file': missing_import['source_file'],
-                'status': 'missing'
-            })
+        for missing_import in validation_result.get("missing_imports", []):
+            missing_deps.append(
+                {
+                    "schema_location": missing_import["schema_location"],
+                    "source_file": missing_import["source_file"],
+                    "status": "missing",
+                }
+            )
             blocking_issues.append(
                 f"Missing schema: {missing_import['expected_filename']} "
                 f"(imported by {missing_import['source_file']} as {missing_import['schema_location']})"
             )
 
         # Format missing namespaces for response
-        for missing_ns in validation_result.get('missing_namespaces', []):
-            missing_deps.append({
-                'namespace': missing_ns['namespace_uri'],
-                'prefix': missing_ns['prefix'],
-                'source_file': missing_ns['source_file'],
-                'status': 'missing'
-            })
+        for missing_ns in validation_result.get("missing_namespaces", []):
+            missing_deps.append(
+                {
+                    "namespace": missing_ns["namespace_uri"],
+                    "prefix": missing_ns["prefix"],
+                    "source_file": missing_ns["source_file"],
+                    "status": "missing",
+                }
+            )
             blocking_issues.append(
                 f"Missing schema for namespace {missing_ns['namespace_uri']} "
                 f"(used as {missing_ns['prefix']}: in {missing_ns['source_file']})"
@@ -321,17 +314,16 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
 
         return {
             "can_convert": can_convert,
-            "summary": validation_result['summary'],
+            "summary": validation_result["summary"],
             "total_imports": (
-                len(validation_result.get('missing_imports', []))
-                + len(validation_result.get('missing_namespaces', []))
+                len(validation_result.get("missing_imports", [])) + len(validation_result.get("missing_namespaces", []))
             ),
             "satisfied_imports": [],
             "missing_imports": missing_deps,
             "blocking_issues": blocking_issues,
-            "resolved_schemas_count": validation_result['total_schemas'],
+            "resolved_schemas_count": validation_result["total_schemas"],
             "temp_path": resolved_dir,
-            "import_validation_report": import_validation_report
+            "import_validation_report": import_validation_report,
         }
 
     except Exception as e:
@@ -344,7 +336,7 @@ def _validate_schema_dependencies(source_dir: Path, schema_filename: str, xsd_co
             "missing_imports": [],
             "blocking_issues": [f"Validation failed: {str(e)}"],
             "resolved_schemas_count": 0,
-            "temp_path": None
+            "temp_path": None,
         }
 
 
@@ -380,7 +372,7 @@ async def _validate_and_read_files(
     non_xsd_count = 0
 
     for file, path in zip(files, file_paths, strict=False):
-        if not file.filename.endswith('.xsd'):
+        if not file.filename.endswith(".xsd"):
             logger.warning(f"Ignoring non-XSD file: {file.filename}")
             non_xsd_count += 1
             continue
@@ -406,14 +398,16 @@ async def _validate_and_read_files(
     primary_file = xsd_files[0]
 
     # Validate total file size (configurable limit, defaults to 20MB)
-    max_file_size_mb = int(os.getenv("MAX_SCHEMA_FILE_SIZE_MB", "20"))
+    from ..core.env_utils import getenv_int
+    
+    max_file_size_mb = getenv_int("MAX_SCHEMA_FILE_SIZE_MB", 20)
     max_file_size_bytes = max_file_size_mb * 1024 * 1024
     if total_size > max_file_size_bytes:
         raise HTTPException(status_code=400, detail=f"Total file size exceeds {max_file_size_mb}MB limit")
 
     # Generate schema ID with timestamp for uniqueness based on all files
     timestamp = datetime.now(UTC).isoformat()
-    all_content = b''.join(file_contents.values()) + b''.join(f.filename.encode() for f in files)
+    all_content = b"".join(file_contents.values()) + b"".join(f.filename.encode() for f in files)
     schema_id = hashlib.sha256(all_content + timestamp.encode()).hexdigest()
 
     return file_contents, file_path_map, primary_file, schema_id
@@ -431,9 +425,7 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
     Returns:
         Aggregated scheval validation report with line/column information
     """
-    logger.info(
-        f"Running NIEM NDR validation (scheval) on {len(file_contents)} files"
-    )
+    logger.info(f"Running NIEM NDR validation (scheval) on {len(file_contents)} files")
 
     if not is_scheval_available():
         logger.warning("Scheval tool not available, skipping NIEM NDR validation")
@@ -444,7 +436,7 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
             errors=[],
             warnings=[],
             summary={"total_issues": 0, "error_count": 0, "warning_count": 0},
-            metadata={"tool_available": False}
+            metadata={"tool_available": False},
         )
 
     # Detect schema type from the first file's conformance targets
@@ -452,7 +444,7 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
     for filename, content in file_contents.items():
         try:
             detected_type = _detect_niem_schema_type(content.decode())
-            if detected_type and detected_type in ['ref', 'ext', 'sub']:
+            if detected_type and detected_type in ["ref", "ext", "sub"]:
                 schema_type = detected_type
                 logger.info(f"Detected schema type '{schema_type}' from {filename}")
                 break
@@ -461,11 +453,11 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
 
     # Default to 'sub' (subset - most lenient) if type could not be detected
     if not schema_type:
-        schema_type = 'sub'
+        schema_type = "sub"
         logger.warning("Could not detect schema type, defaulting to 'sub' (subset)")
 
-    if schema_type not in ['ref', 'ext', 'sub']:
-        schema_type = 'sub'
+    if schema_type not in ["ref", "ext", "sub"]:
+        schema_type = "sub"
 
     # Get path to pre-compiled XSLT file
     xslt_filename = f"{schema_type}Target-6.0.xsl"
@@ -480,7 +472,7 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
             errors=[],
             warnings=[],
             summary={"total_issues": 0, "error_count": 0, "warning_count": 0},
-            metadata={"xslt_path": str(xslt_path), "xslt_found": False}
+            metadata={"xslt_path": str(xslt_path), "xslt_found": False},
         )
 
     scheval_validator = SchevalValidator()
@@ -497,9 +489,7 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
         logger.info(f"Validating {filename} with scheval using {xslt_filename}")
         try:
             scheval_result = await scheval_validator.validate_xsd_with_schematron(
-                content.decode(),
-                str(xslt_path),
-                use_compiled_xslt=True
+                content.decode(), str(xslt_path), use_compiled_xslt=True
             )
 
             # Track overall status
@@ -527,14 +517,16 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
             logger.error(f"Failed to validate {filename} with scheval: {e}")
             has_failures = True
             # Add error for failed validation
-            all_errors.append({
-                "file": filename,
-                "line": 1,
-                "column": 1,
-                "message": f"Scheval validation failed: {str(e)}",
-                "severity": "error",
-                "rule": None
-            })
+            all_errors.append(
+                {
+                    "file": filename,
+                    "line": 1,
+                    "column": 1,
+                    "message": f"Scheval validation failed: {str(e)}",
+                    "severity": "error",
+                    "rule": None,
+                }
+            )
             total_error_count += 1
 
     # Determine overall status
@@ -552,11 +544,11 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
 
     # Map schema type to conformance target URI
     conformance_target_map = {
-        'ref': 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#ReferenceSchemaDocument',
-        'ext': 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#ExtensionSchemaDocument',
-        'sub': 'https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#SubsetSchemaDocument',
+        "ref": "https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#ReferenceSchemaDocument",
+        "ext": "https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#ExtensionSchemaDocument",
+        "sub": "https://docs.oasis-open.org/niemopen/ns/specification/NDR/6.0/#SubsetSchemaDocument",
     }
-    conformance_target = conformance_target_map.get(schema_type, conformance_target_map['sub'])
+    conformance_target = conformance_target_map.get(schema_type, conformance_target_map["sub"])
 
     # Convert to SchevalIssue objects
     scheval_errors = [SchevalIssue(**error) for error in all_errors]
@@ -572,23 +564,16 @@ async def _validate_all_scheval(file_contents: dict[str, bytes]) -> SchevalRepor
             "total_issues": total_error_count + total_warning_count,
             "error_count": total_error_count,
             "warning_count": total_warning_count,
-            "files_validated": len(file_contents)
+            "files_validated": len(file_contents),
         },
-        metadata={
-            "schema_type": schema_type,
-            "xslt_file": xslt_filename,
-            "validation_tool": "scheval"
-        }
+        metadata={"schema_type": schema_type, "xslt_file": xslt_filename, "validation_tool": "scheval"},
     )
 
     return scheval_report
 
 
 async def _convert_to_cmf(
-    file_contents: dict[str, bytes],
-    file_path_map: dict[str, str],
-    primary_file: UploadFile,
-    primary_content: bytes
+    file_contents: dict[str, bytes], file_path_map: dict[str, str], primary_file: UploadFile, primary_content: bytes
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Convert XSD to CMF and optionally to JSON Schema.
 
@@ -605,10 +590,7 @@ async def _convert_to_cmf(
 
     if not is_cmf_available():
         logger.error("CMF tool not available")
-        raise HTTPException(
-            status_code=500,
-            detail="Schema upload failed: CMF tool is not available on this server"
-        )
+        raise HTTPException(status_code=500, detail="Schema upload failed: CMF tool is not available on this server")
 
     import tempfile
     from pathlib import Path
@@ -620,12 +602,14 @@ async def _convert_to_cmf(
         for filename, content in file_contents.items():
             # Get the relative path for this file (preserves directory structure)
             relative_path = file_path_map.get(filename, filename)
+
+            # Use original paths for file writing - no cleaning needed here
             schema_file_path = temp_path / relative_path
 
             # Create parent directories if needed
             schema_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(schema_file_path, 'w', encoding='utf-8') as f:
+            with open(schema_file_path, "w", encoding="utf-8") as f:
                 f.write(content.decode())
             logger.info(f"Created temporary schema file: {relative_path}")
 
@@ -633,9 +617,9 @@ async def _convert_to_cmf(
         logger.info("Validating schema dependencies")
         # Get primary file's relative path
         primary_file_path = file_path_map.get(primary_file.filename, primary_file.filename)
-        dependency_report = _validate_schema_dependencies(
-            temp_path, primary_file_path, primary_content.decode()
-        )
+
+        # The path has already been cleaned up above where we replace .xsd in folder names
+        dependency_report = _validate_schema_dependencies(temp_path, primary_file_path, primary_content.decode())
         logger.info(f"Dependency validation: {dependency_report['summary']}")
 
         # Get the resolved directory path for cleanup
@@ -650,24 +634,21 @@ async def _convert_to_cmf(
                 return {
                     "status": "dependency_failed",
                     "dependency_report": dependency_report,
-                    "import_validation_report": dependency_report.get("import_validation_report")
+                    "import_validation_report": dependency_report.get("import_validation_report"),
                 }, None
 
             logger.info("All dependencies satisfied, proceeding with CMF conversion")
 
             # Convert XSD to CMF using resolved temp path with primary file's relative path
-            cmf_conversion_result = convert_xsd_to_cmf(
-                resolved_temp_path, primary_file_path
-            )
+            cmf_conversion_result = convert_xsd_to_cmf(resolved_temp_path, primary_file_path)
 
             logger.info(
-                f"CMF conversion result: "
-                f"{cmf_conversion_result.get('status') if cmf_conversion_result else 'None'}"
+                f"CMF conversion result: " f"{cmf_conversion_result.get('status') if cmf_conversion_result else 'None'}"
             )
 
             if cmf_conversion_result.get("status") != "success":
-                error_msg = cmf_conversion_result.get('error', 'Unknown CMF conversion error')
-                error_details = cmf_conversion_result.get('details', [])
+                error_msg = cmf_conversion_result.get("error", "Unknown CMF conversion error")
+                error_details = cmf_conversion_result.get("details", [])
 
                 # Log detailed error information
                 logger.error(f"XSD to CMF conversion failed: {error_msg}")
@@ -690,30 +671,25 @@ async def _convert_to_cmf(
                 cmf_content = cmf_conversion_result["cmf_content"]
                 json_schema_conversion_result = convert_cmf_to_jsonschema(cmf_content)
                 if json_schema_conversion_result.get("status") != "success":
-                    error_msg = json_schema_conversion_result.get('error', 'Unknown error')
-                    error_details = json_schema_conversion_result.get('details', [])
-                    logger.error(
-                        f"CMF to JSON Schema conversion failed: {error_msg}"
-                    )
+                    error_msg = json_schema_conversion_result.get("error", "Unknown error")
+                    error_details = json_schema_conversion_result.get("details", [])
+                    logger.error(f"CMF to JSON Schema conversion failed: {error_msg}")
                     if error_details:
                         logger.error(f"Error details: {error_details}")
                     # Keep the result with error info for user feedback
             except Exception as e:
                 logger.error(f"CMF to JSON Schema conversion exception: {e}", exc_info=True)
                 # Create error result structure
-                json_schema_conversion_result = {
-                    "status": "error",
-                    "error": str(e),
-                    "details": []
-                }
+                json_schema_conversion_result = {"status": "error", "error": str(e), "details": []}
 
             return cmf_conversion_result, json_schema_conversion_result
 
         finally:
             # Clean up the resolved directory if it's different from temp_path
-            if 'resolved_temp_path' in locals() and resolved_temp_path and resolved_temp_path != temp_path:
+            if "resolved_temp_path" in locals() and resolved_temp_path and resolved_temp_path != temp_path:
                 try:
                     import shutil
+
                     shutil.rmtree(resolved_temp_path)
                     logger.debug(f"Cleaned up resolved schema directory: {resolved_temp_path}")
                 except Exception as cleanup_error:
@@ -727,7 +703,7 @@ async def _store_schema_files(
     file_contents: dict[str, bytes],
     file_path_map: dict[str, str],
     cmf_conversion_result: dict[str, Any] | None,
-    json_schema_conversion_result: dict[str, Any] | None
+    json_schema_conversion_result: dict[str, Any] | None,
 ) -> None:
     """Store all schema-related files in MinIO.
 
@@ -750,29 +726,25 @@ async def _store_schema_files(
 
     # Extract base name from primary filename (remove path and .xsd extension)
     # Handle both forward slashes (Unix/Mac) and backslashes (Windows)
-    filename_only = primary_filename.replace('\\', '/').split('/')[-1]
-    base_name = filename_only.rsplit('.xsd', 1)[0] if filename_only.endswith('.xsd') else filename_only
+    filename_only = primary_filename.replace("\\", "/").split("/")[-1]
+    base_name = filename_only.rsplit(".xsd", 1)[0] if filename_only.endswith(".xsd") else filename_only
 
     # Store CMF file if conversion succeeded
     if cmf_conversion_result and cmf_conversion_result.get("cmf_content"):
-        cmf_content = cmf_conversion_result["cmf_content"].encode('utf-8')
+        cmf_content = cmf_conversion_result["cmf_content"].encode("utf-8")
         cmf_filename = f"{base_name}.cmf"
         await upload_file(s3, "niem-schemas", f"{schema_id}/{cmf_filename}", cmf_content, "application/xml")
         logger.info(f"Successfully converted and stored CMF file: {cmf_filename}")
 
     # Store JSON Schema file if conversion succeeded
     if json_schema_conversion_result and json_schema_conversion_result.get("jsonschema"):
-        json_schema_content = json.dumps(json_schema_conversion_result["jsonschema"], indent=2).encode('utf-8')
+        json_schema_content = json.dumps(json_schema_conversion_result["jsonschema"], indent=2).encode("utf-8")
         json_filename = f"{base_name}.json"
         await upload_file(s3, "niem-schemas", f"{schema_id}/{json_filename}", json_schema_content, "application/json")
         logger.info(f"Successfully converted and stored JSON Schema file: {json_filename}")
 
 
-async def _generate_and_store_mapping(
-    s3: Minio,
-    schema_id: str,
-    cmf_conversion_result: dict[str, Any] | None
-) -> None:
+async def _generate_and_store_mapping(s3: Minio, schema_id: str, cmf_conversion_result: dict[str, Any] | None) -> None:
     """Generate mapping YAML from CMF and store it.
 
     Args:
@@ -780,10 +752,7 @@ async def _generate_and_store_mapping(
         schema_id: Generated schema ID
         cmf_conversion_result: CMF conversion result
     """
-    has_cmf_content = (
-        cmf_conversion_result.get('cmf_content') is not None
-        if cmf_conversion_result else False
-    )
+    has_cmf_content = cmf_conversion_result.get("cmf_content") is not None if cmf_conversion_result else False
     if not (cmf_conversion_result and cmf_conversion_result.get("cmf_content")):
         return
 
@@ -802,7 +771,7 @@ async def _generate_and_store_mapping(
 
         # Convert to YAML and store
         mapping_yaml = yaml.dump(mapping_dict, default_flow_style=False, indent=2)
-        mapping_content = mapping_yaml.encode('utf-8')
+        mapping_content = mapping_yaml.encode("utf-8")
         await upload_file(s3, "niem-schemas", f"{schema_id}/mapping.yaml", mapping_content, "application/x-yaml")
 
         # Log results
@@ -818,8 +787,7 @@ async def _generate_and_store_mapping(
         logger.error(f"Failed to generate mapping YAML: {e}")
         # Mapping generation is required - fail the upload
         raise HTTPException(
-            status_code=500,
-            detail=f"Schema upload failed: Could not generate required mapping YAML - {str(e)}"
+            status_code=500, detail=f"Schema upload failed: Could not generate required mapping YAML - {str(e)}"
         ) from e
 
 
@@ -829,7 +797,7 @@ async def _store_schema_metadata(
     primary_file: UploadFile,
     file_contents: dict[str, bytes],
     timestamp: str,
-    json_schema_conversion_result: dict[str, Any] | None = None
+    json_schema_conversion_result: dict[str, Any] | None = None,
 ) -> None:
     """Store schema metadata and mark as active.
 
@@ -842,8 +810,8 @@ async def _store_schema_metadata(
         json_schema_conversion_result: JSON Schema conversion result (optional)
     """
     # Calculate JSON schema and CMF filenames from primary filename
-    filename_only = primary_file.filename.replace('\\', '/').split('/')[-1]
-    base_name = filename_only.rsplit('.xsd', 1)[0] if filename_only.endswith('.xsd') else filename_only
+    filename_only = primary_file.filename.replace("\\", "/").split("/")[-1]
+    base_name = filename_only.rsplit(".xsd", 1)[0] if filename_only.endswith(".xsd") else filename_only
     cmf_filename = f"{base_name}.cmf"
 
     # Store schema metadata in MinIO
@@ -854,7 +822,7 @@ async def _store_schema_metadata(
         "all_filenames": list(file_contents.keys()),
         "uploaded_at": timestamp,
         "known_gaps": "",
-        "is_active": True  # Latest uploaded schema is automatically active
+        "is_active": True,  # Latest uploaded schema is automatically active
     }
 
     # Only include json_schema_filename if conversion succeeded
@@ -871,10 +839,7 @@ async def _store_schema_metadata(
 
 
 async def handle_schema_upload(
-    files: list[UploadFile],
-    s3: Minio,
-    skip_niem_ndr: bool = False,
-    file_paths: list[str] = None
+    files: list[UploadFile], s3: Minio, skip_niem_ndr: bool = False, file_paths: list[str] = None
 ) -> SchemaResponse:
     """Handle XSD schema upload and validation - supports multiple related XSD files
 
@@ -890,7 +855,8 @@ async def handle_schema_upload(
         primary_content = file_contents[primary_file.filename]
         timestamp = datetime.now(UTC).isoformat()
 
-        # Step 2: Validate NIEM NDR conformance using scheval (unless skipped)
+        # Step 2: Validate NIEM Naming & Design Rules conformance using scheval (unless skipped)
+        # Note: scheval runs the NIEM NDR schematron rules and provides detailed error reporting
         scheval_report = None
         if not skip_niem_ndr:
             scheval_report = await _validate_all_scheval(file_contents)
@@ -907,39 +873,45 @@ async def handle_schema_upload(
             "fail",
             "error",
         )
-        import_has_errors = cmf_conversion_result and cmf_conversion_result.get(
-            "status"
-        ) in ("dependency_failed", "fail", "error")
+        import_has_errors = cmf_conversion_result and cmf_conversion_result.get("status") in (
+            "dependency_failed",
+            "fail",
+            "error",
+        )
 
         if scheval_has_errors or import_has_errors:
             # Extract import validation report
             import_validation_report = (
-                cmf_conversion_result.get("import_validation_report")
-                if cmf_conversion_result else None
+                cmf_conversion_result.get("import_validation_report") if cmf_conversion_result else None
             )
 
             # Build combined error message
             error_parts = []
             if scheval_has_errors:
                 scheval_error_count = scheval_report.summary.get("error_count", 0)
-                error_parts.append(
-                    f"NIEM NDR validation found {scheval_error_count} error(s)"
-                )
+                error_parts.append(f"NIEM NDR validation found {scheval_error_count} error(s)")
             if import_has_errors:
                 cmf_status = cmf_conversion_result.get("status")
                 if cmf_status == "dependency_failed":
-                    blocking_issues = (
-                        cmf_conversion_result.get("dependency_report", {}).get(
-                            "blocking_issues", []
+                    dependency_report = cmf_conversion_result.get("dependency_report", {})
+                    blocking_issues = dependency_report.get("blocking_issues", [])
+
+                    # Create detailed error message with specific missing dependencies
+                    if blocking_issues:
+                        missing_deps_details = ", ".join(blocking_issues[:5])  # Show first 5
+                        if len(blocking_issues) > 5:
+                            missing_deps_details += f", and {len(blocking_issues) - 5} more"
+                        error_parts.append(
+                            f"Missing {len(blocking_issues)} required schema dependencies: {missing_deps_details}"
                         )
-                    )
-                    error_parts.append(
-                        f"Missing {len(blocking_issues)} required schema dependencies"
-                    )
+                    else:
+                        # Fallback if no specific issues listed
+                        error_parts.append(
+                            f"Schema dependency validation failed: {dependency_report.get('summary', 'Unknown dependency issue')}"
+                        )
                 else:
                     error_parts.append(
-                        f"CMF conversion failed: "
-                        f"{cmf_conversion_result.get('error', 'Unknown error')}"
+                        f"CMF conversion failed: " f"{cmf_conversion_result.get('error', 'Unknown error')}"
                     )
 
             combined_message = "Schema upload rejected: " + " and ".join(error_parts)
@@ -949,33 +921,32 @@ async def handle_schema_upload(
                 status_code=400,
                 detail={
                     "message": combined_message,
-                    "scheval_report": (
-                        scheval_report.model_dump() if scheval_report else None
-                    ),
+                    "scheval_report": (scheval_report.model_dump() if scheval_report else None),
                     "import_validation_report": (
-                        import_validation_report.model_dump()
-                        if import_validation_report
-                        else None
+                        import_validation_report.model_dump() if import_validation_report else None
                     ),
-                    "cmf_error": (
-                        cmf_conversion_result.get("error")
-                        if import_has_errors
-                        else None
-                    ),
+                    "cmf_error": (cmf_conversion_result.get("error") if import_has_errors else None),
                 },
             )
 
         # Step 4: Store all schema files
         await _store_schema_files(
-            s3, schema_id, primary_file.filename, file_contents, file_path_map,
-            cmf_conversion_result, json_schema_conversion_result
+            s3,
+            schema_id,
+            primary_file.filename,
+            file_contents,
+            file_path_map,
+            cmf_conversion_result,
+            json_schema_conversion_result,
         )
 
         # Step 5: Generate and store mapping YAML
         await _generate_and_store_mapping(s3, schema_id, cmf_conversion_result)
 
         # Step 6: Store metadata and mark as active
-        await _store_schema_metadata(s3, schema_id, primary_file, file_contents, timestamp, json_schema_conversion_result)
+        await _store_schema_metadata(
+            s3, schema_id, primary_file, file_contents, timestamp, json_schema_conversion_result
+        )
 
         # Extract import validation report from CMF conversion result
         import_validation_report = cmf_conversion_result.get("import_validation_report")
@@ -997,7 +968,7 @@ async def handle_schema_upload(
             scheval_report=scheval_report,
             import_validation_report=import_validation_report,
             is_active=True,  # Latest uploaded schema is automatically active
-            warnings=warnings
+            warnings=warnings,
         )
 
     except Exception as e:
@@ -1051,16 +1022,17 @@ def get_all_schemas(s3: Minio):
                 raise
 
         for obj in objects:
-            if obj.object_name.endswith('/') and obj.object_name != "active_schema.json":
-                schema_dir = obj.object_name.rstrip('/')
+            if obj.object_name.endswith("/") and obj.object_name != "active_schema.json":
+                schema_dir = obj.object_name.rstrip("/")
 
                 # Load metadata for this schema
                 try:
                     from ..clients.s3_client import get_json_content
+
                     metadata = get_json_content(s3, "niem-schemas", f"{schema_dir}/metadata.json")
 
                     # Mark as active if it matches the active schema
-                    metadata["active"] = (metadata["schema_id"] == active_schema_id)
+                    metadata["active"] = metadata["schema_id"] == active_schema_id
                     schemas.append(metadata)
 
                 except S3Error:
@@ -1079,6 +1051,7 @@ def get_all_schemas(s3: Minio):
 def get_active_schema_id(s3: Minio) -> str | None:
     """Get the currently active schema ID"""
     from ..clients.s3_client import get_json_content
+
     try:
         active_data = get_json_content(s3, "niem-schemas", "active_schema.json")
         return active_data.get("active_schema_id")
@@ -1089,6 +1062,7 @@ def get_active_schema_id(s3: Minio) -> str | None:
 def get_schema_metadata(s3: Minio, schema_id: str) -> dict | None:
     """Get metadata for a specific schema"""
     from ..clients.s3_client import get_json_content
+
     try:
         return get_json_content(s3, "niem-schemas", f"{schema_id}/metadata.json")
     except S3Error:
@@ -1110,11 +1084,8 @@ async def handle_schema_file_download(schema_id: str, file_type: str, s3: Minio)
         HTTPException: If schema not found or file type invalid
     """
     # Validate file type
-    if file_type not in ['cmf', 'json']:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type '{file_type}'. Must be 'cmf' or 'json'"
-        )
+    if file_type not in ["cmf", "json"]:
+        raise HTTPException(status_code=400, detail=f"Invalid file type '{file_type}'. Must be 'cmf' or 'json'")
 
     # Get schema metadata to determine filename
     metadata = get_schema_metadata(s3, schema_id)
@@ -1122,26 +1093,336 @@ async def handle_schema_file_download(schema_id: str, file_type: str, s3: Minio)
         raise HTTPException(status_code=404, detail="Schema not found")
 
     # Determine the filename to download
-    if file_type == 'cmf':
-        filename = metadata.get('cmf_filename')
+    if file_type == "cmf":
+        filename = metadata.get("cmf_filename")
     else:  # json
-        filename = metadata.get('json_schema_filename')
+        filename = metadata.get("json_schema_filename")
 
     if not filename:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No {file_type.upper()} file found for this schema"
-        )
+        raise HTTPException(status_code=404, detail=f"No {file_type.upper()} file found for this schema")
 
     # Download file from MinIO
     from ..clients.s3_client import download_file
+
     try:
         object_path = f"{schema_id}/{filename}"
         content = await download_file(s3, "niem-schemas", object_path)
         return content, filename
     except S3Error as e:
         logger.error(f"Failed to download {file_type} file for schema {schema_id}: {e}")
+        raise HTTPException(status_code=404, detail=f"{file_type.upper()} file not found in storage") from e
+
+
+async def handle_get_element_tree(schema_id: str, s3: Minio):
+    """Get element tree structure for graph schema design.
+
+    Retrieves the source XSD files for a schema and builds a hierarchical tree
+    structure with metadata for the graph schema designer UI.
+
+    Args:
+        schema_id: Schema ID
+        s3: MinIO client
+
+    Returns:
+        Dictionary containing element tree data with nodes, metadata, and warnings
+
+    Raises:
+        HTTPException: If schema not found or XSD files not available
+    """
+    # Get schema metadata
+    metadata = get_schema_metadata(s3, schema_id)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Schema not found")
+
+    primary_filename = metadata.get("primary_filename")
+    all_filenames = metadata.get("all_filenames", [])
+
+    if not primary_filename or not all_filenames:
         raise HTTPException(
-            status_code=404,
-            detail=f"{file_type.upper()} file not found in storage"
-        ) from e
+            status_code=404, detail="No source XSD files found for this schema. Upload may still be processing."
+        )
+
+    # Download all source XSD files from MinIO
+    from ..clients.s3_client import download_file
+
+    xsd_files = {}
+    try:
+        for filename in all_filenames:
+            object_path = f"{schema_id}/source/{filename}"
+            content = await download_file(s3, "niem-schemas", object_path)
+            xsd_files[filename] = content
+    except S3Error as e:
+        logger.error(f"Failed to download XSD files for schema {schema_id}: {e}")
+        raise HTTPException(status_code=404, detail="XSD files not found in storage") from e
+
+    # Build element tree from XSD
+    from ..services.domain.schema.xsd_element_tree import build_element_tree_from_xsd, flatten_tree_to_list
+
+    try:
+        tree_nodes = build_element_tree_from_xsd(primary_filename, xsd_files)
+        flattened = flatten_tree_to_list(tree_nodes)
+
+        return {
+            "schema_id": schema_id,
+            "nodes": flattened,
+            "total_nodes": len(flattened),
+            "metadata": {"schema_name": metadata.get("primary_filename"), "created_at": metadata.get("uploaded_at")},
+        }
+    except Exception as e:
+        logger.error(f"Failed to build element tree for schema {schema_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to build element tree: {str(e)}") from e
+
+
+async def handle_apply_schema_design(schema_id: str, selections: dict[str, bool], s3: Minio):
+    """Apply user schema design selections and regenerate mapping.yaml.
+
+    Takes user node selections and applies the flattening strategy to generate
+    a customized mapping.yaml file directly from XSD schema files.
+
+    Args:
+        schema_id: Schema ID
+        selections: Dictionary mapping qnames to selection state (True = create node)
+        s3: MinIO client
+
+    Returns:
+        Dictionary containing success message and updated schema metadata
+
+    Raises:
+        HTTPException: If schema not found, XSD files not available, or design application fails
+    """
+    # Get schema metadata
+    metadata = get_schema_metadata(s3, schema_id)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Schema not found")
+
+    # Get XSD files for validation and schema design
+    primary_filename = metadata.get("primary_filename")
+    all_filenames = metadata.get("all_filenames", [])
+
+    if not primary_filename or not all_filenames:
+        raise HTTPException(status_code=404, detail="No source XSD files found for validation")
+
+    # Download XSD files for element tree
+    xsd_files = {}
+    try:
+        for filename in all_filenames:
+            object_path = f"{schema_id}/source/{filename}"
+            content = await download_file(s3, "niem-schemas", object_path)
+            xsd_files[filename] = content
+    except S3Error as e:
+        logger.error(f"Failed to download XSD files for schema {schema_id}: {e}")
+        raise HTTPException(status_code=404, detail="XSD files not found in storage") from e
+
+    # Check if any elements are selected
+    selected_count = sum(1 for v in selections.values() if v)
+
+    # If no selections, delete selections.json to enable dynamic mode
+    if selected_count == 0:
+        selections_path = f"{schema_id}/selections.json"
+        try:
+            # Try to delete selections.json if it exists
+            try:
+                s3.remove_object("niem-schemas", selections_path)
+                logger.info(f"Deleted selections.json for schema {schema_id} to enable dynamic mode")
+            except S3Error as e:
+                if e.code != "NoSuchKey":
+                    # If it's not a "not found" error, log it but continue
+                    logger.warning(f"Failed to delete selections.json for schema {schema_id}: {e}")
+                else:
+                    logger.info(f"selections.json not found for schema {schema_id}, dynamic mode already enabled")
+
+            # Update metadata to indicate dynamic mode
+            metadata["design_applied"] = False
+            metadata["design_applied_at"] = datetime.now(UTC).isoformat()
+            metadata["selected_node_count"] = 0
+
+            # Store updated metadata
+            metadata_json = json.dumps(metadata, indent=2)
+            metadata_path = f"{schema_id}/metadata.json"
+
+            await upload_file(
+                client=s3,
+                bucket="niem-schemas",
+                object_name=metadata_path,
+                data=metadata_json.encode("utf-8"),
+                content_type="application/json",
+            )
+
+            return {
+                "success": True,
+                "valid": True,
+                "can_proceed": True,
+                "message": "Dynamic mode enabled (no selections - all complex elements will become nodes)",
+                "schema_id": schema_id,
+                "selected_nodes": 0,
+                "mode": "dynamic",
+            }
+        except Exception as e:
+            logger.error(f"Failed to enable dynamic mode for schema {schema_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to enable dynamic mode: {str(e)}") from e
+
+    # Build element tree and validate (only if selections exist)
+    from ..services.domain.schema.xsd_element_tree import build_element_tree_from_xsd, flatten_tree_to_list
+    from ..services.domain.schema.validation import SchemaDesignValidator
+
+    try:
+        tree_nodes = build_element_tree_from_xsd(primary_filename, xsd_files)
+        flattened = flatten_tree_to_list(tree_nodes)
+
+        # Validate selections
+        validator = SchemaDesignValidator()
+        validation_result = validator.validate(selections, flattened)
+
+        # If validation errors exist, return 400 with errors
+        if not validation_result.can_proceed:
+            return {
+                "success": False,
+                "valid": False,
+                "can_proceed": False,
+                "errors": [
+                    {
+                        "severity": err.severity.value,
+                        "type": err.type,
+                        "message": err.message,
+                        "element": err.element,
+                        "recommendation": err.recommendation,
+                        "impact": err.impact,
+                    }
+                    for err in validation_result.errors
+                ],
+            }
+    except Exception as e:
+        logger.error(f"Failed to validate schema design for schema {schema_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to validate schema design: {str(e)}") from e
+
+    # Apply schema design using XSD
+    from ..services.domain.schema.xsd_schema_designer import apply_schema_design_from_xsd
+
+    try:
+        custom_mapping = apply_schema_design_from_xsd(xsd_files, primary_filename, selections)
+    except Exception as e:
+        logger.error(f"Failed to apply schema design for schema {schema_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to apply schema design: {str(e)}") from e
+
+    # Convert mapping to YAML and upload to MinIO
+    try:
+        mapping_yaml = yaml.dump(custom_mapping, sort_keys=False, default_flow_style=False)
+
+        # Upload new mapping.yaml
+        mapping_filename = "mapping.yaml"
+        object_path = f"{schema_id}/{mapping_filename}"
+
+        await upload_file(
+            client=s3,
+            bucket="niem-schemas",
+            object_name=object_path,
+            data=mapping_yaml.encode("utf-8"),
+            content_type="application/x-yaml",
+        )
+
+        logger.info(f"Regenerated mapping.yaml for schema {schema_id} with custom design")
+
+        # Update metadata to indicate custom design was applied
+        metadata["design_applied"] = True
+        metadata["design_applied_at"] = datetime.now(UTC).isoformat()
+        metadata["selected_node_count"] = sum(1 for v in selections.values() if v)
+
+        # Store updated metadata by uploading the modified metadata.json
+        metadata_json = json.dumps(metadata, indent=2)
+        metadata_path = f"{schema_id}/metadata.json"
+
+        await upload_file(
+            client=s3,
+            bucket="niem-schemas",
+            object_name=metadata_path,
+            data=metadata_json.encode("utf-8"),
+            content_type="application/json",
+        )
+
+        # Store the selections for future editing
+        selections_data = {
+            "version": "1.0",
+            "schema_id": schema_id,
+            "applied_at": metadata["design_applied_at"],
+            "selections": selections,
+            "metadata": {
+                "total_elements": len(selections),
+                "selected_count": metadata["selected_node_count"],
+                "unselected_count": len(selections) - metadata["selected_node_count"],
+            },
+        }
+        selections_json = json.dumps(selections_data, indent=2)
+        selections_path = f"{schema_id}/selections.json"
+
+        await upload_file(
+            client=s3,
+            bucket="niem-schemas",
+            object_name=selections_path,
+            data=selections_json.encode("utf-8"),
+            content_type="application/json",
+        )
+
+        return {
+            "success": True,
+            "valid": True,
+            "can_proceed": True,
+            "message": "Schema design applied successfully",
+            "schema_id": schema_id,
+            "selected_nodes": metadata["selected_node_count"],
+            "mapping_filename": mapping_filename,
+            "mode": "mapping",
+            "warnings": [
+                {
+                    "severity": warn.severity.value,
+                    "type": warn.type,
+                    "message": warn.message,
+                    "element": warn.element,
+                    "recommendation": warn.recommendation,
+                    "impact": warn.impact,
+                }
+                for warn in validation_result.warnings
+            ],
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to store regenerated mapping for schema {schema_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to store regenerated mapping: {str(e)}") from e
+
+
+async def handle_get_selections(schema_id: str, s3: Minio) -> dict | None:
+    """
+    Retrieve saved design selections for a schema.
+
+    Args:
+        schema_id: The schema ID to retrieve selections for
+        s3: MinIO client instance
+
+    Returns:
+        Dict containing selections data or None if no custom design exists
+    """
+    try:
+        selections_path = f"{schema_id}/selections.json"
+
+        # Download the selections file
+        content = await download_file(client=s3, bucket="niem-schemas", object_name=selections_path)
+
+        # Parse and return the selections data
+        selections_data = json.loads(content.decode("utf-8"))
+        return selections_data
+
+    except S3Error as e:
+        # File doesn't exist - no custom design has been applied yet
+        if e.code == "NoSuchKey":
+            logger.info(f"No selections file found for schema {schema_id}")
+            return None
+        # Other S3 errors
+        logger.error(f"S3 error retrieving selections for schema {schema_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve selections: {str(e)}") from e
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in selections file for schema {schema_id}: {e}")
+        raise HTTPException(status_code=500, detail="Selections file is corrupted") from e
+
+    except Exception as e:
+        logger.error(f"Failed to retrieve selections for schema {schema_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve selections: {str(e)}") from e

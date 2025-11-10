@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import cytoscape from 'cytoscape';
 import EntityResolutionPanel from '../components/EntityResolutionPanel';
 
@@ -50,10 +50,10 @@ const getRelationshipStyle = (
   colorMap: Record<string, string>
 ) => {
   return {
-    color: colorMap[relationshipType] || '#888888',
-    width: 2, // Consistent width for all relationships
+    color: colorMap[relationshipType] || '#888888', // Dark gray default
+    width: 2, // Balanced width (not too thick)
     style: 'solid', // Consistent style for all relationships
-    opacity: 0.8, // Consistent opacity for all relationships
+    opacity: 0.7, // Slightly transparent so overlapping edges are visible
   };
 };
 
@@ -63,8 +63,9 @@ const getNodeSize = (node: GraphNode, relationships: GraphRelationship[]): numbe
     (rel) => rel.startNode === node.id || rel.endNode === node.id
   ).length;
 
-  // Base size + scaling factor for connections
-  return Math.max(30, Math.min(80, 30 + connections * 3));
+  // Smaller, consistent sizing to reduce overlap
+  // Base: 20, scales minimally with connections, max 40
+  return Math.max(20, Math.min(40, 20 + connections * 1));
 };
 
 // Universal label display - prioritizes semantic information
@@ -155,8 +156,11 @@ const buildEdgeTooltip = (rel: GraphRelationship): string => {
 };
 
 export default function GraphPage() {
-  const cyRef = useRef<HTMLDivElement>(null);
+  const cyRef = useRef<HTMLDivElement | null>(null);
   const cyInstance = useRef<cytoscape.Core | null>(null);
+  const currentLayout = useRef<any>(null);
+  const [isMountedState, setIsMountedState] = useState(false);
+  const isMounted = useRef(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cypherQuery, setCypherQuery] = useState(
@@ -165,23 +169,132 @@ export default function GraphPage() {
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [selectedLayout, setSelectedLayout] = useState('cose');
   const [showNodeLabels, setShowNodeLabels] = useState(true);
-  const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
+  const [showRelationshipLabels, setShowRelationshipLabels] = useState(false); // Off by default for dense graphs
+  const [showResolvedEntities, setShowResolvedEntities] = useState(true); // Toggle for resolved entities - on by default
   const [resultLimit, setResultLimit] = useState(10000);
+  const [filenameFilter, setFilenameFilter] = useState<string[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Extract unique source filenames from graph data
+  const availableFiles = useMemo(() => {
+    if (!graphData) return [];
+    const files = new Set<string>();
+    graphData.nodes.forEach((node) => {
+      const sourceFile = node.properties?._source_file || node.properties?.sourceDoc;
+      if (sourceFile) {
+        files.add(sourceFile);
+      }
+    });
+    return Array.from(files).sort();
+  }, [graphData]);
 
   useEffect(() => {
+    // Set mounted state
+    isMounted.current = true;
+    setIsMountedState(true);
+
     const validLayouts = ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'];
     if (!validLayouts.includes(selectedLayout)) {
       setSelectedLayout('cose');
     }
-    // Auto-load complete graph on mount
-    executeQuery('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m');
+
+    // Wait a bit for DOM to be ready, then auto-load graph
+    const timer = setTimeout(() => {
+      if (!cyRef.current) {
+        const element = document.getElementById('graph-viz');
+        if (element) {
+          cyRef.current = element as HTMLDivElement;
+        }
+      }
+
+      // Get all nodes and relationships (includes isolated nodes)
+      executeQuery('MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m');
+    }, 500); // Wait 500ms for DOM to be ready
+
+    // Cleanup on unmount
+    return () => {
+      clearTimeout(timer);
+      isMounted.current = false;
+      setIsMountedState(false);
+
+      // Stop any running layout first
+      if (currentLayout.current) {
+        try {
+          currentLayout.current.stop();
+        } catch (err) {
+          console.warn('Error stopping layout:', err);
+        }
+        currentLayout.current = null;
+      }
+
+      if (cyInstance.current) {
+        try {
+          // Stop any running animations/layouts before destroying
+          cyInstance.current.stop();
+          cyInstance.current.destroy();
+        } catch (err) {
+          console.warn('Error cleaning up Cytoscape instance:', err);
+        }
+        cyInstance.current = null;
+      }
+    };
   }, []);
 
-  const executeQuery = async (query: string) => {
+  // Re-render graph when filename filter changes
+  useEffect(() => {
+    if (graphData && isMounted.current) {
+      renderGraph(graphData);
+    }
+  }, [filenameFilter]);
+
+  // Reload graph when resolved entities toggle changes
+  useEffect(() => {
+    if (isMountedState && cyRef.current && graphData) {
+      // Re-execute the current query with the new toggle state
+      executeQuery(cypherQuery, showResolvedEntities);
+    }
+  }, [showResolvedEntities]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
+  const executeQuery = async (query: string, includeResolved: boolean = showResolvedEntities) => {
     setLoading(true);
     setError(null);
 
     try {
+      // If not including resolved entities, wrap the query to filter them out
+      let finalQuery = query;
+      if (!includeResolved && query.includes('MATCH (n)')) {
+        // Add WHERE clause to exclude ResolvedEntity nodes
+        finalQuery = query.replace(
+          'MATCH (n)',
+          `MATCH (n) WHERE NOT 'ResolvedEntity' IN labels(n)`
+        );
+        // Also filter out RESOLVED_TO relationships
+        if (query.includes('MATCH (n)-[r]-')) {
+          finalQuery = finalQuery.replace(
+            'MATCH (n)-[r]-(m)',
+            `MATCH (n)-[r]-(m) WHERE NOT type(r) = 'RESOLVED_TO' AND NOT 'ResolvedEntity' IN labels(m)`
+          );
+        }
+      }
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const response = await fetch(`${apiUrl}/api/graph/query`, {
         method: 'POST',
@@ -189,7 +302,7 @@ export default function GraphPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token') || 'devtoken'}`,
         },
-        body: JSON.stringify({ query, limit: resultLimit }),
+        body: JSON.stringify({ query: finalQuery, limit: resultLimit }),
       });
 
       if (!response.ok) {
@@ -213,7 +326,36 @@ export default function GraphPage() {
   };
 
   const renderGraph = (data: GraphData) => {
-    if (!cyRef.current) return;
+    // Try to get the ref by ID if ref is null
+    if (!cyRef.current) {
+      const element = document.getElementById('graph-viz');
+      if (element) {
+        cyRef.current = element as HTMLDivElement;
+      }
+    }
+
+    if (!cyRef.current) {
+      // Try again after a short delay
+      setTimeout(() => {
+        const element = document.getElementById('graph-viz');
+        if (element) {
+          cyRef.current = element as HTMLDivElement;
+          renderGraph(data);
+        }
+      }, 100);
+      return;
+    }
+
+    // Check container dimensions
+    const containerWidth = cyRef.current.offsetWidth;
+    const containerHeight = cyRef.current.offsetHeight;
+
+    if (containerWidth === 0 || containerHeight === 0) {
+      // Try to set dimensions explicitly
+      cyRef.current.style.width = '100%';
+      cyRef.current.style.height = '600px';
+      cyRef.current.style.position = 'relative';
+    }
 
     // Generate universal colors for ALL node labels
     const nodeColors = generateDistinguishableColors(data.metadata.nodeLabels.length);
@@ -235,6 +377,30 @@ export default function GraphPage() {
       const nodeSize = getNodeSize(node, data.relationships);
       const tooltip = buildNodeTooltip(node);
 
+      // Special styling for ResolvedEntity nodes, Association nodes, and EntityHub nodes
+      const isResolvedEntity = node.labels.includes('ResolvedEntity');
+      const isAssociation =
+        node.properties?._isAssociation === true ||
+        node.properties?._isAssociation === 'True' ||
+        node.properties?.qname?.endsWith('Association');
+      const isEntityHub = node.properties?._isHub === true || node.label.startsWith('Entity_');
+
+      // Color priority: EntityHub (teal) > Association (orange) > ResolvedEntity (purple) > default
+      const nodeColor = isEntityHub
+        ? '#14B8A6'
+        : isAssociation
+          ? '#FF8C00'
+          : isResolvedEntity
+            ? '#9333EA'
+            : labelColorMap[node.label] || '#95A5A6';
+      const nodeShape = isEntityHub
+        ? 'triangle'
+        : isResolvedEntity
+          ? 'diamond'
+          : isAssociation
+            ? 'hexagon'
+            : 'ellipse';
+
       return {
         data: {
           id: node.id, // Use semantic ID for node identity
@@ -242,12 +408,45 @@ export default function GraphPage() {
           nodeType: node.label,
           nodeLabels: node.labels,
           properties: node.properties,
-          color: labelColorMap[node.label] || '#95A5A6',
+          color: nodeColor,
           size: nodeSize,
           tooltip: tooltip,
+          shape: nodeShape,
+          isResolvedEntity: isResolvedEntity,
+          isAssociation: isAssociation,
+          isEntityHub: isEntityHub,
         },
       };
     });
+
+    // Filter nodes by filename if filter is active (exact match)
+    let filteredNodes = cyNodes;
+    let filteredNodeIds = new Set(cyNodes.map((n) => n.data.id));
+
+    if (filenameFilter.length > 0) {
+      // Step 1: Get nodes from selected files
+      const primaryNodes = cyNodes.filter((node) => {
+        const sourceFile = node.data.properties?._source_file || node.data.properties?.sourceDoc;
+        return sourceFile && filenameFilter.includes(sourceFile);
+      });
+      const primaryNodeIds = new Set(primaryNodes.map((n) => n.data.id));
+
+      // Step 2: Find all edges connected to primary nodes
+      const connectedEdges = data.relationships.filter(
+        (rel) => primaryNodeIds.has(rel.startNode) || primaryNodeIds.has(rel.endNode)
+      );
+
+      // Step 3: Include all nodes that are connected to primary nodes
+      const relatedNodeIds = new Set<string>();
+      connectedEdges.forEach((edge) => {
+        relatedNodeIds.add(edge.startNode);
+        relatedNodeIds.add(edge.endNode);
+      });
+
+      // Filter to include both primary and related nodes
+      filteredNodes = cyNodes.filter((node) => relatedNodeIds.has(node.data.id));
+      filteredNodeIds = relatedNodeIds;
+    }
 
     // Convert relationships to Cytoscape format with universal styling
     const cyEdges = data.relationships.map((rel) => {
@@ -256,7 +455,33 @@ export default function GraphPage() {
         data.metadata.relationshipTypes,
         relTypeColorMap
       );
+
       const tooltip = buildEdgeTooltip(rel);
+
+      // Special styling for RESOLVED_TO, ASSOCIATED_WITH, REPRESENTS, and CONTAINS relationships
+      const isResolvedTo = rel.type === 'RESOLVED_TO';
+      const isAssociatedWith = rel.type === 'ASSOCIATED_WITH';
+      const isRepresents = rel.type === 'REPRESENTS';
+      const isContains = rel.type === 'CONTAINS';
+
+      // Color priority: REPRESENTS (teal) > ASSOCIATED_WITH (orange) > RESOLVED_TO (purple) > CONTAINS (grey) > default
+      const edgeColor = isRepresents
+        ? '#14B8A6'
+        : isAssociatedWith
+          ? '#FF8C00'
+          : isResolvedTo
+            ? '#9333EA'
+            : isContains
+              ? '#888888'
+              : relStyle.color;
+      const edgeWidth = isResolvedTo || isAssociatedWith || isRepresents ? 3 : relStyle.width; // Thicker for special relationships
+      const edgeStyle = isResolvedTo
+        ? 'dashed'
+        : isAssociatedWith
+          ? 'dotted'
+          : isRepresents
+            ? 'solid'
+            : relStyle.style;
 
       return {
         data: {
@@ -266,199 +491,290 @@ export default function GraphPage() {
           label: showRelationshipLabels ? rel.type : '',
           type: rel.type,
           properties: rel.properties,
-          color: relStyle.color,
-          width: relStyle.width,
-          lineStyle: relStyle.style,
+          color: edgeColor,
+          width: edgeWidth,
+          lineStyle: edgeStyle,
           opacity: relStyle.opacity,
           tooltip: tooltip,
+          isResolvedTo: isResolvedTo,
+          isAssociatedWith: isAssociatedWith,
+          isRepresents: isRepresents,
         },
       };
     });
 
+    // Filter edges to only show edges between filtered nodes
+    const filteredEdges = cyEdges.filter(
+      (edge) => filteredNodeIds.has(edge.data.source) && filteredNodeIds.has(edge.data.target)
+    );
+
+    // Stop any running layout first
+    if (currentLayout.current) {
+      try {
+        currentLayout.current.stop();
+      } catch (err) {
+        console.warn('Error stopping layout:', err);
+      }
+      currentLayout.current = null;
+    }
+
     // Destroy existing instance
     if (cyInstance.current) {
-      cyInstance.current.destroy();
+      try {
+        // Stop any running animations/layouts first
+        cyInstance.current.stop();
+        cyInstance.current.destroy();
+      } catch (err) {
+        console.warn('Error destroying Cytoscape instance:', err);
+      }
+      cyInstance.current = null;
     }
 
     // Create new Cytoscape instance with data-agnostic styles
-    cyInstance.current = cytoscape({
-      container: cyRef.current,
+    try {
+      cyInstance.current = cytoscape({
+        container: cyRef.current,
 
-      elements: [...cyNodes, ...cyEdges],
+        elements: [...filteredNodes, ...filteredEdges],
 
-      style: [
-        {
-          selector: 'node',
-          style: {
-            'background-color': 'data(color)',
-            label: 'data(label)',
-            'text-valign': 'center',
-            'text-halign': 'center',
-            color: '#000000',
-            'text-outline-width': 2,
-            'text-outline-color': '#ffffff',
-            'font-size': '9px',
-            'font-weight': 'bold',
-            width: 'data(size)',
-            height: 'data(size)',
-            'border-width': 1,
-            'border-color': '#333333',
-            'text-wrap': 'wrap',
-            'text-max-width': '60px',
-          },
-        },
-        {
-          selector: 'node:selected',
-          style: {
-            'border-width': 3,
-            'border-color': '#FFA500',
-            'text-outline-color': '#FFA500',
-          },
-        },
-        {
-          selector: 'edge',
-          style: {
-            width: 'data(width)',
-            'line-color': 'data(color)',
-            'target-arrow-color': 'data(color)',
-            'target-arrow-shape': 'triangle',
-            'curve-style': 'bezier',
-            label: 'data(label)',
-            'font-size': '8px',
-            color: '#444444',
-            'text-outline-width': 1,
-            'text-outline-color': '#ffffff',
-            opacity: 'data(opacity)' as any,
-            'line-style': 'data(lineStyle)' as any,
-          },
-        },
-        {
-          selector: 'edge:selected',
-          style: {
-            width: 3,
-            'line-color': '#FFA500',
-            'target-arrow-color': '#FFA500',
-          },
-        },
-        {
-          selector: 'edge:hover',
-          style: {
-            width: 3,
-            opacity: 1,
-          },
-        },
-      ],
+        // Viewport and zoom settings for better visibility
+        minZoom: 0.1,
+        maxZoom: 10,
 
-      layout: {
-        name: ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'].includes(selectedLayout)
-          ? selectedLayout
-          : 'cose',
-        animate: true,
-        animationDuration: 1000,
-        fit: true,
-        padding: 50,
-        // Generic layout options that work for any data
-        ...(selectedLayout === 'cose' && {
-          nodeOverlap: 20,
-          refresh: 20,
-          randomize: false,
-          componentSpacing: 100,
-          nodeRepulsion: 400000,
-          idealEdgeLength: 100,
-          edgeElasticity: 100,
-          nestingFactor: 5,
-          gravity: 80,
-          numIter: 1000,
-          initialTemp: 200,
-          coolingFactor: 0.95,
-          minTemp: 1.0,
-        }),
-        ...(selectedLayout === 'circle' && {
-          radius: Math.min(200, Math.max(100, data.nodes.length * 8)),
-        }),
-        ...(selectedLayout === 'concentric' && {
-          concentric: function (node: any) {
-            return node.data('size'); // Arrange by connectivity
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'background-color': 'data(color)',
+              label: 'data(label)',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'text-rotation': 'none', // Force horizontal (no rotation)
+              'text-justification': 'center',
+              color: '#000000',
+              'text-outline-width': 1.5,
+              'text-outline-color': '#ffffff',
+              'font-size': '7px',
+              'font-weight': 'normal',
+              width: 'data(size)',
+              height: 'data(size)',
+              shape: 'data(shape)' as any, // Diamond for ResolvedEntity, ellipse for others
+              'border-width': 1,
+              'border-color': '#333333',
+              'text-wrap': 'wrap', // Wrap text instead of truncating
+              'min-zoomed-font-size': 4,
+            },
           },
-          levelWidth: function () {
-            return 1;
+          {
+            selector: 'node:selected',
+            style: {
+              'border-width': 3,
+              'border-color': '#FFA500',
+              'text-outline-color': '#FFA500',
+            },
           },
-        }),
-      } as any,
-    });
+          {
+            selector: 'edge',
+            style: {
+              width: 'data(width)',
+              'line-color': 'data(color)',
+              'target-arrow-color': 'data(color)',
+              'target-arrow-shape': 'triangle',
+              'curve-style': 'bezier',
+              label: 'data(label)',
+              'font-size': '7px',
+              color: '#444444',
+              'text-outline-width': 1,
+              'text-outline-color': '#ffffff',
+              'text-rotation': 'autorotate',
+              'text-margin-y': -8,
+              opacity: 'data(opacity)' as any,
+              'line-style': 'data(lineStyle)' as any,
+              'min-zoomed-font-size': 4,
+            },
+          },
+          {
+            selector: 'edge:selected',
+            style: {
+              width: 3,
+              'line-color': '#FFA500',
+              'target-arrow-color': '#FFA500',
+            },
+          },
+        ],
 
-    // Universal event handlers - show complete information
-    cyInstance.current.on('tap', 'node', function (evt) {
-      const node = evt.target;
-      const data = node.data();
-      console.log('=== Node Details ===');
-      console.log('Labels:', data.nodeLabels.join(', '));
-      console.log('Primary Label:', data.nodeType);
-      console.log('Semantic ID:', data.id);
-
-      if (data.properties.qname) {
-        console.log('QName:', data.properties.qname);
-      }
-
-      console.log('\n--- All Properties ---');
-      Object.entries(data.properties).forEach(([key, value]) => {
-        const prefix = key.startsWith('aug_') ? '[AUG] ' : '';
-        console.log(`${prefix}${key}:`, value);
+        layout: {
+          name: ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'].includes(selectedLayout)
+            ? selectedLayout
+            : 'cose',
+          animate: true,
+          animationDuration: 500,
+          fit: true,
+          padding: 50,
+          stop: function () {
+            // Ensure fit happens after layout completes
+            if (cyInstance.current && isMounted.current) {
+              cyInstance.current.fit();
+            }
+          },
+          // Generic layout options that work for any data
+          ...(selectedLayout === 'cose' && {
+            nodeOverlap: 20,
+            refresh: 20,
+            randomize: false,
+            componentSpacing: 100,
+            nodeRepulsion: 400000,
+            idealEdgeLength: 100,
+            edgeElasticity: 100,
+            nestingFactor: 5,
+            gravity: 80,
+            numIter: 1000,
+            initialTemp: 200,
+            coolingFactor: 0.95,
+            minTemp: 1.0,
+          }),
+          ...(selectedLayout === 'circle' && {
+            radius: Math.min(200, Math.max(100, data.nodes.length * 8)),
+          }),
+          ...(selectedLayout === 'concentric' && {
+            concentric: function (node: any) {
+              return node.data('size'); // Arrange by connectivity
+            },
+            levelWidth: function () {
+              return 1;
+            },
+          }),
+        } as any,
       });
-      console.log('==================');
-    });
 
-    cyInstance.current.on('tap', 'edge', function (evt) {
-      const edge = evt.target;
-      const data = edge.data();
-      console.log('=== Relationship Details ===');
-      console.log('Type:', data.type);
-      console.log('Internal ID:', data.id);
-      console.log('From:', data.source);
-      console.log('To:', data.target);
+      // Universal event handlers - show complete information
+      cyInstance.current.on('tap', 'node', function (evt) {
+        const node = evt.target;
+        const data = node.data();
+        console.log('=== Node Details ===');
+        console.log('Labels:', data.nodeLabels.join(', '));
+        console.log('Primary Label:', data.nodeType);
+        console.log('Semantic ID:', data.id);
 
-      if (Object.keys(data.properties).length > 0) {
-        console.log('\n--- Properties ---');
+        if (data.properties.qname) {
+          console.log('QName:', data.properties.qname);
+        }
+
+        console.log('\n--- All Properties ---');
         Object.entries(data.properties).forEach(([key, value]) => {
-          console.log(`${key}:`, value);
+          const prefix = key.startsWith('aug_') ? '[AUG] ' : '';
+          console.log(`${prefix}${key}:`, value);
         });
-      }
-      console.log('===========================');
-    });
-
-    // Add hover effects for nodes
-    cyInstance.current.on('mouseover', 'node', function (evt) {
-      const node = evt.target;
-      node.style({
-        'border-width': 2,
-        'border-color': '#FF6B35',
+        console.log('==================');
       });
-    });
 
-    cyInstance.current.on('mouseout', 'node', function (evt) {
-      const node = evt.target;
-      node.style({
-        'border-width': 1,
-        'border-color': '#333333',
+      cyInstance.current.on('tap', 'edge', function (evt) {
+        const edge = evt.target;
+        const data = edge.data();
+        console.log('=== Relationship Details ===');
+        console.log('Type:', data.type);
+        console.log('Internal ID:', data.id);
+        console.log('From:', data.source);
+        console.log('To:', data.target);
+
+        if (Object.keys(data.properties).length > 0) {
+          console.log('\n--- Properties ---');
+          Object.entries(data.properties).forEach(([key, value]) => {
+            console.log(`${key}:`, value);
+          });
+        }
+        console.log('===========================');
       });
-    });
+
+      // Add hover effects for nodes
+      cyInstance.current.on('mouseover', 'node', function (evt) {
+        const node = evt.target;
+        node.style({
+          'border-width': 2,
+          'border-color': '#FF6B35',
+        });
+      });
+
+      cyInstance.current.on('mouseout', 'node', function (evt) {
+        const node = evt.target;
+        node.style({
+          'border-width': 1,
+          'border-color': '#333333',
+        });
+      });
+    } catch (error) {
+      console.error('Failed to initialize Cytoscape:', error);
+      return;
+    }
 
     // Fit to viewport
-    cyInstance.current.fit();
+    if (cyInstance.current) {
+      cyInstance.current.fit();
+    }
+
+    // Apply initial layout after creation
+    // Use circle layout for small graphs (< 20 nodes) for better visibility
+    const layoutName = filteredNodes.length < 20 ? 'circle' : selectedLayout || 'cose';
+
+    if (cyInstance.current) {
+      currentLayout.current = cyInstance.current.layout({
+        name: layoutName,
+        animate: true,
+        animationDuration: 800,
+        fit: true,
+        padding: 50,
+        // Additional options for better initial view
+        boundingBox: { x1: 0, y1: 0, w: cyRef.current.offsetWidth, h: cyRef.current.offsetHeight },
+        avoidOverlap: true,
+        spacingFactor: 1.5, // More spacing between nodes
+      } as any);
+
+      // Also ensure we fit and center after layout completes
+      currentLayout.current.on('layoutstop', () => {
+        if (cyInstance.current && isMounted.current) {
+          try {
+            cyInstance.current.fit();
+            cyInstance.current.center();
+          } catch (err) {
+            console.warn('Error fitting graph after layout:', err);
+          }
+        }
+      });
+
+      currentLayout.current.run();
+    }
   };
 
   const applyLayout = (layoutName: string) => {
-    if (cyInstance.current && graphData) {
+    if (cyInstance.current && graphData && isMounted.current) {
+      // Stop any running layout first
+      if (currentLayout.current) {
+        try {
+          currentLayout.current.stop();
+        } catch (err) {
+          console.warn('Error stopping previous layout:', err);
+        }
+      }
+
       // Validate layout name against available options
       const validLayouts = ['cose', 'circle', 'grid', 'breadthfirst', 'concentric'];
       const safeLayoutName = validLayouts.includes(layoutName) ? layoutName : 'cose';
 
-      const layout = cyInstance.current.layout({
+      currentLayout.current = cyInstance.current.layout({
         name: safeLayoutName,
         animate: true,
-        animationDuration: 1000,
+        animationDuration: 500,
         fit: true,
         padding: 50,
+        stop: function () {
+          if (cyInstance.current && isMounted.current) {
+            try {
+              cyInstance.current.fit();
+            } catch (err) {
+              console.warn('Error fitting graph after layout stop:', err);
+            }
+          }
+        },
         // Generic layout configurations
         ...(safeLayoutName === 'cose' && {
           nodeOverlap: 20,
@@ -487,7 +803,7 @@ export default function GraphPage() {
           },
         }),
       } as any);
-      layout.run();
+      currentLayout.current.run();
     }
     setSelectedLayout(layoutName);
   };
@@ -651,38 +967,7 @@ export default function GraphPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <select
-                  value={selectedLayout}
-                  onChange={(e) => applyLayout(e.target.value)}
-                  className="border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {layoutOptions.map((option) => (
-                    <option key={option.value} value={option.value} title={option.description}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleLabels('nodes')}
-                    className={`px-2 py-1 text-xs rounded ${showNodeLabels ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
-                  >
-                    Node Labels
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleLabels('relationships')}
-                    className={`px-2 py-1 text-xs rounded ${showRelationshipLabels ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
-                  >
-                    Edge Labels
-                  </button>
-                </div>
-              </div>
-
+            <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={loading}
@@ -718,7 +1003,7 @@ export default function GraphPage() {
 
       {/* Graph Visualization */}
       <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-medium text-gray-900">Graph Visualization</h3>
@@ -757,6 +1042,169 @@ export default function GraphPage() {
               </div>
             )}
           </div>
+
+          {/* Graph Controls */}
+          <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-gray-200">
+            {/* Filename Filter */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="px-3 py-1.5 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex items-center gap-2"
+              >
+                <span className="text-gray-700">
+                  {filenameFilter.length === 0
+                    ? `All files (${availableFiles.length})`
+                    : `${filenameFilter.length} file${filenameFilter.length > 1 ? 's' : ''} selected`}
+                </span>
+                <svg
+                  className="h-4 w-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute z-10 mt-1 left-0 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto min-w-[300px]">
+                  {/* Select All / Clear All */}
+                  <div className="sticky top-0 bg-gray-50 border-b border-gray-200 px-3 py-2 flex justify-between items-center">
+                    <button
+                      type="button"
+                      onClick={() => setFilenameFilter(availableFiles)}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilenameFilter([])}
+                      className="text-xs text-gray-600 hover:text-gray-700 font-medium"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  {/* File Options */}
+                  <div className="py-1">
+                    {availableFiles.map((filename) => (
+                      <label
+                        key={filename}
+                        className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={filenameFilter.includes(filename)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFilenameFilter([...filenameFilter, filename]);
+                            } else {
+                              setFilenameFilter(filenameFilter.filter((f) => f !== filename));
+                            }
+                          }}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm text-gray-700 truncate">{filename}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Layout Options */}
+            <select
+              value={selectedLayout}
+              onChange={(e) => applyLayout(e.target.value)}
+              className="border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 py-1.5"
+            >
+              {layoutOptions.map((option) => (
+                <option key={option.value} value={option.value} title={option.description}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Node/Edge Label Toggles */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => toggleLabels('nodes')}
+                className={`px-2 py-1 text-xs rounded ${showNodeLabels ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
+              >
+                Node Labels
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleLabels('relationships')}
+                className={`px-2 py-1 text-xs rounded ${showRelationshipLabels ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
+              >
+                Edge Labels
+              </button>
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (cyInstance.current) {
+                    cyInstance.current.zoom(cyInstance.current.zoom() * 1.25);
+                    cyInstance.current.center();
+                  }
+                }}
+                className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
+                title="Zoom In"
+              >
+                Zoom +
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (cyInstance.current) {
+                    cyInstance.current.zoom(cyInstance.current.zoom() * 0.75);
+                    cyInstance.current.center();
+                  }
+                }}
+                className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
+                title="Zoom Out"
+              >
+                Zoom -
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (cyInstance.current) {
+                    cyInstance.current.fit();
+                    cyInstance.current.center();
+                  }
+                }}
+                className="px-2 py-1 text-xs rounded bg-green-100 hover:bg-green-200 text-green-700 font-medium"
+                title="Fit all nodes to screen"
+              >
+                Fit to Screen
+              </button>
+            </div>
+
+            {/* Show Resolved Entities Toggle - Far Right */}
+            <label className="flex items-center space-x-2 cursor-pointer ml-auto">
+              <input
+                type="checkbox"
+                checked={showResolvedEntities}
+                onChange={(e) => setShowResolvedEntities(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <span className="text-sm font-medium text-gray-700">Show Resolved Entities</span>
+            </label>
+          </div>
         </div>
 
         <div className="p-6">
@@ -780,16 +1228,68 @@ export default function GraphPage() {
                   </h4>
                   <div className="space-y-2 text-xs max-h-48 overflow-y-auto">
                     {graphData.metadata.nodeLabels.map((label, index) => {
-                      const colors = generateDistinguishableColors(
-                        graphData.metadata.nodeLabels.length
+                      // Check for special node types
+                      const isResolvedEntity = label === 'ResolvedEntity';
+                      const isAssociation = graphData.nodes.some(
+                        (node) =>
+                          node.label === label &&
+                          (node.properties?._isAssociation === true ||
+                            node.properties?._isAssociation === 'True' ||
+                            node.properties?.qname?.endsWith('Association'))
                       );
-                      const color = colors[index];
+                      const isEntityHub =
+                        label.startsWith('Entity_') ||
+                        graphData.nodes.some(
+                          (node) => node.label === label && node.properties?._isHub === true
+                        );
+
+                      // Determine color and shape based on priority: EntityHub > Association > ResolvedEntity > default
+                      const nodeColor = isEntityHub
+                        ? '#14B8A6'
+                        : isAssociation
+                          ? '#FF8C00'
+                          : isResolvedEntity
+                            ? '#9333EA'
+                            : (() => {
+                                const colors = generateDistinguishableColors(
+                                  graphData.metadata.nodeLabels.length
+                                );
+                                return colors[index];
+                              })();
+
+                      // Determine shape
+                      const shape = isEntityHub
+                        ? 'triangle'
+                        : isResolvedEntity
+                          ? 'diamond'
+                          : isAssociation
+                            ? 'hexagon'
+                            : 'ellipse';
+
+                      // Create shape indicator based on shape type
+                      const shapeIndicator = (
+                        <div
+                          className="flex-shrink-0 border border-gray-300"
+                          style={{
+                            width: '12px',
+                            height: '12px',
+                            backgroundColor: nodeColor,
+                            clipPath:
+                              shape === 'triangle'
+                                ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
+                                : shape === 'diamond'
+                                  ? 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+                                  : shape === 'hexagon'
+                                    ? 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)'
+                                    : 'none',
+                            borderRadius: shape === 'ellipse' ? '50%' : '0',
+                          }}
+                        ></div>
+                      );
+
                       return (
                         <div key={label} className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full border border-gray-300 flex-shrink-0"
-                            style={{ backgroundColor: color }}
-                          ></div>
+                          {shapeIndicator}
                           <span className="truncate" title={label}>
                             {label}
                           </span>
@@ -803,16 +1303,54 @@ export default function GraphPage() {
                   </h4>
                   <div className="space-y-2 text-xs max-h-40 overflow-y-auto">
                     {graphData.metadata.relationshipTypes.map((type, index) => {
-                      const colors = generateDistinguishableColors(
-                        graphData.metadata.relationshipTypes.length
+                      // Check for special relationship types
+                      const isResolvedTo = type === 'RESOLVED_TO';
+                      const isAssociatedWith = type === 'ASSOCIATED_WITH';
+                      const isRepresents = type === 'REPRESENTS';
+                      const isContains = type === 'CONTAINS';
+
+                      // Determine color, style, and width
+                      const edgeColor = isRepresents
+                        ? '#14B8A6'
+                        : isAssociatedWith
+                          ? '#FF8C00'
+                          : isResolvedTo
+                            ? '#9333EA'
+                            : isContains
+                              ? '#888888'
+                              : (() => {
+                                  const colors = generateDistinguishableColors(
+                                    graphData.metadata.relationshipTypes.length
+                                  );
+                                  return colors[index];
+                                })();
+
+                      const edgeWidth = isResolvedTo || isAssociatedWith || isRepresents ? 3 : 2;
+                      const edgeStyle = isResolvedTo
+                        ? 'dashed'
+                        : isAssociatedWith
+                          ? 'dotted'
+                          : 'solid'; // REPRESENTS and all others are solid
+
+                      // Create edge indicator with proper styling
+                      const edgeIndicator = (
+                        <div
+                          className="flex-shrink-0"
+                          style={{
+                            width: '16px',
+                            height: 0,
+                            borderTop: `${edgeWidth}px ${edgeStyle} ${edgeColor}`,
+                            borderBottom: 'none',
+                            borderLeft: 'none',
+                            borderRight: 'none',
+                            alignSelf: 'center',
+                          }}
+                        ></div>
                       );
-                      const color = colors[index];
+
                       return (
                         <div key={type} className="flex items-center gap-2">
-                          <div
-                            className="w-4 h-0.5 flex-shrink-0"
-                            style={{ backgroundColor: color }}
-                          ></div>
+                          {edgeIndicator}
                           <span className="truncate" title={type}>
                             {type}
                           </span>

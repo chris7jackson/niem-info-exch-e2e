@@ -1,0 +1,1288 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns:cb_ext="http://cb.acf.hhs.gov/neice/2.0/ext/"
+	xmlns:cb_code="http://cb.acf.hhs.gov/neice/2.0/codes/"
+	xmlns:i="http://release.niem.gov/niem/appinfo/4.0/"
+	xmlns:s="http://release.niem.gov/niem/structures/4.0/"
+	xmlns:j="http://release.niem.gov/niem/domains/jxdm/6.1/"
+	xmlns:scr="http://release.niem.gov/niem/domains/screening/4.1/"
+	xmlns:hs="http://release.niem.gov/niem/domains/humanServices/4.1/"
+	xmlns:niem-xsd="http://release.niem.gov/niem/proxy/xsd/4.0/"
+	xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/"
+	xmlns:nc="http://release.niem.gov/niem/niem-core/4.0/"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema" version="3"
+	ct:conformanceTargets="http://reference.niem.gov/niem/specification/naming-and-design-rules/4.0/#ExtensionSchemaDocument"
+	targetNamespace="http://cb.acf.hhs.gov/neice/2.0/ext/" elementFormDefault="qualified"
+	blockDefault="extension">
+	<xs:annotation>
+		<xs:documentation>NEICE Extension Schema.</xs:documentation>
+	</xs:annotation>
+	<xs:import namespace="http://cb.acf.hhs.gov/neice/2.0/codes/" schemaLocation="./neice_codes.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/appinfo/4.0/"
+		schemaLocation="../niem/utility/appinfo/4.0/appinfo.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/conformanceTargets/3.0/"
+		schemaLocation="../niem/utility/conformanceTargets/3.0/conformanceTargets.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/domains/humanServices/4.1/"
+		schemaLocation="../niem/domains/humanServices/4.1/hs.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/domains/jxdm/6.1/"
+		schemaLocation="../niem/domains/jxdm/6.1/jxdm.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/domains/screening/4.1/"
+		schemaLocation="../niem/domains/screening/4.1/screening.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/niem-core/4.0/"
+		schemaLocation="../niem/niem-core/4.0/niem-core.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/proxy/xsd/4.0/"
+		schemaLocation="../niem/proxy/xsd/4.0/xs.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/structures/4.0/"
+		schemaLocation="../niem/utility/structures/4.0/structures.xsd"/>
+	<xs:complexType name="NEICEDocumentAugmentationType">
+		<xs:annotation>
+			<xs:documentation>A data type for additional information about NEICE
+				Documents</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:AugmentationType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:NEICEDocumentCode"/>
+					<xs:element ref="cb_ext:NEICEDocumentCodeOtherText" minOccurs="0"/>
+					<xs:element ref="hs:Child" minOccurs="0"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="AdditionalElementType">
+		<xs:annotation>
+			<xs:documentation>A data type for a key/value pair for data needed, but not presently
+				defined in the exchange.</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:ElementKeyText" minOccurs="1" maxOccurs="1"/>
+					<xs:element ref="cb_ext:ElementValueText" minOccurs="1" maxOccurs="1"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="CaseStatusUpdateType">
+		<xs:annotation>
+			<xs:documentation>A data type for a case status update.</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:CaseStatusUpdateCode" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:CaseStatusUpdateCodeOtherText" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:StatusUpdateEventDate" minOccurs="0" maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="CaseViolationType">
+		<xs:annotation>
+			<xs:documentation>A data type for details of a case violation.</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="nc:ActivityType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:ViolationStateCode" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:ViolationCategoryCode" minOccurs="0"
+						maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="ChildAugmentationType">
+		<xs:annotation>
+			<xs:documentation>A data type for additional information about hs's Child information
+				with ICPC-related data elements</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:AugmentationType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:ChildCurrentLegalPlacementStatusCode" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:ChildCurrentLegalPlacementStatusOtherText" minOccurs="0"
+						maxOccurs="1"/>
+					<xs:element ref="cb_ext:ChildICWAEligibilityCode" minOccurs="0" maxOccurs="1"/>
+					<xs:element ref="cb_ext:ChildIVEDeterminationStatusCode" minOccurs="0"/>
+					<xs:element ref="cb_ext:ChildNEICEIdentification" minOccurs="0"/>
+					<xs:element ref="cb_ext:ChildStateIdentification" minOccurs="0"
+						maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="CourtOrderType">
+		<xs:annotation>
+			<xs:documentation>A data type for additional details about a court
+				order.</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="nc:DocumentType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:CourtOrderComplianceDate" minOccurs="0"/>
+					<xs:element ref="cb_ext:CourtOrderEnteredDate" minOccurs="0"/>
+					<xs:element ref="cb_ext:CourtOrderReceivedDate" minOccurs="0"/>
+					<xs:element ref="cb_ext:CourtOrderRenderedDate" minOccurs="0"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="DispositionAugmentationType">
+		<xs:annotation>
+			<xs:documentation>A data type for additional information about the disposition
+				information with the role of the entity providing the disposition</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:AugmentationType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:DispositionEntityRoleText" minOccurs="1"/>
+					<xs:element ref="cb_ext:DispositionCode" minOccurs="0"/>
+					<xs:element ref="cb_ext:DispositionReasonCode" minOccurs="0"/>
+					<xs:element ref="cb_ext:DispositionReasonCodeOtherText" minOccurs="0"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="EntityAugmentationType">
+		<xs:annotation>
+			<xs:documentation>A data type for additional information about an EntityType with
+				ICPC-related data elements</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:AugmentationType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:PlacementResourceStateIdentification" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:PlacementResourceID" minOccurs="0" maxOccurs="unbounded"
+					/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="HomeStudyRequestType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that encapsulates the information needed
+				for an interstate home study request</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:HomeStudyRequestingAgency" minOccurs="0"/>
+					<xs:element ref="nc:ContactInformation" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:NEICEChildInformation" maxOccurs="unbounded"/>
+					<xs:element ref="nc:Person" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:NEICEDocument100a" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:NEICEDocument100b" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:RequestDueDate" minOccurs="0"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="HomeStudyResponseType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that encapsulates the information
+				contained in an interstate home study response</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:NEICEChildInformation" minOccurs="1"
+						maxOccurs="unbounded"/>
+					<xs:element ref="nc:Person" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:NEICEDocument100aSigned" maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="FollowupRequestType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that encapsulates the information needed
+				for an interstate follow-up request</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="hs:Child" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:NEICEDocument100a" minOccurs="0"/>
+					<xs:element ref="cb_ext:LastRequestSentDate" minOccurs="0"/>
+					<xs:element ref="cb_ext:LastReportReceivedDate" minOccurs="0"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="FollowupReportType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that encapsulates the information returned
+				in an interstate follow-up report, this typically is in response to a follow-up
+				request</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="hs:Child" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:NEICEDocument100a" minOccurs="0"/>
+					<xs:element ref="cb_ext:FollowupReportSupportingDocument" minOccurs="1"
+						maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+<!--	<xs:complexType name="IntendedPlacementType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that encapsulates a frequently combined
+				set of data structures, viz., child (one or more), parent (zero or more), and their
+				relationships</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="hs:PlacementType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:RelativePlacementResourcesCode" minOccurs="0"
+						maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType> -->
+	<xs:complexType name="NEICEChildInformationType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that encapsulates a frequently combined
+				set of data structures, viz., child (one or more), parent (zero or more), and their
+				relationships</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="hs:Child"/>
+					<xs:element ref="hs:Parent" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="hs:ParentChildAssociation" minOccurs="0" maxOccurs="unbounded"
+					/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="NEICEDocument100aType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that encapsulates the information in a
+				100A document</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="nc:DocumentType">
+				<xs:sequence>
+					<xs:element ref="hs:Child" maxOccurs="1"/>
+					<xs:element ref="cb_ext:HomeStudyCategoryCode" minOccurs="0"/>
+					<xs:element ref="cb_ext:IntendedPlacement" minOccurs="0"/>
+					<xs:element ref="cb_ext:IntendedPlacementPlanningResponsibleParty" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:IntendedPlacementFinanceResponsibleParty" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:SupervisingServicesRequestCode" minOccurs="0"
+						maxOccurs="1"/>
+					<xs:element ref="cb_ext:SupervisingServicesRequestOtherText" minOccurs="0"
+						maxOccurs="1"/>
+					<xs:element ref="cb_ext:ProposedSupervisoryAgency" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementResource"/>
+					<xs:element ref="cb_ext:PlacementResourceRelatedPersonAssociation" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:SupervisoryReportPeriodicityCode" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:SupervisoryReportPeriodicityOtherText" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:NEICE100aChildDocumentAttachment" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:SendingAgencySignatory" minOccurs="0"/>
+					<xs:element ref="cb_ext:SendingAgencySignatorySignedDate" minOccurs="0"/>
+					<xs:element ref="cb_ext:SendingStateCompactSignatory" minOccurs="0"/>
+					<xs:element ref="cb_ext:SendingStateSignatorySignedDate" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementRequestDisposition" minOccurs="0"/>
+					<xs:element ref="cb_ext:InitialReportRequestedCode" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementPublicPrivateCategoryCode" minOccurs="0"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="NEICEDocument100bType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that encapsulates the information in a
+				100B document</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="nc:DocumentType">
+				<xs:sequence>
+					<xs:element ref="hs:Child"/>
+					<xs:element ref="cb_ext:PlacementResource" minOccurs="0"/>
+					<xs:element ref="cb_ext:InitialPlacement" minOccurs="0"/>
+					<xs:element ref="cb_ext:ChangePlacement" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementTermination" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:NEICEDocument100bAttachments" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:SendingAgencySignatory" minOccurs="0"/>
+					<xs:element ref="cb_ext:SendingAgencySignatorySignedDate" minOccurs="0"/>
+					<xs:element ref="cb_ext:SendingStateCompactSignatory"/>
+					<xs:element ref="cb_ext:SendingStateSignatorySignedDate"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="CustodyAugmentationType">
+		<xs:annotation>
+			<xs:documentation>A data type for additional information about
+				hs:ChildLegalCustodyPartyAssociationType with ICPC-related
+				information</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:AugmentationType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:RelativeCustodyRelationshipText" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:OtherCustodyDescriptionText" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:OtherCustodyRelationshipText" minOccurs="0"
+						maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="PlacementAugmentationType">
+		<xs:annotation>
+			<xs:documentation>A data type for additional information about hs:Placement data type
+				with ICPC related data elements</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:AugmentationType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:PlacementUnderEmergencyConditionsIndicator"
+						minOccurs="0" maxOccurs="1"/>
+					<xs:element ref="cb_ext:PlacementByPriorityIndicator" minOccurs="0"/>
+					<xs:element ref="cb_ext:SpecialRequestText" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:PlacementAdoptionIndicator" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementIVESubsidyCode" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementAdoptionFinalizationLocationCode" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementTerminatedIndicator" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementCategoryCodeOtherText" minOccurs="0"/>
+					<xs:element ref="cb_ext:ProspectiveAdoptiveFosterResource" minOccurs="0"/>
+					<xs:element ref="cb_ext:RelativePlacementResourcesCode" minOccurs="0"
+						maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="PlacementDecisionType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that describes a placement decision in an
+				ICPC case</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:NEICEChildInformation" minOccurs="1"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:NEICEDocument100b" maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="PlacementResourceRelatedPersonAssociationType">
+		<xs:annotation>
+			<xs:documentation>A data type for an association between a placement resource and a
+				person</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="nc:PersonAssociationType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:PlacementResourceRelatedPersonCategoryCode"
+						minOccurs="0"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="PlacementTerminationSupportDocumentationType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that encapsulates the documentation needed
+				when a placement is terminated</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:AdoptionFinalizationCourtOrder" minOccurs="0"/>
+					<xs:element ref="cb_ext:ParentalCustodyCourtOrder" minOccurs="0"/>
+					<xs:element ref="cb_ext:RelativeCustodyCourtOrder" minOccurs="0"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="PlacementTerminationType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that describes a placement
+				termination</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="nc:ActivityType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:PlacementTerminationReasonCode"/>
+					<xs:element ref="cb_ext:CourtOrderAttachmentIndicator" minOccurs="0"/>
+					<xs:element ref="cb_ext:UnusedPlacementResource" minOccurs="0"/>
+					<xs:element ref="cb_ext:WithdrawnPlacementResource" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementTerminationReasonOtherText" minOccurs="0"/>
+					<xs:element ref="hs:CustodialEntity" minOccurs="0" maxOccurs="1"/>
+					<xs:element ref="hs:ChildLegalCustodyPartyAssociation" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementTerminationSupportDocumentation" minOccurs="0"
+					/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="ProvisionalApprovalType">
+		<xs:annotation>
+			<xs:documentation>A data type for a provisional approval.</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:ProvisionalApprovalIndicator"/>
+					<xs:element ref="hs:Child"/>
+					<xs:element ref="nc:Date"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="ProvisionalDecisionType">
+		<xs:annotation>
+			<xs:documentation>A data type for a provisional decision.</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:choice>
+					<xs:element ref="cb_ext:ProvisionalApproval"/>
+					<xs:element ref="cb_ext:ProvisionalDenial"/>
+				</xs:choice>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="ProvisionalDenialType">
+		<xs:annotation>
+			<xs:documentation>A data type for a provisional denial.</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:ProvisionalDenialIndicator"/>
+					<xs:element ref="hs:Child"/>
+					<xs:element ref="nc:Date"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="RelatedCaseType">
+		<xs:annotation>
+			<xs:documentation>A data type for a case which is related in some way to
+				another.</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="hs:RelatedCaseType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:CaseNEICEIdentification" minOccurs="1"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:SendingStateCaseIdentification" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:ReceivingStateCaseIdentification" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:CaseRelationshipDescriptionText" minOccurs="0"
+						maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="ResourceDetailType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that describes the details of a
+				Resource</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="nc:Entity"/>
+					<xs:element ref="nc:Address" minOccurs="0"/>
+					<xs:element ref="nc:ContactInformation" minOccurs="0"/>
+					<xs:element ref="cb_ext:ResourceStateIdentification" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementCategoryCode" minOccurs="0" />
+					<xs:element ref="cb_ext:PlacementCategoryCodeOtherText" minOccurs="0" />
+					<xs:element ref="hs:PlacementCategoryText" minOccurs="0" />
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="ServiceAugmentationType">
+		<xs:annotation>
+			<xs:documentation>A data type for additional information about hs:ServiceType with
+				ICPC-related information</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:AugmentationType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:ReportPeriodicityCode" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:ReportPeriodicityOtherText" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:ReportNameText" minOccurs="0" maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="TransmittalSummaryInformationType">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that provides context for a NEICE document
+				transmittal</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="s:ObjectType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:CaseNEICEIdentification" minOccurs="0"/>
+					<xs:element ref="cb_ext:CaseStateIdentification" maxOccurs="2"/>
+					<xs:element ref="cb_ext:CaseViolation" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:RelatedCase" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:HomeStudyCategoryCode" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:TransmittalCategoryCode"/>
+					<xs:element ref="cb_ext:TransmittalSubjectChild" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<!-- <xs:element ref="cb_ext:TransmittalPrivateIndicator" minOccurs="0" maxOccurs="1"/> -->
+					<xs:element ref="cb_ext:AdditionalElement" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:ProvisionalDecision" minOccurs="0" maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:ConcurrenceIndicator" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:UrgentRequestIndicator" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:UrgentRequestReasonCode" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:UrgentRequestReasonCodeOtherText" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:TransmittalPurposeCode" minOccurs="0"
+						maxOccurs="unbounded"/>
+					<xs:element ref="cb_ext:TransmittalPurposeCodeOtherText" minOccurs="0"
+						maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:element name="AdditionalElement" type="cb_ext:AdditionalElementType">
+		<xs:annotation>
+			<xs:documentation>A key/value pair for data needed, but not presently defined in the
+				exchange.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="AdoptionFinalizationCourtOrder" type="cb_ext:CourtOrderType">
+		<xs:annotation>
+			<xs:documentation>A court order document that finalizes an adoption</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CaseNEICEIdentification" type="nc:IdentificationType">
+		<xs:annotation>
+			<xs:documentation>An identification for the case within the NEICE ICPC exchange. The ID
+				is unique for a Home Study Request sent for a child (or children) with a placement
+				resource and this need not match any state identification for the
+				case</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CaseRelationshipDescriptionText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A description of why two cases are related.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CaseStateIdentification" type="nc:IdentificationType">
+		<xs:annotation>
+			<xs:documentation>An identification for the local state Case ID created for a Home Study
+				Request sent for a child (or children) with a placement resource</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CaseStatusUpdate" type="cb_ext:CaseStatusUpdateType">
+		<xs:annotation>
+			<xs:documentation>A case status update.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CaseStatusUpdateCode" type="cb_code:CaseStatusUpdateCodeType">
+		<xs:annotation>
+			<xs:documentation>A kind of case status update.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CaseStatusUpdateCodeOtherText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A description of a kind of a case status update when the value is Other.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CaseViolation" type="cb_ext:CaseViolationType">
+		<xs:annotation>
+			<xs:documentation>A case violation.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ChangePlacement" type="hs:PlacementType" nillable="false">
+		<xs:annotation>
+			<xs:documentation>A changed placement</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ChildICWAEligibilityCode" type="cb_code:ChildICWAEligibilityCodeType"
+		nillable="false">
+		<xs:annotation>
+			<xs:documentation>True if the child is ICWA eligible; false if ineligible, pending if
+				pending</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ChildIVEDeterminationStatusCode"
+		type="cb_code:ChildIVEDeterminationStatusCodeType">
+		<xs:annotation>
+			<xs:documentation>A status of the activity of determining if the child is Title IV-E
+				eligible</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ChildStateIdentification" type="nc:IdentificationType">
+		<xs:annotation>
+			<xs:documentation>An identification for the child within a state's child welfare
+				system</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ChildNEICEIdentification" type="nc:IdentificationType">
+		<xs:annotation>
+			<xs:documentation>An identification for the child within the NEICE ICPC exchange, this
+				need not match any state's identification ID</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ChildAugmentation" type="cb_ext:ChildAugmentationType"
+		substitutionGroup="hs:ChildAugmentationPoint">
+		<xs:annotation>
+			<xs:documentation>An augmentation point for Human Servies's Child information with
+				ICPC-related data elements</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ChildCurrentLegalPlacementStatusOtherText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A Child's legal placement status if not described by the
+				codeset</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ChildCurrentLegalPlacementStatusCode"
+		type="cb_code:ChildCurrentLegalPlacementStatusCodeType">
+		<xs:annotation>
+			<xs:documentation>A Child's legal placement status, codified</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ConcurrenceIndicator" type="niem-xsd:boolean">
+		<xs:annotation>
+			<xs:documentation>True if a court concurs; false otherwise.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CourtOrderComplianceDate" type="nc:DateType">
+		<xs:annotation>
+			<xs:documentation>A date a court order was complied with</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CourtOrderEnteredDate" type="nc:DateType">
+		<xs:annotation>
+			<xs:documentation>A date a court order was entered</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CourtOrderReceivedDate" type="nc:DateType">
+		<xs:annotation>
+			<xs:documentation>A date a court order was Received</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CourtOrderRenderedDate" type="nc:DateType">
+		<xs:annotation>
+			<xs:documentation>A date a court order was Rendered</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="DispositionAugmentation" type="cb_ext:DispositionAugmentationType"
+		substitutionGroup="nc:DispositionAugmentationPoint">
+		<xs:annotation>
+			<xs:documentation>An augmentation point for disposition information with the role of the
+				entity providing the disposition</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="DispositionEntityRoleText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A short description of the role played by a disposition
+				entity</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="DispositionCode" type="cb_code:DispositionCodeType">
+		<xs:annotation>
+			<xs:documentation>A short description of the role played by a disposition
+				entity</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="DispositionReasonCode" type="cb_code:DispositionReasonCodeType">
+		<xs:annotation>
+			<xs:documentation>A a reason for a disposition.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="DispositionReasonCodeOtherText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A description if the reason for a disposition is
+				OtherReason.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ElementKeyText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A key for a key/value pair for data needed, but not presently defined
+				in the exchange.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ElementValueText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A value for a key/value pair for data needed, but not presently
+				defined in the exchange.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="EntityAugmentation" type="cb_ext:EntityAugmentationType"
+		substitutionGroup="nc:EntityAugmentationPoint">
+		<xs:annotation>
+			<xs:documentation>An augmentation point for an Entity</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="FollowupRequest" type="cb_ext:FollowupRequestType">
+		<xs:annotation>
+			<xs:documentation>A request to perform a follow up on a placement</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="FollowupResponse" type="cb_ext:FollowupReportType">
+		<xs:annotation>
+			<xs:documentation>A follow-up report on a placement</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="FollowupReportSupportingDocument" type="nc:DocumentType">
+		<xs:annotation>
+			<xs:documentation>A documentation attached with a followup report</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="FollowupServiceAugmentation" type="cb_ext:ServiceAugmentationType"
+		substitutionGroup="hs:ServiceAugmentationPoint">
+		<xs:annotation>
+			<xs:documentation>An augmentation point for a service with the desired frequency of
+				reporting</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="HomeStudyCategoryCode" type="cb_code:HomeStudyCategoryCodeType"
+		nillable="false">
+		<xs:annotation>
+			<xs:documentation>A category of home study</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="HomeStudyRequest" type="cb_ext:HomeStudyRequestType">
+		<xs:annotation>
+			<xs:documentation>A request for a home study of a potential placement
+				resource</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="HomeStudyResponse" type="cb_ext:HomeStudyResponseType">
+		<xs:annotation>
+			<xs:documentation>A response to a home study request</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="HomeStudyRequestingAgency" type="nc:OrganizationType">
+		<xs:annotation>
+			<xs:documentation>An agency that is requesting a home study report</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="InitialPlacement" type="hs:PlacementType" nillable="false">
+		<xs:annotation>
+			<xs:documentation>An initial placement</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="InitialReportRequestedCode" type="cb_code:InitialReportRequestedCodeType"
+		nillable="false">
+		<xs:annotation>
+			<xs:documentation>A kind of initial report requested</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="IntendedPlacement" type="hs:PlacementType" nillable="false">
+		<xs:annotation>
+			<xs:documentation>A history of a child or youth who is a prospective
+				placement</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="IntendedPlacementFinanceResponsibleParty" type="cb_ext:ResourceDetailType">
+		<xs:annotation>
+			<xs:documentation>A party who will be financially responsible for a prospective
+				placement</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="IntendedPlacementPlanningResponsibleParty" type="cb_ext:ResourceDetailType">
+		<xs:annotation>
+			<xs:documentation>A party who is planning the prospective placement
+				action</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="LastReportReceivedDate" type="nc:DateType">
+		<xs:annotation>
+			<xs:documentation>A date on which Last Report was received by the requesting
+				state</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="LastRequestSentDate" type="nc:DateType">
+		<xs:annotation>
+			<xs:documentation>A date on which a Request was sent </xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="NEICE100aChildDocumentAttachment" type="nc:BinaryType">
+		<xs:annotation>
+			<xs:documentation>A child specific Attachment to an ICPC 100A</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="NEICEChildInformation" type="cb_ext:NEICEChildInformationType">
+		<xs:annotation>
+			<xs:documentation>A set of information about a child / youth in the ICPSC
+				context</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="NEICEDocument100a" type="cb_ext:NEICEDocument100aType">
+		<xs:annotation>
+			<xs:documentation>A ICPC 100A document</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="NEICEDocument100aSigned" type="cb_ext:NEICEDocument100aType">
+		<xs:annotation>
+			<xs:documentation>A signed ICPC 100A document</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="NEICEDocument100b" type="cb_ext:NEICEDocument100bType">
+		<xs:annotation>
+			<xs:documentation>A ICPC 100b document</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="NEICEDocument100bAttachments" type="nc:BinaryType">
+		<xs:annotation>
+			<xs:documentation>A set of attachments to the ICPC 100b document</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="NEICEDocumentAugmentation" type="cb_ext:NEICEDocumentAugmentationType"
+		substitutionGroup="nc:BinaryAugmentationPoint">
+		<xs:annotation>
+			<xs:documentation>An augmentation point for a Documentation</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CustodyAugmentation" type="cb_ext:CustodyAugmentationType"
+		substitutionGroup="hs:ChildLegalCustodyPartyAssociationAugmentationPoint" nillable="true">
+		<xs:annotation>
+			<xs:documentation>An augmentation point of other legal custody.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="RelativeCustodyRelationshipText" type="nc:TextType" nillable="true">
+		<xs:annotation>
+			<xs:documentation>A description of the relationship to a relative custodian.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="OtherCustodyDescriptionText" type="nc:TextType" nillable="true">
+		<xs:annotation>
+			<xs:documentation>A description of other legal custody.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="OtherCustodyRelationshipText" type="nc:TextType" nillable="true">
+		<xs:annotation>
+			<xs:documentation>A description of the relationship to another legal
+				custodian.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PersonGenderIdentityCode" type="cb_code:PersonGenderIdentityCodeType"
+		substitutionGroup="hs:PersonGenderIdentityAbstract">
+		<xs:annotation>
+			<xs:documentation>A gender of a person's identity. The cultural meanings of patterns of
+				behavior, experience, and personality that are labeled masculine or
+				feminine.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PersonGenderIdentityCodeOtherText" type="nc:TextType"
+		substitutionGroup="hs:PersonGenderIdentityAbstract">
+		<xs:annotation>
+			<xs:documentation>A description of a gender of a person's identity when the code is
+				Other.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementAdoptionFinalizationLocationCode"
+		type="cb_code:PlacementAdoptionFinalizationLocationCodeType">
+		<xs:annotation>
+			<xs:documentation>A state in which the child / youth's adoption would be
+				finalized</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementAdoptionIndicator" type="niem-xsd:boolean">
+		<xs:annotation>
+			<xs:documentation>True if the intended placement would be an adoption; false
+				otherwise</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementIVESubsidyCode" type="cb_code:PlacementIVESubsidyCodeType">
+		<xs:annotation>
+			<xs:documentation>True if the placement qualifies for Title IV-E subsidy; false
+				otherwise</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementAugmentation" type="cb_ext:PlacementAugmentationType"
+		substitutionGroup="hs:PlacementAugmentationPoint">
+		<xs:annotation>
+			<xs:documentation>An augmentation point for Human Services's Placement with ICPC
+				information</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementByPriorityIndicator" type="niem-xsd:boolean">
+		<xs:annotation>
+			<xs:documentation>True if the intended placement is by priority; false
+				otherwise</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementCategoryCode" type="cb_code:PlacementLocationCodeType" substitutionGroup="hs:PlacementCategoryAbstract" nillable="true">
+		<xs:annotation>
+			<xs:documentation>A list that describes the type of placement (e.g., adoption, relative,
+				etc.)</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementCategoryCodeOtherText" type="nc:TextType" nillable="true">
+		<xs:annotation>
+			<xs:documentation>An additional description when the Placement Category Code is
+				"Other".</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementDecision" type="cb_ext:PlacementDecisionType">
+		<xs:annotation>
+			<xs:documentation>A disposition of the placement activity</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementPublicPrivateCategoryCode"
+		type="cb_code:PlacementPublicPrivateCategoryCodeType">
+		<xs:annotation>
+			<xs:documentation>A kind of placement, either public or private.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementRequestDisposition" type="nc:DispositionType">
+		<xs:annotation>
+			<xs:documentation>A disposition of a placement request</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementResource" type="cb_ext:ResourceDetailType">
+		<xs:annotation>
+			<xs:documentation>A placement resource, could be different from the intended
+				resource</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementResourceID" type="nc:IdentificationType">
+		<xs:annotation>
+			<xs:documentation>An identifier for a placement resource</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementResourceRelatedPersonCategoryCode"
+		type="cb_code:PlacementResourceRelatedPersonCategoryCodeType">
+		<xs:annotation>
+			<xs:documentation>A kind of placement resource related person</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementTerminatedIndicator" type="niem-xsd:boolean">
+		<xs:annotation>
+			<xs:documentation>True if placement has been terminated; false
+				otherwise</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementTermination" type="cb_ext:PlacementTerminationType">
+		<xs:annotation>
+			<xs:documentation>A set of information pertaining to a termination of
+				placement</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementTerminationReasonOtherText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A reason why a placement is terminated, not
+				codified</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementTerminationReasonCode"
+		type="cb_code:PlacementTerminationReasonCodeType">
+		<xs:annotation>
+			<xs:documentation>A codified reason why a placement is terminated</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementUnderEmergencyConditionsIndicator" type="niem-xsd:boolean">
+		<xs:annotation>
+			<xs:documentation>True if the placement is being performed under emergency conditions;
+				false otherwise</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementResourceRelatedPersonAssociation"
+		type="cb_ext:PlacementResourceRelatedPersonAssociationType">
+		<xs:annotation>
+			<xs:documentation>An association between a placement resource and a
+				person</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementTerminationSupportDocumentation"
+		type="cb_ext:PlacementTerminationSupportDocumentationType">
+		<xs:annotation>
+			<xs:documentation>A document that support a placement termination</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ProposedSupervisoryAgency" type="nc:OrganizationType">
+		<xs:annotation>
+			<xs:documentation>An agency being proposed to perform supervisory task for the
+				placement</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ParentalCustodyCourtOrder" type="cb_ext:CourtOrderType">
+		<xs:annotation>
+			<xs:documentation>A court order document for placement of a child / youth with a
+				parent</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="PlacementResourceStateIdentification" type="nc:IdentificationType">
+		<xs:annotation>
+			<xs:documentation>An identification for a placement resource within a state's child
+				welfare system</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ProspectiveAdoptiveFosterResource" type="cb_ext:ResourceDetailType"
+		nillable="true">
+		<xs:annotation>
+			<xs:documentation>A prospective adoptive or foster placement
+				resource.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ProvisionalApproval" type="cb_ext:ProvisionalApprovalType" nillable="true">
+		<xs:annotation>
+			<xs:documentation>True if provisional approval is given; false otherwise. (False does
+				not mean a denial. False only means that a provisional approval is not
+				given.)</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ProvisionalApprovalIndicator" type="niem-xsd:boolean" nillable="true">
+		<xs:annotation>
+			<xs:documentation>True if provisional approval is given; false otherwise. (False does
+				not mean a denial. False only means that a provisional approval is not
+				given.)</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ProvisionalDecision" type="cb_ext:ProvisionalDecisionType">
+		<xs:annotation>
+			<xs:documentation>A data concept for a provisional decision.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ProvisionalDenial" type="cb_ext:ProvisionalDenialType" nillable="true">
+		<xs:annotation>
+			<xs:documentation>True if provisional denial is given; false otherwise. (False does not
+				mean an approval. False only means that a provisional denial is not
+				given.)</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ProvisionalDenialIndicator" type="niem-xsd:boolean" nillable="true">
+		<xs:annotation>
+			<xs:documentation>True if provisional denial is given; false otherwise. (False does not
+				mean an approval. False only means that a provisional denial is not
+				given.)</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="RelativePlacementResourcesCode"
+		type="cb_code:RelativePlacementResourcesCodeType">
+		<xs:annotation>
+			<xs:documentation>A description of the Placement Resource’s relationship to the child where the child is being placed.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="TransmittalPurposeCode" type="cb_code:TransmittalPurposeCodeType">
+		<xs:annotation>
+			<xs:documentation>A purpose of a transmittal.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="TransmittalPurposeCodeOtherText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A purpose of a transmittal when the code is
+				"Other".</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="StatusUpdateEventDate" type="nc:DateType">
+		<xs:annotation>
+			<xs:documentation>A date of a status update event.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SupervisingServicesRequestCode"
+		type="cb_code:SupervisingServicesRequestCodeType">
+		<xs:annotation>
+			<xs:documentation>An agency (sending, receiving, or other) which would perform
+				supervision</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SupervisingServicesRequestOtherText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A description when the agency to perform supervison is
+				Other.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="RelatedCase" type="cb_ext:RelatedCaseType">
+		<xs:annotation>
+			<xs:documentation>A case which is related in some way to another.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="RequestDueDate" type="nc:DateType">
+		<xs:annotation>
+			<xs:documentation>A date for when the the Requested Service is due</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ServiceAugmentation" type="cb_ext:ServiceAugmentationType"
+		substitutionGroup="hs:ServiceAugmentationPoint">
+		<xs:annotation>
+			<xs:documentation>An augmentation point for hs:Service</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SpecialRequestText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A special request that the sending agency might have with regards to
+				the placement</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SupervisoryReportPeriodicityCode" type="cb_code:ReportPeriodicityCodeType">
+		<xs:annotation>
+			<xs:documentation>A requested periodicity of a supervisory report</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SupervisoryReportPeriodicityOtherText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A requested periodicity of a supervisory report, if not
+				codified</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ReceivingStateCaseIdentification" type="nc:IdentificationType">
+		<xs:annotation>
+			<xs:documentation>An identification of case from a receiving state.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ReportNameText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A name of the report being requested</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="RelativeCustodyCourtOrder" type="cb_ext:CourtOrderType">
+		<xs:annotation>
+			<xs:documentation>A court order document for placement of a child / youth with a
+				relative</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ReportPeriodicityCode" type="cb_code:ReportPeriodicityCodeType">
+		<xs:annotation>
+			<xs:documentation>A requested periodicity of a report</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ReportPeriodicityOtherText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A requested periodicity of a report, if not
+				codified</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ResourceStateIdentification" type="nc:IdentificationType">
+		<xs:annotation>
+			<xs:documentation>An identification of a resource based on a state-issued
+				identifier.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="TransmittalAttachment" type="nc:BinaryType">
+		<xs:annotation>
+			<xs:documentation>A transmittal binary document attachments</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="TransmittalCategoryCode" type="cb_code:TransmittalRequestCategoryCodeType">
+		<xs:annotation>
+			<xs:documentation>A category of the request in this transmittal</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="TransmittalSubjectChild" type="hs:ChildType">
+		<xs:annotation>
+			<xs:documentation>A Child (or Children) to whom this transmittal
+				pertains</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="TransmittalSummaryInformation" type="cb_ext:TransmittalSummaryInformationType">
+		<xs:annotation>
+			<xs:documentation>A set of information providing a context for this document
+				transmittal</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="UnusedPlacementResource" type="cb_ext:ResourceDetailType">
+		<xs:annotation>
+			<xs:documentation>A placement resource that was unused</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="WithdrawnPlacementResource" type="cb_ext:ResourceDetailType">
+		<xs:annotation>
+			<xs:documentation>A placement request that was withdrawn</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="CourtOrderAttachmentIndicator" type="niem-xsd:boolean">
+		<xs:annotation>
+			<xs:documentation>True if a court order attachment is present; false
+				otherwise</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SendingStateCompactSignatory" type="nc:EntityType">
+		<xs:annotation>
+			<xs:documentation>An entity acting as the compact signatory for the sending
+				state</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SendingStateCaseIdentification" type="nc:IdentificationType">
+		<xs:annotation>
+			<xs:documentation>An identification of a case from a sending state.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SendingAgencySignatory" type="nc:EntityType">
+		<xs:annotation>
+			<xs:documentation>An entity acting as the signatory for the sending
+				agency</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="NEICEDocumentCode" type="cb_code:NEICEDocumentCodeType">
+		<xs:annotation>
+			<xs:documentation>An kind of NEICE document attached in the case</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="NEICEDocumentCodeOtherText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A set of additional information about the kind of NEICE document
+				attached in the case</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SendingAgencySignatorySignedDate" type="nc:DateType">
+		<xs:annotation>
+			<xs:documentation>A date on which the entity acting as the signatory for the sending
+				agency signed</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SendingStateSignatorySignedDate" type="nc:DateType">
+		<xs:annotation>
+			<xs:documentation>A date on which the entity acting as the signatory for the sending
+				state signed</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<!-- <xs:element name="TransmittalPrivateIndicator" type="niem-xsd:boolean">
+		<xs:annotation>
+			<xs:documentation>True if the transmittal is private (e.g. Private Adoptions and Regulation 4 related); false otherwise.</xs:documentation>
+		</xs:annotation>
+	</xs:element> -->
+	<xs:element name="UrgentRequestIndicator" type="niem-xsd:boolean">
+		<xs:annotation>
+			<xs:documentation>True if the request is urgent; false otherwise.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="UrgentRequestReasonCode" type="cb_code:UrgentRequestReasonCodeType">
+		<xs:annotation>
+			<xs:documentation>A reason for an urgent request.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="UrgentRequestReasonCodeOtherText" type="nc:TextType">
+		<xs:annotation>
+			<xs:documentation>A reason for an urgent request when the code is
+				"Other".</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ViolationStateCode" type="cb_code:ViolationStateCodeType">
+		<xs:annotation>
+			<xs:documentation>A code defining which state is in Violation (Sending state or
+				Receiving state)</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="ViolationCategoryCode" type="cb_code:ViolationCategoryCodeType">
+		<xs:annotation>
+			<xs:documentation>A kind of a case violation.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+</xs:schema>

@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions xmlns:tns="http://cb.acf.hhs.gov/neice/2.0/exchange/ws" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:cb_exch="http://cb.acf.hhs.gov/neice/2.0/exchange/" xmlns="http://schemas.xmlsoap.org/wsdl/" targetNamespace="http://cb.acf.hhs.gov/neice/2.0/exchange/ws">
+	<wsdl:types>
+		<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://cb.acf.hhs.gov/neice/2.0/exchange/ws">
+			<xsd:import namespace="http://cb.acf.hhs.gov/neice/2.0/exchange/" schemaLocation="../schema/neice_exchange.xsd"/>
+			<xsd:element name="NEICECaseList">
+				<xsd:complexType>
+					<xsd:choice maxOccurs="unbounded">
+						<xsd:element name="neiceCaseId" type="xsd:string" />
+						<xsd:element name="stateCaseId" type="xsd:string" />
+					</xsd:choice>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="NEICECaseInfo">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="NEICECaseId" type="xsd:string"/>
+						<xsd:element name="StateCaseId" type="xsd:string" minOccurs="0"/>
+						<xsd:element name="NEICEChildInfo"  minOccurs="0" maxOccurs="unbounded">
+							<xsd:complexType>
+								<xsd:sequence>
+									<xsd:element name="stateChildId" type="xsd:string"/>
+									<xsd:element name="neiceChildId" type="xsd:string"/>
+								</xsd:sequence>
+							</xsd:complexType>
+						</xsd:element>
+						<xsd:element name="NEICEPRInfo"  minOccurs="0" maxOccurs="unbounded">
+							<xsd:complexType>
+								<xsd:sequence>
+									<xsd:element name="statePRId" type="xsd:string"/>
+									<xsd:element name="neicePRId" type="xsd:string"/>
+								</xsd:sequence>
+							</xsd:complexType>
+						</xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="NEICECaseStatusResponse">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="caseStatus" maxOccurs="unbounded">
+							<xsd:complexType>
+								<xsd:sequence>
+									<xsd:element name="neiceCaseId" type="xsd:string"/>
+									<xsd:element name="stateCaseId" type="xsd:string"/>
+									<xsd:element name="caseStatus" type="xsd:string"/>
+									<xsd:element name="lastTransmittalID" type="xsd:string"/>
+									<xsd:element name="transmittalStatus" type="xsd:string"/>
+								</xsd:sequence>
+							</xsd:complexType>
+						</xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="NEICEGetTransmittalsResponse">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="message" maxOccurs="unbounded">
+							<xsd:complexType>
+								<xsd:attribute name="messageId" type="xsd:string"/>
+								<xsd:attribute name="messageDateTime" type="xsd:dateTime"/>
+							</xsd:complexType>
+						</xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="emptyElement">
+				<xsd:complexType>
+					<xsd:sequence/>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="SubmitTrasmitallAsXMLString" type="xsd:string"/>
+			<xsd:element name="PINGInput" type="xsd:string"/>
+			<xsd:element name="PINGResponse" type="xsd:string"/>
+			<xsd:element name="NEICERetreiveTransactionID" type="xsd:string"/>
+			<xsd:element name="NEICETransmittalAck">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="NEICEAckTransactionID" type="xsd:string" minOccurs="1" maxOccurs="1"/>
+						<xsd:element ref="tns:NEICECaseInfo" minOccurs="0" maxOccurs="1" />
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="NEICETransactionResponse">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="responseStatus" type="xsd:string" minOccurs="1"/>
+						<xsd:element name="transactionId" type="xsd:string" minOccurs="0"/>
+						<xsd:element name="errorDetails" minOccurs="0" maxOccurs="unbounded">
+							<xsd:complexType>
+								<xsd:sequence>
+									<xsd:element name="errorCode" type="xsd:string"/>
+									<xsd:element name="errorText" type="xsd:string"/>
+								</xsd:sequence>
+							</xsd:complexType>
+						</xsd:element>
+						<xsd:element name="xmlResponse">
+							<xsd:complexType>
+								<xsd:choice>
+									<xsd:element ref="tns:NEICECaseInfo"/>
+									<xsd:element ref="tns:NEICECaseStatusResponse"/>
+									<xsd:element ref="tns:NEICEGetTransmittalsResponse"/>
+									<xsd:element ref="cb_exch:NEICETransmittalDocument"/>
+									<xsd:element ref="tns:PINGResponse"/>
+								</xsd:choice>
+							</xsd:complexType>
+						</xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+		</xsd:schema>
+	</wsdl:types>
+	<wsdl:message name="NEICECHUploadInput">
+		<wsdl:part name="upIn" element="cb_exch:NEICETransmittalDocument"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHUploadInputAsXMLString">
+		<wsdl:part name="upInAsStr" element="tns:SubmitTrasmitallAsXMLString"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHUploadOutput">
+		<wsdl:part name="upOut" element="tns:NEICETransactionResponse"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHGetCaseDetailInput">
+		<wsdl:part name="gcdIn" element="tns:NEICECaseList"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHGetCaseDetailOutput">
+		<wsdl:part name="gcdOut" element="tns:NEICETransactionResponse"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHGetTransmittalsInput">
+		<wsdl:part name="gtIn" element="tns:emptyElement"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHGetTransmittalsOutput">
+		<wsdl:part name="gtOut" element="tns:NEICETransactionResponse"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHRetrieveInput">
+		<wsdl:part name="transactionId" element="tns:NEICERetreiveTransactionID"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHRetrieveOutput">
+		<wsdl:part name="retOut" element="tns:NEICETransactionResponse"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHAcknowledgeInput">
+		<wsdl:part name="transactionId" element="tns:NEICETransmittalAck"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHAcknowledgeOutput">
+		<wsdl:part name="ackOut" element="tns:NEICETransactionResponse"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHPINGInput">
+		<wsdl:part name="pingIn" element="tns:PINGInput"/>
+	</wsdl:message>
+	<wsdl:message name="NEICECHPINGOutput">
+		<wsdl:part name="pingOut" element="tns:NEICETransactionResponse"/>
+	</wsdl:message>
+	<wsdl:portType name="NEICECHExchangePortType">
+		<wsdl:operation name="submitTransmittal">
+			<wsdl:input name="transmittalDoc" message="tns:NEICECHUploadInput"/>
+			<wsdl:output name="transmittalResponse" message="tns:NEICECHUploadOutput"/>
+		</wsdl:operation>
+		<wsdl:operation name="submitTransmittalAsXMLString">
+			<wsdl:input name="transmittalDocAsXMLString" message="tns:NEICECHUploadInputAsXMLString"/>
+			<wsdl:output name="transmittalDocAsXMLStringResponse" message="tns:NEICECHUploadOutput"/>
+		</wsdl:operation>
+		<wsdl:operation name="getCaseDetails">
+			<wsdl:input name="getCaseInput" message="tns:NEICECHGetCaseDetailInput"/>
+			<wsdl:output name="getCaseResponse" message="tns:NEICECHGetCaseDetailOutput"/>
+		</wsdl:operation>
+		<wsdl:operation name="getTransmittalList">
+			<wsdl:input name="getTransmittalInput" message="tns:NEICECHGetTransmittalsInput"/>
+			<wsdl:output name="transmittalList" message="tns:NEICECHGetTransmittalsOutput"/>
+		</wsdl:operation>
+		<wsdl:operation name="retrieveTransmittal">
+			<wsdl:input name="retrieveRequest" message="tns:NEICECHRetrieveInput"/>
+			<wsdl:output name="retrieveResponse" message="tns:NEICECHRetrieveOutput"/>
+		</wsdl:operation>
+		<wsdl:operation name="acknowledgeTransmittalReceipt">
+			<wsdl:input name="ackReceipt" message="tns:NEICECHAcknowledgeInput"/>
+			<wsdl:output name="ackResponse" message="tns:NEICECHAcknowledgeOutput"/>
+		</wsdl:operation>
+		<wsdl:operation name="pingClearinghouse">
+			<wsdl:input name="pingClearinghouseInput" message="tns:NEICECHPINGInput"/>
+			<wsdl:output name="pingClearinghouseOutput" message="tns:NEICECHPINGOutput"/>
+		</wsdl:operation>
+	</wsdl:portType>
+	<wsdl:binding name="NEICEExchangeServiceSoapBinding" type="tns:NEICECHExchangePortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<wsdl:operation name="submitTransmittal">
+			<soap:operation soapAction="http://cb.acf.hhs.gov/neice/2.0/exchange/submitTransmittal"/>
+			<wsdl:input name="transmittalDoc">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="transmittalResponse">
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="submitTransmittalAsXMLString">
+			<soap:operation soapAction="http://cb.acf.hhs.gov/neice/2.0/exchange/submitTransmittalAsXMLString"/>
+			<wsdl:input name="transmittalDocAsXMLString">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="transmittalDocAsXMLStringResponse">
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="getCaseDetails">
+			<soap:operation soapAction="http://cb.acf.hhs.gov/neice/2.0/exchange/getCaseDetails"/>
+			<wsdl:input name="getCaseInput">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="getCaseResponse">
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="getTransmittalList">
+			<soap:operation soapAction="http://cb.acf.hhs.gov/neice/2.0/exchange/getTransmittalList"/>
+			<wsdl:input name="getTransmittalInput">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="transmittalList">
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="retrieveTransmittal">
+			<soap:operation soapAction="http://cb.acf.hhs.gov/neice/2.0/exchange/retrieveTransmittal"/>
+			<wsdl:input name="retrieveRequest">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="retrieveResponse">
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="acknowledgeTransmittalReceipt">
+			<soap:operation soapAction="http://cb.acf.hhs.gov/neice/2.0/exchange/acknowledgeTransmittalReceipt"/>
+			<wsdl:input name="ackReceipt">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="ackResponse">
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="pingClearinghouse">
+			<soap:operation soapAction="http://cb.acf.hhs.gov/neice/2.0/exchange/pingClearinghouse"/>
+			<wsdl:input name="pingClearinghouseInput">
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output name="pingClearinghouseOutput">
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+	</wsdl:binding>
+</wsdl:definitions>

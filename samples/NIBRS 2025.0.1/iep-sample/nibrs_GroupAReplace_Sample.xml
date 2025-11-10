@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<nibrs:Submission  xmlns:nibrs="http://fbi.gov/cjis/nibrs/2025.0" 
+	xmlns:cjis="http://fbi.gov/cjis/5.0"
+	xmlns:j="http://release.niem.gov/niem/domains/jxdm/7.2/" 
+	xmlns:s="http://release.niem.gov/niem/structures/5.0/"
+	xmlns:nc="http://release.niem.gov/niem/niem-core/5.0/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+	xsi:schemaLocation="http://fbi.gov/cjis/nibrs/2025.0 ../base-xsd/nibrs/2025.0/nibrs.xsd">
+	<cjis:MessageMetadata>
+		<!-- Message Timestamp -->
+		<cjis:MessageDateTime>2017-03-23T03:00:00</cjis:MessageDateTime>
+		<!-- Message ID -->
+		<cjis:MessageIdentification>
+			<nc:IdentificationID>123456</nc:IdentificationID>
+		</cjis:MessageIdentification>
+		<!-- NIBRS IEPD Version -->
+		<cjis:MessageImplementationVersion>2025.0</cjis:MessageImplementationVersion>
+		<cjis:MessageSubmitter>
+			<cjis:MessageSubmittingOrganization>
+				<j:OrganizationAugmentation>
+					<j:OrganizationORIIdentification>
+						<!-- Submitting Agency ORI -->
+						<nc:IdentificationID>FBI111111</nc:IdentificationID>
+					</j:OrganizationORIIdentification>
+				</j:OrganizationAugmentation>
+			</cjis:MessageSubmittingOrganization>
+		</cjis:MessageSubmitter>
+	</cjis:MessageMetadata>
+	<nibrs:Report>
+		<nibrs:ReportHeader>
+			<!-- Submission Type -->
+			<nibrs:NIBRSReportCategoryCode>GROUP A INCIDENT REPORT</nibrs:NIBRSReportCategoryCode>
+			<!-- Submission Action Type -->
+			<nibrs:ReportActionCategoryCode>R</nibrs:ReportActionCategoryCode>
+			<!-- Year/Month Of Report -->
+			<nibrs:ReportDate>
+				<nc:YearMonthDate>2016-02</nc:YearMonthDate>
+			</nibrs:ReportDate>
+			<nibrs:ReportingAgency>
+				<j:OrganizationAugmentation>
+					<j:OrganizationORIIdentification>
+						<!-- Element 1, ORI Code, Owning Agency ORI -->
+						<nc:IdentificationID>TSADMIN01</nc:IdentificationID>
+					</j:OrganizationORIIdentification>
+				</j:OrganizationAugmentation>
+			</nibrs:ReportingAgency>
+		</nibrs:ReportHeader>
+		<nc:Incident>
+			<nc:ActivityIdentification>
+				<!-- Element 2, Incident Number -->
+				<nc:IdentificationID>54236732</nc:IdentificationID>
+			</nc:ActivityIdentification>
+			<nc:ActivityDate>					
+				<!-- Element 3, Incident Date and Hour-->
+				<nc:DateTime>2016-02-19T10:00:00</nc:DateTime>
+				<!-- Element 3, Incident Date if Hour is Unknown-->
+				<!--<nc:Date>2016-02-19</nc:Date>-->
+			</nc:ActivityDate>
+			<cjis:IncidentAugmentation>
+				<!-- Element 3, Report Date Indicator -->
+				<cjis:IncidentReportDateIndicator>true</cjis:IncidentReportDateIndicator>
+				<!-- Element 2A, Cargo Theft Indicator -->
+				<j:OffenseCargoTheftIndicator>true</j:OffenseCargoTheftIndicator>
+			</cjis:IncidentAugmentation>
+			<j:IncidentAugmentation>
+				<!-- Element 4, Cleared Exceptionally -->
+				<nibrs:IncidentExceptionalClearanceCode>A</nibrs:IncidentExceptionalClearanceCode>
+				<!-- Element 5, Exceptional Clearance Date -->
+				<j:IncidentExceptionalClearanceDate>
+					<nc:Date>2016-02-25</nc:Date>
+				</j:IncidentExceptionalClearanceDate>
+			</j:IncidentAugmentation>
+		</nc:Incident>
+		<j:Offense s:id="Offense3">
+			<!-- Element 6, Offense Code -->
+			<nibrs:OffenseUCRCode>DRUG-NARCOTIC_VIOLATIONS</nibrs:OffenseUCRCode>
+			<!-- Element 12, Type Criminal Activity/Gang Information -->
+			<nibrs:CriminalActivityCategoryCode>C</nibrs:CriminalActivityCategoryCode>
+			<!-- Element 8A, Bias Motivation -->
+			<nibrs:NIBRSBiasMotivationCode>NONE</nibrs:NIBRSBiasMotivationCode>
+			<!-- Element 8, Offender(s) Suspected Of Using -->
+			<j:OffenseFactor>
+				<nibrs:OffenseFactorCode>NOT_APPLICABLE</nibrs:OffenseFactorCode>
+			</j:OffenseFactor>
+			<!-- Element 7, Attempted/Completed -->
+			<nibrs:OffenseAttemptedIndicator>COMPLETED</nibrs:OffenseAttemptedIndicator>
+		</j:Offense>
+		
+		<nc:Location s:id="Location1">
+			<!-- Element 9, Location Type -->
+			<nibrs:LocationCategoryCode>58</nibrs:LocationCategoryCode>
+			<nc:LocationLocale>
+				<!-- Element 1A, Federal Judicial District -->
+				<j:JudicialDistrictCode>ALASKA</j:JudicialDistrictCode>
+			</nc:LocationLocale>
+		</nc:Location>	
+		
+		<!-- Begin Property -->
+		<nc:Substance>
+			<!-- Element 15, Property Description -->
+			<j:ItemCategoryNIBRSPropertyCategoryCode>DRUGS-NARCOTICS</j:ItemCategoryNIBRSPropertyCategoryCode>
+			<!-- Element 14, Type Property Loss -->
+			<nc:ItemStatus>
+				<j:ItemStatusCode>SEIZED</j:ItemStatusCode>
+			</nc:ItemStatus>
+			<!-- Element 16, Value of Property in US Dollars -->
+			<nc:ItemValue>
+				<nc:ItemValueAmount>
+					<nc:Amount>12000</nc:Amount>
+				</nc:ItemValueAmount>
+				<!-- Element 17, Date Recovered -->	
+				<nc:ItemValueDate>
+					<nc:Date>2016-02-24</nc:Date>
+				</nc:ItemValueDate>				
+			</nc:ItemValue>
+			<!-- Element 20, Suspected Involved Drug Type -->
+			<j:DrugCategoryCode>OVER_THREE_DRUG_TYPES</j:DrugCategoryCode>
+		</nc:Substance>
+		<!-- End Property -->
+		<nc:Person s:id="PersonSubject1">
+			<!-- Element 37, Age of Subject (only one would be included per subject)-->
+			<nc:PersonAgeMeasure>
+				<nc:MeasureIntegerRange>
+					<nc:RangeMaximumIntegerValue>30</nc:RangeMaximumIntegerValue>
+					<nc:RangeMinimumIntegerValue>25</nc:RangeMinimumIntegerValue>
+				</nc:MeasureIntegerRange>
+			</nc:PersonAgeMeasure>
+			<!-- Element 39A, Ethnicity of Subject -->
+			<j:PersonEthnicityCode>NOT_HISPANIC-LATINO</j:PersonEthnicityCode>
+			<!-- Element 39, Race of Subject -->
+			<j:PersonRaceCode>WHITE</j:PersonRaceCode>
+			<!-- Element 38, Sex of Subject -->
+			<j:PersonSexCode>F</j:PersonSexCode>
+		</nc:Person>
+		<j:Victim s:id="Victim3">
+			<!-- Element 23, Victim Sequence Number -->
+			<j:VictimSequenceNumberText>3</j:VictimSequenceNumberText>
+			<!-- Element 25, Type of Victim -->
+			<j:VictimCategoryCode>SOCIETY-PUBLIC</j:VictimCategoryCode>
+		</j:Victim>
+		<j:Subject s:id="Subject1">
+			<nc:RoleOfPerson s:ref="PersonSubject1"/>
+			<!-- Element 36, Offender (Sequence) Number -->
+			<j:SubjectSequenceNumberText>1</j:SubjectSequenceNumberText>
+		</j:Subject>
+		
+		<!-- Replace Previous Incident to add Arrest Info -->
+		<nibrs:Arrestee s:id="Arrestee1">
+			<nc:RoleOfPerson s:ref="PersonSubject1" />
+			<!-- Element 40, Arrestee Sequence Number -->
+			<j:ArrestSequenceID>1</j:ArrestSequenceID>
+			<!-- Element 46, Arrestee Was Armed With -->
+			<nibrs:ArresteeArmedWithCode>UNARMED</nibrs:ArresteeArmedWithCode>
+			<!-- Element 44, Multiple Arrestee Segments Indicator -->
+			<j:ArrestSubjectCountCode>COUNT_ARRESTEE</j:ArrestSubjectCountCode>
+		</nibrs:Arrestee>
+		<j:Arrest s:id="Arrest1">
+			<!-- Element 41, Arrest Transaction Number -->
+			<nc:ActivityIdentification>
+				<nc:IdentificationID>98765</nc:IdentificationID>
+			</nc:ActivityIdentification>
+			<!-- Element 42, Arrest Date -->
+			<nc:ActivityDate>
+				<nc:Date>2016-02-28</nc:Date>
+			</nc:ActivityDate>
+			<!-- Element 45, UCR Arrest Offense Code -->
+			<j:ArrestCharge>
+				<nibrs:ChargeUCRCode>AGGRAVATED_ASSAULT</nibrs:ChargeUCRCode>
+			</j:ArrestCharge>
+			<!-- Element 43, Type Of Arrest -->
+			<j:ArrestCategoryCode>ON-VIEW_ARREST</j:ArrestCategoryCode>
+		</j:Arrest>
+		
+		<!-- Associations -->
+		<j:ArrestSubjectAssociation>
+			<nc:Activity s:ref="Arrest1"/>
+			<j:Subject s:ref="Arrestee1"/>
+		</j:ArrestSubjectAssociation>
+		
+		<!-- Offense Location Association -->
+		<j:OffenseLocationAssociation>
+			<j:Offense s:ref="Offense3"/>
+			<nc:Location s:ref="Location1"/>
+		</j:OffenseLocationAssociation>
+
+		<!-- Element 24, Victim Connected to UCR Offense Code -->
+		<j:OffenseVictimAssociation>
+			<j:Offense s:ref="Offense3"/>
+			<j:Victim s:ref="Victim3"/>
+		</j:OffenseVictimAssociation>
+
+	</nibrs:Report>
+</nibrs:Submission>

@@ -12,8 +12,10 @@ Key Features:
 """
 import re
 import sys
+
 # Use defusedxml for secure XML parsing (prevents XXE attacks)
 import defusedxml.ElementTree as ET
+
 # Import Element type from standard library for type hints
 from xml.etree.ElementTree import Element
 from typing import Any
@@ -129,12 +131,9 @@ def _parse_property_associations(class_element: Element) -> list[dict[str, str]]
         data_prop_ref = ref_of(cpa, "DataProperty")
         min_occurs = text_of(cpa, "MinOccursQuantity")
         max_occurs = text_of(cpa, "MaxOccursQuantity")
-        props.append({
-            "objectProperty": obj_prop_ref,
-            "dataProperty": data_prop_ref,
-            "min": min_occurs,
-            "max": max_occurs
-        })
+        props.append(
+            {"objectProperty": obj_prop_ref, "dataProperty": data_prop_ref, "min": min_occurs, "max": max_occurs}
+        )
     return props
 
 
@@ -153,13 +152,7 @@ def _extract_class_info(class_element: Element) -> dict[str, Any]:
     subclass = ref_of(class_element, "SubClassOf")
     props = _parse_property_associations(class_element)
 
-    return {
-        "id": class_id,
-        "name": name,
-        "namespace_prefix": namespace_ref,
-        "subclass_of": subclass,
-        "props": props
-    }
+    return {"id": class_id, "name": name, "namespace_prefix": namespace_ref, "subclass_of": subclass, "props": props}
 
 
 def _is_meaningful_class(class_info: dict[str, Any]) -> bool:
@@ -236,7 +229,7 @@ def build_dataproperty_index(root: Element) -> dict[str, dict[str, Any]]:
             "id": prop_id,
             "name": text_of(element, "Name"),
             "datatype": datatype_ref,
-            "namespace": ref_of(element, "Namespace")
+            "namespace": ref_of(element, "Namespace"),
         }
 
     return index
@@ -264,8 +257,7 @@ def build_datatype_index(root: Element) -> dict[str, dict[str, Any]]:
             restriction_base = element.find(".//cmf:RestrictionBase", NS)
             restriction_of = element.find(".//cmf:RestrictionOf", NS)
             is_restriction = (
-                restriction_base is not None or restriction_of is not None
-                or element_type == ".//cmf:Restriction"
+                restriction_base is not None or restriction_of is not None or element_type == ".//cmf:Restriction"
             )
 
             # Check for child properties (indicates complex type)
@@ -292,10 +284,10 @@ def build_datatype_index(root: Element) -> dict[str, dict[str, Any]]:
                         "dataProperty": ref_of(cpa, "DataProperty"),
                         "objectProperty": ref_of(cpa, "ObjectProperty"),
                         "min": text_of(cpa, "MinOccursQuantity"),
-                        "max": text_of(cpa, "MaxOccursQuantity")
+                        "max": text_of(cpa, "MaxOccursQuantity"),
                     }
                     for cpa in child_props
-                ]
+                ],
             }
 
     return index
@@ -305,7 +297,7 @@ def _extract_scalar_properties(
     class_props: list[dict[str, Any]],
     dataprop_index: dict[str, dict[str, Any]],
     datatype_index: dict[str, dict[str, Any]],
-    max_depth: int = 3
+    max_depth: int = 3,
 ) -> list[dict[str, str]]:
     """Extract flattened scalar properties from class properties.
 
@@ -337,12 +329,7 @@ def _extract_scalar_properties(
 
         # Flatten properties recursively
         flattened = _flatten_property(
-            data_prop_ref,
-            data_prop,
-            dataprop_index,
-            datatype_index,
-            max_depth=max_depth,
-            current_depth=0
+            data_prop_ref, data_prop, dataprop_index, datatype_index, max_depth=max_depth, current_depth=0
         )
 
         scalar_props.extend(flattened)
@@ -357,7 +344,7 @@ def _flatten_property(
     datatype_index: dict[str, dict[str, Any]],
     max_depth: int,
     current_depth: int,
-    path_prefix: str = ""
+    path_prefix: str = "",
 ) -> list[dict[str, str]]:
     """Recursively flatten a property based on its datatype classification.
 
@@ -386,37 +373,25 @@ def _flatten_property(
     datatype_ref = data_prop.get("datatype")
     if not datatype_ref:
         # No datatype - treat as simple scalar
-        result.append({
-            "path": full_path,
-            "neo4j_property": full_path.replace(":", "_").replace(".", "_")
-        })
+        result.append({"path": full_path, "neo4j_property": full_path.replace(":", "_").replace(".", "_")})
         return result
 
     datatype = datatype_index.get(datatype_ref)
     if not datatype:
         # Unknown datatype - treat as simple scalar
-        result.append({
-            "path": full_path,
-            "neo4j_property": full_path.replace(":", "_").replace(".", "_")
-        })
+        result.append({"path": full_path, "neo4j_property": full_path.replace(":", "_").replace(".", "_")})
         return result
 
     type_class = datatype.get("class", "SIMPLE")
 
     # SIMPLE type - return as-is
     if type_class == "SIMPLE":
-        result.append({
-            "path": full_path,
-            "neo4j_property": full_path.replace(":", "_").replace(".", "_")
-        })
+        result.append({"path": full_path, "neo4j_property": full_path.replace(":", "_").replace(".", "_")})
         return result
 
     # Depth limit reached - stop flattening
     if current_depth >= max_depth:
-        result.append({
-            "path": full_path,
-            "neo4j_property": full_path.replace(":", "_").replace(".", "_")
-        })
+        result.append({"path": full_path, "neo4j_property": full_path.replace(":", "_").replace(".", "_")})
         return result
 
     # WRAPPER or COMPLEX - flatten children
@@ -430,15 +405,11 @@ def _flatten_property(
         if child_data_ref and child_data_ref in dataprop_index:
             # Recurse into child
             child_data = dataprop_index[child_data_ref]
-            result.extend(_flatten_property(
-                child_data_ref,
-                child_data,
-                dataprop_index,
-                datatype_index,
-                max_depth,
-                current_depth + 1,
-                full_path
-            ))
+            result.extend(
+                _flatten_property(
+                    child_data_ref, child_data, dataprop_index, datatype_index, max_depth, current_depth + 1, full_path
+                )
+            )
     elif type_class == "COMPLEX" and len(child_props) > 0:
         # Multiple children - flatten each with path prefix
         for child_prop in child_props:
@@ -446,28 +417,26 @@ def _flatten_property(
 
             if child_data_ref and child_data_ref in dataprop_index:
                 child_data = dataprop_index[child_data_ref]
-                result.extend(_flatten_property(
-                    child_data_ref,
-                    child_data,
-                    dataprop_index,
-                    datatype_index,
-                    max_depth,
-                    current_depth + 1,
-                    full_path
-                ))
+                result.extend(
+                    _flatten_property(
+                        child_data_ref,
+                        child_data,
+                        dataprop_index,
+                        datatype_index,
+                        max_depth,
+                        current_depth + 1,
+                        full_path,
+                    )
+                )
     else:
         # No children or couldn't resolve - treat as scalar
-        result.append({
-            "path": full_path,
-            "neo4j_property": full_path.replace(":", "_").replace(".", "_")
-        })
+        result.append({"path": full_path, "neo4j_property": full_path.replace(":", "_").replace(".", "_")})
 
     return result
 
 
 def _partition_classes(
-    class_index: dict[str, dict[str, Any]],
-    class_to_element: dict[str, str]
+    class_index: dict[str, dict[str, Any]], class_to_element: dict[str, str]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], set[str]]:
     """Partition classes into AssociationType and ObjectType.
 
@@ -482,11 +451,7 @@ def _partition_classes(
     objects, associations = [], []
 
     for class_id, class_info in class_index.items():
-        class_data = {
-            "class_id": class_id,
-            "element_qname": class_to_element.get(class_id),
-            "info": class_info
-        }
+        class_data = {"class_id": class_id, "element_qname": class_to_element.get(class_id), "info": class_info}
 
         if class_info["subclass_of"] == ASSOCIATION_TYPE:
             association_ids.add(class_id)
@@ -520,9 +485,7 @@ def _collect_used_prefixes(classes: list[dict[str, Any]]) -> set[str]:
     return used_prefixes
 
 
-def _create_label_for_class_function(
-    class_to_element: dict[str, str]
-) -> callable:
+def _create_label_for_class_function(class_to_element: dict[str, str]) -> callable:
     """Create a label_for_class function with closure over class_to_element.
 
     Args:
@@ -531,6 +494,7 @@ def _create_label_for_class_function(
     Returns:
         Function that computes label from class ID
     """
+
     def label_for_class(class_id: str) -> str:
         element = class_to_element.get(class_id)
         if element:
@@ -541,10 +505,7 @@ def _create_label_for_class_function(
 
 
 def _build_complete_objects_list(
-    root: Element,
-    class_index: dict[str, dict[str, Any]],
-    element_to_class: dict[str, str],
-    association_ids: set[str]
+    root: Element, class_index: dict[str, dict[str, Any]], element_to_class: dict[str, str], association_ids: set[str]
 ) -> list[dict[str, Any]]:
     """Build complete list of objects from ALL ObjectProperties.
 
@@ -588,7 +549,7 @@ def _build_complete_objects_list(
         obj_entry = {
             "element_qname": obj_prop_id,
             "class_id": class_ref,
-            "info": class_index.get(class_ref, {}) if class_ref else {}
+            "info": class_index.get(class_ref, {}) if class_ref else {},
         }
 
         objects.append(obj_entry)
@@ -597,9 +558,7 @@ def _build_complete_objects_list(
 
 
 def _build_objects_mapping(
-    objects: list[dict[str, Any]],
-    dataprop_index: dict[str, dict[str, Any]],
-    datatype_index: dict[str, dict[str, Any]]
+    objects: list[dict[str, Any]], dataprop_index: dict[str, dict[str, Any]], datatype_index: dict[str, dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """Build objects section of the mapping with extracted scalar properties.
 
@@ -620,20 +579,14 @@ def _build_objects_mapping(
         class_props = class_info.get("props", [])
         scalar_props = _extract_scalar_properties(class_props, dataprop_index, datatype_index)
 
-        objects_mapping.append({
-            "qname": qn,
-            "label": to_label(qn),
-            "carries_structures_id": True,
-            "scalar_props": scalar_props
-        })
+        objects_mapping.append(
+            {"qname": qn, "label": to_label(qn), "carries_structures_id": True, "scalar_props": scalar_props}
+        )
     return objects_mapping
 
 
 def _build_association_endpoint(
-    prop: dict[str, str],
-    element_to_class: dict[str, str],
-    label_for_class: callable,
-    endpoint_index: int
+    prop: dict[str, str], element_to_class: dict[str, str], label_for_class: callable, endpoint_index: int
 ) -> dict[str, str]:
     """Build a single association endpoint.
 
@@ -655,14 +608,12 @@ def _build_association_endpoint(
         "maps_to_label": target_label,
         "direction": "source" if endpoint_index == 0 else "target",
         "via": "structures:ref",
-        "cardinality": f"{prop['min'] or '0'}..{prop['max'] or '*'}"
+        "cardinality": f"{prop['min'] or '0'}..{prop['max'] or '*'}",
     }
 
 
 def _build_associations_mapping(
-    associations: list[dict[str, Any]],
-    element_to_class: dict[str, str],
-    label_for_class: callable
+    associations: list[dict[str, Any]], element_to_class: dict[str, str], label_for_class: callable
 ) -> list[dict[str, Any]]:
     """Build associations section of the mapping.
 
@@ -683,17 +634,12 @@ def _build_associations_mapping(
         for prop in class_info.get("props", []):
             obj_prop = prop["objectProperty"]
             if obj_prop:
-                endpoint = _build_association_endpoint(
-                    prop, element_to_class, label_for_class, len(endpoints)
-                )
+                endpoint = _build_association_endpoint(prop, element_to_class, label_for_class, len(endpoints))
                 endpoints.append(endpoint)
 
-        associations_mapping.append({
-            "qname": base_rel_name,
-            "rel_type": to_rel_type(base_rel_name),
-            "endpoints": endpoints,
-            "rel_props": []
-        })
+        associations_mapping.append(
+            {"qname": base_rel_name, "rel_type": to_rel_type(base_rel_name), "endpoints": endpoints, "rel_props": []}
+        )
 
     return associations_mapping
 
@@ -702,7 +648,7 @@ def _build_references_mapping(
     objects: list[dict[str, Any]],
     element_to_class: dict[str, str],
     association_ids: set[str],
-    label_for_class: callable
+    label_for_class: callable,
 ) -> list[dict[str, Any]]:
     """Build references section of the mapping.
 
@@ -727,14 +673,16 @@ def _build_references_mapping(
 
             target_class_id = element_to_class.get(obj_prop)
             if target_class_id and target_class_id not in association_ids:
-                references_mapping.append({
-                    "owner_object": owner_qn,
-                    "field_qname": to_qname(obj_prop),
-                    "target_label": label_for_class(target_class_id),
-                    "rel_type": to_rel_type(obj_prop),
-                    "via": "structures:ref",
-                    "cardinality": f"{prop['min'] or '0'}..{prop['max'] or '*'}"
-                })
+                references_mapping.append(
+                    {
+                        "owner_object": owner_qn,
+                        "field_qname": to_qname(obj_prop),
+                        "target_label": label_for_class(target_class_id),
+                        "rel_type": to_rel_type(obj_prop),
+                        "via": "structures:ref",
+                        "cardinality": f"{prop['min'] or '0'}..{prop['max'] or '*'}",
+                    }
+                )
 
     return references_mapping
 
@@ -821,13 +769,8 @@ def _generate_mapping_from_root(root: Element) -> dict[str, Any]:
         "associations": associations_mapping,
         "references": references_mapping,
         "augmentations": [],  # reserved for future
-        "polymorphism": {
-            "strategy": "extraLabel",
-            "store_actual_type_property": "xsiType"
-        },
-        "metadata": {
-            "cmf_element_index": sorted(cmf_elements)
-        }
+        "polymorphism": {"strategy": "extraLabel", "store_actual_type_property": "xsiType"},
+        "metadata": {"cmf_element_index": sorted(cmf_elements)},
     }
 
 

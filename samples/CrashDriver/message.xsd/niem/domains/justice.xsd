@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  targetNamespace="https://docs.oasis-open.org/niemopen/ns/model/domains/justice/6.0/"
+  xmlns:aamva_d20="https://docs.oasis-open.org/niemopen/ns/model/codes/aamva_d20/6.0/"
+  xmlns:exch="http://example.com/CrashDriver/1.3/"
+  xmlns:j="https://docs.oasis-open.org/niemopen/ns/model/domains/justice/6.0/"
+  xmlns:nc="https://docs.oasis-open.org/niemopen/ns/model/niem-core/6.0/"
+  xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  version="ps02"
+  xml:lang="en-US">
+  <xs:annotation>
+    <xs:documentation>Justice</xs:documentation>
+  </xs:annotation>
+  <xs:import namespace="http://example.com/CrashDriver/1.3/" schemaLocation="../../CrashDriver.xsd"/>
+  <xs:import namespace="https://docs.oasis-open.org/niemopen/ns/model/niem-core/6.0/" schemaLocation="../niem-core.xsd"/>
+  <xs:import namespace="https://docs.oasis-open.org/niemopen/ns/model/codes/aamva_d20/6.0/" schemaLocation="../codes/aamva_d20.xsd"/>
+  <xs:import namespace="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/" schemaLocation="../utility/structures.xsd"/>
+  <xs:complexType name="ChargeType">
+    <xs:annotation>
+      <xs:documentation>A data type for a formal allegation that a specific person has committed a specific offense.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element ref="j:ChargeDescriptionText" maxOccurs="unbounded"/>
+      <xs:element ref="j:ChargeFelonyIndicator" minOccurs="0"/>
+      <xs:element ref="exch:ChargeAugmentation" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute ref="structures:id"/>
+    <xs:attribute ref="structures:uri"/>
+    <xs:attribute ref="structures:ref"/>
+  </xs:complexType>
+  <xs:complexType name="CrashDriverType">
+    <xs:annotation>
+      <xs:documentation>A data type for a motor vehicle driver involved in a traffic accident.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:PersonType">
+        <xs:sequence>
+          <xs:element ref="j:DriverLicense" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="CrashPersonType">
+    <xs:annotation>
+      <xs:documentation>A data type for any person involved in a traffic accident.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:PersonType">
+        <xs:sequence>
+          <xs:element ref="j:CrashPersonInjury" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="CrashType">
+    <xs:annotation>
+      <xs:documentation>A data type for a traffic accident.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="j:DrivingIncidentType">
+        <xs:sequence>
+          <xs:element ref="j:CrashVehicle" maxOccurs="unbounded"/>
+          <xs:element ref="j:CrashPerson" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="CrashVehicleType">
+    <xs:annotation>
+      <xs:documentation>A data type for a motor vehicle involved in a traffic accident.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element ref="j:CrashDriver"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="DriverLicenseBaseType">
+    <xs:annotation>
+      <xs:documentation>A data type for an authorization issued to a driver granting driving privileges.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence/>
+  </xs:complexType>
+  <xs:complexType name="DriverLicenseType">
+    <xs:annotation>
+      <xs:documentation>A data type for a license issued to a person granting driving privileges.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="j:DriverLicenseBaseType">
+        <xs:sequence>
+          <xs:element ref="j:DriverLicenseCardIdentification"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="DrivingIncidentType">
+    <xs:annotation>
+      <xs:documentation>A data type for details of an incident involving a vehicle.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:IncidentType">
+        <xs:sequence/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="MetadataAugmentationType">
+    <xs:annotation>
+      <xs:documentation>A data type for additional information about an metadata.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element ref="j:CriminalInformationIndicator" minOccurs="0"/>
+      <xs:element ref="j:IntelligenceInformationIndicator" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="PersonAugmentationType">
+    <xs:annotation>
+      <xs:documentation>A data type for additional information about a person.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element ref="j:PersonAdultIndicator"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="PersonChargeAssociationType">
+    <xs:annotation>
+      <xs:documentation>A data type for an association between a person and a charge.</xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="nc:AssociationType">
+        <xs:sequence>
+          <xs:element ref="nc:Person"/>
+          <xs:element ref="j:Charge"/>
+          <xs:element ref="j:JuvenileAsAdultIndicator" minOccurs="0"/>
+          <xs:element ref="exch:PersonChargeAssociationAugmentation" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="Charge" type="j:ChargeType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A formal allegation that a specific person has committed a specific offense.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ChargeDescriptionText" type="nc:TextType">
+    <xs:annotation>
+      <xs:documentation>A plain language description of a charge.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ChargeFelonyIndicator" type="xs:boolean">
+    <xs:annotation>
+      <xs:documentation>True if a charge refers to a felony offense; false otherwise.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="Crash" type="j:CrashType">
+    <xs:annotation>
+      <xs:documentation>A traffic accident.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CrashDriver" type="j:CrashDriverType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A motor vehicle driver involved into a traffic accident.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CrashPerson" type="j:CrashPersonType" nillable="true">
+    <xs:annotation>
+      <xs:documentation>A person involved in a traffic accident.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CrashPersonInjury" type="nc:InjuryType">
+    <xs:annotation>
+      <xs:documentation>An injury received by a person involved in a traffic accident.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CrashVehicle" type="j:CrashVehicleType">
+    <xs:annotation>
+      <xs:documentation>A motor vehicle involved in a traffic accident.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="CriminalInformationIndicator" type="xs:boolean">
+    <xs:annotation>
+      <xs:documentation>True if the information specified is classified as criminal information; false if it is not classified as criminal information.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="DriverLicense" type="j:DriverLicenseType">
+    <xs:annotation>
+      <xs:documentation>A license issued to a person granting driving privileges.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="DriverLicenseCardIdentification" type="nc:IdentificationType">
+    <xs:annotation>
+      <xs:documentation>An identification that is affixed to the raw materials (card stock, laminate, etc.) used in producing driver licenses and ID cards. The numbers are issued by the material's manufacturer and provide a unique reference to a card within a jurisdiction.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="InjurySeverityCode" type="aamva_d20:AccidentSeverityCodeType">
+    <xs:annotation>
+      <xs:documentation>A severity of an injury received by a person, such as in a traffic accident or crash.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="IntelligenceInformationIndicator" type="xs:boolean">
+    <xs:annotation>
+      <xs:documentation>True if the information specified is intelligence information; false otherwise.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="JuvenileAsAdultIndicator" type="xs:boolean">
+    <xs:annotation>
+      <xs:documentation>True if a juvenile is to be processed as an adult; false otherwise.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="MetadataAugmentation" type="j:MetadataAugmentationType">
+    <xs:annotation>
+      <xs:documentation>Additional information about an metadata.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PersonAdultIndicator" type="xs:boolean">
+    <xs:annotation>
+      <xs:documentation>True if person is considered an adult, based on age/emancipation/etc.; false otherwise.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PersonAugmentation" type="j:PersonAugmentationType">
+    <xs:annotation>
+      <xs:documentation>Additional information about a person.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="PersonChargeAssociation" type="j:PersonChargeAssociationType">
+    <xs:annotation>
+      <xs:documentation>An association between a person and a charge issued to that person.</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+</xs:schema>

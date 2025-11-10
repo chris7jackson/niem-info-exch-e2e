@@ -1,0 +1,1020 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<w:WantList w:release="4.1" w:product="NIEM" w:nillableDefault="true"
+  xmlns:w="http://niem.gov/niem/wantlist/2.2"
+  xmlns:intel="http://release.niem.gov/niem/domains/intelligence/4.1/"
+  xmlns:nc="http://release.niem.gov/niem/niem-core/4.0/"
+  xmlns:j="http://release.niem.gov/niem/domains/jxdm/6.1/"
+  xmlns:im="http://release.niem.gov/niem/domains/immigration/4.1/"
+  xmlns:xml="http://www.w3.org/XML/1998/namespace"
+  xmlns:hs="http://release.niem.gov/niem/domains/humanServices/4.1/"
+  xmlns:ucr="http://release.niem.gov/niem/codes/fbi_ucr/4.1/"
+  xmlns:iso_3166="http://release.niem.gov/niem/codes/iso_3166-1/4.0/"
+  xmlns:scr="http://release.niem.gov/niem/domains/screening/4.1/"
+  xmlns:ncic="http://release.niem.gov/niem/codes/fbi_ncic/4.0/"
+  xmlns:usps="http://release.niem.gov/niem/codes/usps_states/4.0/" xmlns:niem-xs="http://release.niem.gov/niem/proxy/xsd/4.0/">
+  <w:Element w:name="hs:AssociatedPersonChildAssociation"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="hs:ChildLegalCustodyPartyAssociation"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="hs:FosterParentChildAssociation"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="hs:JuvenilePlacement" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="hs:ParentChildAssociation" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="hs:PersonAugmentation" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="hs:Placement" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="hs:PlacementCategoryText" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="hs:RelatedCase" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="hs:TaskAugmentation" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="im:PartyContactInformationAssociation"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="intel:IdentityAssociationAugmentation"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ActivityLocationAssociation"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="j:PersonEthnicityCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:PersonRaceCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:PersonSexCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ActivityDocumentAssociation"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:ActivityInvolvedOrganizationAssociation"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ActivityResponsibleOrganizationAssociation"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:Address" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:Base64BinaryObject" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:CaseDispositionDecision" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:ContactEmailID" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:ContactInstantMessenger" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:ContactMailingAddress" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:ContactTelephoneNumber" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:ContactWebsiteURI" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:Date" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:DateRange" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:DateTime" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:Disposition" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:DocumentCategoryID" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:DocumentCategoryName" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:DocumentCategoryText" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:DocumentSubjectText" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:EntityOrganization" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:EntityPerson" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:FullTelephoneNumber" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:HexBinaryObject" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:LocationCountryISO3166Alpha2Code"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:LocationCountyName" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:LocationOrganizationAssociation"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:LocationState" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:LocationStateUSPostalServiceCode"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureDecimalValue" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureDoubleValue" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureIntegerValue" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasurePointAbstract" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:MeasureUnsignedIntegerValue"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureValueText" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:OrganizationCategoryText" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonAliasIdentityAssociation"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonAssociation" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonAugmentationPoint" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonEthnicityText" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonIdentityAssociation" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonLocationAssociation" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonNameCategoryCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:PersonNameCategoryText" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonOrganizationAssociation"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonRaceText" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonResidenceAssociation"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:PersonSexText" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:RoleOfOrganization" w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="nc:TelephoneNumberCategoryText"
+    w:isReference="false" w:nillable="true"/>
+  <w:Element w:name="scr:DocumentOrganizationAssociation"
+    w:isReference="false" w:nillable="true"/>
+  <w:Type w:name="hs:AssociatedPersonChildAssociationType" w:isRequested="true">
+    <w:ElementInType w:name="hs:Child" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:ChildLegalCustodyPartyAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="hs:CustodialEntity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:Child" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType
+      w:name="hs:ChildLegalCustodyPartyAssociationAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:ChildType" w:isRequested="false">
+    <w:ElementInType w:name="nc:RoleOfPerson" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:ChildRemovalDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:CountyOfCustodyText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:ChildAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:FosterParentChildAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="hs:OutOfStatePlacementIndicator"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:JuvenilePlacementType" w:isRequested="false">
+    <w:ElementInType w:name="hs:JuvenilePlacementGoalText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:JuvenilePlacementSupervisorPerson"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:JuvenileType" w:isRequested="false">
+    <w:ElementInType w:name="hs:JuvenileFosterCarePlacementIndicator"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:RoleOfPerson" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:ParentChildAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="hs:Child" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:Parent" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:TerminationParentalRightsDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:TerminationParentalRightsIndicator"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:PersonAugmentationType" w:isRequested="false">
+    <w:ElementInType w:name="hs:PersonGenderIdentityAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:PersonCaseAssociationType" w:isRequested="true"/>
+  <w:Type w:name="hs:PlacementLocationCodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="Family"/>
+    <w:Facet w:facet="enumeration" w:value="Father"/>
+    <w:Facet w:facet="enumeration" w:value="Fictive Kin"/>
+    <w:Facet w:facet="enumeration" w:value="Foster Group Home"/>
+    <w:Facet w:facet="enumeration" w:value="Foster Home"/>
+    <w:Facet w:facet="enumeration" w:value="Foster Home Adoptive"/>
+    <w:Facet w:facet="enumeration" w:value="Habitative Foster Home"/>
+    <w:Facet w:facet="enumeration" w:value="Mother"/>
+    <w:Facet w:facet="enumeration" w:value="Psychiatric Hospital"/>
+    <w:Facet w:facet="enumeration" w:value="RSA"/>
+    <w:Facet w:facet="enumeration" w:value="RTC"/>
+    <w:Facet w:facet="enumeration" w:value="TFH"/>
+  </w:Type>
+  <w:Type w:name="hs:PlacementLocationCodeType" w:isRequested="true"/>
+  <w:Type w:name="hs:PlacementType" w:isRequested="false">
+    <w:ElementInType w:name="hs:PlacementCategoryRestrictivenessText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType
+      w:name="hs:RelativePlacementResourcesDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:AdoptionFosterCareHomeStudyText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:ChangeOfSchoolIndicator"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:ICPCPlacementApprovalIndicator"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:PlacementCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:PlacementAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:RelatedCaseType" w:isRequested="false">
+    <w:ElementInType w:name="nc:OrganizationIdentification"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:OrganizationCaseID"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:ServiceType" w:isRequested="false">
+    <w:ElementInType w:name="hs:ResponsibilityForServiceCostText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:ResponsibleEntityDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:ServiceCostValue" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:ServiceAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="hs:TaskAugmentationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:ActivityPersonAssociation"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:TaskCriteriaForSuccessText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:TaskCurrentStatus" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:TaskTimeframeDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="hs:Service" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="im:PartyContactInformationAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:Entity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ContactInformation"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="iso_3166:CountryAlpha2CodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="AD"/>
+    <w:Facet w:facet="enumeration" w:value="AE"/>
+    <w:Facet w:facet="enumeration" w:value="AF"/>
+    <w:Facet w:facet="enumeration" w:value="AG"/>
+    <w:Facet w:facet="enumeration" w:value="AI"/>
+    <w:Facet w:facet="enumeration" w:value="AL"/>
+    <w:Facet w:facet="enumeration" w:value="AM"/>
+    <w:Facet w:facet="enumeration" w:value="AO"/>
+    <w:Facet w:facet="enumeration" w:value="AQ"/>
+    <w:Facet w:facet="enumeration" w:value="AR"/>
+    <w:Facet w:facet="enumeration" w:value="AS"/>
+    <w:Facet w:facet="enumeration" w:value="AT"/>
+    <w:Facet w:facet="enumeration" w:value="AU"/>
+    <w:Facet w:facet="enumeration" w:value="AW"/>
+    <w:Facet w:facet="enumeration" w:value="AX"/>
+    <w:Facet w:facet="enumeration" w:value="AZ"/>
+    <w:Facet w:facet="enumeration" w:value="BA"/>
+    <w:Facet w:facet="enumeration" w:value="BB"/>
+    <w:Facet w:facet="enumeration" w:value="BD"/>
+    <w:Facet w:facet="enumeration" w:value="BE"/>
+    <w:Facet w:facet="enumeration" w:value="BF"/>
+    <w:Facet w:facet="enumeration" w:value="BG"/>
+    <w:Facet w:facet="enumeration" w:value="BH"/>
+    <w:Facet w:facet="enumeration" w:value="BI"/>
+    <w:Facet w:facet="enumeration" w:value="BJ"/>
+    <w:Facet w:facet="enumeration" w:value="BL"/>
+    <w:Facet w:facet="enumeration" w:value="BM"/>
+    <w:Facet w:facet="enumeration" w:value="BN"/>
+    <w:Facet w:facet="enumeration" w:value="BO"/>
+    <w:Facet w:facet="enumeration" w:value="BQ"/>
+    <w:Facet w:facet="enumeration" w:value="BR"/>
+    <w:Facet w:facet="enumeration" w:value="BS"/>
+    <w:Facet w:facet="enumeration" w:value="BT"/>
+    <w:Facet w:facet="enumeration" w:value="BV"/>
+    <w:Facet w:facet="enumeration" w:value="BW"/>
+    <w:Facet w:facet="enumeration" w:value="BY"/>
+    <w:Facet w:facet="enumeration" w:value="BZ"/>
+    <w:Facet w:facet="enumeration" w:value="CA"/>
+    <w:Facet w:facet="enumeration" w:value="CC"/>
+    <w:Facet w:facet="enumeration" w:value="CD"/>
+    <w:Facet w:facet="enumeration" w:value="CF"/>
+    <w:Facet w:facet="enumeration" w:value="CG"/>
+    <w:Facet w:facet="enumeration" w:value="CH"/>
+    <w:Facet w:facet="enumeration" w:value="CI"/>
+    <w:Facet w:facet="enumeration" w:value="CK"/>
+    <w:Facet w:facet="enumeration" w:value="CL"/>
+    <w:Facet w:facet="enumeration" w:value="CM"/>
+    <w:Facet w:facet="enumeration" w:value="CN"/>
+    <w:Facet w:facet="enumeration" w:value="CO"/>
+    <w:Facet w:facet="enumeration" w:value="CR"/>
+    <w:Facet w:facet="enumeration" w:value="CU"/>
+    <w:Facet w:facet="enumeration" w:value="CV"/>
+    <w:Facet w:facet="enumeration" w:value="CW"/>
+    <w:Facet w:facet="enumeration" w:value="CX"/>
+    <w:Facet w:facet="enumeration" w:value="CY"/>
+    <w:Facet w:facet="enumeration" w:value="CZ"/>
+    <w:Facet w:facet="enumeration" w:value="DE"/>
+    <w:Facet w:facet="enumeration" w:value="DJ"/>
+    <w:Facet w:facet="enumeration" w:value="DK"/>
+    <w:Facet w:facet="enumeration" w:value="DM"/>
+    <w:Facet w:facet="enumeration" w:value="DO"/>
+    <w:Facet w:facet="enumeration" w:value="DZ"/>
+    <w:Facet w:facet="enumeration" w:value="EC"/>
+    <w:Facet w:facet="enumeration" w:value="EE"/>
+    <w:Facet w:facet="enumeration" w:value="EG"/>
+    <w:Facet w:facet="enumeration" w:value="EH"/>
+    <w:Facet w:facet="enumeration" w:value="ER"/>
+    <w:Facet w:facet="enumeration" w:value="ES"/>
+    <w:Facet w:facet="enumeration" w:value="ET"/>
+    <w:Facet w:facet="enumeration" w:value="FI"/>
+    <w:Facet w:facet="enumeration" w:value="FJ"/>
+    <w:Facet w:facet="enumeration" w:value="FK"/>
+    <w:Facet w:facet="enumeration" w:value="FM"/>
+    <w:Facet w:facet="enumeration" w:value="FO"/>
+    <w:Facet w:facet="enumeration" w:value="FR"/>
+    <w:Facet w:facet="enumeration" w:value="GA"/>
+    <w:Facet w:facet="enumeration" w:value="GB"/>
+    <w:Facet w:facet="enumeration" w:value="GD"/>
+    <w:Facet w:facet="enumeration" w:value="GE"/>
+    <w:Facet w:facet="enumeration" w:value="GF"/>
+    <w:Facet w:facet="enumeration" w:value="GG"/>
+    <w:Facet w:facet="enumeration" w:value="GH"/>
+    <w:Facet w:facet="enumeration" w:value="GI"/>
+    <w:Facet w:facet="enumeration" w:value="GL"/>
+    <w:Facet w:facet="enumeration" w:value="GM"/>
+    <w:Facet w:facet="enumeration" w:value="GN"/>
+    <w:Facet w:facet="enumeration" w:value="GP"/>
+    <w:Facet w:facet="enumeration" w:value="GQ"/>
+    <w:Facet w:facet="enumeration" w:value="GR"/>
+    <w:Facet w:facet="enumeration" w:value="GS"/>
+    <w:Facet w:facet="enumeration" w:value="GT"/>
+    <w:Facet w:facet="enumeration" w:value="GU"/>
+    <w:Facet w:facet="enumeration" w:value="GW"/>
+    <w:Facet w:facet="enumeration" w:value="GY"/>
+    <w:Facet w:facet="enumeration" w:value="HK"/>
+    <w:Facet w:facet="enumeration" w:value="HM"/>
+    <w:Facet w:facet="enumeration" w:value="HN"/>
+    <w:Facet w:facet="enumeration" w:value="HR"/>
+    <w:Facet w:facet="enumeration" w:value="HT"/>
+    <w:Facet w:facet="enumeration" w:value="HU"/>
+    <w:Facet w:facet="enumeration" w:value="ID"/>
+    <w:Facet w:facet="enumeration" w:value="IE"/>
+    <w:Facet w:facet="enumeration" w:value="IL"/>
+    <w:Facet w:facet="enumeration" w:value="IM"/>
+    <w:Facet w:facet="enumeration" w:value="IN"/>
+    <w:Facet w:facet="enumeration" w:value="IO"/>
+    <w:Facet w:facet="enumeration" w:value="IQ"/>
+    <w:Facet w:facet="enumeration" w:value="IR"/>
+    <w:Facet w:facet="enumeration" w:value="IS"/>
+    <w:Facet w:facet="enumeration" w:value="IT"/>
+    <w:Facet w:facet="enumeration" w:value="JE"/>
+    <w:Facet w:facet="enumeration" w:value="JM"/>
+    <w:Facet w:facet="enumeration" w:value="JO"/>
+    <w:Facet w:facet="enumeration" w:value="JP"/>
+    <w:Facet w:facet="enumeration" w:value="KE"/>
+    <w:Facet w:facet="enumeration" w:value="KG"/>
+    <w:Facet w:facet="enumeration" w:value="KH"/>
+    <w:Facet w:facet="enumeration" w:value="KI"/>
+    <w:Facet w:facet="enumeration" w:value="KM"/>
+    <w:Facet w:facet="enumeration" w:value="KN"/>
+    <w:Facet w:facet="enumeration" w:value="KP"/>
+    <w:Facet w:facet="enumeration" w:value="KR"/>
+    <w:Facet w:facet="enumeration" w:value="KW"/>
+    <w:Facet w:facet="enumeration" w:value="KY"/>
+    <w:Facet w:facet="enumeration" w:value="KZ"/>
+    <w:Facet w:facet="enumeration" w:value="LA"/>
+    <w:Facet w:facet="enumeration" w:value="LB"/>
+    <w:Facet w:facet="enumeration" w:value="LC"/>
+    <w:Facet w:facet="enumeration" w:value="LI"/>
+    <w:Facet w:facet="enumeration" w:value="LK"/>
+    <w:Facet w:facet="enumeration" w:value="LR"/>
+    <w:Facet w:facet="enumeration" w:value="LS"/>
+    <w:Facet w:facet="enumeration" w:value="LT"/>
+    <w:Facet w:facet="enumeration" w:value="LU"/>
+    <w:Facet w:facet="enumeration" w:value="LV"/>
+    <w:Facet w:facet="enumeration" w:value="LY"/>
+    <w:Facet w:facet="enumeration" w:value="MA"/>
+    <w:Facet w:facet="enumeration" w:value="MC"/>
+    <w:Facet w:facet="enumeration" w:value="MD"/>
+    <w:Facet w:facet="enumeration" w:value="ME"/>
+    <w:Facet w:facet="enumeration" w:value="MF"/>
+    <w:Facet w:facet="enumeration" w:value="MG"/>
+    <w:Facet w:facet="enumeration" w:value="MH"/>
+    <w:Facet w:facet="enumeration" w:value="MK"/>
+    <w:Facet w:facet="enumeration" w:value="ML"/>
+    <w:Facet w:facet="enumeration" w:value="MM"/>
+    <w:Facet w:facet="enumeration" w:value="MN"/>
+    <w:Facet w:facet="enumeration" w:value="MO"/>
+    <w:Facet w:facet="enumeration" w:value="MP"/>
+    <w:Facet w:facet="enumeration" w:value="MQ"/>
+    <w:Facet w:facet="enumeration" w:value="MR"/>
+    <w:Facet w:facet="enumeration" w:value="MS"/>
+    <w:Facet w:facet="enumeration" w:value="MT"/>
+    <w:Facet w:facet="enumeration" w:value="MU"/>
+    <w:Facet w:facet="enumeration" w:value="MV"/>
+    <w:Facet w:facet="enumeration" w:value="MW"/>
+    <w:Facet w:facet="enumeration" w:value="MX"/>
+    <w:Facet w:facet="enumeration" w:value="MY"/>
+    <w:Facet w:facet="enumeration" w:value="MZ"/>
+    <w:Facet w:facet="enumeration" w:value="NA"/>
+    <w:Facet w:facet="enumeration" w:value="NC"/>
+    <w:Facet w:facet="enumeration" w:value="NE"/>
+    <w:Facet w:facet="enumeration" w:value="NF"/>
+    <w:Facet w:facet="enumeration" w:value="NG"/>
+    <w:Facet w:facet="enumeration" w:value="NI"/>
+    <w:Facet w:facet="enumeration" w:value="NL"/>
+    <w:Facet w:facet="enumeration" w:value="NO"/>
+    <w:Facet w:facet="enumeration" w:value="NP"/>
+    <w:Facet w:facet="enumeration" w:value="NR"/>
+    <w:Facet w:facet="enumeration" w:value="NU"/>
+    <w:Facet w:facet="enumeration" w:value="NZ"/>
+    <w:Facet w:facet="enumeration" w:value="OM"/>
+    <w:Facet w:facet="enumeration" w:value="PA"/>
+    <w:Facet w:facet="enumeration" w:value="PE"/>
+    <w:Facet w:facet="enumeration" w:value="PF"/>
+    <w:Facet w:facet="enumeration" w:value="PG"/>
+    <w:Facet w:facet="enumeration" w:value="PH"/>
+    <w:Facet w:facet="enumeration" w:value="PK"/>
+    <w:Facet w:facet="enumeration" w:value="PL"/>
+    <w:Facet w:facet="enumeration" w:value="PM"/>
+    <w:Facet w:facet="enumeration" w:value="PN"/>
+    <w:Facet w:facet="enumeration" w:value="PR"/>
+    <w:Facet w:facet="enumeration" w:value="PS"/>
+    <w:Facet w:facet="enumeration" w:value="PT"/>
+    <w:Facet w:facet="enumeration" w:value="PW"/>
+    <w:Facet w:facet="enumeration" w:value="PY"/>
+    <w:Facet w:facet="enumeration" w:value="QA"/>
+    <w:Facet w:facet="enumeration" w:value="RE"/>
+    <w:Facet w:facet="enumeration" w:value="RO"/>
+    <w:Facet w:facet="enumeration" w:value="RS"/>
+    <w:Facet w:facet="enumeration" w:value="RU"/>
+    <w:Facet w:facet="enumeration" w:value="RW"/>
+    <w:Facet w:facet="enumeration" w:value="SA"/>
+    <w:Facet w:facet="enumeration" w:value="SB"/>
+    <w:Facet w:facet="enumeration" w:value="SC"/>
+    <w:Facet w:facet="enumeration" w:value="SD"/>
+    <w:Facet w:facet="enumeration" w:value="SE"/>
+    <w:Facet w:facet="enumeration" w:value="SG"/>
+    <w:Facet w:facet="enumeration" w:value="SH"/>
+    <w:Facet w:facet="enumeration" w:value="SI"/>
+    <w:Facet w:facet="enumeration" w:value="SJ"/>
+    <w:Facet w:facet="enumeration" w:value="SK"/>
+    <w:Facet w:facet="enumeration" w:value="SL"/>
+    <w:Facet w:facet="enumeration" w:value="SM"/>
+    <w:Facet w:facet="enumeration" w:value="SN"/>
+    <w:Facet w:facet="enumeration" w:value="SO"/>
+    <w:Facet w:facet="enumeration" w:value="SR"/>
+    <w:Facet w:facet="enumeration" w:value="SS"/>
+    <w:Facet w:facet="enumeration" w:value="ST"/>
+    <w:Facet w:facet="enumeration" w:value="SV"/>
+    <w:Facet w:facet="enumeration" w:value="SX"/>
+    <w:Facet w:facet="enumeration" w:value="SY"/>
+    <w:Facet w:facet="enumeration" w:value="SZ"/>
+    <w:Facet w:facet="enumeration" w:value="TC"/>
+    <w:Facet w:facet="enumeration" w:value="TD"/>
+    <w:Facet w:facet="enumeration" w:value="TF"/>
+    <w:Facet w:facet="enumeration" w:value="TG"/>
+    <w:Facet w:facet="enumeration" w:value="TH"/>
+    <w:Facet w:facet="enumeration" w:value="TJ"/>
+    <w:Facet w:facet="enumeration" w:value="TK"/>
+    <w:Facet w:facet="enumeration" w:value="TL"/>
+    <w:Facet w:facet="enumeration" w:value="TM"/>
+    <w:Facet w:facet="enumeration" w:value="TN"/>
+    <w:Facet w:facet="enumeration" w:value="TO"/>
+    <w:Facet w:facet="enumeration" w:value="TR"/>
+    <w:Facet w:facet="enumeration" w:value="TT"/>
+    <w:Facet w:facet="enumeration" w:value="TV"/>
+    <w:Facet w:facet="enumeration" w:value="TW"/>
+    <w:Facet w:facet="enumeration" w:value="TZ"/>
+    <w:Facet w:facet="enumeration" w:value="UA"/>
+    <w:Facet w:facet="enumeration" w:value="UG"/>
+    <w:Facet w:facet="enumeration" w:value="UM"/>
+    <w:Facet w:facet="enumeration" w:value="US"/>
+    <w:Facet w:facet="enumeration" w:value="UY"/>
+    <w:Facet w:facet="enumeration" w:value="UZ"/>
+    <w:Facet w:facet="enumeration" w:value="VA"/>
+    <w:Facet w:facet="enumeration" w:value="VC"/>
+    <w:Facet w:facet="enumeration" w:value="VE"/>
+    <w:Facet w:facet="enumeration" w:value="VG"/>
+    <w:Facet w:facet="enumeration" w:value="VI"/>
+    <w:Facet w:facet="enumeration" w:value="VN"/>
+    <w:Facet w:facet="enumeration" w:value="VU"/>
+    <w:Facet w:facet="enumeration" w:value="WF"/>
+    <w:Facet w:facet="enumeration" w:value="WS"/>
+    <w:Facet w:facet="enumeration" w:value="YE"/>
+    <w:Facet w:facet="enumeration" w:value="YT"/>
+    <w:Facet w:facet="enumeration" w:value="ZA"/>
+    <w:Facet w:facet="enumeration" w:value="ZM"/>
+    <w:Facet w:facet="enumeration" w:value="ZW"/>
+  </w:Type>
+  <w:Type w:name="j:ActivityAugmentationType" w:isRequested="false">
+    <w:ElementInType w:name="j:CaseLinkage" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:CaseNumberText" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:ActivityLocationAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:Activity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:Location" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:CaseLinkageType" w:isRequested="false">
+    <w:ElementInType w:name="j:CaseLinkageNumberText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:OrganizationORIIdentification"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:DocumentAugmentationType" w:isRequested="true"/>
+  <w:Type w:name="j:PersonEthnicityCodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="African"/>
+    <w:Facet w:facet="enumeration" w:value="Alaska Native"/>
+    <w:Facet w:facet="enumeration" w:value="American Indian"/>
+    <w:Facet w:facet="enumeration" w:value="Asian Indian"/>
+    <w:Facet w:facet="enumeration" w:value="Black Or African American"/>
+    <w:Facet w:facet="enumeration" w:value="Cambodian"/>
+    <w:Facet w:facet="enumeration" w:value="Central American"/>
+    <w:Facet w:facet="enumeration" w:value="Chinese"/>
+    <w:Facet w:facet="enumeration" w:value="European"/>
+    <w:Facet w:facet="enumeration" w:value="Filipino"/>
+    <w:Facet w:facet="enumeration" w:value="Great Britain"/>
+    <w:Facet w:facet="enumeration" w:value="Haitian"/>
+    <w:Facet w:facet="enumeration" w:value="Hispanic Or Latino"/>
+    <w:Facet w:facet="enumeration" w:value="Indonesian"/>
+    <w:Facet w:facet="enumeration" w:value="Japanese"/>
+    <w:Facet w:facet="enumeration" w:value="Korean"/>
+    <w:Facet w:facet="enumeration" w:value="Malaysian"/>
+    <w:Facet w:facet="enumeration" w:value="Mexican"/>
+    <w:Facet w:facet="enumeration" w:value="Middle Eastern"/>
+    <w:Facet w:facet="enumeration" w:value="Mixed"/>
+    <w:Facet w:facet="enumeration" w:value="Native Hawaiian"/>
+    <w:Facet w:facet="enumeration" w:value="Not Hispanic Or Latino"/>
+    <w:Facet w:facet="enumeration" w:value="Pacific Islander"/>
+    <w:Facet w:facet="enumeration" w:value="Pakastani"/>
+    <w:Facet w:facet="enumeration" w:value="Polynesian"/>
+    <w:Facet w:facet="enumeration" w:value="Puerto Rican"/>
+    <w:Facet w:facet="enumeration" w:value="Samoan"/>
+    <w:Facet w:facet="enumeration" w:value="Slavic"/>
+    <w:Facet w:facet="enumeration" w:value="South American"/>
+    <w:Facet w:facet="enumeration" w:value="Spanish Origin"/>
+    <w:Facet w:facet="enumeration" w:value="Thai"/>
+    <w:Facet w:facet="enumeration" w:value="Unknown"/>
+    <w:Facet w:facet="enumeration" w:value="Vietnamese"/>
+    <w:Facet w:facet="enumeration" w:value="White American"/>
+  </w:Type>
+  <w:Type w:name="j:PersonEthnicityCodeType" w:isRequested="true"/>
+  <w:Type w:name="j:PersonNameCategoryCodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="aka"/>
+    <w:Facet w:facet="enumeration" w:value="alias"/>
+    <w:Facet w:facet="enumeration" w:value="call sign"/>
+    <w:Facet w:facet="enumeration" w:value="dba"/>
+    <w:Facet w:facet="enumeration" w:value="fka"/>
+    <w:Facet w:facet="enumeration" w:value="handle"/>
+    <w:Facet w:facet="enumeration" w:value="moniker"/>
+    <w:Facet w:facet="enumeration" w:value="nickname"/>
+    <w:Facet w:facet="enumeration" w:value="other"/>
+    <w:Facet w:facet="enumeration" w:value="provided"/>
+    <w:Facet w:facet="enumeration" w:value="pseudonym"/>
+    <w:Facet w:facet="enumeration" w:value="unknown"/>
+    <w:Facet w:facet="enumeration" w:value="user id"/>
+  </w:Type>
+  <w:Type w:name="j:PersonNameCategoryCodeType" w:isRequested="true"/>
+  <w:Type w:name="nc:ActivityDocumentAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:Activity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:Document" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:ActivityOrganizationAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:Activity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:Organization" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:ActivityPersonAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:Activity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:Person" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:ActivityType" w:isRequested="false">
+    <w:ElementInType w:name="nc:ActivityIdentification"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ActivityCategoryText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ActivityDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ActivityName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ActivityStatus" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ActivityReasonText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ActivityDisposition"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ActivityDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:AddressType" w:isRequested="false">
+    <w:ElementInType w:name="nc:AddressFullText" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:AddressPrivateMailboxText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:AddressSecondaryUnitText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:AddressRecipientName"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:LocationCityName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:LocationCountyAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:LocationState" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:LocationCountry" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:LocationPostalCode"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:LocationPostalExtensionCode"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:AssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:AssociationDateRange"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:AssociationDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:BinaryType" w:isRequested="false">
+    <w:ElementInType w:name="nc:BinaryID" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:BinaryObjectAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:BinaryCaptureDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:BinaryCapturer" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:BinaryDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:BinaryFormatText" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:BinaryFormatStandardName"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:BinaryURI" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:BinarySizeValue" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:BinaryAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:CaseDispositionDecisionType" w:isRequested="false">
+    <w:ElementInType w:name="nc:CaseDispositionDecisionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:CaseDispositionDecisionCategoryText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:ContactInformationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:ContactMeansAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ContactEntity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ContactEntityDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:CountryType" w:isRequested="false">
+    <w:ElementInType w:name="nc:CountryRepresentation"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:DateRangeType" w:isRequested="false">
+    <w:ElementInType w:name="nc:StartDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:EndDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:DateType" w:isRequested="false">
+    <w:ElementInType w:name="nc:DateRepresentation"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:DispositionType" w:isRequested="false">
+    <w:ElementInType w:name="nc:DispositionEntity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DispositionDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DispositionDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DispositionReasonText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DispositionText" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DispositionAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:DocumentStatusDetailsType" w:isRequested="false">
+    <w:ElementInType w:name="nc:DocumentStatusDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:DocumentType" w:isRequested="false">
+    <w:ElementInType w:name="nc:DocumentCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentAlternativeTitleText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentSoftwareName"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentBinary" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentCategoryDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentContentListText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentCreationDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentEffectiveDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentEntrySubmitter"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentFileControlID"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentFiledDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentFileName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentFormatText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentIdentification"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentKeywordText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentLastModifiedDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentLocation" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentLocationURI"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentOtherRecipient"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentPostDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentPublicationDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentReceivedDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentRecipient" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentRelatedResourceText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentSequenceID"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentSource" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentSourceText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentStatus" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentSubjectAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentSummaryText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentTitleText" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentAuthor" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentSubmitter" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentIssuanceDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:DocumentStatusDetails"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:EntityType" w:isRequested="false">
+    <w:ElementInType w:name="nc:EntityRepresentation"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:EntityAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:FullTelephoneNumberType" w:isRequested="false">
+    <w:ElementInType w:name="nc:TelephoneNumberFullID"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:IdentificationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:IdentificationID" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:IdentificationJurisdiction"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:IdentificationCategoryDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:IdentificationStatus"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:IdentityType" w:isRequested="false">
+    <w:ElementInType w:name="nc:IdentityCharacteristics"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:IdentityCreationDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:IdentityCreationEventText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:IdentityTerminationDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:IdentityTerminationEventText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:InstantMessengerType" w:isRequested="false">
+    <w:ElementInType w:name="nc:InstantMessengerServiceName"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:InstantMessengerScreenID"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:JurisdictionType" w:isRequested="false">
+    <w:ElementInType w:name="nc:LocationCityName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:LocationCountry" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:LocationCountyAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:LocationState" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:LocationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:LocationAddressAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:MeasureType" w:isRequested="false">
+    <w:ElementInType w:name="nc:MeasureValueAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:MeasureDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:OrganizationLocationAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:Location" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:Organization" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:OrganizationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:OrganizationAbbreviationText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:OrganizationActivityText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:OrganizationCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:OrganizationDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:OrganizationIdentification"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:OrganizationLocation"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:OrganizationName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:PersonAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:Person" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:PersonIdentityAssociationType" w:isRequested="true">
+    <w:ElementInType w:name="nc:Person" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:Identity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:IdentityStolenIndicator"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType
+      w:name="nc:PersonIdentityAssociationAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:PersonLocationAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:Person" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:Location" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:PersonNameCategoryCodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="Alternate"/>
+    <w:Facet w:facet="enumeration" w:value="Asserted"/>
+    <w:Facet w:facet="enumeration" w:value="at birth"/>
+    <w:Facet w:facet="enumeration" w:value="Legal"/>
+  </w:Type>
+  <w:Type w:name="nc:PersonNameCategoryCodeType" w:isRequested="true"/>
+  <w:Type w:name="nc:PersonNameType" w:isRequested="false">
+    <w:ElementInType w:name="nc:PersonNamePrefixText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonGivenName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonMiddleName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonSurName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonNameSuffixText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonMaidenName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonFullName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonNameCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonOfficialGivenName"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:PersonOrganizationAssociationType" w:isRequested="true"/>
+  <w:Type w:name="nc:PersonResidenceAssociationType" w:isRequested="true"/>
+  <w:Type w:name="nc:PersonType" w:isRequested="false">
+    <w:ElementInType w:name="nc:PersonAgeMeasure" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonBirthDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonBirthLocation"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonEthnicityAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonRaceAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonSexAbstract" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonSSNIdentification"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:SoftwareNameType" w:isRequested="false">
+    <w:AttributeInType w:name="nc:softwareVersionText" w:minOccurs="0" w:maxOccurs="1"/>
+  </w:Type>
+  <w:Type w:name="nc:StateType" w:isRequested="false">
+    <w:ElementInType w:name="nc:StateRepresentation"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:StatusType" w:isRequested="false">
+    <w:ElementInType w:name="nc:StatusCommentText" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:StatusDescriptionText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:StatusIssuerText" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:StatusDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:TelephoneNumberType" w:isRequested="false">
+    <w:ElementInType w:name="nc:TelephoneNumberAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:TelephoneNumberCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:TextType" w:isRequested="false">
+    <w:AttributeInType w:name="xml:lang" w:minOccurs="0" w:maxOccurs="1"/>
+  </w:Type>
+  <w:Type w:name="ncic:RACECodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="A"/>
+    <w:Facet w:facet="enumeration" w:value="B"/>
+    <w:Facet w:facet="enumeration" w:value="I"/>
+    <w:Facet w:facet="enumeration" w:value="U"/>
+    <w:Facet w:facet="enumeration" w:value="W"/>
+  </w:Type>
+  <w:Type w:name="ncic:RACECodeType" w:isRequested="true"/>
+  <w:Type w:name="ncic:SEXCodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="F"/>
+    <w:Facet w:facet="enumeration" w:value="M"/>
+    <w:Facet w:facet="enumeration" w:value="U"/>
+  </w:Type>
+  <w:Type w:name="ncic:SEXCodeType" w:isRequested="true"/>
+  <w:Type w:name="niem-xs:base64Binary" w:isRequested="true"/>
+  <w:Type w:name="scr:DocumentOrganizationAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:Organization" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:Document" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="scr:BeginDocumentUseDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="scr:EndDocumentUseDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="ucr:EthnicityCodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="H"/>
+    <w:Facet w:facet="enumeration" w:value="N"/>
+    <w:Facet w:facet="enumeration" w:value="U"/>
+  </w:Type>
+  <w:Type w:name="ucr:EthnicityCodeType" w:isRequested="true"/>
+  <w:Type w:name="usps:USStateCodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="AA"/>
+    <w:Facet w:facet="enumeration" w:value="AE"/>
+    <w:Facet w:facet="enumeration" w:value="AK"/>
+    <w:Facet w:facet="enumeration" w:value="AL"/>
+    <w:Facet w:facet="enumeration" w:value="AP"/>
+    <w:Facet w:facet="enumeration" w:value="AR"/>
+    <w:Facet w:facet="enumeration" w:value="AS"/>
+    <w:Facet w:facet="enumeration" w:value="AZ"/>
+    <w:Facet w:facet="enumeration" w:value="CA"/>
+    <w:Facet w:facet="enumeration" w:value="CO"/>
+    <w:Facet w:facet="enumeration" w:value="CT"/>
+    <w:Facet w:facet="enumeration" w:value="DC"/>
+    <w:Facet w:facet="enumeration" w:value="DE"/>
+    <w:Facet w:facet="enumeration" w:value="FL"/>
+    <w:Facet w:facet="enumeration" w:value="FM"/>
+    <w:Facet w:facet="enumeration" w:value="GA"/>
+    <w:Facet w:facet="enumeration" w:value="GU"/>
+    <w:Facet w:facet="enumeration" w:value="HI"/>
+    <w:Facet w:facet="enumeration" w:value="IA"/>
+    <w:Facet w:facet="enumeration" w:value="ID"/>
+    <w:Facet w:facet="enumeration" w:value="IL"/>
+    <w:Facet w:facet="enumeration" w:value="IN"/>
+    <w:Facet w:facet="enumeration" w:value="KS"/>
+    <w:Facet w:facet="enumeration" w:value="KY"/>
+    <w:Facet w:facet="enumeration" w:value="LA"/>
+    <w:Facet w:facet="enumeration" w:value="MA"/>
+    <w:Facet w:facet="enumeration" w:value="MD"/>
+    <w:Facet w:facet="enumeration" w:value="ME"/>
+    <w:Facet w:facet="enumeration" w:value="MH"/>
+    <w:Facet w:facet="enumeration" w:value="MI"/>
+    <w:Facet w:facet="enumeration" w:value="MN"/>
+    <w:Facet w:facet="enumeration" w:value="MO"/>
+    <w:Facet w:facet="enumeration" w:value="MP"/>
+    <w:Facet w:facet="enumeration" w:value="MS"/>
+    <w:Facet w:facet="enumeration" w:value="MT"/>
+    <w:Facet w:facet="enumeration" w:value="NC"/>
+    <w:Facet w:facet="enumeration" w:value="ND"/>
+    <w:Facet w:facet="enumeration" w:value="NE"/>
+    <w:Facet w:facet="enumeration" w:value="NH"/>
+    <w:Facet w:facet="enumeration" w:value="NJ"/>
+    <w:Facet w:facet="enumeration" w:value="NM"/>
+    <w:Facet w:facet="enumeration" w:value="NV"/>
+    <w:Facet w:facet="enumeration" w:value="NY"/>
+    <w:Facet w:facet="enumeration" w:value="OH"/>
+    <w:Facet w:facet="enumeration" w:value="OK"/>
+    <w:Facet w:facet="enumeration" w:value="OR"/>
+    <w:Facet w:facet="enumeration" w:value="PA"/>
+    <w:Facet w:facet="enumeration" w:value="PR"/>
+    <w:Facet w:facet="enumeration" w:value="PW"/>
+    <w:Facet w:facet="enumeration" w:value="RI"/>
+    <w:Facet w:facet="enumeration" w:value="SC"/>
+    <w:Facet w:facet="enumeration" w:value="SD"/>
+    <w:Facet w:facet="enumeration" w:value="TN"/>
+    <w:Facet w:facet="enumeration" w:value="TX"/>
+    <w:Facet w:facet="enumeration" w:value="UT"/>
+    <w:Facet w:facet="enumeration" w:value="VA"/>
+    <w:Facet w:facet="enumeration" w:value="VI"/>
+    <w:Facet w:facet="enumeration" w:value="VT"/>
+    <w:Facet w:facet="enumeration" w:value="WA"/>
+    <w:Facet w:facet="enumeration" w:value="WI"/>
+    <w:Facet w:facet="enumeration" w:value="WV"/>
+    <w:Facet w:facet="enumeration" w:value="WY"/>
+  </w:Type>
+  <w:Type w:name="usps:USStateCodeType" w:isRequested="true"/>
+</w:WantList>

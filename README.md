@@ -78,41 +78,94 @@ The API provides automatic interactive documentation via FastAPI:
 - 8GB+ RAM recommended
 - Ports 3000, 7474, 7687, 8000, 9000, 9001 available
 
-### Senzing License (Optional)
+### Entity Resolution & Senzing Setup (Optional)
 
-For entity resolution features, a Senzing license is required.
+The system supports two modes of entity resolution:
 
-**What the system expects:**
-- **Folder name pattern**: `g2license_*` (e.g., `g2license_20251201-120000`)
-- **File name inside folder**: `g2.lic_base64` (base64-encoded license)
-- **Location**: `api/g2license_*/g2.lic_base64`
+**Text-Based Matching (Default)**
+- Works without any license - zero configuration
+- Simple name matching with case-insensitive comparison
+- Basic punctuation normalization
+- Good for development and testing
 
-The system automatically searches for and decodes any matching license file on startup.
+**Senzing ML-Based Resolution (Optional - Requires License)**
+- Machine learning-based entity matching
+- Fuzzy name matching and phonetic matching
+- Address standardization and date normalization
+- Relationship analysis with confidence scoring
+- Match transparency - see exactly why entities matched ([Match Details Feature](docs/SENZING_MATCH_DETAILS.md))
 
-**Setup:**
-1. Contact support@senzing.com to obtain a license
-2. Receive license folder (typically named `g2license_YYYYMMDD-HHMMSS.zip`)
-3. Unzip the folder into the `api/` directory
-4. Start/restart the system - license is automatically decoded
+#### Quick License Setup
 
-**Example:**
 ```bash
-# Unzip your license folder into api/
-unzip g2license_20251201-120000.zip -d api/
+# 1. Get license from Senzing (contact support@senzing.com)
+# 2. Unzip into api/ directory
+unzip g2license_YYYYMMDD-HHMMSS.zip -d api/
 
-# Verify the structure matches what the system expects:
-ls api/g2license_20251201-120000/g2.lic_base64
-# Should show: api/g2license_20251201-120000/g2.lic_base64
-
-# Start/restart system
+# 3. Start system
 docker compose up -d
-
-# Check logs to confirm license was decoded:
-docker compose logs api | grep -i senzing
-# Should show: "✅ Senzing license decoded successfully"
 ```
 
-**Note**: If you have multiple license folders, the system uses the most recent one (sorted by folder name).
+License auto-decodes on startup and is shared with all services.
+
+**Verify setup:**
+```bash
+./scripts/check_senzing.sh
+```
+
+See [docs/SENZING_SETUP.md](docs/SENZING_SETUP.md) for detailed setup and troubleshooting.
+
+#### Common Issues
+
+**License not detected?**
+```bash
+# Check folder structure
+ls -la api/g2license_*/
+# Should show a folder with g2.lic_base64 inside
+
+# Check decoded license was created
+ls -la api/secrets/senzing/g2.lic
+# Should exist after restart
+
+# Check permissions
+chmod -R 755 api/g2license_*/
+```
+
+**Senzing SDK not found?**
+- Docker: Installed automatically via requirements.txt
+- Local dev: Run `pip install senzing-grpc`
+
+#### Health Check
+
+Verify Senzing is working correctly:
+
+```bash
+# Quick diagnostic script
+./scripts/check_senzing.sh
+
+# Or check via API
+curl http://localhost:8000/api/entity-resolution/health \
+  -H "Authorization: Bearer devtoken" | jq .
+```
+
+**Expected response when healthy**:
+```json
+{
+  "overall_status": "healthy",
+  "license_configured": true,
+  "client_initialized": true,
+  "connection_status": "healthy"
+}
+```
+
+If status is "unhealthy", check:
+- License file exists: `ls -la api/secrets/senzing/g2.lic`
+- Services running: `docker compose ps`
+- Logs: `docker compose logs senzing-grpc api`
+
+**For detailed troubleshooting and alternative installation methods**, see:
+- [Senzing Integration Guide](docs/senzing-integration.md) - Technical details, database configuration
+- [Senzing Match Details](docs/SENZING_MATCH_DETAILS.md) - Match transparency features
 
 ### 1. Start the System
 
@@ -124,20 +177,128 @@ cd niem-info-exch-e2e
 # Copy environment configuration
 cp .env.example .env
 
-# Start all services
+# (Optional) Add your Senzing license for entity resolution
+# See "Senzing License (Optional)" section above
+# If you skip this, the system will use text-based entity matching
+
+# Start all services (works with default dev credentials)
 docker compose up -d
 
 # Wait for services to be healthy (2-3 minutes)
 docker compose ps
 ```
 
+**Note:** The system ships with default credentials for development convenience. You can start using it immediately without changing any passwords. For production deployments, see the [Security & Production Deployment](#security--production-deployment) section.
+
 ### 2. Access the Web Interface
 
 Open http://localhost:3000 in your browser
 
-### 3. Rebuilding After Code Changes
+### 3. Development Workflow with Hot Reloading
 
-When new code is pushed or you make local changes, you need to rebuild and restart the affected services.
+For local development, the project includes a `docker-compose.override.yml` file that enables hot reloading for both API and UI services. This file is **automatically applied** when you run `docker compose up`.
+
+#### What Gets Hot Reloaded
+
+- **API Changes**: Any Python file changes in `./api/src` trigger automatic reload via uvicorn
+- **UI Changes**: Any code changes in `./ui/src`, `./ui/app`, components, styles, etc. trigger Next.js Fast Refresh
+
+#### Development Commands
+
+```bash
+# Start with hot reloading (override is auto-applied)
+docker compose up
+
+# Or in detached mode
+docker compose up -d
+
+# View live logs
+docker compose logs -f api
+docker compose logs -f ui
+```
+
+#### When You Still Need to Rebuild
+
+Hot reloading works for code changes, but you need to rebuild for:
+
+| Change Type | Command | Reason |
+|-------------|---------|--------|
+| Python dependencies (`requirements.txt`) | `docker compose up -d --build api` | New packages need installation |
+| Node dependencies (`package.json`) | `docker compose up -d --build ui` | npm packages need installation |
+| Dockerfile changes | `docker compose up -d --build` | Container configuration changed |
+| Environment variables (`.env`) | `docker compose restart` | No rebuild needed, just restart |
+
+#### Testing Hot Reload
+
+To verify hot reloading is working, you can test both API and UI changes:
+
+**Method 1: Watch Logs (Recommended)**
+
+Open separate terminals to watch logs:
+
+```bash
+# Terminal 1: Watch API logs
+docker compose logs -f api
+
+# Terminal 2: Watch UI logs
+docker compose logs -f ui
+```
+
+**Method 2: Test API Hot Reload**
+
+1. Make a change to any Python file in `./api/src/`:
+   ```bash
+   # Example: Edit api/src/niem_api/main.py
+   # Add a message to the readyz endpoint return value
+   ```
+
+2. Watch the API logs - you'll see:
+   ```
+   WARNING:  WatchFiles detected changes in 'src/niem_api/main.py'. Reloading...
+   INFO:     Application startup complete.
+   ```
+
+3. Test the change:
+   ```bash
+   curl http://localhost:8000/readyz
+   ```
+
+**Method 3: Test UI Hot Reload**
+
+1. Open http://localhost:3000 in your browser
+
+2. Make a change to any file in `./ui/src/`:
+   ```bash
+   # Example: Edit ui/src/pages/index.tsx
+   # Change the Dashboard heading text
+   ```
+
+3. Watch your browser - it should automatically refresh (Fast Refresh)
+
+4. Check UI logs for compilation:
+   ```
+   ✓ Compiled /pages/index in XXXms
+   ```
+
+**Method 4: Test from Browser Console**
+
+Open your browser's developer console (F12) and watch the Network tab while making UI changes. You'll see Hot Module Replacement (HMR) websocket messages.
+
+#### Production Deployment
+
+For production, **ignore or remove** the `docker-compose.override.yml` file:
+
+```bash
+# Option 1: Explicitly use only base config
+docker compose -f docker-compose.yml up -d
+
+# Option 2: Add to .gitignore or .dockerignore for production builds
+echo "docker-compose.override.yml" >> .gitignore
+```
+
+### 4. Rebuilding After Code Changes (Production)
+
+When deploying to production or when hot reloading isn't available:
 
 #### Rebuild All Services (API + UI)
 
@@ -182,379 +343,420 @@ docker compose logs --tail=50 api
 
 ## Complete Walkthrough: CrashDriver Sample Data
 
+> **Sample Data Sources:** The Crash Driver example is sourced from the [CrashDriver repository](https://github.com/iamdrscott/CrashDriver) maintained by iamdrscott. The NEICE IEPD sample is sourced from the [NEICE Clearinghouse Direct Technical Documents](https://support.neice.us/support/solutions/articles/6000251773-current-neice-clearinghouse-direct-technical-documents) and the [NEICE Clearinghouse attachment](https://support.neice.us/helpdesk/attachments/6173370056).
+
 This section provides a comprehensive end-to-end walkthrough using the included CrashDriver sample data, demonstrating schema validation, data ingestion, error handling, graph visualization, and system administration.
 
-### Step 1: Schema Upload - Testing Different Scenarios
+## Part 1: CrashDriver Sample - Happy Path with Entity Resolution
 
-The `samples/CrashDriver-cmf/` directory contains three schema folders to test different validation scenarios:
+This walkthrough demonstrates the complete workflow using the CrashDriver NIEM 6.0 sample, including schema upload, data ingestion, graph visualization, and entity resolution.
 
-#### 1.1 Valid Schema Set (CrashDriverSchemaSet/) ✅
+### Step 1: Upload CrashDriver Schema
 
-Navigate to the **"Schemas"** tab and upload the complete schema set:
+Navigate to the **"Schemas"** tab and upload the CrashDriver model schema:
 
-1. **Select all XSD files** from `samples/CrashDriver-cmf/CrashDriverSchemaSet/`:
+1. **Select all XSD files** from `samples/CrashDriver/model.xsd/`:
    - `CrashDriver.xsd` - Main exchange schema
    - `PrivacyMetadata.xsd` - Privacy extension schema
-   - `niem/` folder - NIEM reference schemas (core, justice, human services)
+   - `niem/` folder - NIEM reference schemas (core, justice, human services, adapters)
    - `utility/` folder - NIEM utility schemas (structures, appinfo)
 
-2. **Upload with NDR Validation Skipped** (for now):
-   - ⚠️ Check **"Skip NDR Validation"** checkbox
+   a. Make sure to set CrashDriver.xsd as the primary schema in the UI.
+
+2. **First Upload Attempt - WITH NDR Validation**:
+   - Do NOT check "Skip NDR Validation"
    - Click upload
+   - **Expected Result**: Upload fails with validation errors
+   - Some files are not conformant to NIEM 6.0 naming design rules
+   - Error messages indicate NDR violations
 
-   > **TODO**: NDR validation for schema sets requires resolving rules by schema type: references, extensions, etc. Currently only the extension NDR rules are being applied causing validation errors acrros other schema types that would otherwise be valid.
+3. **Second Upload Attempt - Skip NDR Validation**:
+   - ⚠️ Check **"Skip NDR Validation"** checkbox
+   - Click upload again
+   - **Expected Result**: 
+     - Schema set uploads successfully
+     - Schema appears in the uploaded schemas list
 
-3. **Expected Result**: Schema set uploads successfully and generates mapping
+4. **After Upload**:
+   - Option to design graph schema appears - **Skip and use defaults instead**
+   - Schema is now available for use
+   - You can download:
+     - **CMF (Common Model Format) file** - How NIEM defines schemas for format conversion
+     - **JSON Schema** - Used for validating JSON instance documents
 
 **What this schema defines**:
+- `exch:CrashDriverInfo` - Root element for crash driver reports
 - `j:Crash` - Crash incident with date, location, vehicles
-- `j:CrashDriver` / `j:CrashPerson` - Driver/person information
+- `j:CrashDriver` / `j:CrashPerson` - Driver/person information with URI-based references
 - `j:Charge` - Legal charges
 - `j:PersonChargeAssociation` - Links persons to charges
 - `nc:Metadata` / `priv:PrivacyMetadata` - Metadata and privacy controls
 
-#### 1.2 Invalid Schema - Missing Imports (CrashDriverMissingImports/) ❌
+### Step 2: Upload msg2.xml and View Graph
 
-Test error handling with incomplete schema:
+Navigate to **"Upload Data"** tab → **"XML Files"** sub-tab:
 
-1. **Upload files** from `samples/CrashDriver-cmf/CrashDriverMissingImports/`:
-   - Only contains `CrashDriver.xsd` and `PrivacyMetadata.xsd`
-   - Missing required NIEM import schemas
+1. **Upload** `samples/CrashDriver/examples/msg2.xml`:
+   - This file contains multiple crash persons, crash drivers, and associations
+   - Crash on 1907-05-04 at coordinates (51.87, -1.28)
+   - Multiple persons:
+     - P01: Peter Death Bredon Wimsey (driver, injured, charged)
+     - P02: Harriet Deborah Wimsey (crash person, married to P01)
+     - P03: Mervyn Bunder (crash person, household member/butler/valet of P01)
+   - Charge: "Furious Driving" (linked to P01)
+   - Demonstrates `structures:uri` references for entity resolution
 
 2. **Expected Result**:
-   - Upload fails with validation errors
-   - Error panel shows missing namespace/import errors
-   - Schema is NOT stored or made available for activation
+   - ✅ Validation passes
+   - Creates 28 nodes
+   - Shows success message with node/relationship counts
+   - File stored in MinIO `niem-data` bucket
 
-**Error Example**:
-```
-Validation Error: Cannot resolve import for namespace
-'https://docs.oasis-open.org/niemopen/ns/model/niem-core/6.0/'
-```
+3. **View the Graph** - Navigate to **"Graph"** tab:
+   - **Associations**: View relationship nodes like `j:PersonChargeAssociation`, `nc:PersonUnionAssociation`, `hs:PersonOtherKinAssociation`
+   - **Entities from multiple URIs or IDs**: See how person P01 appears in multiple roles:
+     - `j:CrashDriver` with `structures:uri="#P01"`
+     - `j:CrashPerson` with `structures:uri="#P01"`
+     - Same person entity referenced across different roles
+   - **Full view of entire instance document (not flattened)**: 
+     - Complete hierarchical structure preserved
+     - All nested elements visible as separate nodes
+     - Relationships show the full XML document structure
+     - See the complete graph representation of the entire instance document
 
-#### 1.3 Invalid Schema - NDR Violations (CrashDriverInvalidNDR/) ❌
-
-Test NDR validation (when enabled):
-
-1. **Upload** `samples/CrashDriver-cmf/CrashDriverInvalidNDR/invalid-schema.xsd`
-2. **Without skipping NDR**: Upload will fail with NDR rule violations
-3. **With skip checked**: Upload succeeds but schema may not work correctly
-
-**Expected NDR Errors** (when validation enabled):
-- Element naming violations
-- Type definition errors
-- Structure/pattern issues
-
-### Step 2: Upload Valid XML Data
-
-With the active schema set from Step 1.1, navigate to **"Upload Data"** tab → **"XML Files"** sub-tab:
-
-#### 2.1 Valid XML Files ✅
-
-Upload valid crash driver data:
-
-1. **CrashDriver1.xml**:
-   ```
-   samples/CrashDriver-cmf/CrashDriver1.xml
-   ```
-   - Crash on 1907-05-04 at coordinates (51.87, -1.28)
-   - Driver: Peter Death Bredon Wimsey (fictional character, born 1890-05-04)
-   - License: A1234567
-   - Injury with privacy metadata references
-   - Charge: "Furious Driving" (not a felony)
-
-2. **CrashDriver2.xml**:
-   ```
-   samples/CrashDriver-cmf/CrashDriver2.xml
-   ```
-   - Additional crash incident with different driver and charges
-
-**Expected Result**:
-- ✅ Validation passes
-- Creates 20-50+ nodes per file
-- Shows success message with node/relationship counts
-- Files stored in MinIO `niem-data` bucket
-- Graph structure reflects XML hierarchy
-
-#### 2.2 Invalid XML Files - Testing Error Handling ❌
-
-Upload invalid files to see error handling:
-
-1. **CrashDriverInvalid1.xml** - Schema validation errors:
-   ```
-   samples/CrashDriver-cmf/CrashDriverInvalid1.xml
-   ```
-   - Contains elements not defined in schema
-   - Shows expandable error panel with validation details
-
-2. **CrashDriverInvalid2.xml** - Different validation issues:
-   ```
-   samples/CrashDriver-cmf/CrashDriverInvalid2.xml
-   ```
-   - Type mismatches or required element violations
-   - Error panel shows specific line/column information
-
-**Expected Error Display**:
-```
-❌ Validation failed: CrashDriverInvalid1.xml
-```
-
-### Step 3: Upload Valid JSON Data
+### Step 3: Upload msg2.json
 
 Switch to **"JSON Files"** sub-tab:
 
-#### 3.1 Valid JSON Files ✅
-
-Upload JSON-LD formatted crash data:
-
-1. **CrashDriver1.json**:
-   ```
-   samples/CrashDriver-cmf/CrashDriver1.json
-   ```
-   - Same crash data as XML but in JSON-LD format
-   - Uses `@context` for namespace mappings
-   - Uses `@id` for references (replaces XML `structures:ref`)
+1. **Upload** `samples/CrashDriver/examples/msg2.json`:
+   - Same crash data as msg2.xml but in JSON-LD format
+   - Uses `@id` for references (replaces XML `structures:uri`)
+   - Demonstrates multi-format ingestion
 
 2. **Expected Result**:
    - ✅ JSON Schema validation passes
-   - Creates graph with `qname` properties for proper display
+   - Creates the same graph structure as the XML version
+   - Same nodes and relationships as XML version
    - Nodes labeled with NIEM qualified names (e.g., `j:Crash`, `nc:Person`)
+   - URI references properly resolved
+   - Verify in the Graph tab that the structure matches msg2.xml 
 
-#### 3.2 Invalid JSON Files - Testing Error Handling ❌
+### Step 4: Entity Resolution with Senzing SDK (First Pass)
 
-Upload invalid JSON to test validation:
+After uploading both msg2.xml and msg2.json, run Senzing entity resolution:
 
-1. **CrashDriverInvalid1.json** - Schema violations:
-   ```
-   samples/CrashDriver-cmf/CrashDriverInvalid1.json
-   ```
-   - Shows all validation errors at once (not just first error)
-   - Detailed error messages with JSON paths
-
-2. **CrashDriverInvalid2.json** - Additional test cases:
-   ```
-   samples/CrashDriver-cmf/CrashDriverInvalid2.json
-   ```
-
-   > **TODO**: JSON schema validation doesn't have required fields when generated from CMF and allows all other optional fields which allows other json files not related to schema to be uploaded. 
-
-### Step 4: Graph Visualization
-
-Navigate to the **"Graph"** tab to explore the ingested data:
-
-#### 4.1 View Complete Graph
-
-1. **Default query** loads automatically:
-   ```cypher
-   MATCH (n) OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m
-   ```
-
-2. **Graph Display**:
-   - Nodes colored by type (auto-generated distinguishable colors)
-   - Node labels show `qname` (e.g., `j:Crash`, `nc:Person`, `exch:CrashDriverInfo`)
-   - Relationships labeled with types (`HAS_`, `J_PERSONCHARGEASSOCIATION`, etc.)
-   - Interactive: click nodes/edges for details in brower development console by inspecting element. 
-
-3. **Layout Options**:
-   - Force Physics (default) - Smart force-directed layout
-   - Circular - Nodes arranged in circle
-   - Grid - Systematic arrangement
-   - Hierarchical - Tree-like structure
-   - Concentric - Layered by connectivity
-
-4. **Legend Panel** (right side):
-   - Shows all node types with colors
-   - Lists relationship types with styling
-   - Interaction help
-
-### Step 5: Entity Resolution (Optional)
-
-Navigate to the **"Graph"** tab and use the **Entity Resolution** panel:
-
-#### 5.1 Without Senzing License (Text-Based Entity Matching)
-
-If no Senzing license is installed, the system uses text-based entity matching:
-
-1. **Open Entity Resolution Panel**:
+1. **Navigate to Graph Tab** and open the **Entity Resolution** panel:
    - Click "Entity Resolution" in the sidebar
-   - Shows "Method: Text-Based Entity Matching" at the top
+   - Verify it shows "Method: Senzing SDK" (requires Senzing license - see Setup section)
 
 2. **Select Node Types**:
-   - Available types are discovered from your graph
-   - For CrashDriver data, select:
-     - `j:CrashDriverType` - Drivers from crash incidents
-     - `j:PersonType` - Other persons involved
-   - Use search box to filter types
-   - Click "Select All" or individually check types
+   - Select `j:CrashPerson` and `j:CrashDriver`
+   - **How node selection works**:
+     - Nodes available to select dynamically pull person, org, location elements from NIEM core model
+     - System checks if these properties exist on a child node 1-3 hops away OR are flattened onto a node itself
+     - This allows entity resolution to work with various graph structures
 
 3. **Run Resolution**:
    - Click "Run Entity Resolution"
-   - Creates `ResolvedEntity` nodes for duplicates
-   - Shows statistics (entities found, duplicates detected)
+   - See `ResolvedEntity` nodes be created
+   - Shows statistics (entities found, duplicates detected, confidence scores)
 
-#### 5.2 With Senzing License (ML-Based Resolution)
-
-If Senzing license is installed (see Setup section):
-
-1. **Verify Senzing Active**:
-   - Entity Resolution panel shows "Method: Senzing SDK"
-   - More sophisticated matching capabilities
-
-2. **Enhanced Matching**:
-   - Fuzzy name matching (handles typos, variations)
-   - Phonetic matching (sounds-like matching)
-   - Date normalization (handles format variations)
-   - Confidence scoring for matches
-
-3. **View Results**:
-   - `ResolvedEntity` nodes with confidence scores
-   - `RESOLVED_TO` relationships link duplicates
-   - Query to see resolved entities:
+4. **Expected Results**:
+   - **Cross-Format Entity Resolution**: Same people from both XML and JSON files are matched:
+     - Person P01 (Peter Death Bredon Wimsey) from msg2.xml matched with P01 from msg2.json
+     - Person P02 (Harriet Deborah Wimsey) from msg2.xml matched with P02 from msg2.json
+     - Person P03 (Mervyn Bunder) from msg2.xml matched with P03 from msg2.json
+   - **ResolvedEntity nodes** created linking:
+     - Same persons across XML and JSON formats
+     - Same persons across different roles within the incident
+   - View resolved entities in the graph or query:
      ```cypher
      MATCH (n)-[:RESOLVED_TO]->(re:ResolvedEntity)
      RETURN n, re
      ```
 
-#### 5.3 Reset Entity Resolution
+### Step 5: View Neo4j Browser, MinIO Browser, and Uploaded Files
 
-To clear resolution results and start over:
+1. **Open Neo4j Browser**:
+   - Navigate to **http://localhost:7474**
+   - Login with username: `neo4j`, password: `password` (or your configured password)
+   - Explore the graph data directly with Cypher queries:
+     ```cypher
+     MATCH (n) RETURN n
+     ```
+   - See all the nodes and relationships created from msg2.xml and msg2.json
+   - Query for specific entities or relationships
 
-1. **In UI**: Click "Reset Entity Resolution" button
-2. **Via API**:
-   ```bash
-   curl -X DELETE http://localhost:8000/api/entity-resolution/reset \
-     -H "Authorization: Bearer devtoken"
-   ```
+2. **Access MinIO Browser**:
+   - Navigate to **http://localhost:9002**
+   - Login with username: `minio`, password: `minio123` (or your configured password)
+   - **View uploaded schemas** in `niem-schemas` bucket:
+     - Contains uploaded XSD schemas from `model.xsd/`
+     - CMF JSON representations
+     - Generated mapping YAML files
+     - Files organized by timestamp and hash
+   - **View uploaded instance files** in `niem-data` bucket:
+     - `msg2.xml` - Original XML file
+     - `msg2.json` - Original JSON file
+     - File metadata and executed cypher queries
+     - Original file content preserved
 
-### Step 6: Neo4j Direct Access
+3. **Verify File Storage**:
+   - Confirm both XML and JSON files are stored
+   - Check file metadata shows correct upload timestamps
+   - Verify schema files are properly stored
 
-Open Neo4j Browser at **http://localhost:7474** (username: `neo4j`, password: `password`):
+### Step 6: Reset System
 
-#### Explore Data Structure
+Before proceeding to the schema design workflow, reset the system:
 
-1. **View full graph**:
-   ```cypher
-   MATCH (m) RETURN m
-   ```
+1. **Reset Uploaded Instance Files**:
+   - Navigate to **"Admin"** tab (or use API)
+   - Reset uploaded instance files
+   - This clears the data files from MinIO `niem-data` bucket
 
-### Step 7: Verify Data Storage in MinIO
+2. **Reset Neo4j Database**:
+   - Reset Neo4j database to clear all graph data
+   - This removes all nodes and relationships
+   - Graph is now empty and ready for the next part
 
-Access MinIO at **http://localhost:9002** (username: `minio`, password: `minio123`):
+3. **Expected Result**:
+   - All uploaded instance files cleared
+   - Neo4j database empty
+   - Graph ready for schema design workflow
 
-1. **niem-schemas bucket**:
-   - Contains uploaded XSD schemas
-   - CMF JSON representations
-   - Generated mapping YAML files
-   - Files organized by timestamp and hash
+### Step 7: Schema Design Workflow
 
-2. **niem-data bucket**:
-   - Contains ingested XML/JSON files
-   - Original file content preserved
-   - File metadata and executed cypher query
+Now we'll create a schema design to filter which nodes appear in the graph:
 
-### Step 8: System Administration
+1. **Go to Schema Page**:
+   - Navigate to **"Schemas"** tab
+   - Find the uploaded CrashDriver `model.xsd` schema
 
-Navigate to the **"Admin"** tab:
+2. **Open Graph Designer**:
+   - Click on the schema to open Graph Designer
+   - Or navigate to **"Schema Designer"** tab and select the model.xsd schema
 
-#### 8.1 View System Status
+3. **Select Specific Elements**:
+   - Create a new schema design
+   - Select the following elements:
+     - `exch:CrashDriverInfo` - Root element
+     - `j:Crash` - Crash event
+     - `j:Charge` - Criminal charges
+     - `j:CrashDriver` - Drivers involved
+     - `j:CrashPerson` - Persons involved
+     - `j:PersonChargeAssociation` - Association linking persons to charges
+   - Include all associations between these selected elements
+   - Save the schema design
 
-- **Neo4j Statistics**:
-  - Total node count
-  - Total relationship count
-  - Node types (labels) count
-  - Relationship types count
+4. **Re-upload msg2.xml**:
+   - Navigate to **"Upload Data"** tab → **"XML Files"** sub-tab
+   - Upload `samples/CrashDriver/examples/msg2.xml` again
+   - **Expected Result**: Should see ONLY the selected nodes appear (filtered graph)
+   - Graph now shows only the elements specified in the schema design
+   - Other elements from the full document are excluded
 
-- **Storage Status**:
-  - MinIO bucket information
-  - Schema storage status
+5. **Re-upload msg2.json**:
+   - Switch to **"JSON Files"** sub-tab
+   - Upload `samples/CrashDriver/examples/msg2.json` again
+   - **Expected Result**: Should see same filtered graph as XML version
+   - Only the selected elements appear in the graph
 
-#### 8.2 Reset the System
-
-To clean all data and start fresh:
-
-**Option 1: UI Admin Panel** (if available)
-1. Go to Admin tab
-2. Click "Reset System" button
-3. Confirm reset operation
-
-### Step 9: Full Cycle Test
-
-Complete end-to-end test workflow:
-
-1. ✅ Upload valid schema set (CrashDriverSchemaSet/, skip NDR)
-2. ✅ Activate schema
-3. ✅ Upload CrashDriver1.xml → Verify success
-4. ❌ Upload CrashDriverInvalid1.xml → View errors
-5. ✅ Upload CrashDriver1.json → Verify success
-6. ❌ Upload CrashDriverInvalid1.json → View errors
-7. 📊 View graph visualization → Explore nodes/relationships
-8. 🔍 Run entity resolution → Find duplicate persons
-9. 🔬 Query in Neo4j Browser → Run custom Cypher
-10. 💾 Check MinIO → Verify file storage
-11. 🔄 Admin reset → Clean system
-12. 🔁 Repeat with different schemas/data
+6. **Run Senzing Entity Resolution Again**:
+   - Navigate to **"Graph"** tab
+   - Open Entity Resolution panel
+   - Select `j:CrashDriverType` and `j:CrashPersonType`
+   - Click "Run Entity Resolution"
+   - **Expected Result**: 
+     - See that crash driver can be resolved via Senzing SDK
+     - ResolvedEntity nodes created for the filtered schema design
+     - Entity resolution works with the selected elements only
+     - Demonstrates how schema design affects entity resolution scope
 
 ## Key Features Demonstrated
 
 This walkthrough demonstrates:
 
 1. **Schema Validation**:
-   - ✅ Valid schema set upload with complete NIEM imports
+   - ✅ NIEM conformant schema set upload
    - ❌ Error handling for missing imports/dependencies
    - ⚠️ NDR validation with skip option for complex schema sets
    - 📋 Automatic mapping generation from XSD to graph model
 
-2. **Multi-format Data Ingestion**:
-   - XML with NIEM structures (ID/ref pattern)
-   - JSON-LD with @context and @id references
+2. **Graph Schema Designer**:
+   - Select nodes to build in graph and flatten graph for differnet analytics usecases
+   - Dynamic graph creation from instance data when no mapping applied
+   - View schema node properties and types (associations, augmentations)
+
+3. **Multi-format Data Ingestion**:
+   - XML with NIEM structures (ID/ref pattern) validated against XSD schema
+   - JSON-LD with @context and @id references validated against JSON schema (generated via CMF Tool)
    - Same graph model from both formats
 
-3. **Comprehensive Error Handling**:
+4. **Comprehensive Error Handling**:
    - Schema validation errors with detailed messages
    - XML validation against XSD with line/column info
    - JSON Schema validation with all errors displayed at once
    - User-friendly expandable error panels
 
-4. **Graph Modeling**:
+5. **Graph Modeling**:
    - XML/JSON hierarchy → Neo4j graph structure
    - Qualified names (qname) for readable node labels
-   - Privacy metadata and reference relationships
+   - Resolved Entity, Association, and Reference relationships
    - Source file tracking for data provenance
 
-5. **Entity Resolution**:
+6. **Entity Resolution**:
    - Dynamic node type selection from graph
    - Dual-mode operation: Senzing SDK (with license) or text-based entity matching
    - Creates ResolvedEntity nodes for duplicates
    - Confidence scoring and relationship tracking
 
-6. **Interactive Graph Visualization**:
+7. **Interactive Graph Visualization**:
    - Auto-colored nodes by type
    - Multiple layout algorithms
    - Custom Cypher query support
    - Click for node/relationship details
 
-7. **System Administration**:
+8. **System Administration**:
    - Real-time statistics (node/relationship counts)
    - Complete system reset capability
    - MinIO storage verification
    - Health monitoring
 
-## Next Steps
 
-- Upload your own NIEM-conformant XSD schemas
-- Test with different NIEM domains (Justice, Immigration, Emergency Management, etc.)
-- Experiment with custom privacy extensions
-- Build custom Cypher queries for your use case
+## Security & Production Deployment
 
-## Known Issues & TODO
+### ⚠️ Default Credentials Warning
 
-1. **Graph Visualizations**: Limitations on rebuilding graph UI from neo4j browser for full set of nodes and edges.
+This system ships with **default credentials for development convenience**. These MUST be changed for production deployments!
 
-2. **JSON Schema Conversion**: CMFTool v1.0 has a bug that prevents JSON Schema generation for certain NIEM 3.0 schemas (e.g., NEICE IEPD). This affects JSON file ingestion but XML ingestion still works. See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for details and workarounds.
+#### Default Credentials (Change These!)
 
-3. **Design Documentation**: Update architecture diagrams and component documentation to reflect current implementation.
+| Service | Username | Default Password | Environment Variable |
+|---------|----------|------------------|---------------------|
+| Neo4j | `neo4j` | `password` | `NEO4J_PASSWORD` |
+| MinIO | `minio` | `minio123` | `MINIO_ROOT_PASSWORD` |
+| API Auth | N/A | `devtoken` | `DEV_TOKEN` |
+| Senzing PostgreSQL | `senzing` | `changeme` | `SENZING_DB_PASSWORD` |
 
-4. **Version Control**: Implement semantic versioning mapped to NIEM versions for proper release management. See [GitHub Issues #1-5] for detailed plan.
+### Production Security Checklist
+
+Before deploying to production, complete these security steps:
+
+#### 1. **Change All Default Passwords**
+
+Generate strong, random passwords for all services:
+
+```bash
+# Generate strong passwords
+openssl rand -base64 32  # For passwords
+openssl rand -hex 32     # For tokens
+
+# Update your .env file with new passwords
+# NEVER commit your .env file to version control!
+```
+
+Edit `.env` and update these variables:
+- `NEO4J_PASSWORD` - Neo4j database password
+- `MINIO_ROOT_PASSWORD` - MinIO object storage password
+- `DEV_TOKEN` - API authentication token
+- `SENZING_DB_PASSWORD` - Senzing PostgreSQL password (if using Senzing)
+
+#### 2. **Verify .env is Not Committed**
+
+The `.env` file is already in `.gitignore`, but double-check:
+
+```bash
+# This should show .env is ignored
+git check-ignore .env
+
+# Verify .env is not tracked
+git ls-files | grep "^\.env$"  # Should return nothing
+```
+
+#### 3. **Senzing License Security**
+
+The Senzing license contains sensitive information:
+
+- ✅ License folders (`g2license_*`) are automatically gitignored
+- ✅ Decoded license files (`api/secrets/`) are gitignored
+- ⚠️ Never commit license files to version control
+- ⚠️ Never share license files publicly
+- ✅ License is automatically decoded from `api/g2license_*/` on startup
+
+#### 4. **Production Deployment Recommendations**
+
+For production environments:
+
+1. **Use Docker Secrets** (for Docker Swarm) or **Kubernetes Secrets**
+   ```bash
+   # Example with Docker Secrets
+   echo "your-strong-password" | docker secret create neo4j_password -
+   ```
+
+2. **Enable HTTPS/TLS**
+   - Add nginx or traefik reverse proxy
+   - Configure SSL certificates (Let's Encrypt recommended)
+   - Update `MINIO_SECURE=true` for MinIO TLS
+
+3. **Network Security**
+   - Use Docker networks to isolate services
+   - Don't expose internal ports (7687, 9000, 5432) to public
+   - Only expose ports 80/443 through reverse proxy
+
+4. **Enable PostgreSQL SSL** (if using Senzing with PostgreSQL)
+   - Configure PostgreSQL with SSL certificates
+   - Update connection strings to use `sslmode=require`
+
+5. **Rotate Credentials Regularly**
+   - Implement password rotation policy (quarterly recommended)
+   - Update API tokens periodically
+
+#### 5. **Audit Logs & Monitoring**
+
+Enable logging and monitoring for security events:
+
+```bash
+# View authentication logs
+docker compose logs api | grep -i "auth\|token"
+
+# Monitor failed login attempts
+docker compose logs api | grep -i "401\|403"
+
+# Check Neo4j security logs
+docker compose logs neo4j | grep -i "auth\|failed"
+```
+
+### Environment Variable Reference
+
+All sensitive configuration is externalized to environment variables. See `.env.example` for the complete list with descriptions.
+
+**Required for basic operation:**
+- `NEO4J_PASSWORD` - Must be changed from default
+- `MINIO_ROOT_PASSWORD` - Must be changed from default
+- `DEV_TOKEN` - Must be changed from default
+
+**Required for Senzing entity resolution:**
+- Senzing license (via `api/g2license_*/` folder - auto-detected)
+- `SENZING_DB_PASSWORD` - PostgreSQL password for Senzing
+
+**Optional customization:**
+- `SENZING_GRPC_URL` - Senzing gRPC server URL (default: `senzing-grpc:8261`)
+- `SENZING_CONFIG_PATH` - Path to g2.ini config (default: `/app/config/g2.ini`)
+
+### Security Warnings in Logs
+
+The system will log security warnings when running with default credentials:
+
+```
+⚠️  Using default DEV_TOKEN='devtoken'. Set DEV_TOKEN environment variable for production!
+```
+
+These warnings indicate security issues that should be addressed before production deployment.
+
+Limited Functionality
+
+1. **JSON Schema Conversion**: CMFTool v1.0 has a bug that prevents JSON Schema generation for certain NIEM 3.0 schemas (e.g., NEICE IEPD). This affects JSON file schema validation but can still ingestion JSON instance data against graph mapping. See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for details and workarounds.
 
 ## License
 
@@ -567,8 +769,7 @@ Copyright 2025 Christopher Jackson
 This project includes third-party software components:
 
 - **NIEM CMF Tool** ([niemopen/cmftool](https://github.com/niemopen/cmftool)) - Apache License 2.0
-- **NIEM NDR Tools** ([NIEM/NIEM-NDR](https://github.com/NIEM/NIEM-NDR)) - Creative Commons Attribution 4.0 International
-
+- **NIEM Naming Design Rules** ([niemopen/niem-naming-design-rules](https://github.com/niemopen/niem-naming-design-rules)) - Creative Commons Attribution 4.0 International
 See the [NOTICE](NOTICE) file for complete attribution details.
 
 

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+	xmlns:cb_code="http://cb.acf.hhs.gov/neice/2.0/codes/"
+	xmlns:i="http://release.niem.gov/niem/appinfo/4.0/"
+	xmlns:s="http://release.niem.gov/niem/structures/4.0/"
+	xmlns:j="http://release.niem.gov/niem/domains/jxdm/6.1/"
+	xmlns:scr="http://release.niem.gov/niem/domains/screening/4.1/"
+	xmlns:hs="http://release.niem.gov/niem/domains/humanServices/4.1/"
+	xmlns:niem-xsd="http://release.niem.gov/niem/proxy/xsd/4.0/"
+	xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/"
+	xmlns:nc="http://release.niem.gov/niem/niem-core/4.0/"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	xmlns:cb_exch="http://cb.acf.hhs.gov/neice/2.0/exchange/"
+	xmlns:cb_ext="http://cb.acf.hhs.gov/neice/2.0/ext/"
+	version="3"
+	ct:conformanceTargets="http://reference.niem.gov/niem/specification/naming-and-design-rules/4.0/#ExtensionSchemaDocument"
+	targetNamespace="http://cb.acf.hhs.gov/neice/2.0/exchange/"
+	elementFormDefault="qualified">
+	<xs:annotation>
+		<xs:documentation>NEICE Exchange Schema.</xs:documentation>
+	</xs:annotation>
+	<xs:import namespace="http://cb.acf.hhs.gov/neice/2.0/codes/" schemaLocation="./neice_codes.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/appinfo/4.0/" schemaLocation="../niem/utility/appinfo/4.0/appinfo.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/conformanceTargets/3.0/" schemaLocation="../niem/utility/conformanceTargets/3.0/conformanceTargets.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/domains/humanServices/4.1/" schemaLocation="../niem/domains/humanServices/4.1/hs.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/domains/jxdm/6.1/" schemaLocation="../niem/domains/jxdm/6.1/jxdm.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/domains/screening/4.1/" schemaLocation="../niem/domains/screening/4.1/screening.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/niem-core/4.0/" schemaLocation="../niem/niem-core/4.0/niem-core.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/proxy/xsd/4.0/" schemaLocation="../niem/proxy/xsd/4.0/xs.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/structures/4.0/" schemaLocation="../niem/utility/structures/4.0/structures.xsd"/>
+	<xs:import namespace="http://cb.acf.hhs.gov/neice/2.0/ext/" schemaLocation="./neice_extension.xsd"/>
+	<xs:complexType name="NEICETransmittalDocumentType" mixed="false">
+		<xs:annotation>
+			<xs:documentation>A data type for a structure that describes a common container for all messages flowing through the NEICE system between states' child welfare systems</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="nc:DocumentType">
+				<xs:sequence>
+					<xs:element ref="cb_ext:TransmittalSummaryInformation"/>
+					<xs:element ref="cb_ext:HomeStudyRequest" minOccurs="0"/>
+					<xs:element ref="cb_ext:HomeStudyResponse" minOccurs="0"/>
+					<xs:element ref="cb_ext:PlacementDecision" minOccurs="0"/>
+					<xs:element ref="cb_ext:FollowupRequest" minOccurs="0"/>
+					<xs:element ref="cb_ext:FollowupResponse" minOccurs="0"/>
+					<xs:element ref="cb_ext:CaseStatusUpdate" minOccurs="0"/>
+					<xs:element ref="cb_ext:TransmittalAttachment" minOccurs="0" maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:element name="NEICETransmittalDocument" type="cb_exch:NEICETransmittalDocumentType">
+		<xs:annotation>
+			<xs:documentation>A common container for all messages flowing through the NEICE system between states' child welfare systems</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+</xs:schema>

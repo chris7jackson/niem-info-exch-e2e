@@ -15,7 +15,7 @@ class TestSchevalSecurityValidation:
     def test_validate_command_with_absolute_path_in_tmp(self):
         """Test argument validation with absolute path in /tmp (line 314)."""
         # Create a real temp file to use as argument
-        with tempfile.NamedTemporaryFile(suffix='.xsd', delete=False) as tmpfile:
+        with tempfile.NamedTemporaryFile(suffix=".xsd", delete=False) as tmpfile:
             tmpfile_path = tmpfile.name
 
             # This should trigger the security validation at line 314
@@ -34,8 +34,8 @@ class TestSchevalSecurityValidation:
 
         assert "outside allowed directories" in str(exc_info.value)
 
-    @patch('niem_api.clients.scheval_client.subprocess.run')
-    @patch('niem_api.clients.scheval_client.SCHEVAL_TOOL_PATH', '/app/bin/scheval')
+    @patch("niem_api.clients.scheval_client.subprocess.run")
+    @patch("niem_api.clients.scheval_client.SCHEVAL_TOOL_PATH", "/app/bin/scheval")
     def test_working_dir_security_validation_with_tmp(self, mock_run):
         """Test that working_dir security validation is triggered with /tmp path (line 414)."""
         # Create a real temp directory in /tmp
@@ -53,10 +53,10 @@ class TestSchevalSecurityValidation:
 
             # Verify subprocess was called with the working directory
             mock_run.assert_called_once()
-            assert mock_run.call_args[1]['cwd'] == tmpdir
+            assert mock_run.call_args[1]["cwd"] == tmpdir
 
-    @patch('niem_api.clients.scheval_client.subprocess.run')
-    @patch('niem_api.clients.scheval_client.SCHEVAL_TOOL_PATH', '/app/bin/scheval')
+    @patch("niem_api.clients.scheval_client.subprocess.run")
+    @patch("niem_api.clients.scheval_client.SCHEVAL_TOOL_PATH", "/app/bin/scheval")
     def test_working_dir_validation_rejects_unsafe_path(self, mock_run):
         """Test that working_dir validation rejects paths outside allowed locations."""
         # Try to use /etc as working dir (should be rejected)
@@ -67,8 +67,8 @@ class TestSchevalSecurityValidation:
         # Subprocess should never be called
         mock_run.assert_not_called()
 
-    @patch('niem_api.clients.scheval_client.subprocess.run')
-    @patch('niem_api.clients.scheval_client.SCHEVAL_TOOL_PATH', '/app/bin/scheval')
+    @patch("niem_api.clients.scheval_client.subprocess.run")
+    @patch("niem_api.clients.scheval_client.SCHEVAL_TOOL_PATH", "/app/bin/scheval")
     def test_working_dir_validation_rejects_nonexistent_path(self, mock_run):
         """Test that working_dir validation rejects non-existent directories."""
         with pytest.raises(SchevalError) as exc_info:

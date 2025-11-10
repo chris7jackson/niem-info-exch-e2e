@@ -2,13 +2,36 @@
 # This file defines how NIEM entity properties map to Senzing attributes
 # Edit this file to customize mappings for your specific NIEM implementation
 
-# Entity categorization rules
-# Used to determine entity type based on qname patterns
+# ============================================================================
+# Entity Categorization Rules
+# ============================================================================
+#
+# IMPORTANT: Schema-Based Discovery (Primary Method)
+# --------------------------------------------------
+# The system now uses NIEM XSD schema analysis to automatically discover
+# person and organization types by:
+# 1. Finding elements in nc:Person or nc:Organization substitution groups
+# 2. Finding types that extend nc:PersonType or nc:OrganizationType
+#
+# This means types like j:CrashDriver, j:CrashPerson, j:Arrestee, j:Victim,
+# j:Witness, etc. are automatically recognized without manual configuration.
+#
+# Pattern-Based Fallback (Secondary Method)
+# ------------------------------------------
+# The patterns below are used as fallback when:
+# - XSD schemas are not available
+# - A type is not defined in the NIEM schemas (custom types)
+# - Schema parsing fails
+#
+# If you add custom entity types that don't follow NIEM standards, add
+# matching patterns below to ensure they are categorized correctly.
+#
 entity_categories:
   person:
     patterns:
       - person
       - driver
+      - passenger  # Added for crash passengers
       - child
       - parent
       - guardian
@@ -16,6 +39,9 @@ entity_categories:
       - victim
       - subject
       - arrest
+      - defendant
+      - plaintiff
+      - juror
     senzing_record_type: PERSON
 
   organization:
@@ -161,25 +187,14 @@ date_formats:
   output_format: "%Y-%m-%d"
 
 # Recommended entity types for resolution
-# These will be marked as recommended in the UI
-recommended_types:
-  - nc:Person
-  - j:Person
-  - j:CrashDriver
-  - j:CrashPerson
-  - cyfs:Child
-  - cyfs:Parent
-  - nc:Organization
-  - j:Organization
-  - nc:Entity
-  - nc:Address
-  - nc:Location
-  - nc:Vehicle
-  - j:Vehicle
+# NOTE: Recommended types are now computed dynamically by the API
+# A node type is marked as "recommended" if it has properties that map to Senzing fields
+# (defined in the field_mappings section above).
+# This ensures that only types with actual resolvable data are recommended.
 
 # Custom mappings
 # Add your own project-specific mappings here
-custom_mappings:
-  # Example:
-  # myproject_PersonID: CUSTOM_PERSON_ID
-  # myproject_AccountNumber: ACCOUNT_NUMBER
+# Example:
+#   myproject_PersonID: CUSTOM_PERSON_ID
+#   myproject_AccountNumber: ACCOUNT_NUMBER
+custom_mappings: {}

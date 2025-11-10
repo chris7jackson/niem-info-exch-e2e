@@ -69,7 +69,7 @@ Result: XML and JSON create byte-for-byte identical graph structures
 -- Query: MATCH (p:nc_Person)<-[:REPRESENTS]-(role) RETURN p, role
 
 -- Pattern 2: Dual relationship types (structure + semantics)
-(j:Crash)-[:HAS_CRASHVEHICLE]->(j:CrashVehicle)      -- Containment (document structure)
+(j:Crash)-[:CONTAINS]->(j:CrashVehicle)      -- Containment (document structure)
 (j:CrashVehicle)-[:J_CRASHDRIVER]->(j:CrashDriver)   -- Reference (domain semantics)
 
 -- Pattern 3: Augmentation property prefixing (schema vs extensions)
@@ -954,7 +954,7 @@ def generate_cypher(nodes, contains, edges, filename):
     for (parent_id, parent_label, child_id, child_label, rel) in contains:
         """
         MATCH (p:`j_Crash` {id:'file_CR01'}), (c:`j_CrashVehicle` {id:'file_CV01'})
-        MERGE (p)-[:`HAS_CRASHVEHICLE`]->(c);
+        MERGE (p)-[:`CONTAINS`]->(c);
 
         Notes:
         - MATCH both nodes first (must exist)
@@ -1057,10 +1057,10 @@ node_id = f"{file_prefix}_{structures_id}"
 
 ### Decision 2: Containment vs Reference Relationships
 
-**Containment Relationships (`HAS_*`):**
+**Containment Relationships (`CONTAINS`):**
 - Represent structural parent-child relationships in the document
 - Always created when a node is nested inside another node
-- Example: `(j:Crash)-[:HAS_CRASHVEHICLE]->(j:CrashVehicle)`
+- Example: `(j:Crash)-[:CONTAINS]->(j:CrashVehicle)`
 
 **Reference Relationships (named from mapping):**
 - Represent semantic object-to-object relationships
@@ -1219,6 +1219,200 @@ edges.append((node_id, node_label, entity_id, None, "REPRESENTS", {}))
 - When creating edges, if target label is `None`, MATCH finds node by ID only
 - Actual label determined when entity element is processed and node is created
 
+### Decision 8: NIEM Structures Metadata and Reference Handling
+
+**Problem:** NIEM uses three structures namespace attributes for identification and references:
+- `structures:id` - Explicit ID assignment
+- `structures:ref` - Reference to an element by ID
+- `structures:uri` - URI-based identification and reference (can use fragments like `#P01`)
+
+These need to be captured as metadata and used to create reference relationships in the graph.
+
+**Solution: Two-Pass Processing with Metadata Capture**
+
+**Pass 1: ID Collection**
+```python
+def collect_ids_pass1(elem: Element):
+    """
+    Collect all elements with structures:id or structures:uri for forward reference resolution.
+
+    Process structures:id:
+      <nc:Person structures:id="P01">...</nc:Person>
+      → Register: id_registry["file_P01"] = {element, qname, raw_id}
+
+    Process structures:uri (defines identifiable resources):
+      <j:CrashDriver structures:uri="#P01">...</j:CrashDriver>
+      → Extract fragment: "#P01" → "P01"
+      → Register: id_registry["file_P01"] = {element, qname, raw_id, source: 'uri'}
+
+    URI Normalization:
+      - Fragment present: "#P01" → "P01"
+      - Full URI: "http://example.com/entities/P01" → "P01" (basename)
+
+    Co-referencing:
+      - Multiple elements with same URI are valid (NIEM pattern)
+      - First occurrence registered, duplicates skipped
+      - Example: <j:CrashDriver structures:uri="#P01"> and
+                 <j:CrashPerson structures:uri="#P01"> both reference same entity
+    """
+```
+
+**Pass 2: Graph Creation with Metadata**
+```python
+# For all nodes (associations and objects):
+
+# 1. Capture structures attributes as node properties
+if structures_id:
+    props["structures_id"] = structures_id
+if structures_uri:
+    props["structures_uri"] = structures_uri
+if structures_ref:
+    props["structures_ref"] = structures_ref
+
+# 2. Create REFERS_TO edges for structures:ref and structures:uri
+if structures_ref:
+    # Direct reference to an ID
+    target_id = f"{file_prefix}_{structures_ref}"
+    edges.append((node_id, label, target_id, None, "REFERS_TO", {}))
+
+elif structures_uri:
+    # URI reference - extract fragment or basename
+    if '#' in structures_uri:
+        target_id = f"{file_prefix}_{structures_uri.split('#')[-1]}"
+    else:
+        # Use last path segment
+        target_id = f"{file_prefix}_{basename(structures_uri)}"
+    edges.append((node_id, label, target_id, None, "REFERS_TO", {}))
+```
+
+**Association Endpoint Resolution (NIEM Type Substitution)**
+```python
+# Old approach - hardcoded label:
+endpoint_label = ep["maps_to_label"]  # Always uses expected type from mapping
+
+# New approach - dynamic resolution:
+endpoint_label = None  # Let resolution find actual node label
+
+# Example:
+# Mapping expects:        nc:Person
+# Actual element is:      j:CrashDriver (concrete type substitution)
+# structures:uri="#P01" links them to same entity
+
+# Association edge creation:
+edges.append((assoc_node_id, assoc_label, endpoint_id, None, rel_type, edge_props))
+#                                                       ^^^^
+#                                                  Will be resolved from actual node
+
+# Label Resolution (happens after all nodes created):
+for fid, flabel, tid, tlabel, rel, rprops in edges:
+    if tlabel is None and tid in nodes:
+        tlabel = nodes[tid][0]  # Get actual label from created node
+```
+
+**Unresolved References (Placeholder Nodes)**
+```python
+# After traversal, check for references to non-existent IDs
+for source_qn, target_id, context in pending_refs:
+    if target_id not in nodes:
+        # Parse context to extract expected type
+        # Context: "Association j:PersonChargeAssociation endpoint nc:Person"
+        # → Expected type: "nc:Person" → Label: "nc_Person"
+
+        # Create placeholder node with correct type
+        nodes[target_id] = [
+            label,
+            role_qname,
+            {
+                '_unresolved': True,
+                '_error': 'Referenced ID not found in document',
+                '_context': context,
+                '_raw_id': target_id
+            },
+            {}
+        ]
+```
+
+**Graph Structure Created:**
+
+```cypher
+-- 1. Metadata on all nodes
+CREATE (n:j_CrashDriver {
+  id: 'file_obj123',
+  structures_uri: '#P01',         -- Captured metadata
+  nc_PersonGivenName: 'John'
+})
+
+CREATE (m:j_CrashPerson {
+  id: 'file_obj456',
+  structures_uri: '#P01',         -- Same URI (co-referencing)
+  j_InjuryDescription: 'Broken Arm'
+})
+
+CREATE (a:j_PersonChargeAssociation {
+  id: 'file_assoc789',
+  structures_id: 'PCA01'          -- Captured metadata
+})
+
+CREATE (c:j_Charge {
+  id: 'file_CH01',
+  structures_id: 'CH01',          -- Captured metadata
+  j_ChargeDescription: 'Furious Driving'
+})
+
+-- 2. REFERS_TO edges for co-referencing (both refer to same entity)
+MATCH (cd:j_CrashDriver {id: 'file_obj123'}),
+      (entity {id: 'file_P01'})
+MERGE (cd)-[:REFERS_TO]->(entity)
+
+MATCH (cp:j_CrashPerson {id: 'file_obj456'}),
+      (entity {id: 'file_P01'})
+MERGE (cp)-[:REFERS_TO]->(entity)
+
+-- 3. Association endpoint edges (with dynamic label resolution)
+-- Reference in XML: <nc:Person structures:uri="#P01" xsi:nil="true"/>
+-- Actual node created: j:CrashDriver with structures:uri="#P01"
+-- Label resolved to: j_CrashDriver (not nc_Person!)
+MATCH (a:j_PersonChargeAssociation {id: 'file_assoc789'}),
+      (cd:j_CrashDriver {id: 'file_P01'})  -- Label resolved from actual node!
+MERGE (a)-[:HAS_PERSON]->(cd)
+
+MATCH (a:j_PersonChargeAssociation {id: 'file_assoc789'}),
+      (c:j_Charge {id: 'file_CH01'})
+MERGE (a)-[:HAS_CHARGE]->(c)
+```
+
+**Benefits:**
+
+1. **Complete Provenance**: All three structures attributes captured as metadata
+2. **Reference Relationships**: REFERS_TO edges model co-referencing patterns
+3. **URI Normalization**: Consistent ID extraction from various URI formats
+4. **Type Substitution Support**: Dynamic label resolution handles NIEM substitution groups
+5. **Forward References**: Two-pass approach handles references before definitions
+6. **Data Quality Tracking**: Placeholder nodes flag unresolved references with metadata
+
+**Query Examples:**
+
+```cypher
+-- Find all nodes referencing a specific entity
+MATCH (n)-[:REFERS_TO]->(entity {id: 'file_P01'})
+RETURN n, entity
+
+-- Find co-referenced entities (multiple nodes pointing to same entity)
+MATCH (n)-[:REFERS_TO]->(entity)<-[:REFERS_TO]-(m)
+WHERE n <> m
+RETURN entity, collect(n) as referencing_nodes
+
+-- Find nodes with unresolved references
+MATCH (n)
+WHERE n._unresolved = true
+RETURN n.id, n._context, n._error
+
+-- Trace structures metadata
+MATCH (n)
+WHERE n.structures_id IS NOT NULL OR n.structures_uri IS NOT NULL
+RETURN n.qname, n.structures_id, n.structures_uri, n.structures_ref
+```
+
 ---
 
 ## Query Examples Demonstrating the Logic
@@ -1238,7 +1432,7 @@ RETURN e.nc_PersonGivenName, e.nc_PersonSurName, labels(role), role
 ### Query 2: Traverse Document Structure
 
 ```cypher
-MATCH path = (root:j_Crash)-[:HAS_CRASHVEHICLE*]->(leaf)
+MATCH path = (root:j_Crash)-[:CONTAINS*]->(leaf)
 RETURN path
 ```
 

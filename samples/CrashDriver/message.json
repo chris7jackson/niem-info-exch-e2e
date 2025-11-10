@@ -1,0 +1,1191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "@context": {
+    "aamva_d20": "https://docs.oasis-open.org/niemopen/ns/model/codes/aamva_d20/6.0/",
+    "exch": "http://example.com/CrashDriver/1.3/",
+    "gml": "http://www.opengis.net/gml/3.2",
+    "hs": "https://docs.oasis-open.org/niemopen/ns/model/domains/humanServices/6.0/",
+    "j": "https://docs.oasis-open.org/niemopen/ns/model/domains/justice/6.0/",
+    "nc": "https://docs.oasis-open.org/niemopen/ns/model/niem-core/6.0/",
+    "niem-gml": "https://docs.oasis-open.org/niemopen/ns/model/adapters/niem-gml/6.0/",
+    "priv": "http://example.com/PrivacyMetadata/2.0/",
+    "xs": "http://www.w3.org/2001/XMLSchema"
+  },
+  "properties": {
+    "priv:privacyRelationCode": {
+      "$ref": "#/definitions/priv:PrivacyCodeType"
+    },
+    "j:CrashDriver": {
+      "description": "A motor vehicle driver involved into a traffic accident.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "@id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/j:CrashDriverType"
+        }
+      ]
+    },
+    "exch:ReferenceObjects": {
+      "description": "Objects that do not apply to their parent (and appear only by reference).",
+      "$ref": "#/definitions/exch:ReferenceObjectType"
+    },
+    "nc:ActivityDate": {
+      "description": "A date of an activity.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:DateType"
+      }
+    },
+    "j:PersonChargeAssociation": {
+      "description": "An association between a person and a charge issued to that person.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/j:PersonChargeAssociationType"
+      }
+    },
+    "nc:InjuryDescriptionText": {
+      "description": "A description of an injury.",
+      "$ref": "#/definitions/nc:TextType"
+    },
+    "nc:PersonUnionAssociation": {
+      "description": "An association between two persons who are in a state of union with each other.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:PersonUnionAssociationType"
+      }
+    },
+    "nc:PersonNameSalutationText": {
+      "description": "A formal sign or expression of greeting that is appropriate for this person.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:TextType"
+      }
+    },
+    "nc:PersonSurName": {
+      "description": "A last name or family name of a person.",
+      "$ref": "#/definitions/nc:PersonNameTextType"
+    },
+    "j:CrashPerson": {
+      "description": "A person involved in a traffic accident.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "@id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/j:CrashPersonType"
+          }
+        }
+      ]
+    },
+    "exch:PersonFictionalGenreCodeLiteral": {
+      "description": "A data type for the genre of a fictional character.",
+      "$ref": "#/definitions/exch:PersonFictionalGenreCodeSimpleType"
+    },
+    "priv:PrivacyCode": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/priv:PrivacyCodeType"
+      }
+    },
+    "nc:PersonMiddleName": {
+      "description": "A middle name of a person.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:PersonNameTextType"
+      }
+    },
+    "exch:PersonFictionalGenreCode": {
+      "description": "A genre of a fictional character.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/exch:PersonFictionalGenreCodeType"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/exch:PersonFictionalGenreCodeType"
+          }
+        }
+      ]
+    },
+    "j:InjurySeverityCode": {
+      "description": "A severity of an injury received by a person, such as in a traffic accident or crash.",
+      "$ref": "#/definitions/aamva_d20:AccidentSeverityCodeType"
+    },
+    "priv:PrivacyMetadata": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "@id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/priv:PrivacyMetadataType"
+          }
+        }
+      ]
+    },
+    "exch:PersonFictionalCharacterIndicator": {
+      "description": "True if this person is a fictional character in a literary work; false otherwise.",
+      "type": "boolean"
+    },
+    "nc:GeographicCoordinateLatitude": {
+      "description": "A measurement of the angular distance between a point on the Earth and the Equator.",
+      "$ref": "#/definitions/nc:LatitudeCoordinateType"
+    },
+    "nc:PersonBirthDate": {
+      "description": "A date a person was born.",
+      "$ref": "#/definitions/nc:DateType"
+    },
+    "nc:SourceIDText": {
+      "description": "A number or string set by a data provider so that information that is sent can be retraced back to its source.",
+      "$ref": "#/definitions/nc:TextType"
+    },
+    "nc:GeographicCoordinateLongitude": {
+      "description": "A measurement of the angular distance between a point on the Earth and the Prime Meridian.",
+      "$ref": "#/definitions/nc:LongitudeCoordinateType"
+    },
+    "hs:PersonOtherKinAssociationCategoryText": {
+      "description": "A kind of kinship or other close personal relationship that exists from the source person to the target person.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:TextType"
+      }
+    },
+    "nc:personNameCommentText": {
+      "description": "A comment about a kind of name for a person.",
+      "type": "string"
+    },
+    "j:Charge": {
+      "description": "A formal allegation that a specific person has committed a specific offense.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "@id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/j:ChargeType"
+          }
+        },
+        {
+          "$ref": "#/definitions/j:ChargeType"
+        }
+      ]
+    },
+    "hs:PersonOtherKinAssociation": {
+      "description": "A directed association that describes the kinship or other close personal relationship between the source object and the target object. The relationship between a parent and a child should be captured using the ParentChildAssociation",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/hs:PersonOtherKinAssociationType"
+      }
+    },
+    "nc:MeasureValueText": {
+      "description": "A textual description of a measurement value.",
+      "$ref": "#/definitions/nc:TextType"
+    },
+    "j:PersonAdultIndicator": {
+      "description": "True if person is considered an adult, based on age/emancipation/etc.; false otherwise.",
+      "type": "boolean"
+    },
+    "j:CrashVehicle": {
+      "description": "A motor vehicle involved in a traffic accident.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/j:CrashVehicleType"
+      }
+    },
+    "j:CrashPersonInjury": {
+      "description": "An injury received by a person involved in a traffic accident.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:InjuryType"
+      }
+    },
+    "nc:PersonGivenName": {
+      "description": "A first name of a person.",
+      "$ref": "#/definitions/nc:PersonNameTextType"
+    },
+    "nc:Date": {
+      "description": "A full date.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "j:IntelligenceInformationIndicator": {
+      "description": "True if the information specified is intelligence information; false otherwise.",
+      "type": "boolean"
+    },
+    "j:JuvenileAsAdultIndicator": {
+      "description": "True if a juvenile is to be processed as an adult; false otherwise.",
+      "type": "boolean"
+    },
+    "niem-gml:LocationGeospatialPointAdapter": {
+      "description": "A 2D or 3D geometric point.  A gml:Point is defined by a single coordinate tuple. The direct position of a point is specified by the gml:pos element which is of type gml:DirectPositionType.",
+      "$ref": "#/definitions/niem-gml:PointAdapterType"
+    },
+    "j:DriverLicense": {
+      "description": "A license issued to a person granting driving privileges.",
+      "$ref": "#/definitions/j:DriverLicenseType"
+    },
+    "hs:TargetPerson": {
+      "description": "A person that represents the end point of a directed association",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "@id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/nc:PersonType"
+        }
+      ]
+    },
+    "nc:LongitudeDegreeValue": {
+      "description": "A value that specifies the degree of a longitude. The value comes from a restricted range between -180 (inclusive) and +180 (inclusive).",
+      "$ref": "#/definitions/nc:LongitudeDegreeType"
+    },
+    "nc:Metadata": {
+      "description": "Information that further qualifies primary data; data about data.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "@id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/nc:MetadataType"
+          }
+        }
+      ]
+    },
+    "j:ChargeDescriptionText": {
+      "description": "A plain language description of a charge.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:TextType"
+      }
+    },
+    "j:CriminalInformationIndicator": {
+      "description": "True if the information specified is classified as criminal information; false if it is not classified as criminal information.",
+      "type": "boolean"
+    },
+    "nc:IdentificationID": {
+      "description": "An identifier.",
+      "type": "string"
+    },
+    "nc:PersonUnionCategoryText": {
+      "description": "A kind of union between two people.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:TextType"
+      }
+    },
+    "j:DriverLicenseCardIdentification": {
+      "description": "An identification that is affixed to the raw materials (card stock, laminate, etc.) used in producing driver licenses and ID cards. The numbers are issued by the material\u0027s manufacturer and provide a unique reference to a card within a jurisdiction.",
+      "$ref": "#/definitions/nc:IdentificationType"
+    },
+    "nc:ActivityLocation": {
+      "description": "A location of an activity.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:LocationType"
+      }
+    },
+    "nc:MeasureDecimalValue": {
+      "description": "A decimal measurement value.",
+      "type": "number"
+    },
+    "hs:HouseholdMemberIndicator": {
+      "description": "True if the associated person is a household member; false otherwise.",
+      "type": "boolean"
+    },
+    "j:Crash": {
+      "description": "A traffic accident.",
+      "$ref": "#/definitions/j:CrashType"
+    },
+    "j:ChargeFelonyIndicator": {
+      "description": "True if a charge refers to a felony offense; false otherwise.",
+      "type": "boolean"
+    },
+    "nc:ItemLengthMeasure": {
+      "description": "A measurement of the length of an item.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/nc:LengthMeasureType"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/nc:LengthMeasureType"
+          }
+        }
+      ]
+    },
+    "nc:Person": {
+      "description": "A human being.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "@id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/nc:PersonType"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/nc:PersonType"
+          }
+        }
+      ]
+    },
+    "nc:LatitudeDegreeValue": {
+      "description": "A value that specifies the degree of a latitude. The value comes from a restricted range between -90 (inclusive) and +90 (inclusive).",
+      "$ref": "#/definitions/nc:LatitudeDegreeType"
+    },
+    "hs:PersonOtherKinAssociationCategoryCode": {
+      "description": "A code list that describes the nature of the kinship or other close personal relationship from a source person to a target person.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/hs:PersonOtherKinAssociationCodeType"
+      }
+    },
+    "exch:CrashDriverInfo": {
+      "description": "A collection of legal charges associated with the driver of a vehicle in a crash.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/exch:CrashDriverInfoType"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/exch:CrashDriverInfoType"
+          }
+        }
+      ]
+    },
+    "nc:PersonName": {
+      "description": "A combination of names and/or titles by which a person is known.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:PersonNameType"
+      }
+    },
+    "nc:ReportedDate": {
+      "description": "A date information was observed, measured, identified, or became known.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/nc:DateType"
+      }
+    },
+    "nc:Location2DGeospatialCoordinate": {
+      "description": "A location identified by a latitude and longitude.",
+      "$ref": "#/definitions/nc:Location2DGeospatialCoordinateType"
+    },
+    "hs:SourcePerson": {
+      "description": "A person that is the start point of a directed association",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "@id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/nc:PersonType"
+        }
+      ]
+    },
+    "nc:YearDate": {
+      "description": "A year.",
+      "type": "string",
+      "pattern": "^[0-9]{4}$"
+    }
+  },
+  "definitions": {
+    "aamva_d20:AccidentSeverityCodeType": {
+      "pattern": "^\\S*$",
+      "description": "A data type for severity levels of an accident.",
+      "type": "string",
+      "oneOf": [
+        {
+          "const": "1",
+          "description": "Fatal Accident"
+        },
+        {
+          "const": "2",
+          "description": "Incapacitating Injury Accident"
+        },
+        {
+          "const": "3",
+          "description": "Non-incapacitating Evident Injury"
+        },
+        {
+          "const": "4",
+          "description": "Possible Injury Accident"
+        },
+        {
+          "const": "5",
+          "description": "Non-injury Accident"
+        },
+        {
+          "const": "9",
+          "description": "Unknown"
+        }
+      ]
+    },
+    "exch:CrashDriverInfoType": {
+      "description": "A data type for a collection of legal charges associated with the driver of a vehicle in a crash.",
+      "type": "object",
+      "properties": {
+        "j:Crash": {
+          "$ref": "#/properties/j:Crash"
+        },
+        "j:Charge": {
+          "$ref": "#/properties/j:Charge"
+        },
+        "j:PersonChargeAssociation": {
+          "$ref": "#/properties/j:PersonChargeAssociation"
+        },
+        "nc:PersonUnionAssociation": {
+          "$ref": "#/properties/nc:PersonUnionAssociation"
+        },
+        "hs:PersonOtherKinAssociation": {
+          "$ref": "#/properties/hs:PersonOtherKinAssociation"
+        },
+        "exch:ReferenceObjects": {
+          "$ref": "#/properties/exch:ReferenceObjects"
+        }
+      },
+      "required": [
+        "j:Crash"
+      ]
+    },
+    "exch:PersonFictionalGenreCodeSimpleType": {
+      "pattern": "^\\S*$",
+      "description": "A data type for the genre of a fictional character.",
+      "type": "string",
+      "oneOf": [
+        {
+          "const": "MYSTERY"
+        },
+        {
+          "const": "SF"
+        }
+      ]
+    },
+    "exch:PersonFictionalGenreCodeType": {
+      "description": "A data type for the genre of a fictional character.",
+      "type": "object",
+      "properties": {
+        "exch:PersonFictionalGenreCodeLiteral": {
+          "$ref": "#/properties/exch:PersonFictionalGenreCodeLiteral"
+        }
+      },
+      "required": [
+        "exch:PersonFictionalGenreCodeLiteral"
+      ]
+    },
+    "exch:ReferenceObjectType": {
+      "description": "A data type for objects that do not apply to their parent (and appear only by reference).",
+      "type": "object",
+      "properties": {
+        "nc:Metadata": {
+          "$ref": "#/properties/nc:Metadata"
+        },
+        "priv:PrivacyMetadata": {
+          "$ref": "#/properties/priv:PrivacyMetadata"
+        }
+      }
+    },
+    "hs:PersonOtherKinAssociationCodeType": {
+      "pattern": "^\\S*$",
+      "description": "A data type for describing the nature of the kinship or other close personal relationship from a source person to a target person",
+      "type": "string",
+      "oneOf": [
+        {
+          "const": "Authority Figure",
+          "description": "Authority Figure"
+        },
+        {
+          "const": "Babysitter",
+          "description": "Babysitter"
+        },
+        {
+          "const": "Brother",
+          "description": "Brother"
+        },
+        {
+          "const": "Brother-In-Law",
+          "description": "Brother-In-Law"
+        },
+        {
+          "const": "Clergy",
+          "description": "Clergy"
+        },
+        {
+          "const": "Coach",
+          "description": "Coach"
+        },
+        {
+          "const": "Domestic Partner",
+          "description": "Domestic Partner"
+        },
+        {
+          "const": "Father-in-Law",
+          "description": "Father-in-Law"
+        },
+        {
+          "const": "Fiance",
+          "description": "Fiance"
+        },
+        {
+          "const": "Fiancee",
+          "description": "Fiancee"
+        },
+        {
+          "const": "Fictive Kin",
+          "description": "Fictive Kin"
+        },
+        {
+          "const": "Godfather",
+          "description": "Godfather"
+        },
+        {
+          "const": "Godmother",
+          "description": "Godmother"
+        },
+        {
+          "const": "Granddaughter",
+          "description": "Granddaughter"
+        },
+        {
+          "const": "Grandson",
+          "description": "Grandson"
+        },
+        {
+          "const": "Great-Granddaughter",
+          "description": "Great-Granddaughter"
+        },
+        {
+          "const": "Great-Grandson",
+          "description": "Great-Grandson"
+        },
+        {
+          "const": "Maternal Aunt",
+          "description": "Maternal Aunt"
+        },
+        {
+          "const": "Maternal Female Cousin",
+          "description": "Maternal Female Cousin"
+        },
+        {
+          "const": "Maternal Grandfather",
+          "description": "Maternal Grandfather"
+        },
+        {
+          "const": "Maternal Grandmother",
+          "description": "Maternal Grandmother"
+        },
+        {
+          "const": "Maternal Great Grandfather",
+          "description": "Maternal Great Grandfather"
+        },
+        {
+          "const": "Maternal Great Grandmother",
+          "description": "Maternal Great Grandmother"
+        },
+        {
+          "const": "Maternal Male Cousin",
+          "description": "Maternal Male Cousin"
+        },
+        {
+          "const": "Maternal Uncle",
+          "description": "Maternal Uncle"
+        },
+        {
+          "const": "Mother-in-Law",
+          "description": "Mother-in-Law"
+        },
+        {
+          "const": "Neighbor",
+          "description": "Neighbor"
+        },
+        {
+          "const": "Nephew",
+          "description": "Nephew"
+        },
+        {
+          "const": "Niece",
+          "description": "Niece"
+        },
+        {
+          "const": "Paternal Aunt",
+          "description": "Paternal Aunt"
+        },
+        {
+          "const": "Paternal Female Cousin",
+          "description": "Paternal Female Cousin"
+        },
+        {
+          "const": "Paternal Grandfather",
+          "description": "Paternal Grandfather"
+        },
+        {
+          "const": "Paternal Grandmother",
+          "description": "Paternal Grandmother"
+        },
+        {
+          "const": "Paternal Great Grandfather",
+          "description": "Paternal Great Grandfather"
+        },
+        {
+          "const": "Paternal Great Grandmother",
+          "description": "Paternal Great Grandmother"
+        },
+        {
+          "const": "Paternal Male Cousin",
+          "description": "Paternal Male Cousin"
+        },
+        {
+          "const": "Paternal Uncle",
+          "description": "Paternal Uncle"
+        },
+        {
+          "const": "Roommate",
+          "description": "Roommate"
+        },
+        {
+          "const": "Significant Other",
+          "description": "Significant Other"
+        },
+        {
+          "const": "Sister",
+          "description": "Sister"
+        },
+        {
+          "const": "Sister-In-Law",
+          "description": "Sister-In-Law"
+        },
+        {
+          "const": "Teacher",
+          "description": "Teacher"
+        },
+        {
+          "const": "Unrelated Friend",
+          "description": "Unrelated Friend"
+        }
+      ]
+    },
+    "hs:PersonOtherKinAssociationType": {
+      "description": "A data type for a relationship that is a kinship or other close personal association between the source object and the target object. The relationship between a parent and a child should be captured using the ParentChildAssociation",
+      "allOf": [
+        {
+          "$ref": "#/definitions/nc:AssociationType"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hs:SourcePerson": {
+              "$ref": "#/properties/hs:SourcePerson"
+            },
+            "hs:TargetPerson": {
+              "$ref": "#/properties/hs:TargetPerson"
+            },
+            "hs:HouseholdMemberIndicator": {
+              "$ref": "#/properties/hs:HouseholdMemberIndicator"
+            },
+            "hs:PersonOtherKinAssociationCategoryText": {
+              "$ref": "#/properties/hs:PersonOtherKinAssociationCategoryText"
+            },
+            "hs:PersonOtherKinAssociationCategoryCode": {
+              "$ref": "#/properties/hs:PersonOtherKinAssociationCategoryCode"
+            }
+          },
+          "required": [
+            "hs:SourcePerson",
+            "hs:TargetPerson"
+          ]
+        }
+      ]
+    },
+    "j:ChargeType": {
+      "description": "A data type for a formal allegation that a specific person has committed a specific offense.",
+      "type": "object",
+      "properties": {
+        "j:ChargeDescriptionText": {
+          "$ref": "#/properties/j:ChargeDescriptionText"
+        },
+        "j:ChargeFelonyIndicator": {
+          "$ref": "#/properties/j:ChargeFelonyIndicator"
+        }
+      },
+      "required": [
+        "j:ChargeDescriptionText"
+      ]
+    },
+    "j:CrashDriverType": {
+      "description": "A data type for a motor vehicle driver involved in a traffic accident.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/nc:PersonType"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "j:DriverLicense": {
+              "$ref": "#/properties/j:DriverLicense"
+            }
+          }
+        }
+      ]
+    },
+    "j:CrashPersonType": {
+      "description": "A data type for any person involved in a traffic accident.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/nc:PersonType"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "j:CrashPersonInjury": {
+              "$ref": "#/properties/j:CrashPersonInjury"
+            }
+          }
+        }
+      ]
+    },
+    "j:CrashType": {
+      "description": "A data type for a traffic accident.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/j:DrivingIncidentType"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "j:CrashVehicle": {
+              "$ref": "#/properties/j:CrashVehicle"
+            },
+            "j:CrashPerson": {
+              "$ref": "#/properties/j:CrashPerson"
+            }
+          },
+          "required": [
+            "j:CrashVehicle",
+            "j:CrashPerson"
+          ]
+        }
+      ]
+    },
+    "j:CrashVehicleType": {
+      "description": "A data type for a motor vehicle involved in a traffic accident.",
+      "type": "object",
+      "properties": {
+        "j:CrashDriver": {
+          "$ref": "#/properties/j:CrashDriver"
+        }
+      },
+      "required": [
+        "j:CrashDriver"
+      ]
+    },
+    "j:DriverLicenseBaseType": {
+      "description": "A data type for an authorization issued to a driver granting driving privileges."
+    },
+    "j:DriverLicenseType": {
+      "description": "A data type for a license issued to a person granting driving privileges.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/j:DriverLicenseBaseType"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "j:DriverLicenseCardIdentification": {
+              "$ref": "#/properties/j:DriverLicenseCardIdentification"
+            }
+          },
+          "required": [
+            "j:DriverLicenseCardIdentification"
+          ]
+        }
+      ]
+    },
+    "j:DrivingIncidentType": {
+      "description": "A data type for details of an incident involving a vehicle.",
+      "$ref": "#/definitions/nc:IncidentType"
+    },
+    "j:PersonChargeAssociationType": {
+      "description": "A data type for an association between a person and a charge.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/nc:AssociationType"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "nc:Person": {
+              "$ref": "#/properties/nc:Person"
+            },
+            "j:Charge": {
+              "$ref": "#/properties/j:Charge"
+            },
+            "j:JuvenileAsAdultIndicator": {
+              "$ref": "#/properties/j:JuvenileAsAdultIndicator"
+            }
+          },
+          "required": [
+            "nc:Person",
+            "j:Charge"
+          ]
+        }
+      ]
+    },
+    "nc:ActivityType": {
+      "description": "A data type for a single or set of related actions, events, or process steps.",
+      "type": "object",
+      "properties": {
+        "nc:ActivityDate": {
+          "$ref": "#/properties/nc:ActivityDate"
+        },
+        "nc:ActivityLocation": {
+          "$ref": "#/properties/nc:ActivityLocation"
+        }
+      }
+    },
+    "nc:AssociationType": {
+      "description": "A data type for an association, connection, relationship, or involvement somehow linking people, things, and/or activities together."
+    },
+    "nc:DateType": {
+      "description": "A data type for a calendar date.",
+      "type": "object",
+      "properties": {
+        "nc:Date": {
+          "$ref": "#/properties/nc:Date"
+        },
+        "nc:YearDate": {
+          "$ref": "#/properties/nc:YearDate"
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "required": [
+                "nc:Date"
+              ]
+            },
+            {
+              "required": [
+                "nc:YearDate"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "nc:IdentificationType": {
+      "description": "A data type for a representation of an identity.",
+      "type": "object",
+      "properties": {
+        "nc:IdentificationID": {
+          "$ref": "#/properties/nc:IdentificationID"
+        }
+      },
+      "required": [
+        "nc:IdentificationID"
+      ]
+    },
+    "nc:IncidentType": {
+      "description": "A data type for an occurrence or an event that may require a response.",
+      "$ref": "#/definitions/nc:ActivityType"
+    },
+    "nc:InjuryType": {
+      "description": "A data type for a form of harm or damage sustained by a person.",
+      "type": "object",
+      "properties": {
+        "nc:InjuryDescriptionText": {
+          "$ref": "#/properties/nc:InjuryDescriptionText"
+        },
+        "j:InjurySeverityCode": {
+          "$ref": "#/properties/j:InjurySeverityCode"
+        }
+      },
+      "required": [
+        "nc:InjuryDescriptionText",
+        "j:InjurySeverityCode"
+      ]
+    },
+    "nc:LatitudeCoordinateType": {
+      "description": "A data type for a measurement of the angular distance between a point on the Earth and the Equator.",
+      "type": "object",
+      "properties": {
+        "nc:LatitudeDegreeValue": {
+          "$ref": "#/properties/nc:LatitudeDegreeValue"
+        }
+      },
+      "required": [
+        "nc:LatitudeDegreeValue"
+      ]
+    },
+    "nc:LatitudeDegreeType": {
+      "description": "A data type for a degree of latitude.",
+      "type": "number"
+    },
+    "nc:LengthMeasureType": {
+      "description": "A data type for a measure of a distance or extent.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/nc:MeasureType"
+        },
+        {
+          "type": "object",
+          "properties": {}
+        }
+      ]
+    },
+    "nc:Location2DGeospatialCoordinateType": {
+      "description": "A data type for a location identified by latitude and longitude.",
+      "type": "object",
+      "properties": {
+        "nc:GeographicCoordinateLatitude": {
+          "$ref": "#/properties/nc:GeographicCoordinateLatitude"
+        },
+        "nc:GeographicCoordinateLongitude": {
+          "$ref": "#/properties/nc:GeographicCoordinateLongitude"
+        }
+      },
+      "required": [
+        "nc:GeographicCoordinateLatitude",
+        "nc:GeographicCoordinateLongitude"
+      ]
+    },
+    "nc:LocationType": {
+      "description": "A data type for geospatial location.",
+      "type": "object",
+      "properties": {
+        "niem-gml:LocationGeospatialPointAdapter": {
+          "$ref": "#/properties/niem-gml:LocationGeospatialPointAdapter"
+        },
+        "nc:Location2DGeospatialCoordinate": {
+          "$ref": "#/properties/nc:Location2DGeospatialCoordinate"
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "required": [
+                "niem-gml:LocationGeospatialPointAdapter"
+              ]
+            },
+            {
+              "required": [
+                "nc:Location2DGeospatialCoordinate"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "nc:LongitudeCoordinateType": {
+      "description": "A data type for a measurement of the angular distance between a point on the Earth and the Prime Meridian.",
+      "type": "object",
+      "properties": {
+        "nc:LongitudeDegreeValue": {
+          "$ref": "#/properties/nc:LongitudeDegreeValue"
+        }
+      },
+      "required": [
+        "nc:LongitudeDegreeValue"
+      ]
+    },
+    "nc:LongitudeDegreeType": {
+      "description": "A data type for a degree of longitude.",
+      "type": "number"
+    },
+    "nc:MeasureType": {
+      "description": "A data type for a measurement.",
+      "type": "object",
+      "properties": {
+        "nc:MeasureValueText": {
+          "$ref": "#/properties/nc:MeasureValueText"
+        },
+        "nc:MeasurePointAbstract": {
+          "$ref": "#/properties/nc:MeasurePointAbstract"
+        }
+      }
+    },
+    "nc:MetadataType": {
+      "description": "A data type for information that further qualifies primary data; data about data.",
+      "type": "object",
+      "properties": {
+        "nc:ReportedDate": {
+          "$ref": "#/properties/nc:ReportedDate"
+        }
+      }
+    },
+    "nc:PersonAssociationType": {
+      "description": "A data type for an association between people.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/nc:AssociationType"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "nc:Person": {
+              "$ref": "#/properties/nc:Person"
+            }
+          }
+        }
+      ]
+    },
+    "nc:PersonNameTextType": {
+      "description": "A data type for a name by which a person is known, referred, or addressed.",
+      "$ref": "#/definitions/nc:ProperNameTextType"
+    },
+    "nc:PersonNameType": {
+      "description": "A data type for a combination of names and/or titles by which a person is known.",
+      "type": "object",
+      "properties": {
+        "nc:PersonGivenName": {
+          "$ref": "#/properties/nc:PersonGivenName"
+        },
+        "nc:PersonMiddleName": {
+          "$ref": "#/properties/nc:PersonMiddleName"
+        },
+        "nc:PersonSurName": {
+          "$ref": "#/properties/nc:PersonSurName"
+        },
+        "nc:PersonNameSalutationText": {
+          "$ref": "#/properties/nc:PersonNameSalutationText"
+        },
+        "nc:personNameCommentText": {
+          "$ref": "#/properties/nc:personNameCommentText"
+        }
+      },
+      "required": [
+        "nc:PersonGivenName",
+        "nc:PersonSurName"
+      ]
+    },
+    "nc:PersonType": {
+      "description": "A data type for a human being.",
+      "type": "object",
+      "properties": {
+        "nc:PersonBirthDate": {
+          "$ref": "#/properties/nc:PersonBirthDate"
+        },
+        "nc:PersonName": {
+          "$ref": "#/properties/nc:PersonName"
+        }
+      }
+    },
+    "nc:PersonUnionAssociationType": {
+      "description": "A data type for an association between two persons who are in a state of union with each other.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/nc:PersonAssociationType"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "nc:PersonUnionCategoryText": {
+              "$ref": "#/properties/nc:PersonUnionCategoryText"
+            }
+          }
+        }
+      ]
+    },
+    "nc:ProperNameTextType": {
+      "description": "A data type for a word or phrase by which a person or thing is known, referred, or addressed.",
+      "$ref": "#/definitions/nc:TextType"
+    },
+    "nc:TextType": {
+      "description": "A data type for a character string.",
+      "type": "string"
+    },
+    "niem-gml:PointAdapterType": {
+      "description": "A data type for a 2D or 3D geometric point.  A gml:Point is defined by a single coordinate tuple. The direct position of a point is specified by the gml:pos element which is of type gml:DirectPositionType.",
+      "type": "object",
+      "properties": {
+        "gml:Point": {
+          "$ref": "#/properties/gml:Point"
+        }
+      },
+      "required": [
+        "gml:Point"
+      ]
+    },
+    "priv:PrivacyCodeType": {
+      "pattern": "^\\S*$",
+      "type": "string",
+      "oneOf": [
+        {
+          "const": "MEDICAL"
+        },
+        {
+          "const": "PII"
+        },
+        {
+          "const": "RESTRICTED"
+        }
+      ]
+    },
+    "priv:PrivacyMetadataType": {
+      "type": "object",
+      "properties": {
+        "nc:SourceIDText": {
+          "$ref": "#/properties/nc:SourceIDText"
+        },
+        "priv:PrivacyCode": {
+          "$ref": "#/properties/priv:PrivacyCode"
+        }
+      },
+      "required": [
+        "priv:PrivacyCode"
+      ]
+    }
+  }
+}

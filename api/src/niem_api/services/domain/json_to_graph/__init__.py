@@ -7,4 +7,4 @@ NIEM JSON uses JSON-LD features (@context, @id, @type) with NIEM-specific conven
 
 from .converter import generate_for_json_content
 
-__all__ = ['generate_for_json_content']
+__all__ = ["generate_for_json_content"]

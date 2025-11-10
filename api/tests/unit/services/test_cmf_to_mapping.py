@@ -21,7 +21,7 @@ class TestCMFToMapping:
     @pytest.fixture
     def sample_cmf_content(self):
         """Sample CMF content for testing"""
-        return '''<?xml version="1.0" encoding="UTF-8"?>
+        return """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
             <cmf:Namespace>
@@ -61,7 +61,7 @@ class TestCMFToMapping:
             <cmf:ObjectProperty structures:id="test.PersonName">
                 <cmf:Class structures:ref="nc.TextType"/>
             </cmf:ObjectProperty>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
     def test_to_qname_conversion(self):
         """Test dotted notation to QName conversion"""
@@ -152,8 +152,7 @@ class TestCMFToMapping:
         assert len(associations) == 1
         person_assoc = associations[0]
         assert (
-            "test:PersonAssociation" in person_assoc["qname"]
-            or "test:PersonAssociationType" in person_assoc["qname"]
+            "test:PersonAssociation" in person_assoc["qname"] or "test:PersonAssociationType" in person_assoc["qname"]
         )
 
         # Check polymorphism settings
@@ -162,9 +161,9 @@ class TestCMFToMapping:
 
     def test_generate_mapping_empty_cmf(self):
         """Test mapping generation with minimal CMF"""
-        minimal_cmf = '''<?xml version="1.0" encoding="UTF-8"?>
+        minimal_cmf = """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/">
-        </cmf:Model>'''
+        </cmf:Model>"""
 
         mapping = generate_mapping_from_cmf_content(minimal_cmf)
 
@@ -175,7 +174,7 @@ class TestCMFToMapping:
 
     def test_generate_mapping_with_data_properties(self):
         """Test mapping generation with data properties"""
-        cmf_with_data = '''<?xml version="1.0" encoding="UTF-8"?>
+        cmf_with_data = """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
             <cmf:Namespace>
@@ -195,7 +194,7 @@ class TestCMFToMapping:
             <cmf:ObjectProperty structures:id="test.Person">
                 <cmf:Class structures:ref="test.PersonType"/>
             </cmf:ObjectProperty>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
         mapping = generate_mapping_from_cmf_content(cmf_with_data)
 
@@ -205,7 +204,7 @@ class TestCMFToMapping:
 
     def test_class_property_parsing_edge_cases(self):
         """Test edge cases in class property parsing"""
-        cmf_edge_case = '''<?xml version="1.0" encoding="UTF-8"?>
+        cmf_edge_case = """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/"
                    xmlns:structures="https://docs.oasis-open.org/niemopen/ns/model/structures/6.0/">
             <cmf:Class structures:id="test.EmptyClass">
@@ -218,7 +217,7 @@ class TestCMFToMapping:
                     <!-- Missing min/max occurs -->
                 </cmf:ChildPropertyAssociation>
             </cmf:Class>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
         root = ET.fromstring(cmf_edge_case)
         classes = parse_classes(root)

@@ -77,6 +77,60 @@ export interface ConversionFileResult {
   validation_details?: ValidationResult;
 }
 
+export interface ElementTreeNode {
+  qname: string;
+  label: string;
+  node_type: 'object' | 'association' | 'augmentation' | 'property';
+  depth: number;
+  property_count: number;
+  nested_object_count: number;
+  parent_qname: string | null;
+  warnings: string[];
+  suggestions: string[];
+  selected: boolean;
+  selectable: boolean; // Can be selected/deselected (augmentations are not selectable)
+  cardinality: string | null;
+  description: string | null;
+  namespace: string | null;
+  is_nested_association: boolean;
+  can_have_id?: boolean; // True if type extends structures:ObjectType
+  children: string[];
+  endpoints?: string[]; // Only present for associations - contains entity endpoint qnames (not property wrappers)
+  augmented_properties?: string[]; // Only present for augmentations - contains selectable child properties
+}
+
+export interface ElementTreeResponse {
+  schema_id: string;
+  nodes: ElementTreeNode[];
+  total_nodes: number;
+  metadata: {
+    schema_name?: string;
+    created_at?: string;
+  };
+}
+
+export interface SchemaValidationMessage {
+  severity: 'error' | 'warning' | 'suggestion';
+  type: string;
+  message: string;
+  element?: string | null;
+  recommendation?: string | null;
+  impact?: string | null;
+  details?: Record<string, any> | null;
+}
+
+export interface ApplyDesignResponse {
+  success: boolean;
+  valid: boolean;
+  can_proceed: boolean;
+  message?: string;
+  schema_id?: string;
+  selected_nodes?: number;
+  mapping_filename?: string;
+  errors?: SchemaValidationMessage[];
+  warnings?: SchemaValidationMessage[];
+}
+
 export interface BatchConversionResult {
   files_processed: number;
   successful: number;
@@ -126,6 +180,26 @@ export interface EntityResolutionRequest {
   selectedNodeTypes: string[];
 }
 
+export interface MatchDetails {
+  totalEntitiesMatched: number;
+  totalResolvedGroups: number;
+  matchQualityDistribution: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+  commonMatchKeys: Record<string, number>;
+  featureScores: Record<
+    string,
+    {
+      total: number;
+      count: number;
+      average: number;
+    }
+  >;
+  resolutionRules: Record<string, number>;
+}
+
 export interface EntityResolutionResponse {
   status: string;
   message: string;
@@ -136,6 +210,7 @@ export interface EntityResolutionResponse {
   entitiesResolved: number;
   nodeTypesProcessed?: string[];
   resolutionMethod?: string;
+  matchDetails?: MatchDetails;
 }
 
 export interface EntityResolutionStatusResponse {
@@ -194,6 +269,30 @@ class ApiClient {
       responseType: 'blob',
     });
     return response.data;
+  }
+
+  async getElementTree(schemaId: string): Promise<ElementTreeResponse> {
+    const response = await this.client.get(`/api/schema/${schemaId}/element-tree`);
+    return response.data;
+  }
+
+  async applySchemaDesign(
+    schemaId: string,
+    selections: Record<string, boolean>
+  ): Promise<ApplyDesignResponse> {
+    const response = await this.client.post(`/api/schema/${schemaId}/apply-design`, selections);
+    return response.data;
+  }
+
+  async getSchemaSelections(schemaId: string): Promise<Record<string, boolean> | null> {
+    try {
+      const response = await this.client.get(`/api/schema/${schemaId}/selections`);
+      // Return just the selections object from the response
+      return response.data?.selections || null;
+    } catch (error) {
+      // Return null if selections don't exist (404 or other errors)
+      return null;
+    }
   }
 
   // Data Ingestion - Direct to Neo4j

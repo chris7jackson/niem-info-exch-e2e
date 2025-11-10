@@ -32,14 +32,18 @@ else:
     # File is at: api/src/niem_api/clients/scheval_client.py -> need 4 .parent to reach api/
     # In Docker, the container is always Linux, so always use the shell script (not .bat)
     _SCHEVAL_SCRIPT_NAME = "scheval"
-    _SCHEVAL_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / f"third_party/niem-scheval/scheval-1.0/bin/{_SCHEVAL_SCRIPT_NAME}"
+    _SCHEVAL_DEFAULT_PATH = (
+        Path(__file__).parent.parent.parent.parent / f"third_party/niem-scheval/scheval-1.0/bin/{_SCHEVAL_SCRIPT_NAME}"
+    )
 
     if _SCHEVAL_DEFAULT_PATH.exists():
         SCHEVAL_TOOL_PATH = str(_SCHEVAL_DEFAULT_PATH)
         logger.debug(f"Using default scheval tool path: {SCHEVAL_TOOL_PATH}")
     else:
         SCHEVAL_TOOL_PATH = None
-        logger.warning(f"Scheval tool not found at default path ({_SCHEVAL_DEFAULT_PATH}) and SCHEVAL_TOOL_PATH not set")
+        logger.warning(
+            f"Scheval tool not found at default path ({_SCHEVAL_DEFAULT_PATH}) and SCHEVAL_TOOL_PATH not set"
+        )
 
 SCHEVAL_TIMEOUT = 60  # Default command timeout in seconds (schematron can be slow)
 
@@ -47,15 +51,22 @@ SCHEVAL_TIMEOUT = 60  # Default command timeout in seconds (schematron can be sl
 # No subcommands for scheval - it's a single-purpose tool
 # Only these flags are allowed in command arguments
 ALLOWED_SCHEVAL_FLAGS = {
-    "-s", "--schema",       # Apply rules from this schematron file
-    "-x", "--xslt",         # Apply rules from this compiled schematron file
-    "-o", "--output",       # Write output to this file
-    "--svrl",               # Write output in SVRL format
-    "--compile",            # Compile schema and write output in XSLT format
-    "-c", "--catalog",      # Provide this XML catalog file as $xml-catalog parameter
-    "-k", "--keep",         # Keep temporary files
-    "-d", "--debug",        # Turn on debug logging
-    "-h", "--help",         # Display usage message
+    "-s",
+    "--schema",  # Apply rules from this schematron file
+    "-x",
+    "--xslt",  # Apply rules from this compiled schematron file
+    "-o",
+    "--output",  # Write output to this file
+    "--svrl",  # Write output in SVRL format
+    "--compile",  # Compile schema and write output in XSLT format
+    "-c",
+    "--catalog",  # Provide this XML catalog file as $xml-catalog parameter
+    "-k",
+    "--keep",  # Keep temporary files
+    "-d",
+    "--debug",  # Turn on debug logging
+    "-h",
+    "--help",  # Display usage message
 }
 
 
@@ -69,6 +80,7 @@ class SchevalError(Exception):
     - Timeout errors
     - Invalid responses
     """
+
     pass
 
 
@@ -133,11 +145,11 @@ def get_scheval_version() -> str:
         if result["returncode"] == 0:
             # Try to extract version from help output
             # Look for "version X.X" pattern
-            version_match = re.search(r'version\s+([\d.]+)', result["stdout"], re.IGNORECASE)
+            version_match = re.search(r"version\s+([\d.]+)", result["stdout"], re.IGNORECASE)
             if version_match:
                 return version_match.group(1)
             # Look for "Schematron Evaluation (SCHEval) tool, version X.X" pattern
-            version_match = re.search(r'SCHEval[^\d]*([\d.]+)', result["stdout"], re.IGNORECASE)
+            version_match = re.search(r"SCHEval[^\d]*([\d.]+)", result["stdout"], re.IGNORECASE)
             if version_match:
                 return version_match.group(1)
             # Default to 1.0 if we can't extract version
@@ -208,9 +220,9 @@ def parse_scheval_validation_output(stdout: str, stderr: str, filename: str) -> 
     # Pattern to match scheval output lines
     # Format: SEVERITY  filename:line:column -- Rule ID: message
     # Or: SEVERITY  filename:line:column -- message (without Rule ID)
-    pattern = r'^(WARN|ERROR|INFO)\s+([^:]+):(\d+):(\d+)\s+--\s+(.+)$'
+    pattern = r"^(WARN|ERROR|INFO)\s+([^:]+):(\d+):(\d+)\s+--\s+(.+)$"
 
-    for line in combined_output.split('\n'):
+    for line in combined_output.split("\n"):
         line = line.strip()
         if not line:
             continue
@@ -226,7 +238,7 @@ def parse_scheval_validation_output(stdout: str, stderr: str, filename: str) -> 
             # Extract rule ID if present (e.g., "Rule 7-10: Message" -> rule="Rule 7-10", message="Message")
             rule = None
             message = full_message
-            rule_match = re.match(r'Rule\s+([\d-]+):\s+(.+)', full_message)
+            rule_match = re.match(r"Rule\s+([\d-]+):\s+(.+)", full_message)
             if rule_match:
                 rule = f"Rule {rule_match.group(1)}"
                 message = rule_match.group(2).strip()
@@ -238,7 +250,7 @@ def parse_scheval_validation_output(stdout: str, stderr: str, filename: str) -> 
                 "message": message,
                 "severity": severity,
                 "rule": rule,
-                "context": None
+                "context": None,
             }
 
             if severity == "error":
@@ -253,22 +265,19 @@ def parse_scheval_validation_output(stdout: str, stderr: str, filename: str) -> 
         # Check for Java exceptions or fatal errors
         if any(keyword in combined_output for keyword in ["Exception", "Error:", "FATAL", "error"]):
             # Create a generic error for Java exceptions or tool errors
-            errors.append({
-                "file": filename,
-                "line": None,
-                "column": None,
-                "message": combined_output.strip()[:500],  # Limit message length
-                "severity": "error",
-                "rule": None,
-                "context": "Tool execution error"
-            })
+            errors.append(
+                {
+                    "file": filename,
+                    "line": None,
+                    "column": None,
+                    "message": combined_output.strip()[:500],  # Limit message length
+                    "severity": "error",
+                    "rule": None,
+                    "context": "Tool execution error",
+                }
+            )
 
-    return {
-        "errors": errors,
-        "warnings": warnings,
-        "info": info,
-        "has_errors": len(errors) > 0
-    }
+    return {"errors": errors, "warnings": warnings, "info": info, "has_errors": len(errors) > 0}
 
 
 def _validate_scheval_command(args: list) -> None:
@@ -310,15 +319,13 @@ def _validate_scheval_command(args: list) -> None:
             # Security: If it's an absolute path, ensure it's within allowed directories
             if arg.startswith("/"):
                 from pathlib import Path as P
+
                 arg_path = P(arg).resolve()
                 allowed_prefixes = [P("/tmp").resolve(), P("/app").resolve()]  # nosec B108
                 if os.getenv("HOME"):
                     allowed_prefixes.append(P(os.getenv("HOME")).resolve())
 
-                is_safe = any(
-                    str(arg_path).startswith(str(prefix))
-                    for prefix in allowed_prefixes
-                )
+                is_safe = any(str(arg_path).startswith(str(prefix)) for prefix in allowed_prefixes)
                 if not is_safe:
                     raise SchevalError(f"Absolute path outside allowed directories (/app, /tmp, $HOME): {arg}")
 
@@ -337,9 +344,7 @@ def _validate_scheval_command(args: list) -> None:
 
 
 def run_scheval_command(
-    args: list,
-    timeout: int = SCHEVAL_TIMEOUT,
-    working_dir: Optional[str] = None
+    args: list, timeout: int = SCHEVAL_TIMEOUT, working_dir: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Execute a scheval command with timeout and safety checks.
@@ -415,10 +420,7 @@ def run_scheval_command(
             if os.getenv("HOME"):
                 allowed_prefixes.append(Path(os.getenv("HOME")).resolve())
 
-            is_safe = any(
-                str(working_dir_path).startswith(str(prefix))
-                for prefix in allowed_prefixes
-            )
+            is_safe = any(str(working_dir_path).startswith(str(prefix)) for prefix in allowed_prefixes)
 
             if not is_safe:
                 logger.error(f"Working directory outside allowed paths: {working_dir_path}")
@@ -426,13 +428,7 @@ def run_scheval_command(
 
             working_dir = str(working_dir_path)
 
-        result = subprocess.run(
-            full_cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=working_dir
-        )
+        result = subprocess.run(full_cmd, capture_output=True, text=True, timeout=timeout, cwd=working_dir)
 
         logger.debug(f"Scheval command result: returncode={result.returncode}")
         if result.stdout:
@@ -440,11 +436,7 @@ def run_scheval_command(
         if result.stderr:
             logger.debug(f"Scheval stderr: {result.stderr}")
 
-        return {
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr
-        }
+        return {"returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}
     except subprocess.TimeoutExpired:
         logger.error(f"Scheval command timed out after {timeout} seconds")
         raise SchevalError(f"Operation timed out after {timeout} seconds")

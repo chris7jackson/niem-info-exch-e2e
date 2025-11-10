@@ -1,0 +1,795 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<w:WantList w:release="5.2" w:product="NIEM" w:nillableDefault="false"
+  xmlns:nc="http://release.niem.gov/niem/niem-core/5.0/"
+  xmlns:w="http://niem.gov/niem/wantlist/2.2"
+  xmlns:j="http://release.niem.gov/niem/domains/jxdm/7.2/"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:ndex="http://release.niem.gov/niem/codes/ndex/5.0/"
+  xmlns:ucr="http://release.niem.gov/niem/codes/ucr/5.1/"
+  xmlns:niem-xs="http://release.niem.gov/niem/proxy/niem-xs/5.0/" xmlns:ncic="http://release.niem.gov/niem/codes/ncic/5.2/">
+  <w:Element w:name="j:ActivityAugmentation" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:Arrest" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestCategoryAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestCategoryCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestCharge" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestSequenceID" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestSubject" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestSubjectArmedWithAbstract"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestSubjectArmedWithCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestSubjectAssociation" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestSubjectAssociationAugmentationPoint"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestSubjectCountAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestSubjectCountCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestSubjectJuvenileDispositionAbstract"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ArrestSubjectJuvenileDispositionCode"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ChargeUCRAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:CriminalActivityCategoryAbstract"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:DrugCategoryCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:EnforcementOfficial" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:EnforcementOfficialActivityCategoryAbstract"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:EnforcementOfficialActivityCategoryCode"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:EnforcementOfficialAssignmentCategoryAbstract"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:EnforcementOfficialAssignmentCategoryCode"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:EnforcementOfficialUnit" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:EnforcementUnitIdentification"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ForceCategoryAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ForceCategoryCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:IncidentAugmentation" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:IncidentExceptionalClearanceAbstract"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:IncidentExceptionalClearanceDate"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ItemCategoryNIBRSPropertyCategoryCode"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:ItemStatusCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:JudicialDistrictCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:Offense" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OffenseAugmentationPoint" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OffenseCargoTheftIndicator" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OffenseEntryPoint" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OffenseFactor" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OffenseFactorBiasMotivationCauseCode"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OffenseForce" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OffenseLocationAssociation" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OffenseStructuresEnteredQuantity"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OffenseVictimAssociation" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OrganizationAugmentation" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:OrganizationORIIdentification"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:PassagePointMethodCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:PersonEthnicityCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:PersonRaceCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:PersonResidentCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:PersonSexCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:Subject" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:SubjectArmedWithAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:SubjectArmedWithCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:SubjectSequenceNumberText" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:SubjectVictimAssociation" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:Victim" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:VictimAggravatedAssaultHomicideFactorCode"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element
+    w:name="j:VictimAggravatedAssaultHomicideFactorNDExAbstract"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:VictimCategoryAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:VictimCategoryCode" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:VictimInjury" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:VictimJustifiableHomicideFactorAbstract"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:VictimJustifiableHomicideFactorCode"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:VictimSequenceNumberText" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="j:VictimToSubjectRelationshipAbstract"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Activity" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ActivityAugmentationPoint" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ActivityDate" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ActivityIdentification" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Amount" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Date" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:DateRepresentation" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:DateTime" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:IdentificationID" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Incident" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:IncidentAugmentationPoint" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Injury" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:InjuryCategoryAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Item" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ItemCategoryAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ItemQuantity" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ItemStatus" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ItemValue" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ItemValueAmount" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:ItemValueDate" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:LocaleJudicialDistrictName"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Location" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:LocationCategoryAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:LocationLocale" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Measure" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureDecimalRange" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureDecimalValue" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureIntegerRange" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureIntegerValue" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasurePointAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureUnitAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureValueAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureValueListAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:MeasureValueText" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Organization" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:OrganizationAugmentationPoint"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:OrganizationIdentification"
+    w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:OrganizationName" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Person" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:PersonAgeMeasure" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:PersonEthnicityAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:PersonRaceAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:PersonResidentAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:PersonSexAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:RangeMaximumIntegerValue" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:RangeMinimumIntegerValue" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:RoleOfAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:RoleOfPerson" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:StatusAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:StatusAugmentationPoint" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:Substance" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:SubstanceCategoryAbstract" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:SubstanceQuantityMeasure" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="nc:YearMonthDate" w:isReference="false" w:nillable="false"/>
+  <w:Element w:name="ncic:VictimToSubjectRelationshipCode"
+    w:isReference="false" w:nillable="false"/>
+  <w:Type w:name="j:ActivitySubjectAssociationType" w:isRequested="true">
+    <w:ElementInType w:name="nc:Activity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:Subject" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:ArrestSubjectAssociationType" w:isRequested="true">
+    <w:ElementInType w:name="j:ArrestSequenceID" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:ArrestSubjectArmedWithAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType
+      w:name="j:ArrestSubjectAssociationAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:ArrestType" w:isRequested="true">
+    <w:ElementInType w:name="j:ArrestCharge" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:ArrestSequenceID" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:ArrestSubject" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:ArrestCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:ChargeType" w:isRequested="true">
+    <w:ElementInType w:name="j:ChargeUCRAbstract" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:EnforcementOfficialType" w:isRequested="true">
+    <w:ElementInType w:name="nc:RoleOfPerson" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType
+      w:name="j:EnforcementOfficialActivityCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType
+      w:name="j:EnforcementOfficialAssignmentCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:EnforcementOfficialUnit"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:EnforcementUnitType" w:isRequested="true">
+    <w:ElementInType w:name="j:EnforcementUnitIdentification"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:ForceType" w:isRequested="true">
+    <w:ElementInType w:name="j:ForceCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:IncidentAugmentationType" w:isRequested="true">
+    <w:ElementInType w:name="j:IncidentExceptionalClearanceAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:IncidentExceptionalClearanceDate"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:ItemStatusCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="BURNED"/>
+    <w:Facet w:facet="enumeration" w:value="COUNTERFEITED"/>
+    <w:Facet w:facet="enumeration" w:value="DESTROYED_DAMAGED_VANDALIZED"/>
+    <w:Facet w:facet="enumeration" w:value="NONE"/>
+    <w:Facet w:facet="enumeration" w:value="RECOVERED"/>
+    <w:Facet w:facet="enumeration" w:value="SEIZED"/>
+    <w:Facet w:facet="enumeration" w:value="STOLEN"/>
+    <w:Facet w:facet="enumeration" w:value="UNKNOWN"/>
+  </w:Type>
+  <w:Type w:name="j:ItemStatusCodeType" w:isRequested="true"/>
+  <w:Type w:name="j:OffenseFactorType" w:isRequested="true">
+    <w:ElementInType w:name="j:OffenseFactorDesignationAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:OffenseLocationAssociationType" w:isRequested="true">
+    <w:ElementInType w:name="j:Offense" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:Location" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:OffenseType" w:isRequested="true">
+    <w:ElementInType w:name="j:OffenseDesignationAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:CriminalActivityCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:OffenseFactorBiasMotivationAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:OffenseStructuresEnteredQuantity"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:OffenseFactor" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:OffenseEntryPoint" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:OffenseForce" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:OffenseAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:OffenseVictimAssociationType" w:isRequested="true">
+    <w:ElementInType w:name="j:Offense" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:Victim" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:OrganizationAugmentationType" w:isRequested="true">
+    <w:ElementInType w:name="j:OrganizationORIIdentification"
+      w:isReference="false" w:minOccurs="1" w:maxOccurs="1"/>
+  </w:Type>
+  <w:Type w:name="j:PassagePointType" w:isRequested="true">
+    <w:ElementInType w:name="j:PassagePointMethodAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:PersonEthnicityCodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="HISPANIC-LATINO"/>
+    <w:Facet w:facet="enumeration" w:value="NOT_HISPANIC-LATINO"/>
+    <w:Facet w:facet="enumeration" w:value="UNKNOWN"/>
+  </w:Type>
+  <w:Type w:name="j:PersonEthnicityCodeType" w:isRequested="true"/>
+  <w:Type w:name="j:PersonRaceCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="ASIAN"/>
+    <w:Facet w:facet="enumeration" w:value="BLACK"/>
+    <w:Facet w:facet="enumeration" w:value="NATIVE_AMERICAN"/>
+    <w:Facet w:facet="enumeration" w:value="NATIVE_HAWAIIAN-OTHER_PACIFIC_ISLANDER"/>
+    <w:Facet w:facet="enumeration" w:value="UNKNOWN"/>
+    <w:Facet w:facet="enumeration" w:value="WHITE"/>
+  </w:Type>
+  <w:Type w:name="j:PersonRaceCodeType" w:isRequested="true"/>
+  <w:Type w:name="j:PersonSexCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="F"/>
+    <w:Facet w:facet="enumeration" w:value="M"/>
+    <w:Facet w:facet="enumeration" w:value="U"/>
+  </w:Type>
+  <w:Type w:name="j:PersonSexCodeType" w:isRequested="true"/>
+  <w:Type w:name="j:SubjectType" w:isRequested="true">
+    <w:ElementInType w:name="nc:RoleOfPerson" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:SubjectSequenceNumberText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:SubjectVictimAssociationType" w:isRequested="true">
+    <w:ElementInType w:name="j:Subject" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:Victim" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:VictimToSubjectRelationshipAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="j:VictimType" w:isRequested="true">
+    <w:ElementInType w:name="nc:RoleOfPerson" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:VictimSequenceNumberText"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:VictimInjury" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:VictimCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType
+      w:name="j:VictimAggravatedAssaultHomicideFactorNDExAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="j:VictimJustifiableHomicideFactorAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:ActivityType" w:isRequested="true">
+    <w:ElementInType w:name="nc:ActivityIdentification"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ActivityDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ActivityAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:AmountType" w:isRequested="true">
+    <w:ElementInType w:name="nc:Amount" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:AssociationType" w:isRequested="true"/>
+  <w:Type w:name="nc:DateType" w:isRequested="true">
+    <w:ElementInType w:name="nc:DateRepresentation"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:IdentificationType" w:isRequested="true">
+    <w:ElementInType w:name="nc:IdentificationID" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:IncidentType" w:isRequested="true">
+    <w:ElementInType w:name="nc:IncidentAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:InjuryType" w:isRequested="true">
+    <w:ElementInType w:name="nc:InjuryCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:IntegerRangeType" w:isRequested="true">
+    <w:ElementInType w:name="nc:RangeMaximumIntegerValue"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:RangeMinimumIntegerValue"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:ItemType" w:isRequested="true">
+    <w:ElementInType w:name="nc:ItemCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ItemQuantity" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ItemStatus" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ItemValue" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:ItemValueType" w:isRequested="true">
+    <w:ElementInType w:name="nc:ItemValueAmount" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:ItemValueDate" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:LocaleType" w:isRequested="false">
+    <w:ElementInType w:name="nc:LocaleJudicialDistrictAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="1"/>
+  </w:Type>
+  <w:Type w:name="nc:LocationType" w:isRequested="true">
+    <w:ElementInType w:name="nc:LocationCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:LocationLocale" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:MeasureType" w:isRequested="true">
+    <w:ElementInType w:name="nc:MeasureValueAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:MeasureUnitAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:NumericType" w:isRequested="true"/>
+  <w:Type w:name="nc:OrganizationType" w:isRequested="true">
+    <w:ElementInType w:name="nc:OrganizationIdentification"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:OrganizationLocation"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:OrganizationName" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:OrganizationAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:PersonAssociationType" w:isRequested="false">
+    <w:ElementInType w:name="nc:Person" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:PersonType" w:isRequested="true">
+    <w:ElementInType w:name="nc:PersonAgeMeasure" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonEthnicityAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonRaceAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonResidentAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:PersonSexAbstract" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:StatusType" w:isRequested="true">
+    <w:ElementInType w:name="nc:StatusAbstract" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:SubstanceMeasureType" w:isRequested="true">
+    <w:ElementInType w:name="nc:SubstanceUnitAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:SubstanceMeasureAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:SubstanceType" w:isRequested="true">
+    <w:ElementInType w:name="nc:SubstanceCategoryAbstract"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="1"/>
+    <w:ElementInType w:name="nc:SubstanceAbstract" w:isReference="false"
+      w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:SubstanceQuantityMeasure"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+    <w:ElementInType w:name="nc:SubstanceAugmentationPoint"
+      w:isReference="false" w:minOccurs="0" w:maxOccurs="unbounded"/>
+  </w:Type>
+  <w:Type w:name="nc:TextType" w:isRequested="true"/>
+  <w:Type w:name="nc:TimeMeasureType" w:isRequested="true"/>
+  <w:Type w:name="ncic:ROVCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="AQ"/>
+    <w:Facet w:facet="enumeration" w:value="BE"/>
+    <w:Facet w:facet="enumeration" w:value="BG"/>
+    <w:Facet w:facet="enumeration" w:value="CF"/>
+    <w:Facet w:facet="enumeration" w:value="CH"/>
+    <w:Facet w:facet="enumeration" w:value="CS"/>
+    <w:Facet w:facet="enumeration" w:value="EE"/>
+    <w:Facet w:facet="enumeration" w:value="ER"/>
+    <w:Facet w:facet="enumeration" w:value="FR"/>
+    <w:Facet w:facet="enumeration" w:value="GC"/>
+    <w:Facet w:facet="enumeration" w:value="GP"/>
+    <w:Facet w:facet="enumeration" w:value="HR"/>
+    <w:Facet w:facet="enumeration" w:value="IL"/>
+    <w:Facet w:facet="enumeration" w:value="NE"/>
+    <w:Facet w:facet="enumeration" w:value="OF"/>
+    <w:Facet w:facet="enumeration" w:value="OK"/>
+    <w:Facet w:facet="enumeration" w:value="PA"/>
+    <w:Facet w:facet="enumeration" w:value="RU"/>
+    <w:Facet w:facet="enumeration" w:value="SB"/>
+    <w:Facet w:facet="enumeration" w:value="SC"/>
+    <w:Facet w:facet="enumeration" w:value="SE"/>
+    <w:Facet w:facet="enumeration" w:value="SP"/>
+    <w:Facet w:facet="enumeration" w:value="SS"/>
+    <w:Facet w:facet="enumeration" w:value="ST"/>
+    <w:Facet w:facet="enumeration" w:value="XS"/>
+  </w:Type>
+  <w:Type w:name="ncic:ROVCodeType" w:isRequested="true"/>
+  <w:Type w:name="ndex:AggravatedAssaultCircumstanceCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="ARGUMENT"/>
+    <w:Facet w:facet="enumeration" w:value="ASSAULT_ON_LAW_ENFORCEMENT_OFFICER"/>
+    <w:Facet w:facet="enumeration" w:value="CHILD_PLAYING_WITH_WEAPON"/>
+    <w:Facet w:facet="enumeration" w:value="CRIMINAL_KILLED_BY_POLICE_OFFICER"/>
+    <w:Facet w:facet="enumeration" w:value="CRIMINAL_KILLED_BY_PRIVATE_CITIZEN"/>
+    <w:Facet w:facet="enumeration" w:value="DOMESTIC_ARGUMENT"/>
+    <w:Facet w:facet="enumeration" w:value="DRUG_DEALING"/>
+    <w:Facet w:facet="enumeration" w:value="GANGLAND"/>
+    <w:Facet w:facet="enumeration" w:value="GUN-CLEANING_ACCIDENT"/>
+    <w:Facet w:facet="enumeration" w:value="HUNTING_ACCIDENT"/>
+    <w:Facet w:facet="enumeration" w:value="JUVENILE_GANG"/>
+    <w:Facet w:facet="enumeration" w:value="MERCY_KILLING"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_CIRCUMSTANCES"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_FELONY_INVOLVED"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_NEGLIGENT_KILLINGS"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_NEGLIGENT_WEAPON_HANDLING"/>
+    <w:Facet w:facet="enumeration" w:value="UNKNOWN_CIRCUMSTANCES"/>
+  </w:Type>
+  <w:Type w:name="ndex:AggravatedAssaultCircumstanceCodeType" w:isRequested="true"/>
+  <w:Type w:name="ndex:JuvenileDispositionCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="HANDLED_WITHIN_DEPARTMENT"/>
+    <w:Facet w:facet="enumeration" w:value="REFERRED_TO_OTHER_AUTHORITIES"/>
+  </w:Type>
+  <w:Type w:name="ndex:JuvenileDispositionCodeType" w:isRequested="true"/>
+  <w:Type w:name="niem-xs:boolean" w:isRequested="true"/>
+  <w:Type w:name="niem-xs:date" w:isRequested="true"/>
+  <w:Type w:name="niem-xs:dateTime" w:isRequested="true"/>
+  <w:Type w:name="niem-xs:decimal" w:isRequested="true"/>
+  <w:Type w:name="niem-xs:gYearMonth" w:isRequested="true"/>
+  <w:Type w:name="niem-xs:integer" w:isRequested="true"/>
+  <w:Type w:name="niem-xs:string" w:isRequested="true"/>
+  <w:Type w:name="ucr:ArrestCategoryCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="ON-VIEW_ARREST"/>
+    <w:Facet w:facet="enumeration" w:value="SUMMONED-CITED"/>
+    <w:Facet w:facet="enumeration" w:value="TAKEN_INTO_CUSTODY"/>
+  </w:Type>
+  <w:Type w:name="ucr:ArrestCategoryCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:ArresteeWeaponCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="CLUB-BLACKJACK-BRASS_KNUCKLES"/>
+    <w:Facet w:facet="enumeration" w:value="FIREARM-TYPE_NOT_STATED"/>
+    <w:Facet w:facet="enumeration" w:value="FIREARM-TYPE_NOT_STATED-AUTOMATIC"/>
+    <w:Facet w:facet="enumeration" w:value="HANDGUN"/>
+    <w:Facet w:facet="enumeration" w:value="HANDGUN-AUTOMATIC"/>
+    <w:Facet w:facet="enumeration" w:value="LETHAL_CUTTING_INSTRUMENT"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_FIREARM"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_FIREARM-AUTOMATIC"/>
+    <w:Facet w:facet="enumeration" w:value="RIFLE"/>
+    <w:Facet w:facet="enumeration" w:value="RIFLE-AUTOMATIC"/>
+    <w:Facet w:facet="enumeration" w:value="SHOTGUN"/>
+    <w:Facet w:facet="enumeration" w:value="SHOTGUN-AUTOMATIC"/>
+    <w:Facet w:facet="enumeration" w:value="UNARMED"/>
+  </w:Type>
+  <w:Type w:name="ucr:ArresteeWeaponCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:DrugCategoryCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="AMPHETAMINES-METHAMPHETAMINES"/>
+    <w:Facet w:facet="enumeration" w:value="BARBITURATES"/>
+    <w:Facet w:facet="enumeration" w:value="COCAINE"/>
+    <w:Facet w:facet="enumeration" w:value="CRACK_COCAINE"/>
+    <w:Facet w:facet="enumeration" w:value="HASHISH"/>
+    <w:Facet w:facet="enumeration" w:value="HEROIN"/>
+    <w:Facet w:facet="enumeration" w:value="LSD"/>
+    <w:Facet w:facet="enumeration" w:value="MARIJUANA"/>
+    <w:Facet w:facet="enumeration" w:value="MORPHINE"/>
+    <w:Facet w:facet="enumeration" w:value="OPIUM"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_DEPRESSANTS"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_DRUGS"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_HALLUCINOGENS"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_NARCOTICS"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_STIMULANTS"/>
+    <w:Facet w:facet="enumeration" w:value="OVER_THREE_DRUG_TYPES"/>
+    <w:Facet w:facet="enumeration" w:value="PCP"/>
+    <w:Facet w:facet="enumeration" w:value="UNKNOWN_DRUG_TYPE"/>
+  </w:Type>
+  <w:Type w:name="ucr:DrugCategoryCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:ForceCategoryCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="ASPHYXIATION"/>
+    <w:Facet w:facet="enumeration" w:value="AUTOMATIC_FIREARM"/>
+    <w:Facet w:facet="enumeration" w:value="AUTOMATIC_HANDGUN"/>
+    <w:Facet w:facet="enumeration" w:value="AUTOMATIC_RIFLE"/>
+    <w:Facet w:facet="enumeration" w:value="AUTOMATIC_SHOTGUN"/>
+    <w:Facet w:facet="enumeration" w:value="BLUNT_OBJECT"/>
+    <w:Facet w:facet="enumeration" w:value="DRUGS-NARCOTICS-SLEEPING_PILLS"/>
+    <w:Facet w:facet="enumeration" w:value="EXPLOSIVES"/>
+    <w:Facet w:facet="enumeration" w:value="FIREARM"/>
+    <w:Facet w:facet="enumeration" w:value="FIRE-INCENDIARY_DEVICE"/>
+    <w:Facet w:facet="enumeration" w:value="HANDGUN"/>
+    <w:Facet w:facet="enumeration" w:value="KNIFE-CUTTING_INSTRUMENT"/>
+    <w:Facet w:facet="enumeration" w:value="MOTOR_VEHICLE-VESSEL"/>
+    <w:Facet w:facet="enumeration" w:value="NONE"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_AUTOMATIC_FIREARM"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_FIREARM"/>
+    <w:Facet w:facet="enumeration" w:value="PERSONAL_WEAPONS"/>
+    <w:Facet w:facet="enumeration" w:value="POISON"/>
+    <w:Facet w:facet="enumeration" w:value="RIFLE"/>
+    <w:Facet w:facet="enumeration" w:value="SHOTGUN"/>
+    <w:Facet w:facet="enumeration" w:value="UNKNOWN"/>
+  </w:Type>
+  <w:Type w:name="ucr:ForceCategoryCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:JudicialDistrictCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="ALABAMA_MIDDLE"/>
+    <w:Facet w:facet="enumeration" w:value="ALABAMA_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="ALABAMA_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="ALASKA"/>
+    <w:Facet w:facet="enumeration" w:value="ARIZONA"/>
+    <w:Facet w:facet="enumeration" w:value="ARKANSAS_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="ARKANSAS_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="CALIFORNIA_CENTRAL"/>
+    <w:Facet w:facet="enumeration" w:value="CALIFORNIA_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="CALIFORNIA_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="CALIFORNIA_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="COLORADO"/>
+    <w:Facet w:facet="enumeration" w:value="CONNECTICUT"/>
+    <w:Facet w:facet="enumeration" w:value="DELAWARE"/>
+    <w:Facet w:facet="enumeration" w:value="FLORIDA_MIDDLE"/>
+    <w:Facet w:facet="enumeration" w:value="FLORIDA_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="FLORIDA_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="GEORGIA_MIDDLE"/>
+    <w:Facet w:facet="enumeration" w:value="GEORGIA_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="GEORGIA_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="GUAM"/>
+    <w:Facet w:facet="enumeration" w:value="HAWAII"/>
+    <w:Facet w:facet="enumeration" w:value="IDAHO"/>
+    <w:Facet w:facet="enumeration" w:value="ILLINOIS_CENTRAL"/>
+    <w:Facet w:facet="enumeration" w:value="ILLINOIS_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="ILLINOIS_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="INDIANA_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="INDIANA_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="IOWA_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="IOWA_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="KANSAS"/>
+    <w:Facet w:facet="enumeration" w:value="KENTUCKY_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="KENTUCKY_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="LOUISIANA_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="LOUISIANA_MIDDLE"/>
+    <w:Facet w:facet="enumeration" w:value="LOUISIANA_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="MAINE"/>
+    <w:Facet w:facet="enumeration" w:value="MARIANA_ISLANDS_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="MARYLAND"/>
+    <w:Facet w:facet="enumeration" w:value="MASSACHUSETTS"/>
+    <w:Facet w:facet="enumeration" w:value="MICHIGAN_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="MICHIGAN_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="MINNESOTA"/>
+    <w:Facet w:facet="enumeration" w:value="MISSISSIPPI_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="MISSISSIPPI_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="MISSOURI_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="MISSOURI_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="MONTANA"/>
+    <w:Facet w:facet="enumeration" w:value="NEBRASKA"/>
+    <w:Facet w:facet="enumeration" w:value="NEVADA"/>
+    <w:Facet w:facet="enumeration" w:value="NEW_HAMPSHIRE"/>
+    <w:Facet w:facet="enumeration" w:value="NEW_JERSEY"/>
+    <w:Facet w:facet="enumeration" w:value="NEW_MEXICO"/>
+    <w:Facet w:facet="enumeration" w:value="NEW_YORK_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="NEW_YORK_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="NEW_YORK_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="NEW_YORK_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="NORTH_CAROLINA_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="NORTH_CAROLINA_MIDDLE"/>
+    <w:Facet w:facet="enumeration" w:value="NORTH_CAROLINA_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="NORTH_DAKOTA"/>
+    <w:Facet w:facet="enumeration" w:value="OHIO_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="OHIO_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="OKLAHOMA_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="OKLAHOMA_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="OKLAHOMA_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="OREGON"/>
+    <w:Facet w:facet="enumeration" w:value="PENNSYLVANIA_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="PENNSYLVANIA_MIDDLE"/>
+    <w:Facet w:facet="enumeration" w:value="PENNSYLVANIA_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="PUERTO_RICO"/>
+    <w:Facet w:facet="enumeration" w:value="RHODE_ISLAND"/>
+    <w:Facet w:facet="enumeration" w:value="SOUTH_CAROLINA"/>
+    <w:Facet w:facet="enumeration" w:value="SOUTH_DAKOTA"/>
+    <w:Facet w:facet="enumeration" w:value="TENNESSEE_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="TENNESSEE_MIDDLE"/>
+    <w:Facet w:facet="enumeration" w:value="TENNESSEE_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="TEXAS_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="TEXAS_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="TEXAS_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="TEXAS_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="UTAH"/>
+    <w:Facet w:facet="enumeration" w:value="VERMONT"/>
+    <w:Facet w:facet="enumeration" w:value="VIRGINIA_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="VIRGINIA_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="VIRGIN_ISLANDS"/>
+    <w:Facet w:facet="enumeration" w:value="WASHINGTON_DC"/>
+    <w:Facet w:facet="enumeration" w:value="WASHINGTON_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="WASHINGTON_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="WEST_VIRGINIA_NORTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="WEST_VIRGINIA_SOUTHERN"/>
+    <w:Facet w:facet="enumeration" w:value="WISCONSIN_EASTERN"/>
+    <w:Facet w:facet="enumeration" w:value="WISCONSIN_WESTERN"/>
+    <w:Facet w:facet="enumeration" w:value="WYOMING"/>
+  </w:Type>
+  <w:Type w:name="ucr:JudicialDistrictCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:JustifiableHomicideFactorCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="CRIMINAL_ATTACKED_CIVILIAN"/>
+    <w:Facet w:facet="enumeration" w:value="CRIMINAL_ATTACKED_LEO-OTHER_OFFICER_KILLED_CRIMINAL"/>
+    <w:Facet w:facet="enumeration" w:value="CRIMINAL_ATTACKED_LEO-THAT_OFFICER_KILLED_CRIMINAL"/>
+    <w:Facet w:facet="enumeration" w:value="CRIMINAL_ATTEMPTED_FLIGHT_FROM_CRIME"/>
+    <w:Facet w:facet="enumeration" w:value="CRIMINAL_KILLED_IN_COMMISSION_OF_CRIME"/>
+    <w:Facet w:facet="enumeration" w:value="CRIMINAL_RESISTED_ARREST"/>
+    <w:Facet w:facet="enumeration" w:value="UNABLE_TO_DETERMINE-NOT_ENOUGH_INFORMATION"/>
+  </w:Type>
+  <w:Type w:name="ucr:JustifiableHomicideFactorCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:LEOKAActivityCategoryCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="ALL_OTHER"/>
+    <w:Facet w:facet="enumeration" w:value="AMBUSH-NO_WARNING"/>
+    <w:Facet w:facet="enumeration" w:value="ATTEMPTING_OTHER_ARRESTS"/>
+    <w:Facet w:facet="enumeration" w:value="BURGLARIES_IN_PROGRESS-PURSUING_BURGLARY_SUSPECTS"/>
+    <w:Facet w:facet="enumeration" w:value="CIVIL_DISORDER"/>
+    <w:Facet w:facet="enumeration" w:value="HANDLING_PERSONS_WITH_MENTAL_ILLNESS"/>
+    <w:Facet w:facet="enumeration" w:value="HANDLING-TRANSPORTING-CUSTODY_OF_PRISONERS"/>
+    <w:Facet w:facet="enumeration" w:value="INVESTIGATING_SUSPICIOUS_PERSONS-CIRCUMSTANCES"/>
+    <w:Facet w:facet="enumeration" w:value="RESPONDING_TO_DISTURBANCE_CALL"/>
+    <w:Facet w:facet="enumeration" w:value="ROBBERIES_IN_PROGRESS-PURSUING_ROBBERY_SUSPECTS"/>
+    <w:Facet w:facet="enumeration" w:value="TRAFFIC_PURSUITS-STOPS"/>
+  </w:Type>
+  <w:Type w:name="ucr:LEOKAActivityCategoryCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:LEOKAOfficerAssignmentCategoryCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="DETECTIVE-SPECIAL_ASSIGNMENT-ALONE-NON_UNIFORMED_LEO"/>
+    <w:Facet w:facet="enumeration" w:value="DETECTIVE-SPECIAL_ASSIGNMENT-ASSISTED-NON_UNIFORMED_LEO"/>
+    <w:Facet w:facet="enumeration" w:value="ONE-OFFICER_VEHICLE-ALONE-UNIFORMED_LEO"/>
+    <w:Facet w:facet="enumeration" w:value="ONE-OFFICER_VEHICLE-ASSISTED-UNIFORMED_LEO"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER-ALONE-LEO_SERVING_IN_OTHER_CAPACITY"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER-ASSISTED-LEO_SERVING_IN_OTHER_CAPACITY"/>
+    <w:Facet w:facet="enumeration" w:value="TWO-OFFICER_VEHICLE-UNIFORMED_LEO"/>
+  </w:Type>
+  <w:Type w:name="ucr:LEOKAOfficerAssignmentCategoryCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:MethodOfEntryCodeSimpleType" w:isRequested="false">
+    <w:Facet w:facet="enumeration" w:value="FORCE"/>
+    <w:Facet w:facet="enumeration" w:value="NO_FORCE"/>
+  </w:Type>
+  <w:Type w:name="ucr:MultipleArresteeSegmentsCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="COUNT_ARRESTEE"/>
+    <w:Facet w:facet="enumeration" w:value="MULTIPLE"/>
+    <w:Facet w:facet="enumeration" w:value="NOT_APPLICABLE"/>
+  </w:Type>
+  <w:Type w:name="ucr:MultipleArresteeSegmentsCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:PropertyCategoryCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="AIRCRAFT"/>
+    <w:Facet w:facet="enumeration" w:value="AIRCRAFT_PARTS-ACCESSORIES"/>
+    <w:Facet w:facet="enumeration" w:value="ALCOHOL"/>
+    <w:Facet w:facet="enumeration" w:value="ARTISTIC_SUPPLIES-ACCESSORIES"/>
+    <w:Facet w:facet="enumeration" w:value="AUTOMOBILE"/>
+    <w:Facet w:facet="enumeration" w:value="BICYCLES"/>
+    <w:Facet w:facet="enumeration" w:value="BUILDING_MATERIALS"/>
+    <w:Facet w:facet="enumeration" w:value="BUSES"/>
+    <w:Facet w:facet="enumeration" w:value="CAMPING-HUNTING-FISHING_EQUIPMENT-SUPPLIES"/>
+    <w:Facet w:facet="enumeration" w:value="CHEMICALS"/>
+    <w:Facet w:facet="enumeration" w:value="CLOTHES-FURS"/>
+    <w:Facet w:facet="enumeration" w:value="COLLECTIONS-COLLECTIBLES"/>
+    <w:Facet w:facet="enumeration" w:value="COMPUTER_HARDWARE-SOFTWARE"/>
+    <w:Facet w:facet="enumeration" w:value="CONSUMABLE_GOODS"/>
+    <w:Facet w:facet="enumeration" w:value="CREDIT-DEBIT_CARDS"/>
+    <w:Facet w:facet="enumeration" w:value="CROPS"/>
+    <w:Facet w:facet="enumeration" w:value="DOCUMENTS-PERSONAL-BUSINESS"/>
+    <w:Facet w:facet="enumeration" w:value="DRUGS-NARCOTIC_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="DRUGS-NARCOTICS"/>
+    <w:Facet w:facet="enumeration" w:value="EXPLOSIVES"/>
+    <w:Facet w:facet="enumeration" w:value="FARM_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="FIREARM_ACCESSORIES"/>
+    <w:Facet w:facet="enumeration" w:value="FIREARMS"/>
+    <w:Facet w:facet="enumeration" w:value="FUEL"/>
+    <w:Facet w:facet="enumeration" w:value="GAMBLING_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="HEAVY_CONSTRUCTION-INDUSTRIAL_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="HOUSEHOLD_GOODS"/>
+    <w:Facet w:facet="enumeration" w:value="IDENTITY_DOCUMENTS"/>
+    <w:Facet w:facet="enumeration" w:value="IDENTITY-INTANGIBLE"/>
+    <w:Facet w:facet="enumeration" w:value="JEWELRY-PRECIOUS_METALS-GEMS"/>
+    <w:Facet w:facet="enumeration" w:value="LAW_ENFORCEMENT_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="LAWN-YARD-GARDEN_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="LIVESTOCK"/>
+    <w:Facet w:facet="enumeration" w:value="LOGGING_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="MEDICAL-MEDICAL_LAB_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="MERCHANDISE"/>
+    <w:Facet w:facet="enumeration" w:value="METALS-NON_PRECIOUS"/>
+    <w:Facet w:facet="enumeration" w:value="MONEY"/>
+    <w:Facet w:facet="enumeration" w:value="MUSICAL_INSTRUMENTS"/>
+    <w:Facet w:facet="enumeration" w:value="NEGOTIABLE_INSTRUMENTS"/>
+    <w:Facet w:facet="enumeration" w:value="NONNEGOTIABLE_INSTRUMENTS"/>
+    <w:Facet w:facet="enumeration" w:value="OFFICE-TYPE_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER_MOTOR_VEHICLES"/>
+    <w:Facet w:facet="enumeration" w:value="PENDING_INVENTORY"/>
+    <w:Facet w:facet="enumeration" w:value="PETS"/>
+    <w:Facet w:facet="enumeration" w:value="PHOTOGRAPHIC-OPTICAL_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="PORTABLE_ELECTRONIC_COMMUNICATIONS"/>
+    <w:Facet w:facet="enumeration" w:value="PURSES-HANDBAGS-WALLETS"/>
+    <w:Facet w:facet="enumeration" w:value="RADIO-TV-VCR-DVD_PLAYERS"/>
+    <w:Facet w:facet="enumeration" w:value="RECORDINGS-AUDIO-VISUAL"/>
+    <w:Facet w:facet="enumeration" w:value="RECREATIONAL-SPORTS_EQUIPMENT"/>
+    <w:Facet w:facet="enumeration" w:value="RECREATIONAL_VEHICLES"/>
+    <w:Facet w:facet="enumeration" w:value="STRUCTURES-INDUSTRIAL-MANUFACTURING"/>
+    <w:Facet w:facet="enumeration" w:value="STRUCTURES-OTHER"/>
+    <w:Facet w:facet="enumeration" w:value="STRUCTURES-OTHER_COMMERCIAL-BUSINESS"/>
+    <w:Facet w:facet="enumeration" w:value="STRUCTURES-OTHER_DWELLINGS"/>
+    <w:Facet w:facet="enumeration" w:value="STRUCTURES-PUBLIC-COMMUNITY"/>
+    <w:Facet w:facet="enumeration" w:value="STRUCTURES-SINGLE_OCCUPANCY_DWELLINGS"/>
+    <w:Facet w:facet="enumeration" w:value="STRUCTURES-STORAGE"/>
+    <w:Facet w:facet="enumeration" w:value="TOOLS"/>
+    <w:Facet w:facet="enumeration" w:value="TRAILERS"/>
+    <w:Facet w:facet="enumeration" w:value="TRUCKS"/>
+    <w:Facet w:facet="enumeration" w:value="VEHICLE_PARTS-ACCESSORIES"/>
+    <w:Facet w:facet="enumeration" w:value="WATERCRAFT"/>
+    <w:Facet w:facet="enumeration" w:value="WATERCRAFT_EQUIPMENT-PARTS-ACCESSORIES"/>
+    <w:Facet w:facet="enumeration" w:value="WEAPONS-OTHER"/>
+  </w:Type>
+  <w:Type w:name="ucr:PropertyCategoryCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:ResidentCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="NONRESIDENT"/>
+    <w:Facet w:facet="enumeration" w:value="RESIDENT"/>
+    <w:Facet w:facet="enumeration" w:value="UNKNOWN"/>
+  </w:Type>
+  <w:Type w:name="ucr:ResidentCodeType" w:isRequested="true"/>
+  <w:Type w:name="ucr:VictimCategoryCodeSimpleType" w:isRequested="true">
+    <w:Facet w:facet="enumeration" w:value="BUSINESS"/>
+    <w:Facet w:facet="enumeration" w:value="FINANCIAL_INSTITUTION"/>
+    <w:Facet w:facet="enumeration" w:value="GOVERNMENT"/>
+    <w:Facet w:facet="enumeration" w:value="INDIVIDUAL"/>
+    <w:Facet w:facet="enumeration" w:value="LAW_ENFORCEMENT_OFFICER"/>
+    <w:Facet w:facet="enumeration" w:value="OTHER"/>
+    <w:Facet w:facet="enumeration" w:value="RELIGIOUS_ORGANIZATION"/>
+    <w:Facet w:facet="enumeration" w:value="SOCIETY-PUBLIC"/>
+    <w:Facet w:facet="enumeration" w:value="UNKNOWN"/>
+  </w:Type>
+  <w:Type w:name="ucr:VictimCategoryCodeType" w:isRequested="true"/>
+  <w:Type w:name="xs:boolean" w:isRequested="true"/>
+  <w:Type w:name="xs:date" w:isRequested="true"/>
+  <w:Type w:name="xs:dateTime" w:isRequested="true"/>
+  <w:Type w:name="xs:decimal" w:isRequested="true"/>
+  <w:Type w:name="xs:gYearMonth" w:isRequested="true"/>
+  <w:Type w:name="xs:integer" w:isRequested="true"/>
+  <w:Type w:name="xs:string" w:isRequested="true"/>
+  <w:Type w:name="xs:token" w:isRequested="true"/>
+</w:WantList>

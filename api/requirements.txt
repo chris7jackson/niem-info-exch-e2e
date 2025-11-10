@@ -12,15 +12,14 @@ python-json-logger==2.0.7
 pyyaml==6.0.1
 neo4j==5.15.0
 defusedxml==0.7.1  # Secure XML parsing to prevent XXE attacks
+python-dotenv==1.0.0  # Environment variable management
 
 # Senzing Entity Resolution SDK
 # Note: Senzing packages require a license to function
-# The actual package names and versions depend on your Senzing installation
-# These are placeholders - replace with actual Senzing SDK packages
-# senzing==3.0.0  # Uncomment when Senzing SDK is available
-# g2engine  # Core entity resolution engine
-# g2config  # Configuration management
-# g2configmgr  # Configuration manager
-# g2diagnostic  # Diagnostics
-# g2hasher  # Record hashing
-# g2product  # Product information
+senzing>=4.0.0  # Senzing Python SDK (abstract interfaces)
+senzing-grpc>=0.5.0  # Senzing gRPC concrete implementation (latest: 0.5.13)
+
+# Testing dependencies
+pytest>=7.4.3  # Testing framework
+pytest-asyncio>=0.21.1  # Async test support
+pytest-mock>=3.12.0  # Mocking utilities

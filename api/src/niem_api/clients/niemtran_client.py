@@ -31,33 +31,41 @@ else:
     # File is at: api/src/niem_api/clients/niemtran_client.py -> need 4 .parent to reach api/
     # In Docker, the container is always Linux, so always use the shell script (not .bat)
     _NIEMTRAN_SCRIPT_NAME = "niemtran"
-    _NIEMTRAN_DEFAULT_PATH = Path(__file__).parent.parent.parent.parent / f"third_party/niem-tran/niemtran-1.0/bin/{_NIEMTRAN_SCRIPT_NAME}"
+    _NIEMTRAN_DEFAULT_PATH = (
+        Path(__file__).parent.parent.parent.parent / f"third_party/niem-tran/niemtran-1.0/bin/{_NIEMTRAN_SCRIPT_NAME}"
+    )
 
     if _NIEMTRAN_DEFAULT_PATH.exists():
         NIEMTRAN_TOOL_PATH = str(_NIEMTRAN_DEFAULT_PATH)
         logger.debug(f"Using default NIEMTran tool path: {NIEMTRAN_TOOL_PATH}")
     else:
         NIEMTRAN_TOOL_PATH = None
-        logger.warning(f"NIEMTran tool not found at default path ({_NIEMTRAN_DEFAULT_PATH}) and NIEMTRAN_TOOL_PATH not set")
+        logger.warning(
+            f"NIEMTran tool not found at default path ({_NIEMTRAN_DEFAULT_PATH}) and NIEMTRAN_TOOL_PATH not set"
+        )
 
 NIEMTRAN_TIMEOUT = 60  # Default command timeout in seconds
 
 # Security: Allowlist of valid NIEMTran tool subcommands
 # Only these commands can be executed via run_niemtran_command()
 ALLOWED_NIEMTRAN_COMMANDS = {
-    "x2j",      # XML to JSON conversion
+    "x2j",  # XML to JSON conversion
     "version",  # Get NIEMTran tool version
-    "help",     # Help command
+    "help",  # Help command
 }
 
 # Security: Allowlist of valid NIEMTran tool flags
 # Only these flags are allowed in command arguments
 ALLOWED_NIEMTRAN_FLAGS = {
-    "-c", "--context",      # Generate complete @context in result
-    "--curi",               # Include "@context:" URI pair in result
-    "-f", "--force",        # Overwrite existing .json files
-    "-h", "--help",         # Help flag
-    "-v", "--version",      # Version flag
+    "-c",
+    "--context",  # Generate complete @context in result
+    "--curi",  # Include "@context:" URI pair in result
+    "-f",
+    "--force",  # Overwrite existing .json files
+    "-h",
+    "--help",  # Help flag
+    "-v",
+    "--version",  # Version flag
 }
 
 
@@ -71,6 +79,7 @@ class NIEMTranError(Exception):
     - Timeout errors
     - Invalid responses
     """
+
     pass
 
 
@@ -190,7 +199,9 @@ def _validate_niemtran_command(cmd: list) -> None:
     # Security: First argument must be a valid NIEMTran subcommand from allowlist
     subcommand = cmd[0]
     if subcommand not in ALLOWED_NIEMTRAN_COMMANDS:
-        raise NIEMTranError(f"Invalid NIEMTran subcommand: {subcommand}. Allowed: {', '.join(ALLOWED_NIEMTRAN_COMMANDS)}")
+        raise NIEMTranError(
+            f"Invalid NIEMTran subcommand: {subcommand}. Allowed: {', '.join(ALLOWED_NIEMTRAN_COMMANDS)}"
+        )
 
     # Security: Validate remaining arguments
     i = 1
@@ -226,9 +237,7 @@ def _validate_niemtran_command(cmd: list) -> None:
 
 
 def run_niemtran_command(
-    cmd: list,
-    timeout: int = NIEMTRAN_TIMEOUT,
-    working_dir: Optional[str] = None
+    cmd: list, timeout: int = NIEMTRAN_TIMEOUT, working_dir: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Execute a NIEMTran tool command with timeout and safety checks.
@@ -301,10 +310,7 @@ def run_niemtran_command(
             if os.getenv("HOME"):
                 allowed_prefixes.append(Path(os.getenv("HOME")).resolve())
 
-            is_safe = any(
-                str(working_dir_path).startswith(str(prefix))
-                for prefix in allowed_prefixes
-            )
+            is_safe = any(str(working_dir_path).startswith(str(prefix)) for prefix in allowed_prefixes)
 
             if not is_safe:
                 logger.error(f"Working directory outside allowed paths: {working_dir_path}")
@@ -312,13 +318,7 @@ def run_niemtran_command(
 
             working_dir = str(working_dir_path)
 
-        result = subprocess.run(
-            full_cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=working_dir
-        )
+        result = subprocess.run(full_cmd, capture_output=True, text=True, timeout=timeout, cwd=working_dir)
 
         logger.debug(f"NIEMTran command result: returncode={result.returncode}")
         if result.stdout:
@@ -326,11 +326,7 @@ def run_niemtran_command(
         if result.stderr:
             logger.debug(f"NIEMTran stderr: {result.stderr}")
 
-        return {
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr
-        }
+        return {"returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}
     except subprocess.TimeoutExpired:
         logger.error(f"NIEMTran command timed out after {timeout} seconds")
         raise NIEMTranError(f"Operation timed out after {timeout} seconds")

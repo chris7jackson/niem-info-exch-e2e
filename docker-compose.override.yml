@@ -1,0 +1,47 @@
+# Docker Compose Override for Development
+# This file is automatically applied when running `docker-compose up`
+# It enables hot reloading for both API and UI services
+
+services:
+  api:
+    # Override command to enable hot reloading
+    command: uvicorn src.niem_api.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000} --reload
+
+    # Mount source code for hot reloading
+    volumes:
+      - ./api/src:/app/src
+      # Keep existing volumes from base config
+      - api-data:/data
+      - ./api/secrets:/app/secrets
+      - ./api:/app/licenses:ro
+
+  ui:
+    # Override command to use development server
+    command: npm run dev
+
+    # Override environment for browser-side API access
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+
+    # Mount source code for hot reloading
+    volumes:
+      # Mount source directories
+      - ./ui/src:/app/src
+      - ./ui/app:/app/app
+      - ./ui/public:/app/public
+      - ./ui/components:/app/components
+      - ./ui/styles:/app/styles
+      - ./ui/lib:/app/lib
+      - ./ui/types:/app/types
+      - ./ui/utils:/app/utils
+      # Mount config files
+      - ./ui/next.config.js:/app/next.config.js
+      - ./ui/tailwind.config.ts:/app/tailwind.config.ts
+      - ./ui/tsconfig.json:/app/tsconfig.json
+      - ./ui/postcss.config.js:/app/postcss.config.js
+      # Preserve node_modules from container (don't mount from host)
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  api-data:

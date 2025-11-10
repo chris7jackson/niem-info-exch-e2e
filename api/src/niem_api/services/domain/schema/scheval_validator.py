@@ -18,7 +18,7 @@ from ....clients.scheval_client import (
     is_scheval_available,
     run_scheval_command,
     parse_scheval_validation_output,
-    SchevalError
+    SchevalError,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,11 +52,7 @@ class SchevalValidator:
             logger.info(f"Initialized scheval validator with rules from {self.schematron_rules_path}")
 
     async def validate_xsd_with_schematron(
-        self,
-        xsd_content: str,
-        schematron_file: str,
-        xml_catalog: Optional[str] = None,
-        use_compiled_xslt: bool = False
+        self, xsd_content: str, schematron_file: str, xml_catalog: Optional[str] = None, use_compiled_xslt: bool = False
     ) -> Dict:
         """
         Validate XSD content using schematron rules.
@@ -110,15 +106,8 @@ class SchevalValidator:
                 "message": "Scheval tool is not available. Please ensure it is properly installed.",
                 "errors": [],
                 "warnings": [],
-                "summary": {
-                    "total_issues": 0,
-                    "error_count": 0,
-                    "warning_count": 0
-                },
-                "metadata": {
-                    "validation_type": "schematron",
-                    "tool_available": False
-                }
+                "summary": {"total_issues": 0, "error_count": 0, "warning_count": 0},
+                "metadata": {"validation_type": "schematron", "tool_available": False},
             }
 
         try:
@@ -128,7 +117,7 @@ class SchevalValidator:
 
                 # Write XSD content to temporary file
                 xsd_file = temp_dir_path / "schema.xsd"
-                with open(xsd_file, 'w', encoding='utf-8') as f:
+                with open(xsd_file, "w", encoding="utf-8") as f:
                     f.write(xsd_content)
 
                 # Build scheval command
@@ -153,11 +142,7 @@ class SchevalValidator:
                 result = run_scheval_command(cmd, timeout=120, working_dir=str(temp_dir_path))
 
                 # Parse validation output
-                parsed = parse_scheval_validation_output(
-                    result["stdout"],
-                    result["stderr"],
-                    xsd_file.name
-                )
+                parsed = parse_scheval_validation_output(result["stdout"], result["stderr"], xsd_file.name)
 
                 # Build structured response
                 total_issues = len(parsed["errors"]) + len(parsed["warnings"])
@@ -182,14 +167,14 @@ class SchevalValidator:
                     "summary": {
                         "total_issues": total_issues,
                         "error_count": len(parsed["errors"]),
-                        "warning_count": len(parsed["warnings"])
+                        "warning_count": len(parsed["warnings"]),
                     },
                     "metadata": {
                         "schematron_file": Path(schematron_file).name,
                         "validation_type": "schematron",
                         "used_compiled_xslt": use_compiled_xslt,
-                        "catalog_provided": xml_catalog is not None
-                    }
+                        "catalog_provided": xml_catalog is not None,
+                    },
                 }
 
         except SchevalError as e:
@@ -199,15 +184,8 @@ class SchevalValidator:
                 "message": f"Scheval validation failed: {str(e)}",
                 "errors": [],
                 "warnings": [],
-                "summary": {
-                    "total_issues": 0,
-                    "error_count": 0,
-                    "warning_count": 0
-                },
-                "metadata": {
-                    "validation_type": "schematron",
-                    "error": str(e)
-                }
+                "summary": {"total_issues": 0, "error_count": 0, "warning_count": 0},
+                "metadata": {"validation_type": "schematron", "error": str(e)},
             }
         except Exception as e:
             logger.error(f"Unexpected error during schematron validation: {e}")
@@ -216,23 +194,12 @@ class SchevalValidator:
                 "message": f"Unexpected validation error: {str(e)}",
                 "errors": [],
                 "warnings": [],
-                "summary": {
-                    "total_issues": 0,
-                    "error_count": 0,
-                    "warning_count": 0
-                },
-                "metadata": {
-                    "validation_type": "schematron",
-                    "error": str(e)
-                }
+                "summary": {"total_issues": 0, "error_count": 0, "warning_count": 0},
+                "metadata": {"validation_type": "schematron", "error": str(e)},
             }
 
     async def validate_xml_with_schematron(
-        self,
-        xml_content: str,
-        schematron_file: str,
-        xml_catalog: Optional[str] = None,
-        use_compiled_xslt: bool = False
+        self, xml_content: str, schematron_file: str, xml_catalog: Optional[str] = None, use_compiled_xslt: bool = False
     ) -> Dict:
         """
         Validate XML content using schematron rules.
@@ -255,15 +222,8 @@ class SchevalValidator:
                 "message": "Scheval tool is not available. Please ensure it is properly installed.",
                 "errors": [],
                 "warnings": [],
-                "summary": {
-                    "total_issues": 0,
-                    "error_count": 0,
-                    "warning_count": 0
-                },
-                "metadata": {
-                    "validation_type": "schematron",
-                    "tool_available": False
-                }
+                "summary": {"total_issues": 0, "error_count": 0, "warning_count": 0},
+                "metadata": {"validation_type": "schematron", "tool_available": False},
             }
 
         try:
@@ -273,7 +233,7 @@ class SchevalValidator:
 
                 # Write XML content to temporary file
                 xml_file = temp_dir_path / "instance.xml"
-                with open(xml_file, 'w', encoding='utf-8') as f:
+                with open(xml_file, "w", encoding="utf-8") as f:
                     f.write(xml_content)
 
                 # Build scheval command
@@ -298,11 +258,7 @@ class SchevalValidator:
                 result = run_scheval_command(cmd, timeout=120, working_dir=str(temp_dir_path))
 
                 # Parse validation output
-                parsed = parse_scheval_validation_output(
-                    result["stdout"],
-                    result["stderr"],
-                    xml_file.name
-                )
+                parsed = parse_scheval_validation_output(result["stdout"], result["stderr"], xml_file.name)
 
                 # Build structured response
                 total_issues = len(parsed["errors"]) + len(parsed["warnings"])
@@ -327,14 +283,14 @@ class SchevalValidator:
                     "summary": {
                         "total_issues": total_issues,
                         "error_count": len(parsed["errors"]),
-                        "warning_count": len(parsed["warnings"])
+                        "warning_count": len(parsed["warnings"]),
                     },
                     "metadata": {
                         "schematron_file": Path(schematron_file).name,
                         "validation_type": "schematron",
                         "used_compiled_xslt": use_compiled_xslt,
-                        "catalog_provided": xml_catalog is not None
-                    }
+                        "catalog_provided": xml_catalog is not None,
+                    },
                 }
 
         except SchevalError as e:
@@ -344,15 +300,8 @@ class SchevalValidator:
                 "message": f"Scheval validation failed: {str(e)}",
                 "errors": [],
                 "warnings": [],
-                "summary": {
-                    "total_issues": 0,
-                    "error_count": 0,
-                    "warning_count": 0
-                },
-                "metadata": {
-                    "validation_type": "schematron",
-                    "error": str(e)
-                }
+                "summary": {"total_issues": 0, "error_count": 0, "warning_count": 0},
+                "metadata": {"validation_type": "schematron", "error": str(e)},
             }
         except Exception as e:
             logger.error(f"Unexpected error during schematron validation: {e}")
@@ -361,15 +310,8 @@ class SchevalValidator:
                 "message": f"Unexpected validation error: {str(e)}",
                 "errors": [],
                 "warnings": [],
-                "summary": {
-                    "total_issues": 0,
-                    "error_count": 0,
-                    "warning_count": 0
-                },
-                "metadata": {
-                    "validation_type": "schematron",
-                    "error": str(e)
-                }
+                "summary": {"total_issues": 0, "error_count": 0, "warning_count": 0},
+                "metadata": {"validation_type": "schematron", "error": str(e)},
             }
 
     def get_available_schematron_files(self) -> List[str]:
@@ -401,10 +343,7 @@ class SchevalValidator:
 
 # Convenience functions for easy import
 async def validate_xsd_with_schematron(
-    xsd_content: str,
-    schematron_file: str,
-    xml_catalog: Optional[str] = None,
-    use_compiled_xslt: bool = False
+    xsd_content: str, schematron_file: str, xml_catalog: Optional[str] = None, use_compiled_xslt: bool = False
 ) -> Dict:
     """
     Convenience function to validate XSD content using schematron rules.
@@ -419,19 +358,11 @@ async def validate_xsd_with_schematron(
         Dict containing validation results
     """
     validator = SchevalValidator()
-    return await validator.validate_xsd_with_schematron(
-        xsd_content,
-        schematron_file,
-        xml_catalog,
-        use_compiled_xslt
-    )
+    return await validator.validate_xsd_with_schematron(xsd_content, schematron_file, xml_catalog, use_compiled_xslt)
 
 
 async def validate_xml_with_schematron(
-    xml_content: str,
-    schematron_file: str,
-    xml_catalog: Optional[str] = None,
-    use_compiled_xslt: bool = False
+    xml_content: str, schematron_file: str, xml_catalog: Optional[str] = None, use_compiled_xslt: bool = False
 ) -> Dict:
     """
     Convenience function to validate XML content using schematron rules.
@@ -446,9 +377,4 @@ async def validate_xml_with_schematron(
         Dict containing validation results
     """
     validator = SchevalValidator()
-    return await validator.validate_xml_with_schematron(
-        xml_content,
-        schematron_file,
-        xml_catalog,
-        use_compiled_xslt
-    )
+    return await validator.validate_xml_with_schematron(xml_content, schematron_file, xml_catalog, use_compiled_xslt)

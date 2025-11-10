@@ -17,44 +17,26 @@ def test_generate_for_json_content_uses_sha1_hash():
                 "qname": "nc:Person",
                 "label": "Person",
                 "properties": [
-                    {
-                        "neo4j_key": "nc_PersonName",
-                        "json_path": "nc:PersonName",
-                        "xml_path": "nc:PersonName"
-                    }
-                ]
+                    {"neo4j_key": "nc_PersonName", "json_path": "nc:PersonName", "xml_path": "nc:PersonName"}
+                ],
             }
         ],
         "associations": [],
         "references": [],
-        "namespaces": {
-            "nc": "http://example.com/nc"
-        }
+        "namespaces": {"nc": "http://example.com/nc"},
     }
 
     # Minimal NIEM JSON (as dict, will convert to string)
     json_data = {
-        "@context": {
-            "nc": "http://example.com/nc"
-        },
-        "@graph": [
-            {
-                "@id": "person1",
-                "@type": "nc:Person",
-                "nc:PersonName": "John Doe"
-            }
-        ]
+        "@context": {"nc": "http://example.com/nc"},
+        "@graph": [{"@id": "person1", "@type": "nc:Person", "nc:PersonName": "John Doe"}],
     }
 
     # Convert to JSON string (function expects string, not dict)
     json_str = json.dumps(json_data)
 
     # Generate Cypher - this should trigger the SHA1 hash generation at line 237
-    cypher, nodes, edges, contains = generate_for_json_content(
-        json_str,
-        mapping_dict,
-        "test.json"
-    )
+    cypher, nodes, edges, contains = generate_for_json_content(json_str, mapping_dict, "test.json")
 
     # Verify that Cypher was generated
     assert cypher is not None

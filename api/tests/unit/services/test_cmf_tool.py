@@ -20,27 +20,27 @@ class TestCMFTool:
     @pytest.fixture
     def sample_xsd_content(self):
         """Sample XSD content for conversion testing"""
-        return '''<?xml version="1.0" encoding="UTF-8"?>
+        return """<?xml version="1.0" encoding="UTF-8"?>
         <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
                    targetNamespace="http://example.com/test"
                    xmlns:tns="http://example.com/test">
             <xs:element name="TestElement" type="xs:string"/>
-        </xs:schema>'''
+        </xs:schema>"""
 
     @pytest.fixture
     def sample_cmf_content(self):
         """Sample CMF content for JSON Schema conversion"""
-        return '''<?xml version="1.0" encoding="UTF-8"?>
+        return """<?xml version="1.0" encoding="UTF-8"?>
         <cmf:Model xmlns:cmf="https://docs.oasis-open.org/niemopen/ns/specification/cmf/1.0/">
             <cmf:Namespace>
                 <cmf:NamespaceURI>http://example.com/test</cmf:NamespaceURI>
                 <cmf:NamespacePrefixText>test</cmf:NamespacePrefixText>
             </cmf:Namespace>
-        </cmf:Model>'''
+        </cmf:Model>"""
 
     def test_is_cmf_available_true(self):
         """Test CMF availability check when tool exists"""
-        with patch('niem_api.services.cmf_tool.Path') as mock_path:
+        with patch("niem_api.services.cmf_tool.Path") as mock_path:
             mock_jar_file = Mock()
             mock_jar_file.exists.return_value = True
             mock_path.return_value = mock_jar_file
@@ -51,8 +51,9 @@ class TestCMFTool:
 
     def test_is_cmf_available_false(self):
         """Test CMF availability check when tool doesn't exist"""
-        with patch('niem_api.clients.cmf_client.CMF_TOOL_PATH', '/fake/path/cmftool.jar'), \
-             patch('niem_api.clients.cmf_client.Path') as mock_path:
+        with patch("niem_api.clients.cmf_client.CMF_TOOL_PATH", "/fake/path/cmftool.jar"), patch(
+            "niem_api.clients.cmf_client.Path"
+        ) as mock_path:
             mock_jar_file = Mock()
             mock_jar_file.exists.return_value = False
             mock_jar_file.is_file.return_value = False
@@ -65,7 +66,7 @@ class TestCMFTool:
     @pytest.mark.asyncio
     async def test_download_and_setup_cmf_success(self):
         """Test successful CMF tool setup verification"""
-        with patch('niem_api.clients.cmf_client.is_cmf_available') as mock_available:
+        with patch("niem_api.clients.cmf_client.is_cmf_available") as mock_available:
             mock_available.return_value = True
 
             result = await download_and_setup_cmf()
@@ -76,7 +77,7 @@ class TestCMFTool:
     @pytest.mark.asyncio
     async def test_download_and_setup_cmf_already_exists(self):
         """Test CMF setup when tool already exists"""
-        with patch('niem_api.services.cmf_tool.Path') as mock_path:
+        with patch("niem_api.services.cmf_tool.Path") as mock_path:
             mock_jar_file = Mock()
             mock_jar_file.exists.return_value = True
             mock_path.return_value = mock_jar_file
@@ -90,16 +91,11 @@ class TestCMFTool:
         from pathlib import Path
         from unittest.mock import MagicMock
 
-        with patch('niem_api.services.cmf_tool.CMF_TOOL_PATH', '/fake/cmftool.jar'), \
-             patch('niem_api.services.cmf_tool.run_cmf_command') as mock_run, \
-             patch('builtins.open', create=True) as mock_open:
-
+        with patch("niem_api.services.cmf_tool.CMF_TOOL_PATH", "/fake/cmftool.jar"), patch(
+            "niem_api.services.cmf_tool.run_cmf_command"
+        ) as mock_run, patch("builtins.open", create=True) as mock_open:
             # Mock successful CMF conversion
-            mock_run.return_value = {
-                "returncode": 0,
-                "stdout": "Conversion successful",
-                "stderr": ""
-            }
+            mock_run.return_value = {"returncode": 0, "stdout": "Conversion successful", "stderr": ""}
 
             # Mock reading the generated CMF file
             mock_open.return_value.__enter__.return_value.read.return_value = "<cmf>converted</cmf>"
@@ -125,15 +121,11 @@ class TestCMFTool:
         from pathlib import Path
         from unittest.mock import MagicMock
 
-        with patch('niem_api.services.cmf_tool.CMF_TOOL_PATH', '/fake/cmftool.jar'), \
-             patch('niem_api.services.cmf_tool.run_cmf_command') as mock_run:
-
+        with patch("niem_api.services.cmf_tool.CMF_TOOL_PATH", "/fake/cmftool.jar"), patch(
+            "niem_api.services.cmf_tool.run_cmf_command"
+        ) as mock_run:
             # Mock failed CMF conversion
-            mock_run.return_value = {
-                "returncode": 1,
-                "stdout": "",
-                "stderr": "Conversion failed: Invalid XSD"
-            }
+            mock_run.return_value = {"returncode": 1, "stdout": "", "stderr": "Conversion failed: Invalid XSD"}
 
             # Create a mock Path that supports path operations using MagicMock
             mock_schema_file = MagicMock(spec=Path)
@@ -156,16 +148,10 @@ class TestCMFTool:
         """Test successful CMF to JSON Schema conversion"""
         import json
 
-        with patch('niem_api.services.cmf_tool.CMF_TOOL_PATH', '/fake/cmftool.jar'), \
-             patch('niem_api.services.cmf_tool.run_cmf_command') as mock_run, \
-             patch('os.path.exists') as mock_exists, \
-             patch('builtins.open', create=True) as mock_open:
-
-            mock_run.return_value = {
-                "returncode": 0,
-                "stdout": "Conversion successful",
-                "stderr": ""
-            }
+        with patch("niem_api.services.cmf_tool.CMF_TOOL_PATH", "/fake/cmftool.jar"), patch(
+            "niem_api.services.cmf_tool.run_cmf_command"
+        ) as mock_run, patch("os.path.exists") as mock_exists, patch("builtins.open", create=True) as mock_open:
+            mock_run.return_value = {"returncode": 0, "stdout": "Conversion successful", "stderr": ""}
 
             # Mock that JSON schema file exists
             mock_exists.return_value = True
@@ -185,16 +171,10 @@ class TestCMFTool:
         """Test CMF to JSON Schema conversion with invalid JSON output"""
         import json as json_module
 
-        with patch('niem_api.services.cmf_tool.CMF_TOOL_PATH', '/fake/cmftool.jar'), \
-             patch('niem_api.services.cmf_tool.run_cmf_command') as mock_run, \
-             patch('os.path.exists') as mock_exists, \
-             patch('builtins.open', create=True) as mock_open:
-
-            mock_run.return_value = {
-                "returncode": 0,
-                "stdout": "Conversion successful",
-                "stderr": ""
-            }
+        with patch("niem_api.services.cmf_tool.CMF_TOOL_PATH", "/fake/cmftool.jar"), patch(
+            "niem_api.services.cmf_tool.run_cmf_command"
+        ) as mock_run, patch("os.path.exists") as mock_exists, patch("builtins.open", create=True) as mock_open:
+            mock_run.return_value = {"returncode": 0, "stdout": "Conversion successful", "stderr": ""}
 
             # Mock that JSON schema file exists
             mock_exists.return_value = True
@@ -205,7 +185,7 @@ class TestCMFTool:
             mock_open.return_value.__enter__.return_value = mock_file
 
             # Patch json.loads to raise ValueError
-            with patch('json.loads', side_effect=json_module.JSONDecodeError("Invalid JSON", "", 0)):
+            with patch("json.loads", side_effect=json_module.JSONDecodeError("Invalid JSON", "", 0)):
                 result = convert_cmf_to_jsonschema(sample_cmf_content)
 
                 assert result["status"] == "error"
@@ -214,8 +194,9 @@ class TestCMFTool:
 
     def test_run_cmf_command(self):
         """Test CMF command execution"""
-        with patch('niem_api.clients.cmf_client.CMF_TOOL_PATH', '/fake/cmftool.jar'), \
-             patch('subprocess.run') as mock_subprocess:
+        with patch("niem_api.clients.cmf_client.CMF_TOOL_PATH", "/fake/cmftool.jar"), patch(
+            "subprocess.run"
+        ) as mock_subprocess:
             mock_result = Mock()
             mock_result.returncode = 0
             mock_result.stdout = "stdout"
@@ -232,8 +213,9 @@ class TestCMFTool:
         """Test CMF command execution with timeout"""
         import subprocess
 
-        with patch('niem_api.clients.cmf_client.CMF_TOOL_PATH', '/fake/cmftool.jar'), \
-             patch('subprocess.run') as mock_subprocess:
+        with patch("niem_api.clients.cmf_client.CMF_TOOL_PATH", "/fake/cmftool.jar"), patch(
+            "subprocess.run"
+        ) as mock_subprocess:
             mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd=["version"], timeout=1)
 
             try:

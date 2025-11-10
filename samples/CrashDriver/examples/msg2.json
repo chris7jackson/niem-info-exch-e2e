@@ -1,0 +1,147 @@
+{
+  "exch:CrashDriverInfo": {
+    "j:Crash": {
+      "nc:ActivityDate": {
+        "nc:Date": "1907-05-04"
+      },
+      "nc:ActivityLocation": {
+        "nc:Location2DGeospatialCoordinate": {
+          "nc:GeographicCoordinateLatitude": {
+            "nc:LatitudeDegreeValue": 51.87
+          },
+          "nc:GeographicCoordinateLongitude": {
+            "nc:LongitudeDegreeValue": -1.28
+          }
+        }
+      },
+      "j:CrashVehicle": [
+        {
+          "j:CrashDriver": {
+            "@id": "#P01",
+            "nc:PersonBirthDate": {
+              "nc:Date": "1890-05-04"
+            },
+            "nc:PersonName": {
+              "nc:personNameCommentText": "copied",
+              "nc:PersonGivenName": "Peter",
+              "nc:PersonMiddleName": [
+                "Death",
+                "Bredon"
+              ],
+              "nc:PersonSurName": "Wimsey",
+              "nc:PersonNameSalutationText": [
+                "Lord Peter"
+              ]
+            },
+            "j:PersonAdultIndicator": true,
+            "exch:PersonFictionalCharacterIndicator": true,
+            "j:DriverLicense": {
+              "j:DriverLicenseCardIdentification": {
+                "nc:IdentificationID": "A1234567"
+              }
+            }
+          }
+        }
+      ],
+      "j:CrashPerson": [
+        {
+          "@id": "#P01",
+          "j:CrashPersonInjury": [
+            {
+              "nc:InjuryDescriptionText": "Broken Arm",
+              "j:InjurySeverityCode": "3"
+            }
+          ]
+        },
+        {
+          "@id": "#P02",
+          "nc:PersonBirthDate": {
+            "nc:Date": "1894-04-01"
+          },
+          "nc:PersonName": {
+            "nc:PersonGivenName": "Harriet",
+            "nc:PersonMiddleName": [
+              "Deborah"
+            ],
+            "nc:PersonSurName": "Wimsey",
+            "nc:PersonNameSalutationText": [
+              "Lady Peter"
+            ]
+          }
+        },
+        {
+          "@id": "#P03",
+          "nc:PersonBirthDate": {
+            "nc:YearDate": "1883"
+          },
+          "nc:PersonName": {
+            "nc:PersonGivenName": "Mervyn",
+            "nc:PersonSurName": "Bunder"
+          }
+        }
+      ]
+    },
+    "j:Charge": [
+      {
+        "@id": "#CH01",
+        "j:ChargeDescriptionText": [
+          "Furious Driving"
+        ],
+        "j:ChargeFelonyIndicator": false,
+        "nc:Metadata": {
+          "@id": "#JMD01"
+        }
+      }
+    ],
+    "j:PersonChargeAssociation": [
+      {
+        "nc:Person": {
+          "@id": "#P01"
+        },
+        "j:Charge": {
+          "@id": "#CH01"
+        },
+        "j:JuvenileAsAdultIndicator": false,
+        "nc:Metadata": {
+          "@id": "#JMD01"
+        }
+      }
+    ],
+    "nc:PersonUnionAssociation": [
+      {
+        "nc:Person": [
+          {
+            "@id": "#P01"
+          },
+          {
+            "@id": "#P02"
+          }
+        ],
+        "nc:PersonUnionCategoryText": "married"
+      }
+    ],
+    "hs:PersonOtherKinAssociation": [
+      {
+        "hs:SourcePerson": {
+          "@id": "#P01"
+        },
+        "hs:TargetPerson": {
+          "@id": "#P03"
+        },
+        "hs:HouseholdMemberIndicator": true,
+        "hs:PersonOtherKinAssociationCategoryText": [
+          "Butler",
+          "Valet"
+        ]
+      }
+    ],
+    "exch:ReferenceObjects": {
+      "nc:Metadata": [
+        {
+          "@id": "#JMD01",
+          "j:CriminalInformationIndicator": true
+        }
+      ]
+    }
+  }
+}

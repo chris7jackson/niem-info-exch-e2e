@@ -12,8 +12,8 @@ from niem_api.clients.niemtran_client import run_niemtran_command, NIEMTranError
 class TestNIEMTranSecurityValidation:
     """Test suite for NIEMTran client security validation."""
 
-    @patch('niem_api.clients.niemtran_client.subprocess.run')
-    @patch('niem_api.clients.niemtran_client.NIEMTRAN_TOOL_PATH', '/app/bin/niemtran')
+    @patch("niem_api.clients.niemtran_client.subprocess.run")
+    @patch("niem_api.clients.niemtran_client.NIEMTRAN_TOOL_PATH", "/app/bin/niemtran")
     def test_working_dir_security_validation_with_tmp(self, mock_run):
         """Test that working_dir security validation is triggered with /tmp path."""
         # Create a real temp directory in /tmp
@@ -31,10 +31,10 @@ class TestNIEMTranSecurityValidation:
 
             # Verify subprocess was called with the working directory
             mock_run.assert_called_once()
-            assert mock_run.call_args[1]['cwd'] == tmpdir
+            assert mock_run.call_args[1]["cwd"] == tmpdir
 
-    @patch('niem_api.clients.niemtran_client.subprocess.run')
-    @patch('niem_api.clients.niemtran_client.NIEMTRAN_TOOL_PATH', '/app/bin/niemtran')
+    @patch("niem_api.clients.niemtran_client.subprocess.run")
+    @patch("niem_api.clients.niemtran_client.NIEMTRAN_TOOL_PATH", "/app/bin/niemtran")
     def test_working_dir_validation_rejects_unsafe_path(self, mock_run):
         """Test that working_dir validation rejects paths outside allowed locations."""
         # Try to use /etc as working dir (should be rejected)
@@ -45,8 +45,8 @@ class TestNIEMTranSecurityValidation:
         # Subprocess should never be called
         mock_run.assert_not_called()
 
-    @patch('niem_api.clients.niemtran_client.subprocess.run')
-    @patch('niem_api.clients.niemtran_client.NIEMTRAN_TOOL_PATH', '/app/bin/niemtran')
+    @patch("niem_api.clients.niemtran_client.subprocess.run")
+    @patch("niem_api.clients.niemtran_client.NIEMTRAN_TOOL_PATH", "/app/bin/niemtran")
     def test_working_dir_validation_rejects_nonexistent_path(self, mock_run):
         """Test that working_dir validation rejects non-existent directories."""
         with pytest.raises(NIEMTranError) as exc_info:

@@ -11,6 +11,7 @@ import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import apiClient, { Schema } from '../lib/api';
 import ExpandableError from './ExpandableError';
 import ValidationResults from './ValidationResults';
+import GraphSchemaDesigner from './GraphSchemaDesigner';
 
 interface FilePreview {
   file: File;
@@ -26,6 +27,8 @@ export default function SchemaManager() {
   const [filePreviews, setFilePreviews] = useState<FilePreview[]>([]);
   const [lastValidationResult, setLastValidationResult] = useState<unknown>(null);
   const [skipNiemNdr, setSkipNiemNdr] = useState(false);
+  const [showDesigner, setShowDesigner] = useState(false);
+  const [uploadedSchemaId, setUploadedSchemaId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSchemas();
@@ -153,11 +156,29 @@ export default function SchemaManager() {
 
       setLastValidationResult(result);
       handleValidationErrors(result);
+
+      // Show designer modal after successful upload
+      if (result?.schema_id) {
+        setUploadedSchemaId(result.schema_id);
+        setShowDesigner(true);
+      }
     } catch (err: any) {
       handleUploadError(err);
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleDesignerClose = async (_applied: boolean) => {
+    setShowDesigner(false);
+    setUploadedSchemaId(null);
+
+    // Refresh schemas list after design (whether applied or skipped)
+    await loadSchemas();
+
+    // Clear file previews after successful upload
+    setFilePreviews([]);
+    setLastValidationResult(null);
   };
 
   const removeFile = (id: string) => {
@@ -639,6 +660,15 @@ export default function SchemaManager() {
                     </div>
 
                     <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => {
+                          setUploadedSchemaId(schema.schema_id);
+                          setShowDesigner(true);
+                        }}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        Graph Designer
+                      </button>
                       {schema.active ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           Active
@@ -659,6 +689,15 @@ export default function SchemaManager() {
           );
         })()}
       </div>
+
+      {/* Graph Schema Designer Modal */}
+      {uploadedSchemaId && (
+        <GraphSchemaDesigner
+          schemaId={uploadedSchemaId}
+          open={showDesigner}
+          onClose={handleDesignerClose}
+        />
+      )}
     </div>
   );
 }

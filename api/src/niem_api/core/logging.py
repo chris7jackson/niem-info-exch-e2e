@@ -17,28 +17,14 @@ def setup_logging():
                 "format": (
                     "%(asctime)s %(name)s %(levelname)s %(message)s "
                     "%(trace_id)s %(job_id)s %(file_id)s %(schema_id)s"
-                )
+                ),
             }
         },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "json",
-                "stream": "ext://sys.stdout"
-            }
-        },
+        "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "json", "stream": "ext://sys.stdout"}},
         "loggers": {
-            "": {
-                "handlers": ["console"],
-                "level": "DEBUG",
-                "propagate": False
-            },
-            "uvicorn": {
-                "handlers": ["console"],
-                "level": "INFO",
-                "propagate": False
-            }
-        }
+            "": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+            "uvicorn": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        },
     }
 
     logging.config.dictConfig(logging_config)

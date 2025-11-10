@@ -35,31 +35,44 @@ def execute_cypher_query(cypher_query: str = None, limit: int = None) -> dict[st
     client = get_neo4j_client()
     try:
         result = client.query_graph(cypher_query)
-        return {
-            "status": "success",
-            "data": result
-        }
+        return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"Error executing Cypher query: {e}")
         raise
 
 
-def get_full_graph(limit: int = 10000) -> dict[str, Any]:
+def get_full_graph(limit: int = 10000, include_resolved: bool = False) -> dict[str, Any]:
     """
     Get the complete graph structure with all nodes and relationships.
 
     Args:
         limit: Maximum number of results to return (default 10000)
+        include_resolved: Whether to include ResolvedEntity nodes and RESOLVED_TO relationships (default False)
 
     Returns:
         Dictionary with status and graph data
     """
-    cypher_query = f"""
-    MATCH (n)
-    OPTIONAL MATCH (n)-[r]-(m)
-    RETURN n, r, m
-    LIMIT {limit}
-    """
+    # Build WHERE clause to filter ResolvedEntity nodes if not requested
+    if include_resolved:
+        # Include all nodes and relationships
+        cypher_query = f"""
+        MATCH (n)
+        OPTIONAL MATCH (n)-[r]-(m)
+        RETURN n, r, m
+        LIMIT {limit}
+        """
+    else:
+        # Exclude ResolvedEntity nodes and RESOLVED_TO relationships
+        cypher_query = f"""
+        MATCH (n)
+        WHERE NOT 'ResolvedEntity' IN labels(n)
+        OPTIONAL MATCH (n)-[r]-(m)
+        WHERE NOT type(r) = 'RESOLVED_TO'
+          AND NOT 'ResolvedEntity' IN labels(m)
+        RETURN n, r, m
+        LIMIT {limit}
+        """
+
     # execute_cypher_query already returns formatted response
     return execute_cypher_query(cypher_query)
 
