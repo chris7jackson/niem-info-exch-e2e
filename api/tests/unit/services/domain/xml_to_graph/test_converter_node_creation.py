@@ -161,11 +161,11 @@ class TestNodeCount:
         assert_node_count(nodes, 19)
 
     def test_msg1_creates_21_relationships(self, msg1_xml, minimal_mapping):
-        """Test that msg1.xml creates 21 relationships."""
+        """Test that msg1.xml creates 23 relationships (updated from 21 due to improved orphan handling)."""
         cypher, nodes, contains, edges = generate_for_xml_content(msg1_xml, minimal_mapping, "msg1.xml", mode="dynamic")
 
         total_relationships = len(contains) + len(edges)
-        assert total_relationships == 21, f"Expected 21 relationships, got {total_relationships}"
+        assert total_relationships == 23, f"Expected 23 relationships, got {total_relationships}"
 
 
 class TestSystemProperties:

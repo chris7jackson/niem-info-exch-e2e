@@ -89,16 +89,36 @@ class SchemaDesignValidator:
     def validate_has_selections(self, selections: dict[str, bool], result: ValidationResult) -> None:
         """Validate that at least one node is selected.
 
-        Note: Empty selections are now allowed and will default to dynamic behavior.
-        This method is kept for potential future use but no longer adds errors.
-
         Args:
             selections: Dictionary mapping qnames to selection state
             result: ValidationResult to add errors to
         """
-        # Empty selections are allowed - they will default to dynamic mode
-        # No validation error needed
-        pass
+        # Check if selections dict is empty
+        if not selections:
+            result.errors.append(
+                ValidationMessage(
+                    severity=ValidationSeverity.ERROR,
+                    type=ValidationErrorType.NO_SELECTIONS.value,
+                    message="No elements selected. Please select at least one element to create a graph schema.",
+                    recommendation="Select at least one element from the schema to proceed.",
+                    impact="high",
+                )
+            )
+            return
+
+        # Check if all selections are False
+        # Convert to list to ensure any() works correctly with dict_values
+        has_selection = any(bool(value) for value in selections.values())
+        if not has_selection:
+            result.errors.append(
+                ValidationMessage(
+                    severity=ValidationSeverity.ERROR,
+                    type=ValidationErrorType.NO_SELECTIONS.value,
+                    message="No elements selected. Please select at least one element to create a graph schema.",
+                    recommendation="Select at least one element from the schema to proceed.",
+                    impact="high",
+                )
+            )
 
     def detect_sparse_connectivity(
         self, selections: dict[str, bool], element_tree: list[dict], result: ValidationResult
