@@ -1211,7 +1211,55 @@ async def handle_apply_schema_design(schema_id: str, selections: dict[str, bool]
         logger.error(f"Failed to download XSD files for schema {schema_id}: {e}")
         raise HTTPException(status_code=404, detail="XSD files not found in storage") from e
 
-    # Build element tree and validate
+    # Check if any elements are selected
+    selected_count = sum(1 for v in selections.values() if v)
+
+    # If no selections, delete selections.json to enable dynamic mode
+    if selected_count == 0:
+        selections_path = f"{schema_id}/selections.json"
+        try:
+            # Try to delete selections.json if it exists
+            try:
+                s3.remove_object("niem-schemas", selections_path)
+                logger.info(f"Deleted selections.json for schema {schema_id} to enable dynamic mode")
+            except S3Error as e:
+                if e.code != "NoSuchKey":
+                    # If it's not a "not found" error, log it but continue
+                    logger.warning(f"Failed to delete selections.json for schema {schema_id}: {e}")
+                else:
+                    logger.info(f"selections.json not found for schema {schema_id}, dynamic mode already enabled")
+
+            # Update metadata to indicate dynamic mode
+            metadata["design_applied"] = False
+            metadata["design_applied_at"] = datetime.now(UTC).isoformat()
+            metadata["selected_node_count"] = 0
+
+            # Store updated metadata
+            metadata_json = json.dumps(metadata, indent=2)
+            metadata_path = f"{schema_id}/metadata.json"
+
+            await upload_file(
+                client=s3,
+                bucket="niem-schemas",
+                object_name=metadata_path,
+                data=metadata_json.encode("utf-8"),
+                content_type="application/json",
+            )
+
+            return {
+                "success": True,
+                "valid": True,
+                "can_proceed": True,
+                "message": "Dynamic mode enabled (no selections - all complex elements will become nodes)",
+                "schema_id": schema_id,
+                "selected_nodes": 0,
+                "mode": "dynamic",
+            }
+        except Exception as e:
+            logger.error(f"Failed to enable dynamic mode for schema {schema_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to enable dynamic mode: {str(e)}") from e
+
+    # Build element tree and validate (only if selections exist)
     from ..services.domain.schema.xsd_element_tree import build_element_tree_from_xsd, flatten_tree_to_list
     from ..services.domain.schema.validation import SchemaDesignValidator
 
@@ -1320,6 +1368,7 @@ async def handle_apply_schema_design(schema_id: str, selections: dict[str, bool]
             "schema_id": schema_id,
             "selected_nodes": metadata["selected_node_count"],
             "mapping_filename": mapping_filename,
+            "mode": "mapping",
             "warnings": [
                 {
                     "severity": warn.severity.value,

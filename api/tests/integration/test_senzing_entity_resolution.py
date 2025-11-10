@@ -388,6 +388,88 @@ class TestSenzingSpecificFeatures:
                 for rel in rel_results:
                     assert rel["rel_senzing_id"] == senzing_id
 
+    def test_crash_person_type_discovery(self):
+        """Test that j:CrashPerson is automatically discovered as a person entity type.
+
+        This tests the schema-based type discovery system which should recognize
+        CrashPerson as a person entity without explicit pattern configuration.
+        """
+        # Create sample CrashPerson entities
+        neo4j_client = Neo4jClient()
+
+        create_query = """
+        // Create first CrashPerson entity
+        CREATE (cp1:j_CrashPerson {
+            id: 'test_crashperson_1',
+            qname: 'j:CrashPerson',
+            sourceDoc: 'crash_test1.xml',
+            _upload_id: 'test_upload_cp1',
+            _schema_id: 'test_schema'
+        })
+        CREATE (pn1:nc_PersonName {
+            qname: 'nc:PersonName',
+            nc_PersonGivenName: 'Alice',
+            nc_PersonSurName: 'Johnson'
+        })
+        CREATE (cp1)-[:CONTAINS]->(pn1)
+
+        // Create second CrashPerson entity (duplicate)
+        CREATE (cp2:j_CrashPerson {
+            id: 'test_crashperson_2',
+            qname: 'j:CrashPerson',
+            sourceDoc: 'crash_test2.xml',
+            _upload_id: 'test_upload_cp2',
+            _schema_id: 'test_schema'
+        })
+        CREATE (pn2:nc_PersonName {
+            qname: 'nc:PersonName',
+            nc_PersonGivenName: 'Alice',
+            nc_PersonSurName: 'Johnson'
+        })
+        CREATE (cp2)-[:CONTAINS]->(pn2)
+
+        RETURN count(cp1) + count(cp2) as created
+        """
+
+        neo4j_client.query(create_query, {})
+
+        try:
+            # Test 1: Verify CrashPerson is discovered in available node types
+            result = handle_get_available_node_types()
+
+            assert result["status"] == "success"
+            crash_person = next(
+                (nt for nt in result["nodeTypes"] if nt["qname"] == "j:CrashPerson"),
+                None
+            )
+
+            # CrashPerson should be discovered and categorized as 'person'
+            # This works because of schema-based discovery, not hardcoded patterns
+            assert crash_person is not None, "j:CrashPerson should be discovered as a resolvable type"
+            assert crash_person["category"] == "person", "j:CrashPerson should be categorized as person entity"
+            assert crash_person["count"] >= 2, "Should have at least 2 CrashPerson entities"
+
+            # Test 2: Verify CrashPerson entities can be resolved
+            resolution_result = handle_run_entity_resolution(["j:CrashPerson"])
+
+            assert resolution_result["status"] == "success"
+            assert resolution_result["entitiesExtracted"] >= 2
+            assert resolution_result["resolvedEntitiesCreated"] >= 1
+            assert resolution_result["relationshipsCreated"] >= 2
+
+        finally:
+            # Cleanup
+            cleanup_query = """
+            MATCH (n)
+            WHERE n.id IN ['test_crashperson_1', 'test_crashperson_2']
+               OR (n.nc_PersonGivenName = 'Alice' AND n.nc_PersonSurName = 'Johnson')
+            DETACH DELETE n
+            """
+            neo4j_client.query(cleanup_query, {})
+
+            # Clean up resolved entities
+            handle_reset_entity_resolution()
+
 
 if __name__ == "__main__":
     # Run tests

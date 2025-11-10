@@ -618,14 +618,23 @@ async def handle_xml_ingest(files: list[UploadFile], s3: Minio, schema_id: str =
         # Step 3: Load mapping specification
         mapping = _load_mapping_from_s3(s3, schema_id)
 
+        # DEBUG: Log what mapping contains immediately after loading
+        logger.info(f"Handler loaded mapping: {len(mapping.get('objects', []))} objects, {len(mapping.get('associations', []))} associations")
+        if mapping.get('associations'):
+            assoc_qnames = [a.get('qname') for a in mapping.get('associations', [])[:5]]
+            logger.info(f"Association qnames in handler mapping (first 5): {assoc_qnames}")
+
         # Step 3.5: Detect mode based on selections.json existence
-        from .schema import handle_get_selections
+        from .schema import handle_get_selections, handle_apply_schema_design
 
         mode = "mapping"  # Default to mapping mode
+        selections_exist = False
+
         try:
             selections_data = await handle_get_selections(schema_id, s3)
             if selections_data and selections_data.get("selections"):
                 mode = "mapping"
+                selections_exist = True
                 logger.info(
                     f"Using MAPPING mode (found selections.json with {len(selections_data['selections'])} selections)"
                 )
@@ -635,6 +644,29 @@ async def handle_xml_ingest(files: list[UploadFile], s3: Minio, schema_id: str =
         except Exception as e:
             mode = "dynamic"
             logger.info(f"Using DYNAMIC mode (selections.json not found or error: {e})")
+
+        # Step 3.6: No auto-selection - if selections don't exist, stay in dynamic mode
+        # Users should explicitly use Graph Designer to create selections if they want mapping mode
+        # Auto-selection has been disabled because it creates poor-quality selections that confuse the system
+        if not selections_exist:
+            logger.info("No selections.json found - staying in dynamic mode (auto-selection disabled)")
+            mode = "dynamic"
+
+        # Step 3.7: Validate mapping - ensure it has objects if using mapping mode
+        if mode == "mapping":
+            objects_in_mapping = len(mapping.get("objects", []))
+            logger.info(f"Mapping mode active - mapping contains {objects_in_mapping} objects")
+
+            if objects_in_mapping == 0:
+                logger.warning(
+                    "Mapping mode selected but mapping has no objects! "
+                    "This will result in no nodes being created. Switching to dynamic mode."
+                )
+                mode = "dynamic"
+            else:
+                # Log first few object qnames for debugging
+                object_qnames = [obj.get("qname") for obj in mapping.get("objects", [])[:10]]
+                logger.info(f"Mapping objects (first 10): {object_qnames}")
 
         # Step 4: Download schema files for validation
         schema_dir = await _download_schema_files(s3, schema_id)

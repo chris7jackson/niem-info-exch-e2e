@@ -90,23 +90,45 @@ def get_default_mapping_config() -> Dict:
     }
 
 
-def get_entity_category(entity: Dict) -> str:
+def get_entity_category(
+    entity: Dict,
+    discovery_indices: Optional[Dict] = None
+) -> str:
     """
     Determine the category of a NIEM entity for Senzing processing.
 
+    Uses schema-based discovery (if provided) with fallback to pattern matching.
+
     Args:
         entity: Entity dictionary from Neo4j
+        discovery_indices: Optional dict with 'person_types' and 'organization_types' sets
+                          from schema-based discovery
 
     Returns:
         Entity category: 'person', 'organization', 'address', 'vehicle', or 'other'
     """
+    qname = entity.get("qname", "")
+
+    # Try schema-based categorization first (if indices provided)
+    if discovery_indices:
+        from ..services.domain.schema.type_discovery import get_entity_category_from_schema
+
+        schema_category = get_entity_category_from_schema(
+            qname,
+            discovery_indices.get("person_types", set()),
+            discovery_indices.get("organization_types", set())
+        )
+        if schema_category:
+            return schema_category
+
+    # Fall back to pattern-based categorization
     config = load_mapping_config()
-    qname = entity.get("qname", "").lower()
+    qname_lower = qname.lower()
 
     # Check each category's patterns from configuration
     for category, category_config in config.get("entity_categories", {}).items():
         patterns = category_config.get("patterns", [])
-        if any(pattern in qname for pattern in patterns):
+        if any(pattern in qname_lower for pattern in patterns):
             return category
 
     return "other"
@@ -125,6 +147,74 @@ def get_senzing_record_type(entity_category: str) -> str:
     config = load_mapping_config()
     category_config = config.get("entity_categories", {}).get(entity_category, {})
     return category_config.get("senzing_record_type", "GENERIC")
+
+
+def normalize_multi_value_field(value: Any) -> list:
+    """
+    Normalize a multi-value field to a consistent list format.
+
+    Handles various input formats:
+    - Python list: ['Death', 'Bredon']
+    - JSON array string: '["Death", "Bredon"]'
+    - JSON object array: '[{"nc_PersonMiddleName":"Death"},{"nc_PersonMiddleName":"Bredon"}]'
+    - Single value: 'Death'
+
+    Args:
+        value: The value to normalize (can be list, string, dict, etc.)
+
+    Returns:
+        List of normalized string values
+    """
+    # Already a list
+    if isinstance(value, list):
+        # Check if list contains dicts (e.g., [{"nc_PersonMiddleName":"Death"}])
+        if value and isinstance(value[0], dict):
+            # Extract values from dict objects
+            # Assume the dict has a single key-value pair or take first value
+            normalized = []
+            for item in value:
+                if isinstance(item, dict):
+                    # Get first non-empty value from the dict
+                    vals = [v for v in item.values() if v]
+                    if vals:
+                        normalized.append(str(vals[0]))
+                else:
+                    normalized.append(str(item))
+            return normalized
+        else:
+            # Simple list of values
+            return [str(v) for v in value if v]
+
+    # String value - might be JSON-encoded or Python repr
+    if isinstance(value, str):
+        value = value.strip()
+
+        # Try to parse as JSON or Python literal
+        if value.startswith('[') and value.endswith(']'):
+            try:
+                # Try JSON first (double quotes)
+                parsed = json.loads(value)
+                # Recursively normalize (handles nested objects)
+                return normalize_multi_value_field(parsed)
+            except json.JSONDecodeError:
+                # Try Python literal_eval (single quotes)
+                try:
+                    import ast
+                    parsed = ast.literal_eval(value)
+                    # Recursively normalize
+                    return normalize_multi_value_field(parsed)
+                except (ValueError, SyntaxError):
+                    # Not valid JSON or Python literal, treat as single value
+                    return [value] if value else []
+        else:
+            # Single string value
+            return [value] if value else []
+
+    # Other types (int, bool, etc.) - convert to string
+    if value is not None:
+        return [str(value)]
+
+    return []
 
 
 def neo4j_entity_to_senzing_record(entity: Dict, data_source: str = "NIEM_GRAPH") -> str:
@@ -186,22 +276,21 @@ def neo4j_entity_to_senzing_record(entity: Dict, data_source: str = "NIEM_GRAPH"
         elif niem_field.replace("_", "") in props:
             value = props[niem_field.replace("_", "")]
 
-        if value is not None:
-            # DEBUG: Print each field mapping
-            print(f"[SENZING_DEBUG]   Mapped: {niem_field} → {senzing_field} = {repr(value)}")
+        if value is not None and value != "":
+            # Normalize the value to handle various formats (lists, JSON strings, dicts, etc.)
+            normalized_values = normalize_multi_value_field(value)
 
-            # Handle different value types
-            if isinstance(value, list):
-                # For lists, join with semicolon or take first value
-                if len(value) > 0:
-                    if senzing_field in multi_value_fields:
-                        # These fields can have multiple values
-                        senzing_record[senzing_field] = ";".join(str(v) for v in value)
-                    else:
-                        # Take first value for single-value fields
-                        senzing_record[senzing_field] = str(value[0])
-            elif value != "":
-                senzing_record[senzing_field] = str(value)
+            # DEBUG: Print each field mapping
+            print(f"[SENZING_DEBUG]   Mapped: {niem_field} → {senzing_field} = {repr(value)} → normalized: {normalized_values}")
+
+            # Convert normalized list to Senzing format
+            if normalized_values:
+                if senzing_field in multi_value_fields:
+                    # Multi-value fields: join with semicolon
+                    senzing_record[senzing_field] = ";".join(normalized_values)
+                else:
+                    # Single-value fields: take first value only
+                    senzing_record[senzing_field] = normalized_values[0]
 
     # Special handling for dates - ensure proper format
     if "DATE_OF_BIRTH" in senzing_record:

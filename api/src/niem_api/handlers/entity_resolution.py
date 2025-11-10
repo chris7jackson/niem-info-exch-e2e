@@ -18,12 +18,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
+from minio import Minio
+from minio.error import S3Error
+
 from ..clients.neo4j_client import Neo4jClient
+from ..services.domain.schema.xsd_element_tree import _build_indices
+from ..services.domain.schema.type_discovery import build_entity_discovery_indices
 
 logger = logging.getLogger(__name__)
 
 # Cache for Senzing field mappings
 _SENZING_FIELD_MAPPINGS = None
+
+# Cache for schema-based entity type discovery
+_ENTITY_DISCOVERY_CACHE = {}
 
 # Try to import Senzing integration
 SENZING_AVAILABLE = False
@@ -87,6 +95,94 @@ def _load_senzing_field_mappings() -> Dict[str, str]:
         logger.error(f"Failed to load Senzing field mappings: {e}")
         _SENZING_FIELD_MAPPINGS = {}
         return _SENZING_FIELD_MAPPINGS
+
+
+def _load_xsd_files_from_s3(s3: Minio, schema_id: str) -> dict[str, bytes]:
+    """Load all XSD files for a schema from S3.
+
+    Args:
+        s3: MinIO client instance
+        schema_id: The schema ID
+
+    Returns:
+        Dictionary mapping filenames to XSD content (bytes)
+    """
+    xsd_files = {}
+
+    try:
+        # List all objects in the schema's source directory
+        objects = s3.list_objects("niem-schemas", prefix=f"{schema_id}/source/", recursive=True)
+
+        for obj in objects:
+            # Only process .xsd files
+            if obj.object_name.endswith(".xsd"):
+                # Download the file
+                response = s3.get_object("niem-schemas", obj.object_name)
+                content = response.read()
+                response.close()
+                response.release_conn()
+
+                # Extract filename from path (remove schema_id/source/ prefix)
+                filename = obj.object_name[len(f"{schema_id}/source/"):]
+                xsd_files[filename] = content
+                logger.debug(f"Loaded XSD file: {filename}")
+
+        logger.info(f"Loaded {len(xsd_files)} XSD files for schema {schema_id}")
+        return xsd_files
+
+    except S3Error as e:
+        logger.error(f"Failed to load XSD files from S3 for schema {schema_id}: {e}")
+        return {}
+
+
+def _get_entity_discovery_indices(s3: Minio, schema_id: str) -> Optional[dict]:
+    """Get entity discovery indices for a schema (with caching).
+
+    This loads XSD files from S3, parses them, and builds indices for
+    discovering person and organization types based on NIEM schema structure.
+
+    Args:
+        s3: MinIO client instance
+        schema_id: The schema ID
+
+    Returns:
+        Dictionary with entity discovery indices, or None if schema not found
+    """
+    global _ENTITY_DISCOVERY_CACHE
+
+    # Check cache first
+    if schema_id in _ENTITY_DISCOVERY_CACHE:
+        logger.debug(f"Using cached entity discovery indices for schema {schema_id}")
+        return _ENTITY_DISCOVERY_CACHE[schema_id]
+
+    # Load XSD files from S3
+    xsd_files = _load_xsd_files_from_s3(s3, schema_id)
+
+    if not xsd_files:
+        logger.warning(f"No XSD files found for schema {schema_id}")
+        return None
+
+    try:
+        # Parse XSD files and build type/element indices
+        type_definitions, element_declarations, namespace_prefixes = _build_indices(xsd_files)
+
+        # Build entity discovery indices
+        discovery_indices = build_entity_discovery_indices(type_definitions, element_declarations)
+
+        # Cache the result
+        _ENTITY_DISCOVERY_CACHE[schema_id] = discovery_indices
+
+        logger.info(
+            f"Built entity discovery indices for schema {schema_id}: "
+            f"{len(discovery_indices['person_types'])} person types, "
+            f"{len(discovery_indices['organization_types'])} organization types"
+        )
+
+        return discovery_indices
+
+    except Exception as e:
+        logger.error(f"Failed to build entity discovery indices for schema {schema_id}: {e}")
+        return None
 
 
 def _count_senzing_mappable_fields(node_keys: List[str]) -> int:
@@ -1159,7 +1255,7 @@ def _get_resolution_status(neo4j_client: Neo4jClient) -> Dict:
     return {"resolved_entity_clusters": resolved_count, "entities_resolved": rel_count, "is_active": resolved_count > 0}
 
 
-def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
+def _get_available_node_types(neo4j_client: Neo4jClient, s3: Optional[Minio] = None, schema_id: Optional[str] = None) -> List[Dict]:
     """Get all available node types that can be resolved.
 
     This function discovers all node types in the graph that have:
@@ -1168,12 +1264,27 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
 
     Supports flattened attributes with long prefixes (e.g., role_of_person__nc_person__nc_personname)
 
+    Uses schema-based discovery (if XSD files are available) to identify person and organization types,
+    with fallback to pattern-based categorization.
+
     Args:
         neo4j_client: Neo4j client instance
+        s3: Optional MinIO client for loading XSD files
+        schema_id: Optional schema ID for schema-based type discovery
 
     Returns:
         List of dictionaries containing node type information
     """
+    # Load entity discovery indices from XSD schemas (if available)
+    discovery_indices = None
+    if s3 and schema_id:
+        discovery_indices = _get_entity_discovery_indices(s3, schema_id)
+        if discovery_indices:
+            logger.info("Using schema-based entity type discovery")
+        else:
+            logger.info("Schema-based discovery unavailable, using pattern-based fallback")
+    else:
+        logger.info("No schema provided, using pattern-based entity type discovery")
     # Query to find all distinct qnames and check if they have resolution-relevant attributes
     discovery_query = """
     // Find all distinct qnames in the graph
@@ -1185,49 +1296,66 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
                           'nc:PersonFullName', 'nc:AddressFullText', 'nc:Date']
     WITH DISTINCT n.qname as qname, labels(n)[0] as label
 
-    // Count entities for each qname and get a sample entity
+    // Aggregate resolution properties from ALL entities of this qname
+    // This ensures we find properties even if only some nodes have PersonName children
     MATCH (entity)
     WHERE entity.qname = qname
-    WITH qname, label, count(entity) as count, collect(entity)[0] as sample
 
-    // Also check related nodes for resolution attributes (PersonName, OrganizationName, etc.)
-    OPTIONAL MATCH (sample)-[]->(relatedName)
+    // For each entity, find property nodes up to 2 hops via CONTAINS
+    OPTIONAL MATCH (entity)-[:CONTAINS*1..2]->(relatedName)
     WHERE relatedName.qname IN ['nc:PersonName', 'nc:OrganizationName', 'nc:PersonBirthDate']
 
-    // Get all property keys from both the sample entity and related nodes
-    WITH qname, label, count, sample,
-         keys(sample) as entityKeys,
-         collect(keys(relatedName)) as relatedKeys,
-         collect(relatedName) as relatedNodes
+    // Collect keys from entity + children for THIS entity
+    WITH qname, label, entity,
+         keys(entity) + reduce(childKeys = [], node IN collect(relatedName) | childKeys + keys(node)) as entityAllKeys
 
-    // Flatten all keys from entity and related nodes
-    WITH qname, label, count, sample, relatedNodes,
-         reduce(allKeys = entityKeys, keyList IN relatedKeys | allKeys + keyList) as allKeys
+    // Now aggregate across ALL entities
+    WITH qname, label,
+         count(entity) as count,
+         collect(entity)[0] as sample,  // Keep a sample for later
+         reduce(allKeys = [], keyList IN collect(entityAllKeys) | allKeys + keyList) as allKeys
 
-    // Find resolution-relevant attributes by checking suffixes (case-insensitive patterns)
-    // Support long prefixes like: role_of_person__nc_person__nc_personname
+    // For the sample, get its related nodes (for sample values later)
+    OPTIONAL MATCH (sample)-[:CONTAINS*1..2]->(relatedName)
+    WHERE relatedName.qname IN ['nc:PersonName', 'nc:OrganizationName', 'nc:PersonBirthDate']
+
+    WITH qname, label, count, sample, allKeys, collect(relatedName) as relatedNodes
+
+    // Find resolution-relevant attributes by checking property name suffixes
+    // Handles flattened properties with prefixes: nc_PersonName__nc_PersonGivenName
+    // This matches keys that END WITH the expected NIEM property names
     WITH qname, label, count, sample, relatedNodes, allKeys,
-         // Name fields
-         [key IN allKeys WHERE toLower(key) CONTAINS 'fullname' OR toLower(key) CONTAINS 'organizationname'][0] as nameKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'givenname' OR toLower(key) CONTAINS 'firstname'][0] as givenNameKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'surname' OR toLower(key) CONTAINS 'lastname'][0] as surNameKey,
+         // Name fields - check suffix match for flattened properties
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonFullName' OR key ENDS WITH 'PersonFullName'
+                            OR key ENDS WITH 'nc_OrganizationName' OR key ENDS WITH 'OrganizationName'][0] as nameKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonGivenName' OR key ENDS WITH 'PersonGivenName'][0] as givenNameKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonSurName' OR key ENDS WITH 'PersonSurName'][0] as surNameKey,
          // Identifier fields
-         [key IN allKeys WHERE toLower(key) CONTAINS 'ssn' OR toLower(key) CONTAINS 'socialsecurity'][0] as ssnKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'driverslicense' OR toLower(key) CONTAINS 'dln'][0] as dlKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'identification' AND NOT toLower(key) CONTAINS 'driver'][0] as idKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonSSNIdentification' OR key ENDS WITH 'PersonSSNIdentification'
+                            OR toLower(key) ENDS WITH 'ssn'][0] as ssnKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_DriverLicenseIdentification' OR key ENDS WITH 'DriverLicenseIdentification'
+                            OR key ENDS WITH 'DriverLicenseCardIdentification'][0] as dlKey,
+         [key IN allKeys WHERE (key ENDS WITH 'nc_IdentificationID' OR key ENDS WITH 'IdentificationID')
+                            AND NOT key CONTAINS 'DriverLicense'][0] as idKey,
          // Date fields
-         [key IN allKeys WHERE toLower(key) CONTAINS 'birthdate' OR toLower(key) CONTAINS 'dob'][0] as dobKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PersonBirthDate' OR key ENDS WITH 'PersonBirthDate'
+                            OR toLower(key) ENDS WITH 'birthdate'][0] as dobKey,
          // Address fields
-         [key IN allKeys WHERE toLower(key) CONTAINS 'address' AND NOT toLower(key) CONTAINS 'email'][0] as addressKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'city'][0] as cityKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'state'][0] as stateKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'zip' OR toLower(key) CONTAINS 'postal'][0] as zipKey,
+         [key IN allKeys WHERE (key ENDS WITH 'nc_AddressFullText' OR key ENDS WITH 'AddressFullText')
+                            AND NOT toLower(key) CONTAINS 'email'][0] as addressKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_CityName' OR key ENDS WITH 'CityName'
+                            OR toLower(key) ENDS WITH 'city'][0] as cityKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_StateCode' OR key ENDS WITH 'StateName'
+                            OR toLower(key) ENDS WITH 'state'][0] as stateKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_PostalCode' OR key ENDS WITH 'PostalCode'
+                            OR toLower(key) ENDS WITH 'zip'][0] as zipKey,
          // Contact fields
-         [key IN allKeys WHERE toLower(key) CONTAINS 'phone' OR toLower(key) CONTAINS 'telephone'][0] as phoneKey,
-         [key IN allKeys WHERE toLower(key) CONTAINS 'email'][0] as emailKey
+         [key IN allKeys WHERE key ENDS WITH 'nc_TelephoneNumberFullID' OR key ENDS WITH 'TelephoneNumber'
+                            OR toLower(key) CONTAINS 'phone'][0] as phoneKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_ElectronicAddressText' OR toLower(key) ENDS WITH 'email'][0] as emailKey
 
     // Check if entity has at least one resolution-relevant attribute
-    WITH qname, label, count, sample, relatedNodes, nameKey, givenNameKey, surNameKey, ssnKey, dlKey, idKey,
+    WITH qname, label, count, sample, relatedNodes, allKeys, nameKey, givenNameKey, surNameKey, ssnKey, dlKey, idKey,
          dobKey, addressKey, cityKey, stateKey, zipKey, phoneKey, emailKey,
          // Count how many resolution attributes exist
          size([k IN [nameKey, givenNameKey, ssnKey, dlKey, idKey, dobKey, addressKey, phoneKey, emailKey] WHERE k IS NOT NULL]) as attrCount
@@ -1236,7 +1364,8 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
     WHERE attrCount > 0
 
     // Get sample values from found keys (check entity first, then related nodes)
-    WITH qname, label, count, sample, relatedNodes, attrCount,
+    WITH qname, label, count, sample, relatedNodes, allKeys, attrCount,
+         nameKey, givenNameKey, surNameKey, ssnKey, dobKey, addressKey,
          CASE
            WHEN nameKey IS NOT NULL AND sample[nameKey] IS NOT NULL THEN sample[nameKey]
            WHEN nameKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[nameKey] IS NOT NULL | n[nameKey]])
@@ -1267,7 +1396,7 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
            WHEN addressKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[addressKey] IS NOT NULL | n[addressKey]])
            ELSE null
          END as sampleAddress,
-         keys(sample) + reduce(allKeys = [], keyList IN [n IN relatedNodes | keys(n)] | allKeys + keyList) as sampleKeys
+         allKeys as sampleKeys  // Use aggregated keys from ALL entities, not just sample
 
     // Find the hierarchy path from root to this entity type
     WITH qname, label, count, sample, attrCount, sampleName, sampleGivenName, sampleSurName,
@@ -1322,20 +1451,40 @@ def _get_available_node_types(neo4j_client: Neo4jClient) -> List[Dict]:
         if record.get("sampleAddress"):
             available_fields.append("Address")
 
-        # Determine category
+        # Determine category using schema-based discovery first, then pattern fallback
         category = "other"
-        try:
-            from ..services.entity_to_senzing import get_entity_category
+        category_source = "none"
 
-            entity_mock = {"qname": qname}
-            category = get_entity_category(entity_mock)
-        except:
-            pass
+        # Try schema-based categorization first
+        if discovery_indices:
+            from ..services.domain.schema.type_discovery import get_entity_category_from_schema
+
+            schema_category = get_entity_category_from_schema(
+                qname,
+                discovery_indices["person_types"],
+                discovery_indices["organization_types"]
+            )
+            if schema_category:
+                category = schema_category
+                category_source = "schema"
+                logger.debug(f"Categorized {qname} as {category} (schema-based)")
+
+        # Fall back to pattern-based categorization if schema didn't match
+        if category == "other":
+            try:
+                from ..services.entity_to_senzing import get_entity_category
+
+                entity_mock = {"qname": qname}
+                category = get_entity_category(entity_mock)
+                category_source = "pattern"
+                logger.debug(f"Categorized {qname} as {category} (pattern-based)")
+            except:
+                pass
 
         # Filter: Include person, organization, and location entity types
         # (as requested by user - key entities for resolution)
         if category not in ["person", "organization", "address"]:
-            logger.debug(f"Excluding {qname} from entity resolution (category: {category})")
+            logger.debug(f"Excluding {qname} from entity resolution (category: {category}, source: {category_source})")
             continue
 
         # Extract hierarchy path (list of qnames from root to this entity)
@@ -1582,7 +1731,16 @@ def handle_get_available_node_types() -> Dict:
 
     try:
         neo4j_client = Neo4jClient()
-        node_types = _get_available_node_types(neo4j_client)
+
+        # Get S3 client and active schema ID for schema-based discovery
+        from ..core.dependencies import get_s3_client
+        from ..handlers.schema import get_active_schema_id
+
+        s3 = get_s3_client()
+        schema_id = get_active_schema_id(s3)
+
+        # Call with schema info for enhanced discovery
+        node_types = _get_available_node_types(neo4j_client, s3=s3, schema_id=schema_id)
 
         logger.info(f"Found {len(node_types)} resolvable node types")
 

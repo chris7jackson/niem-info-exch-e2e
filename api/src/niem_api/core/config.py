@@ -90,14 +90,6 @@ class SenzingConfig:
     # Senzing data directory
     DATA_DIR = Path(os.getenv("SENZING_DATA_DIR", "/data/senzing"))
 
-    # Target node labels for entity resolution (NIEM Person/Organization entities)
-    TARGET_LABELS = [
-        "nc:Person",
-        "nc:Organization",
-        "j:CrashDriver",
-        "j:CrashPerson",
-    ]
-
     @classmethod
     def ensure_license(cls) -> bool:
         """Ensure Senzing license file exists, auto-decoding if needed.

@@ -7,7 +7,9 @@ reference relationships.
 """
 import argparse
 import hashlib
+import json
 import re
+from collections import defaultdict
 
 # Use defusedxml for secure XML parsing (prevents XXE attacks)
 import defusedxml.ElementTree as ET
@@ -470,6 +472,103 @@ def extract_unmapped_properties(
 # recursive flattening of unselected elements during ingestion
 
 
+def _extract_structures_metadata(elem: Element, struct_ns: str = None) -> dict[str, str]:
+    """Extract NIEM structures metadata (id, uri, ref) from an XML element.
+
+    Args:
+        elem: XML element to extract metadata from
+        struct_ns: NIEM structures namespace URI
+
+    Returns:
+        Dictionary with @id, @uri, @ref keys (only populated keys included)
+    """
+    metadata = {}
+
+    # Try to get structures:id
+    sid = get_structures_attr(elem, "id", struct_ns)
+    if sid:
+        metadata["@id"] = sid
+
+    # Try to get structures:uri
+    uri = get_structures_attr(elem, "uri", struct_ns)
+    if uri:
+        metadata["@uri"] = uri
+
+    # Try to get structures:ref
+    ref = get_structures_attr(elem, "ref", struct_ns)
+    if ref:
+        metadata["@ref"] = ref
+
+    return metadata
+
+
+def _merge_flattened_instances(child_instances: dict[str, list[dict]]) -> dict[str, Any]:
+    """Merge flattened child instances, JSON-encoding duplicates.
+
+    When multiple instances of the same element are flattened, they need to be
+    combined. Single instances remain as flat properties. Multiple instances
+    are JSON-encoded as an array to preserve all data and maintain grouping.
+
+    Args:
+        child_instances: Dict mapping child qname to list of instance dicts
+            Each instance dict has: {"data": {...props...}, "metadata": {...}}
+
+    Returns:
+        Dict of properties ready for Neo4j, with duplicates JSON-encoded
+
+    Example:
+        Input: {
+            "j:CrashPerson": [
+                {"data": {"nc_PersonName__nc_PersonGivenName": "Alice"}, "metadata": {"@id": "#P1"}},
+                {"data": {"nc_PersonName__nc_PersonGivenName": "Bob"}, "metadata": {"@id": "#P2"}}
+            ]
+        }
+        Output: {
+            "j_CrashPerson": '[{"@id":"#P1","nc_PersonName__nc_PersonGivenName":"Alice"},'
+                            '{"@id":"#P2","nc_PersonName__nc_PersonGivenName":"Bob"}]'
+        }
+    """
+    merged_props = {}
+
+    for child_qn, instances in child_instances.items():
+        if len(instances) == 1:
+            # Single instance - flatten properties normally
+            instance = instances[0]
+
+            # Type safety: ensure instance is a dict with "data" key
+            if not isinstance(instance, dict):
+                logger.error(f"Instance for {child_qn} is not a dict: {type(instance)} = {instance}")
+                continue
+
+            # Merge data properties directly into parent
+            data = instance.get("data", {})
+            if isinstance(data, dict):
+                merged_props.update(data)
+            else:
+                # If data is not a dict (shouldn't happen), log and skip
+                logger.warning(f"Expected dict for instance data in {child_qn}, got {type(data)}: {data}")
+            # Note: metadata is discarded for single instances (no array needed)
+        else:
+            # Multiple instances - JSON-encode as array
+            # Normalize child qname to property name
+            prop_name = child_qn.replace(":", "_")
+
+            # Build array of instance objects (metadata + data)
+            instance_array = []
+            for instance in instances:
+                # Combine metadata and data for this instance
+                instance_obj = {}
+                if instance["metadata"]:
+                    instance_obj.update(instance["metadata"])
+                instance_obj.update(instance["data"])
+                instance_array.append(instance_obj)
+
+            # JSON-encode the array
+            merged_props[prop_name] = json.dumps(instance_array, separators=(',', ':'), ensure_ascii=False)
+
+    return merged_props
+
+
 def _recursively_flatten_element(
     elem: Element,
     ns_map: dict[str, str],
@@ -478,7 +577,7 @@ def _recursively_flatten_element(
     cmf_element_index: set,
     path_prefix: str = "",
     struct_ns: str = None,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, str]]:
     """Recursively flatten an unselected element and all its descendants.
 
     This function extracts ALL data from an unselected element tree,
@@ -494,9 +593,13 @@ def _recursively_flatten_element(
         struct_ns: NIEM structures namespace URI
 
     Returns:
-        Dictionary of flattened properties with dot-notation paths
+        Tuple of (properties_dict, metadata_dict) where metadata contains structures:id/uri/ref
     """
     properties = {}
+
+    # Extract metadata (structures:id, structures:uri, structures:ref) from this element
+    metadata = _extract_structures_metadata(elem, struct_ns)
+
     elem_qn = qname_from_tag(elem.tag, ns_map)
 
     # Build property prefix for this level with double underscore delimiter
@@ -530,39 +633,50 @@ def _recursively_flatten_element(
     if elem.text and elem.text.strip() and len(list(elem)) == 0:
         # Store the text value directly at current_prefix
         properties[current_prefix] = elem.text.strip()
-        return properties
+        return properties, metadata
 
-    # Process children
+    # Process children - track instances to handle duplicates
+    child_instances = defaultdict(list)  # {child_qn: [{"data": {...}, "metadata": {...}}, ...]}
+
     for child in elem:
         child_qn = qname_from_tag(child.tag, ns_map)
 
         # Skip if child should be a node (selected in designer)
+        # This includes both regular objects AND associations that are selected
         if child_qn in obj_rules:
             continue
 
-        # Skip if child is an association (creates relationships, not properties)
-        if child_qn in assoc_by_qn:
-            continue
+        # Note: We do NOT skip children with structures:id/uri here because we're already
+        # inside _recursively_flatten_element(), meaning the parent was decided to be flattened.
+        # All children should be flattened regardless of id/uri attributes.
 
-        # Check if child has structures:id or uri (makes it a node)
-        child_sid = get_structures_attr(child, "id", struct_ns)
-        child_uri = get_structures_attr(child, "uri", struct_ns)
-        if child_sid or child_uri:
-            continue
-
-        # If child has simple text and no nested elements, store it
+        # If child has simple text and no nested elements, accumulate it
         if child.text and child.text.strip() and len(list(child)) == 0:
             prop_name = f"{current_prefix}__{child_qn.replace(':', '_')}"
-            properties[prop_name] = child.text.strip()
+            value = child.text.strip()
 
-        # If child has nested elements, recurse
+            # Check if this property already exists (duplicate simple child)
+            if prop_name in properties:
+                # Convert to array if not already
+                if not isinstance(properties[prop_name], list):
+                    properties[prop_name] = [properties[prop_name]]
+                properties[prop_name].append(value)
+            else:
+                properties[prop_name] = value
+
+        # If child has nested elements, recurse and accumulate
         elif len(list(child)) > 0:
-            nested_props = _recursively_flatten_element(
+            nested_props, nested_meta = _recursively_flatten_element(
                 child, ns_map, obj_rules, assoc_by_qn, cmf_element_index, current_prefix, struct_ns
             )
-            properties.update(nested_props)
+            # Accumulate this instance for deduplication
+            child_instances[child_qn].append({"data": nested_props, "metadata": nested_meta})
 
-    return properties
+    # Merge accumulated child instances (handles duplicates with JSON encoding)
+    merged_instances = _merge_flattened_instances(child_instances)
+    properties.update(merged_instances)
+
+    return properties, metadata
 
 
 def collect_scalar_setters(obj_rule: dict[str, Any], elem: Element, ns_map: dict[str, str]) -> list[tuple[str, str]]:
@@ -761,6 +875,15 @@ def generate_for_xml_content(
     # Load mapping from dictionary
     mapping, obj_rules, associations, references, ns_map = load_mapping_from_dict(mapping_dict)
 
+    # Log mapping statistics for debugging
+    logger.info(f"Converter mode: {mode}")
+    logger.info(f"Mapping contains: {len(obj_rules)} objects, {len(associations)} associations, {len(references)} references")
+    if obj_rules:
+        obj_qnames_sample = list(obj_rules.keys())[:10]
+        logger.info(f"Object qnames in mapping (first 10): {obj_qnames_sample}")
+    else:
+        logger.warning("⚠️  obj_rules is EMPTY - no nodes will be created in mapping mode!")
+
     # Extract CMF element index from mapping metadata if not provided
     if cmf_element_index is None:
         metadata = mapping_dict.get("metadata", {})
@@ -770,7 +893,7 @@ def generate_for_xml_content(
     # In dynamic mode, disable augmentation detection (all properties are standard)
     if mode == "dynamic":
         cmf_element_index = set()
-        logger.info("Dynamic mode: Augmentation detection disabled")
+        logger.info("Dynamic mode: Augmentation detection disabled - will create nodes for all complex elements")
 
     # Prepare association index
     assoc_by_qn = build_assoc_index(associations)
@@ -934,7 +1057,7 @@ def generate_for_xml_content(
                             nodes[parent_id][2][f"{prop_name}_isAugmentation"] = True
                     # If has nested structure, recursively flatten
                     elif len(list(aug_child)) > 0:
-                        flattened = _recursively_flatten_element(
+                        flattened, _meta = _recursively_flatten_element(
                             aug_child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, "", struct_ns
                         )
                         if parent_id in nodes and flattened:
@@ -985,7 +1108,7 @@ def generate_for_xml_content(
                     continue
 
                 # Flatten property
-                flattened = _recursively_flatten_element(
+                flattened, _meta = _recursively_flatten_element(
                     child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, "", struct_ns
                 )
                 aug_props.update(flattened)
@@ -1138,11 +1261,23 @@ def generate_for_xml_content(
             # Mapping mode: Only create nodes for elements explicitly selected in designer
             # Skip augmentations even if they're in the mapping
             should_create_node = obj_rule is not None and not is_augmentation
+            if not should_create_node:
+                if is_augmentation:
+                    logger.debug(f"Skipping {elem_qn} - is augmentation")
+                elif obj_rule is None:
+                    logger.debug(f"Skipping {elem_qn} - not in mapping (obj_rule is None)")
         elif mode == "dynamic":
             # Dynamic mode: Create nodes for all complex elements EXCEPT augmentations
-            should_create_node = _is_complex_element(elem, xml_ns_map, struct_ns) and not is_augmentation
+            is_complex = _is_complex_element(elem, xml_ns_map, struct_ns)
+            should_create_node = is_complex and not is_augmentation
+            if not should_create_node:
+                if is_augmentation:
+                    logger.debug(f"Skipping {elem_qn} - is augmentation")
+                elif not is_complex:
+                    logger.debug(f"Skipping {elem_qn} - not a complex element")
 
         if should_create_node:
+            logger.debug(f"Creating node for {elem_qn} (mode: {mode})")
             # Generate label
             if obj_rule:
                 # Use label from mapping
@@ -1227,10 +1362,10 @@ def generate_for_xml_content(
                     props[key] = value
 
             # Recursively flatten unselected children
-            # Note: This may create some duplicate properties with different names
-            # (e.g., "firstName" from scalar_props AND "nc_PersonName__nc_PersonGivenName" from flattening)
-            # but ensures complete data capture. Last write wins for same property name.
+            # Track instances to handle duplicates (multiple elements with same qname)
             aug_props = {}
+            child_instances = defaultdict(list)  # {child_qn: [{"data": {...}, "metadata": {...}}, ...]}
+
             for child in elem:
                 child_qn = qname_from_tag(child.tag, xml_ns_map)
 
@@ -1274,21 +1409,25 @@ def generate_for_xml_content(
                     # Skip flattening - it will create a containment relationship instead
                     continue
 
-                # Child is NOT a node - flatten it and all its descendants
+                # Child is NOT a node - flatten it and accumulate for deduplication
                 if child.text and child.text.strip() and len(list(child)) == 0:
-                    # Simple text child - flatten directly
-                    prop_name = child_qn.replace(":", "_")
+                    # Simple text child - accumulate directly
                     is_aug = cmf_element_index and is_augmentation(child_qn, cmf_element_index)
 
+                    instance_data = {child_qn.replace(":", "_"): child.text.strip()}
+                    instance_metadata = _extract_structures_metadata(child, struct_ns)
+
                     if is_aug:
+                        # For augmentation simple props, add directly (no deduplication needed)
+                        prop_name = child_qn.replace(":", "_")
                         aug_props[prop_name] = child.text.strip()
                         aug_props[f"{prop_name}_isAugmentation"] = True
                     else:
-                        props[prop_name] = child.text.strip()
+                        child_instances[child_qn].append({"data": instance_data, "metadata": instance_metadata})
 
                 elif len(list(child)) > 0:
                     # Complex child with nested elements - recursively flatten
-                    flattened = _recursively_flatten_element(
+                    flattened, metadata = _recursively_flatten_element(
                         child,
                         xml_ns_map,
                         obj_rules,
@@ -1301,12 +1440,18 @@ def generate_for_xml_content(
                     # Determine if this is augmentation data
                     is_aug = cmf_element_index and is_augmentation(child_qn, cmf_element_index)
 
-                    for prop_path, prop_value in flattened.items():
-                        if is_aug:
+                    if is_aug:
+                        # For augmentation complex props, add directly (no deduplication needed)
+                        for prop_path, prop_value in flattened.items():
                             aug_props[prop_path] = prop_value
                             aug_props[f"{prop_path}_isAugmentation"] = True
-                        else:
-                            props[prop_path] = prop_value
+                    else:
+                        # Accumulate this instance for deduplication
+                        child_instances[child_qn].append({"data": flattened, "metadata": metadata})
+
+            # Merge accumulated child instances (handles duplicates with JSON encoding)
+            merged_instances = _merge_flattened_instances(child_instances)
+            props.update(merged_instances)
 
             # Register node
             if node_id in nodes:
@@ -1387,7 +1532,7 @@ def generate_for_xml_content(
                             nodes[parent_id][2][f"{prop_name}_isAugmentation"] = True
                     # If has nested structure, recursively flatten
                     elif len(list(aug_child)) > 0:
-                        flattened = _recursively_flatten_element(
+                        flattened, _meta = _recursively_flatten_element(
                             aug_child, xml_ns_map, obj_rules, assoc_by_qn, cmf_element_index, "", struct_ns
                         )
                         if parent_id in nodes and flattened:

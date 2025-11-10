@@ -89,22 +89,16 @@ class SchemaDesignValidator:
     def validate_has_selections(self, selections: dict[str, bool], result: ValidationResult) -> None:
         """Validate that at least one node is selected.
 
+        Note: Empty selections are now allowed and will default to dynamic behavior.
+        This method is kept for potential future use but no longer adds errors.
+
         Args:
             selections: Dictionary mapping qnames to selection state
             result: ValidationResult to add errors to
         """
-        selected_count = sum(1 for is_selected in selections.values() if is_selected)
-
-        if selected_count == 0:
-            result.errors.append(
-                ValidationMessage(
-                    severity=ValidationSeverity.ERROR,
-                    type=ValidationErrorType.NO_SELECTIONS.value,
-                    message="Must select at least one element to create graph nodes",
-                    recommendation="Select at least one element from the tree to proceed with schema design",
-                    impact="high",
-                )
-            )
+        # Empty selections are allowed - they will default to dynamic mode
+        # No validation error needed
+        pass
 
     def detect_sparse_connectivity(
         self, selections: dict[str, bool], element_tree: list[dict], result: ValidationResult

@@ -26,6 +26,7 @@ import hashlib
 import json
 import logging
 import time
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
@@ -203,9 +204,76 @@ def extract_properties(obj: dict[str, Any], obj_rule: dict[str, Any], context: d
     return setters
 
 
+def _merge_flattened_instances(child_instances: dict[str, list[dict]]) -> dict[str, Any]:
+    """Merge flattened child instances, JSON-encoding duplicates.
+
+    When multiple instances of the same element are flattened, they need to be
+    combined. Single instances remain as flat properties. Multiple instances
+    are JSON-encoded as an array to preserve all data and maintain grouping.
+
+    Args:
+        child_instances: Dict mapping child qname to list of instance dicts
+            Each instance dict has: {"data": {...props...}, "metadata": {...}}
+
+    Returns:
+        Dict of properties ready for Neo4j, with duplicates JSON-encoded
+
+    Example:
+        Input: {
+            "j:CrashPerson": [
+                {"data": {"nc_PersonName__nc_PersonGivenName": "Alice"}, "metadata": {"@id": "#P1"}},
+                {"data": {"nc_PersonName__nc_PersonGivenName": "Bob"}, "metadata": {"@id": "#P2"}}
+            ]
+        }
+        Output: {
+            "j_CrashPerson": '[{"@id":"#P1","nc_PersonName__nc_PersonGivenName":"Alice"},'
+                            '{"@id":"#P2","nc_PersonName__nc_PersonGivenName":"Bob"}]'
+        }
+    """
+    merged_props = {}
+
+    for child_qn, instances in child_instances.items():
+        if len(instances) == 1:
+            # Single instance - flatten properties normally
+            instance = instances[0]
+
+            # Type safety: ensure instance is a dict with "data" key
+            if not isinstance(instance, dict):
+                logger.error(f"Instance for {child_qn} is not a dict: {type(instance)} = {instance}")
+                continue
+
+            # Merge data properties directly into parent
+            data = instance.get("data", {})
+            if isinstance(data, dict):
+                merged_props.update(data)
+            else:
+                # If data is not a dict (shouldn't happen), log and skip
+                logger.warning(f"Expected dict for instance data in {child_qn}, got {type(data)}: {data}")
+            # Note: metadata is discarded for single instances (no array needed)
+        else:
+            # Multiple instances - JSON-encode as array
+            # Normalize child qname to property name
+            prop_name = child_qn.replace(":", "_")
+
+            # Build array of instance objects (metadata + data)
+            instance_array = []
+            for instance in instances:
+                # Combine metadata and data for this instance
+                instance_obj = {}
+                if instance["metadata"]:
+                    instance_obj.update(instance["metadata"])
+                instance_obj.update(instance["data"])
+                instance_array.append(instance_obj)
+
+            # JSON-encode the array
+            merged_props[prop_name] = json.dumps(instance_array, separators=(',', ':'), ensure_ascii=False)
+
+    return merged_props
+
+
 def _recursively_flatten_json_object(
     obj: dict[str, Any], obj_rules: dict[str, Any], assoc_by_qn: dict[str, Any], path_prefix: str = ""
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, str]]:
     """Recursively flatten an unselected JSON object and all its descendants.
 
     Args:
@@ -215,12 +283,19 @@ def _recursively_flatten_json_object(
         path_prefix: Prefix for property paths
 
     Returns:
-        Dictionary of flattened properties with hierarchical names
+        Tuple of (flattened_properties, metadata) where metadata contains @id/@type
     """
     flattened = {}
 
+    # Extract metadata (@id, @type) from this object
+    metadata = {}
+    if "@id" in obj:
+        metadata["@id"] = obj["@id"]
+    if "@type" in obj:
+        metadata["@type"] = obj["@type"]
+
     for key, value in obj.items():
-        # Skip JSON-LD keywords
+        # Skip JSON-LD keywords (already extracted as metadata)
         if key.startswith("@"):
             continue
 
@@ -236,6 +311,8 @@ def _recursively_flatten_json_object(
         elif isinstance(value, list):
             # Handle arrays
             simple_values = []
+            complex_instances = []  # Accumulate complex objects for JSON encoding
+
             for item in value:
                 if isinstance(item, (str, int, float, bool)):
                     simple_values.append(item)
@@ -244,10 +321,22 @@ def _recursively_flatten_json_object(
                     item_type = item.get("@type") or key
                     if item_type not in obj_rules and item_type not in assoc_by_qn:
                         # Recursively flatten nested object
-                        nested_props = _recursively_flatten_json_object(item, obj_rules, assoc_by_qn, prop_path)
-                        flattened.update(nested_props)
+                        nested_props, nested_meta = _recursively_flatten_json_object(item, obj_rules, assoc_by_qn, "")
+                        # Combine metadata and data for this instance
+                        instance_obj = {}
+                        if nested_meta:
+                            instance_obj.update(nested_meta)
+                        instance_obj.update(nested_props)
+                        complex_instances.append(instance_obj)
+
+            # Store simple values as array
             if simple_values:
                 flattened[prop_path] = simple_values
+
+            # Store complex instances as JSON-encoded array
+            if complex_instances:
+                # Use the key (not prop_path with prefix) since we're at the root level
+                flattened[key_normalized] = json.dumps(complex_instances, separators=(',', ':'), ensure_ascii=False)
 
         elif isinstance(value, dict):
             # Check if this is a reference
@@ -259,10 +348,11 @@ def _recursively_flatten_json_object(
                 nested_type = value.get("@type") or key
                 if nested_type not in obj_rules and nested_type not in assoc_by_qn:
                     # Recursively flatten nested object
-                    nested_props = _recursively_flatten_json_object(value, obj_rules, assoc_by_qn, prop_path)
+                    nested_props, _nested_meta = _recursively_flatten_json_object(value, obj_rules, assoc_by_qn, prop_path)
                     flattened.update(nested_props)
+                    # Note: nested metadata discarded for single objects (no array needed)
 
-    return flattened
+    return flattened, metadata
 
 
 def detect_associations_from_json_data(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -529,6 +619,10 @@ def generate_for_json_content(
     # Process each object
     object_counter = 0
 
+    # Track flattened instances to handle duplicates (multiple objects flattened onto same parent)
+    # Structure: {(parent_id, qname): [{"data": {...}, "metadata": {...}}, ...]}
+    flattened_accumulator = defaultdict(list)
+
     def process_jsonld_object(
         obj: dict[str, Any], parent_id: str = None, parent_label: str = None, property_name: str = None
     ):
@@ -698,7 +792,7 @@ def generate_for_json_content(
                 # Flatten property
                 if isinstance(value, dict) and not is_reference(value):
                     prefix = key.replace(":", "_")
-                    flattened = _recursively_flatten_json_object(value, obj_rules, assoc_by_qn, prefix)
+                    flattened, _meta = _recursively_flatten_json_object(value, obj_rules, assoc_by_qn, prefix)
                     aug_props.update(flattened)
                 elif isinstance(value, (str, int, float, bool)):
                     prop_key = key.replace(":", "_")
@@ -881,13 +975,16 @@ def generate_for_json_content(
 
             # Flatten properties onto parent node (if parent exists)
             elif parent_id and parent_id in nodes:
-                parent_node = nodes[parent_id]
-                parent_props = parent_node[2]  # props_dict is at index 2
-
                 # Recursively flatten all properties from this unselected object
                 prefix = property_name.replace(":", "_") if property_name else ""
-                flattened = _recursively_flatten_json_object(obj, obj_rules, assoc_by_qn, prefix)
-                parent_props.update(flattened)
+                flattened, metadata = _recursively_flatten_json_object(obj, obj_rules, assoc_by_qn, prefix)
+
+                # Accumulate this instance (handles multiple objects with same qname)
+                qname = obj.get("@type") or property_name
+                flattened_accumulator[(parent_id, qname)].append({
+                    "data": flattened,
+                    "metadata": metadata
+                })
             else:
                 # Process children even if no parent to create nodes for
                 for key, value in obj.items():
@@ -1078,6 +1175,15 @@ def generate_for_json_content(
     for obj in objects:
         if isinstance(obj, dict):
             process_jsonld_object(obj)
+
+    # Merge accumulated flattened instances onto their parent nodes
+    # This handles cases where multiple unselected objects with the same qname
+    # were flattened onto the same parent (prevents data loss from overwrites)
+    for (parent_id, qname), instances in flattened_accumulator.items():
+        if parent_id in nodes:
+            parent_props = nodes[parent_id][2]  # props_dict is at index 2
+            merged = _merge_flattened_instances({qname: instances})
+            parent_props.update(merged)
 
     # Generate EntityHub nodes for multi-occurrence @ids
     for entity_id, hub_info in id_entity_registry.items():

@@ -5,6 +5,7 @@ This module applies user node selections to generate customized mapping.yaml
 files directly from XSD, preserving all data with the same resolution as CMF.
 """
 
+import logging
 from typing import Any, Optional
 
 from .xsd_element_tree import (
@@ -18,6 +19,8 @@ from .xsd_element_tree import (
     is_wrapper_type,
     is_entity_type,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _find_nearest_selected_ancestor(
@@ -168,19 +171,31 @@ def apply_schema_design_from_xsd(
     # Auto-select association endpoints for selected associations
     # This ensures associations can become edges even if endpoints weren't explicitly selected
     # Only auto-select entity endpoints, not wrapper properties (they're always flattened)
+    logger.info(f"DEBUG: Auto-selecting endpoints for {sum(1 for q in selected_set if q in association_elements)} selected associations")
     for assoc_qname in list(selected_set):  # Use list() to avoid modifying set during iteration
         if assoc_qname not in association_elements:
             continue
 
         _, type_def = association_elements[assoc_qname]
+        logger.info(f"DEBUG: Processing association {assoc_qname} with {len(type_def.elements)} child elements")
         for child_elem in type_def.elements:
             child_ref = child_elem.get("ref")
+            child_name = child_elem.get("name")
+            logger.info(f"DEBUG:   Child ref={child_ref}, name={child_name}")
             if child_ref and child_ref in object_elements:
-                # Check if this is an entity endpoint (not a wrapper property)
+                # Check if this is an entity endpoint (using schema-based detection)
                 child_elem_decl, child_type_def = object_elements[child_ref]
-                if not is_wrapper_type(child_elem_decl.type_ref, child_type_def):
+                is_entity = is_entity_type(
+                    child_elem_decl.name,
+                    child_elem_decl.type_ref,
+                    child_type_def,
+                    type_definitions  # Pass type definitions for schema-based detection
+                )
+                logger.info(f"DEBUG:     is_entity_type({child_ref}) = {is_entity}")
+                if is_entity:
                     # Auto-add entity endpoint to selected set
                     selected_set.add(child_ref)
+                    logger.info(f"DEBUG:     ✓ Auto-selected endpoint: {child_ref}")
 
     # Build objects mapping - preserves all data
     objects_mapping = []
@@ -431,6 +446,14 @@ def apply_schema_design_from_xsd(
                     ],
                 }
             )
+
+    # Log final mapping statistics
+    logger.info(f"DEBUG: Final mapping - {len(objects_mapping)} objects, {len(associations_mapping)} associations, {len(references_mapping)} references")
+    if associations_mapping:
+        assoc_qnames = [a.get('qname') for a in associations_mapping]
+        logger.info(f"DEBUG: Association qnames in final mapping: {assoc_qnames}")
+    else:
+        logger.warning(f"DEBUG: NO ASSOCIATIONS in final mapping despite {sum(1 for q in selected_set if q in association_elements)} selected!")
 
     # Assemble final mapping (matches CMF lines 437-447)
     return {

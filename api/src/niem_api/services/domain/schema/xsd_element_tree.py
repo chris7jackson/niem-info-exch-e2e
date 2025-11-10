@@ -236,22 +236,95 @@ def is_wrapper_type(type_name: Optional[str], type_def: Optional["TypeDefinition
 
 
 def is_entity_type(
-    elem_name: Optional[str], type_name: Optional[str], type_def: Optional["TypeDefinition"] = None
+    elem_name: Optional[str],
+    type_name: Optional[str],
+    type_def: Optional["TypeDefinition"] = None,
+    type_definitions: Optional[dict[str, "TypeDefinition"]] = None
 ) -> bool:
     """Determine if an element represents a real entity vs a property.
 
     Entity elements should be association endpoints.
     Property elements should be flattened.
 
+    Uses schema-based detection to identify person and organization entities:
+    - Types that extend nc:PersonType are entities
+    - Types that extend nc:OrganizationType are entities
+    - Types that extend nc:LocationType are entities
+    - Falls back to pattern matching for other types
+
+    Component types (PersonName, OrganizationName, etc.) are NEVER entities.
+
     Args:
         elem_name: Qualified name of the element (e.g., "nc:Person")
         type_name: Qualified name of the type (e.g., "nc:PersonType")
         type_def: TypeDefinition object if available
+        type_definitions: Optional dict of all type definitions for hierarchy lookup
 
     Returns:
         True if this should be an association endpoint
     """
-    # First check if it's a wrapper - if so, NOT an entity
+    # Explicitly exclude NIEM component types (these should ALWAYS be flattened)
+    # These are property containers, not standalone entities
+    component_types = {
+        "nc:PersonName",
+        "nc:OrganizationName",
+        "nc:PersonBirthDate",
+        "nc:PersonDeathDate",
+        "nc:PersonGivenName",
+        "nc:PersonSurName",
+        "nc:PersonMiddleName",
+        "nc:PersonFullName",
+        "nc:AddressFullText",
+        "nc:Date",
+        "nc:ActivityDate",
+        "nc:TelephoneNumber",
+        "nc:ContactInformation",
+    }
+
+    if elem_name in component_types:
+        return False
+
+    # Schema-based entity detection (primary method)
+    # Check if type extends known entity base types
+    if type_def and type_definitions:
+        # Recursively check if this type extends a known entity base type
+        known_entity_base_types = {
+            "nc:PersonType",
+            "nc:OrganizationType",
+            "nc:LocationType",
+            "nc:AddressType",
+            "nc:ActivityType",
+            "nc:ItemType",
+            "nc:EntityType",
+            "structures:ObjectType",  # All NIEM objects
+        }
+
+        def extends_entity_type(td: "TypeDefinition", visited: set[str] | None = None) -> bool:
+            """Recursively check if type extends an entity base type."""
+            if visited is None:
+                visited = set()
+
+            # Prevent infinite loops
+            if td.name in visited:
+                return False
+            visited.add(td.name)
+
+            # Check direct base type
+            if td.base_type in known_entity_base_types:
+                return True
+
+            # Recursively check parent types
+            if td.base_type and td.base_type in type_definitions:
+                parent_td = type_definitions[td.base_type]
+                return extends_entity_type(parent_td, visited)
+
+            return False
+
+        if extends_entity_type(type_def):
+            # This type extends a known entity base - it's an entity
+            return True
+
+    # Check if it's a wrapper - if so, NOT an entity
     if is_wrapper_type(type_name, type_def):
         return False
 
