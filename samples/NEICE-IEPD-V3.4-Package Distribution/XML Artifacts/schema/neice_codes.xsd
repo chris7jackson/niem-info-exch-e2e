@@ -1,0 +1,1619 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns:cb_code="http://cb.acf.hhs.gov/neice/2.0/codes/"
+	xmlns:i="http://release.niem.gov/niem/appinfo/4.0/"
+	xmlns:s="http://release.niem.gov/niem/structures/4.0/"
+	xmlns:niem-xsd="http://release.niem.gov/niem/proxy/xsd/4.0/"
+	xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/"
+	xmlns:nc="http://release.niem.gov/niem/niem-core/4.0/"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	xmlns:ns1="http://cb.acf.hhs.gov/neice/2.0/ext/"
+	version="3"
+	ct:conformanceTargets="http://reference.niem.gov/niem/specification/naming-and-design-rules/4.0/#ExtensionSchemaDocument"
+	targetNamespace="http://cb.acf.hhs.gov/neice/2.0/codes/"
+	elementFormDefault="qualified" blockDefault="extension">
+	<xs:annotation>
+		<xs:documentation>NEICE Codes Schema.</xs:documentation>
+	</xs:annotation>
+	<xs:import namespace="http://release.niem.gov/niem/appinfo/4.0/" schemaLocation="../niem/utility/appinfo/4.0/appinfo.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/niem-core/4.0/" schemaLocation="../niem/niem-core/4.0/niem-core.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/proxy/xsd/4.0/" schemaLocation="../niem/proxy/xsd/4.0/xs.xsd"/>
+	<xs:import namespace="http://release.niem.gov/niem/structures/4.0/" schemaLocation="../niem/utility/structures/4.0/structures.xsd"/>
+	<xs:complexType name="PlacementAdoptionFinalizationLocationCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the state in which the child / youth's adoption would be finalized</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:PlacementAdoptionFinalizationLocationCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="PlacementAdoptionFinalizationLocationCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the state in which the child / youth's adoption would be finalized</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="SendingState">
+				<xs:annotation>
+					<xs:documentation>Social History</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ReceivingState">
+				<xs:annotation>
+					<xs:documentation>Court Order</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="ChildCurrentLegalPlacementStatusCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes a child's legal placement
+                status.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:ChildCurrentLegalPlacementStatusCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="ChildCurrentLegalPlacementStatusCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the child's legal placement status</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="SendingAgencyCustody">
+				<xs:annotation>
+					<xs:documentation>Custody of the Sending Agency</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ParentOrRelativeCustody">
+				<xs:annotation>
+					<xs:documentation>Custody of Parent or Relative</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CourtJurisdictionOnly">
+				<xs:annotation>
+					<xs:documentation>Court Jurisdiction Only</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ProtectiveSupervision">
+				<xs:annotation>
+					<xs:documentation>In Protective Supervision</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ParentalRightToPlaceTerminated">
+				<xs:annotation>
+					<xs:documentation>Parental Right to place the child
+                        terminated</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="UnaccompaniedRefugeeMinor">
+				<xs:annotation>
+					<xs:documentation>Unaccompanied Refugee Minor</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Other">
+				<xs:annotation>
+					<xs:documentation>Other</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="ChildICWAEligibilityCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes a child's legal placement
+                status.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:ChildICWAEligibilityCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="ChildICWAEligibilityCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for whether a child is ICWA eligible.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="Yes">
+				<xs:annotation>
+					<xs:documentation>Child is ICWA eligible</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="No">
+				<xs:annotation>
+					<xs:documentation>Child is not ICWA eligible</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Pending">
+				<xs:annotation>
+					<xs:documentation>Child's ICWA eligibility is pending</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="ChildIVEDeterminationStatusCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that indicates the child's Title IV-E Eligibility.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:ChildIVEDeterminationStatusCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="ChildIVEDeterminationStatusCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that indicates the child's Title IV-E Eligibility.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="Yes">
+				<xs:annotation>
+					<xs:documentation>Child is Title IV-E eligible</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="No">
+				<xs:annotation>
+					<xs:documentation>Child is not Title IV-E eligible</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Pending">
+				<xs:annotation>
+					<xs:documentation>Child's Title IV-E eligibility is pending</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="DispositionCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes a result or outcome of a disposition.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:DispositionCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="DispositionCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes a result or outcome of a disposition.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="Approved">
+				<xs:annotation>
+					<xs:documentation>Approved</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Denied">
+				<xs:annotation>
+					<xs:documentation>Denied</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="DispositionReasonCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes a reason for a disposition.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:DispositionReasonCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="DispositionReasonCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes a reason for a disposition.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="CriminalBackgroundChecks">
+				<xs:annotation>
+					<xs:documentation>Criminal Background Checks</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ChildProtectionHistory">
+				<xs:annotation>
+					<xs:documentation>Child Protection History</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ChildReturnedToParents">
+				<xs:annotation>
+					<xs:documentation>Child Returned to Parents</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="NotInterestedNoLongerInterested">
+				<xs:annotation>
+					<xs:documentation>Not Interested/No Longer Interested in Being Placement Resource</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="LackOfCooperation">
+				<xs:annotation>
+					<xs:documentation>Lack of Cooperation of Resource</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="InsufficientRoom">
+				<xs:annotation>
+					<xs:documentation>Insufficient Room</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="InsufficientIncomeFinancialInstability">
+				<xs:annotation>
+					<xs:documentation>Insufficient Income/Financial Instability</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="FailureToCompleteFosterCareLicense">
+				<xs:annotation>
+					<xs:documentation>Failure to complete Foster Care License</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="FosterCareLicenseDenial">
+				<xs:annotation>
+					<xs:documentation>Foster Care License Denial</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ResourceIsUndocumentedImmigrant">
+				<xs:annotation>
+					<xs:documentation>Resource is Undocumented Immigrant</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PaternityNotEstablished">
+				<xs:annotation>
+					<xs:documentation>Paternity Not Established</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="NonPaternityRelativeRelationshipNotEstablished">
+				<xs:annotation>
+					<xs:documentation>Non-paternity relative relationship not established</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AgeRestrictedCommunity">
+				<xs:annotation>
+					<xs:documentation>Age Restricted Community</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="HomeStudyYoungAdultOver18">
+				<xs:annotation>
+					<xs:documentation>Home Study for Young Adult over 18</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="HomeStudyNotCompletedIn60Days">
+				<xs:annotation>
+					<xs:documentation>Home Study Not Completed In 60 Days</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PoorHealthOfResource">
+				<xs:annotation>
+					<xs:documentation>Poor Health of Resource</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ResourceCannotManageChildsSpecialNeeds">
+				<xs:annotation>
+					<xs:documentation>Resource Cannot Manage Child’s Special Needs</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ResourceCommunityLacksServicesNecessaryForChild">
+				<xs:annotation>
+					<xs:documentation>Resource Community Lacks Services Necessary for Child</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="OneSpouseInMarriedCoupleDoesNotWishToAdopt">
+				<xs:annotation>
+					<xs:documentation>One Spouse In Married Couple Does Not Wish To Adopt</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="LegalRestriction">
+				<xs:annotation>
+					<xs:documentation>Legal Restriction</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="OtherReason">
+				<xs:annotation>
+					<xs:documentation>Other Reason</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="InitialReportRequestedCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the kind of initial report requested.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:InitialReportRequestedCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="InitialReportRequestedCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the kind of initial report requested.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="ParentHomeStudy">
+				<xs:annotation>
+					<xs:documentation>Parent Home Study</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RelativeHomeStudy">
+				<xs:annotation>
+					<xs:documentation>Relative Home Study</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdoptiveHomeStudy">
+				<xs:annotation>
+					<xs:documentation>Adoptive Home Study</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="FosterHomeStudy">
+				<xs:annotation>
+					<xs:documentation>Foster Home Study</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="PersonGenderIdentityCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a gender of a person's identity.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="Did not disclose">
+				<xs:annotation>
+					<xs:documentation>Did not disclose</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Female">
+				<xs:annotation>
+					<xs:documentation>Female</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Genderqueer/Gender Non-conforming">
+				<xs:annotation>
+					<xs:documentation>Genderqueer/Gender Non-conforming (Includes gender-variant children)</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Intersex/Non-binary gender">
+				<xs:annotation>
+					<xs:documentation>Intersex/Non-binary gender</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Male">
+				<xs:annotation>
+					<xs:documentation>Male</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Transgender Female to Male (FTM)">
+				<xs:annotation>
+					<xs:documentation>Transgender Female to Male (FTM)</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Transgender General">
+				<xs:annotation>
+					<xs:documentation>Transgender General (Includes two-spirit, Transsexual, Cross-dresser)</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Transgender Male to Female (MTF)">
+				<xs:annotation>
+					<xs:documentation>Transgender Male to Female (MTF)</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Unknown">
+				<xs:annotation>
+					<xs:documentation>Unknown</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Other">
+				<xs:annotation>
+					<xs:documentation>Other</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="PersonGenderIdentityCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a gender of a person's identity.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:PersonGenderIdentityCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="PlacementIVESubsidyCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a .</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="IVE">
+				<xs:annotation>
+					<xs:documentation>IV-E</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="NonIVE">
+				<xs:annotation>
+					<xs:documentation>Non IV-E</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Pending">
+				<xs:annotation>
+					<xs:documentation>Pending</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="None">
+				<xs:annotation>
+					<xs:documentation>None</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="PlacementIVESubsidyCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a kind of placement, either public or private.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:PlacementIVESubsidyCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="PlacementPublicPrivateCategoryCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a kind of placement, either public or private.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="PRIVATE">
+				<xs:annotation>
+					<xs:documentation>Private Placement</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PUBLIC">
+				<xs:annotation>
+					<xs:documentation>Public Placement</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="PlacementPublicPrivateCategoryCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a kind of placement, either public or private.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:PlacementPublicPrivateCategoryCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="PlacementLocationCodeSimpleType">
+    <xs:annotation>
+      <xs:documentation>A data type for a list that describes the location of a child or youth's placement.</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:token">
+    	<xs:enumeration value="AdoptiveHomeFinalizingInSendingState">
+    		<xs:annotation>
+    			<xs:documentation>Adoptive Home finalizing in Sending State</xs:documentation>
+    		</xs:annotation>
+    	</xs:enumeration>
+    	<xs:enumeration value="AdoptiveHomeFinalizingInReceivingState">
+    		<xs:annotation>
+    			<xs:documentation>Adoptive Home finalizing in Receiving State</xs:documentation>
+    		</xs:annotation>
+    	</xs:enumeration>
+    	<xs:enumeration value="AdoptiveHomePending">
+    		<xs:annotation>
+    			<xs:documentation>Adoptive Home Pending</xs:documentation>
+    		</xs:annotation>
+    	</xs:enumeration>
+    	<xs:enumeration value="FosterFamilyHome">
+    		<xs:annotation>
+    			<xs:documentation>Foster Family Home</xs:documentation>
+    		</xs:annotation>
+    	</xs:enumeration>
+    	<xs:enumeration value="GroupHomeCare">
+    		<xs:annotation>
+    			<xs:documentation>Group Home Care</xs:documentation>
+    		</xs:annotation>
+    	</xs:enumeration>
+    	<xs:enumeration value="ChildCaringInstitution">
+    		<xs:annotation>
+    			<xs:documentation>Child-Caring Institution</xs:documentation>
+    		</xs:annotation>
+    	</xs:enumeration>
+    	<xs:enumeration value="ResidentialTreatmentCenter">
+    		<xs:annotation>
+    			<xs:documentation>Residential Treatment Center</xs:documentation>
+    		</xs:annotation>
+    	</xs:enumeration>
+    	<xs:enumeration value="Parent">
+    		<xs:annotation>
+    			<xs:documentation>Parent</xs:documentation>
+    		</xs:annotation>
+    	</xs:enumeration>
+    	<xs:enumeration value="InstitutionalCareArticleVIAdjudicatedDelinquent">
+    		<xs:annotation>
+    			<xs:documentation>Institutional Care - Article VI Adjudicated Delinquent</xs:documentation>
+    		</xs:annotation>
+    	</xs:enumeration>
+    	<xs:enumeration value="RelativeNotParent">
+    		<xs:annotation>
+    			<xs:documentation>Relative (Not Parent)</xs:documentation>
+    		</xs:annotation>
+    	</xs:enumeration>
+    	<xs:enumeration value="Other">
+        <xs:annotation>
+          <xs:documentation>Other (specify in text field)</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="PlacementLocationCodeType">
+    <xs:annotation>
+      <xs:documentation>A data type for a list that describes the location of a child or youth's placement.</xs:documentation>
+    </xs:annotation>
+    <xs:simpleContent>
+      <xs:extension base="cb_code:PlacementLocationCodeSimpleType">
+        <xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+	<xs:complexType name="PlacementResourceRelatedPersonCategoryCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a kind of placement resource related person</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:PlacementResourceRelatedPersonCategoryCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="PlacementResourceRelatedPersonCategoryCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a kind of placement resource related person</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="Caregiver">
+				<xs:annotation>
+					<xs:documentation>Caregiver</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Household">
+				<xs:annotation>
+					<xs:documentation>Household</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="SupervisingServicesRequestCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes which agency would perform supervision</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:SupervisingServicesRequestCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="SupervisingServicesRequestCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes which agency would perform supervision</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="SendingAgencyToSupervise">
+				<xs:annotation>
+					<xs:documentation>Sending Agency to Supervise</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RequestReceivingStatetoArrangeSupervision">
+				<xs:annotation>
+					<xs:documentation>Request Receiving State to Arrange Supervision</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AnotherAgencyAgreedtoSupervise">
+				<xs:annotation>
+					<xs:documentation>Another Agency Agreed to Supervise</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Other">
+				<xs:annotation>
+					<xs:documentation>Other</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="ReportPeriodicityCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the periodicity of a desired report</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:ReportPeriodicityCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="ReportPeriodicityCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the periodicity of a desired report</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="MONTHLY">
+				<xs:annotation>
+					<xs:documentation>MONTHLY</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="QUARTERLY">
+				<xs:annotation>
+					<xs:documentation>QUARTERLY</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="SEMI_ANNUAL">
+				<xs:annotation>
+					<xs:documentation>SEMI_ANNUAL</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="OTHER">
+				<xs:annotation>
+					<xs:documentation>OTHER</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="HomeStudyCategoryCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the different home study types based on the ICPC regulation</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:HomeStudyCategoryCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="HomeStudyCategoryCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the kind of the desired home study report</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="HomeStudy">
+				<xs:annotation>
+					<xs:documentation>Regulation 2 -  Public Adoption or Foster Care in Family Settings and/or with Parents, Relatives</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="IntactRelocation">
+				<xs:annotation>
+					<xs:documentation>Regulation 1 - Intact Relocation of Family Units</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PriorityPlacement">
+				<xs:annotation>
+					<xs:documentation>Regulation 7 - Expedited Placement Decision</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PrivateAdoption">
+				<xs:annotation>
+					<xs:documentation>Regulation 12 - Private Adoption Home Study</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ResidentialPlacement">
+				<xs:annotation>
+					<xs:documentation>Regulation 4 - Residential Placement</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="TransmittalPurposeCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for the purpose of a transmittal.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:TransmittalPurposeCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="TransmittalPurposeCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for the purpose of a transmittal.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="Sending100AHomeStudyRequest">
+				<xs:annotation>
+					<xs:documentation>Sending 100A Home Study Request</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Sending100AHomeStudyUpdate">
+				<xs:annotation>
+					<xs:documentation>Sending 100A Home Study Update</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Sending100AHomeStudyResponse">
+				<xs:annotation>
+					<xs:documentation>Sending 100A Home Study Response</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="SendingSupervisionReport">
+				<xs:annotation>
+					<xs:documentation>Sending Supervision Report</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Sending100BInitialPlacement">
+				<xs:annotation>
+					<xs:documentation>Sending 100B Initial Placement</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Sending100BPlacementChange">
+				<xs:annotation>
+					<xs:documentation>Sending 100B Placement Change</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Sending100BClosure">
+				<xs:annotation>
+					<xs:documentation>Sending 100B Closure</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RequestForSupervisionReport">
+				<xs:annotation>
+					<xs:documentation>Request For Supervision Report</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RequestFor100BInitialPlacement">
+				<xs:annotation>
+					<xs:documentation>Request For 100B Initial Placement</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RequestFor100BClosure">
+				<xs:annotation>
+					<xs:documentation>Request For 100B Closure</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RequestForAdditionalDocument">
+				<xs:annotation>
+					<xs:documentation>Request For Additional Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="SendingAdditionalDocument">
+				<xs:annotation>
+					<xs:documentation>Sending Additional Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ProvisionalDecision">
+				<xs:annotation>
+					<xs:documentation>Provisional Decision</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RequestForRevisionClarification">
+				<xs:annotation>
+					<xs:documentation>Request for Revision/Clarification</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RequestHomeStudyStatus">
+				<xs:annotation>
+					<xs:documentation>Request Home Study Status</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="SendingHomeStudyStatus">
+				<xs:annotation>
+					<xs:documentation>Sending Home Study Status</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ConcurrenceRequest">
+				<xs:annotation>
+					<xs:documentation>Concurrence Request</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ConcurrenceResponse">
+				<xs:annotation>
+					<xs:documentation>Concurrence Response</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="SendingPreliminaryHomeEvaluation">
+				<xs:annotation>
+					<xs:documentation>Sending Preliminary Home Evaluation</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Other">
+				<xs:annotation>
+					<xs:documentation>Other</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="RelativePlacementResourcesCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a description of the relatives of a child or youth who might be available and able to provide some care.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:RelativePlacementResourcesCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="RelativePlacementResourcesCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a description of the relatives of a child or youth who might be available and able to provide some care.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="AdultAunt">
+				<xs:annotation>
+					<xs:documentation>Adult Aunt</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdultBrother">
+				<xs:annotation>
+					<xs:documentation>Adult Brother</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdultCousin">
+				<xs:annotation>
+					<xs:documentation>Adult Cousin</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="LegalGuardian">
+				<xs:annotation>
+					<xs:documentation>Legal Guardian</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Grandfather">
+				<xs:annotation>
+					<xs:documentation>Grandfather</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="GrandfatherAndGrandmother">
+				<xs:annotation>
+					<xs:documentation>Grandfather and Grandmother</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Grandmother">
+				<xs:annotation>
+					<xs:documentation>Grandmother</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="MatAdultAuntAndUncle">
+				<xs:annotation>
+					<xs:documentation>Maternal Adult Aunt and Uncle</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="MatAdultAunt">
+				<xs:annotation>
+					<xs:documentation>Maternal Adult Aunt</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdultMatCousin">
+				<xs:annotation>
+					<xs:documentation>Adult Maternal Cousin</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="MatGrandfather">
+				<xs:annotation>
+					<xs:documentation>Maternal Grandfather</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="MatGrandmother">
+				<xs:annotation>
+					<xs:documentation>Maternal Grandmother</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="MatGrandparents">
+				<xs:annotation>
+					<xs:documentation>Maternal Grandparents</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="MatAdultUncle">
+				<xs:annotation>
+					<xs:documentation>Maternal Adult Uncle</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="OtherRelative">
+				<xs:annotation>
+					<xs:documentation>Other Relative</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PatAdultAuntAndUncle">
+				<xs:annotation>
+					<xs:documentation>Paternal Adult Aunt and Uncle</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ProspectiveAdoptiveParents">
+				<xs:annotation>
+					<xs:documentation>Prospective Adoptive Parent(s)</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PatAdultAunt">
+				<xs:annotation>
+					<xs:documentation>Paternal Adult Aunt </xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdultPatCousin">
+				<xs:annotation>
+					<xs:documentation>Adult Paternal Cousin</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PatGrandfather">
+				<xs:annotation>
+					<xs:documentation>Paternal Grandfather</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PatGrandmother">
+				<xs:annotation>
+					<xs:documentation>Paternal Grandmother</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PatGrandparents">
+				<xs:annotation>
+					<xs:documentation>Paternal Grandparents</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PatAdultUncle">
+				<xs:annotation>
+					<xs:documentation>Paternal Adult Uncle </xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="StepAdultBrother">
+				<xs:annotation>
+					<xs:documentation>Step Adult Brother</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="StepAdultSister">
+				<xs:annotation>
+					<xs:documentation>Step Adult Sister</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdultSister">
+				<xs:annotation>
+					<xs:documentation>Adult Sister </xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdultUncle">
+				<xs:annotation>
+					<xs:documentation>Adult Uncle</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Father">
+				<xs:annotation>
+					<xs:documentation>Father</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Mother">
+				<xs:annotation>
+					<xs:documentation>Mother</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="LegalFather">
+				<xs:annotation>
+					<xs:documentation>Legal Father</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Parents">
+				<xs:annotation>
+					<xs:documentation>Parents</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="StepFather">
+				<xs:annotation>
+					<xs:documentation>Step-Father</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="StepMother">
+				<xs:annotation>
+					<xs:documentation>Step-Mother</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="LegalMother">
+				<xs:annotation>
+					<xs:documentation>Legal Mother</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Agency">
+				<xs:annotation>
+					<xs:documentation>Agency</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Organization">
+				<xs:annotation>
+					<xs:documentation>Organization</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="TreatmentFacility">
+				<xs:annotation>
+					<xs:documentation>Treatment Facility</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="NonRelative">
+				<xs:annotation>
+					<xs:documentation>Non-Relative</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="TransmittalRequestCategoryCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the periodicity of a desired report</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:TransmittalRequestCategoryCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="TransmittalRequestCategoryCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the periodicity of a desired report</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="HOME_STUDY_REQUEST">
+				<xs:annotation>
+					<xs:documentation>A New Home Study Request</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="HOME_STUDY_UPDATE">
+				<xs:annotation>
+					<xs:documentation>A New Home Study Update</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="HOME_STUDY_RESPONSE">
+				<xs:annotation>
+					<xs:documentation>Home Study Response</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="STATUS_REPORT_REQUEST">
+				<xs:annotation>
+					<xs:documentation>A new Case Status Report Request for an existing case</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="STATUS_REPORT_RESPONSE">
+				<xs:annotation>
+					<xs:documentation>Case Status Report Response</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PROGRESS_REPORT_REQUEST">
+				<xs:annotation>
+					<xs:documentation>A New Progress Report Request for an existing case</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PROGRESS_REPORT_RESPONSE">
+				<xs:annotation>
+					<xs:documentation>Progress Report Response</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CONCURRENCE_REQUEST">
+				<xs:annotation>
+					<xs:documentation>A Concurrence required request for an existing case</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CONCURRENCE_RESPONSE">
+				<xs:annotation>
+					<xs:documentation>Concurrence Response</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PLACEMENT_DECISION">
+				<xs:annotation>
+					<xs:documentation>A new 100B Reporting on an existing case</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<!-- Removed, awaiting confirmation -->
+			<!-- <xs:enumeration value="COURT_ORDER">
+				<xs:annotation>
+					<xs:documentation>A New Court Order Submitted to an existing case</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration> -->
+			<xs:enumeration value="ADDITIONAL_INFORMATION">
+				<xs:annotation>
+					<xs:documentation>Any other information submitted to an existing case</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="OTHER">
+				<xs:annotation>
+					<xs:documentation>All other transactions to an existing case</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CASE_STATUS_UPDATE">
+				<xs:annotation>
+					<xs:documentation>System generated case status update</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="PlacementTerminationReasonCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the reasons why a placement is terminated</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:PlacementTerminationReasonCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="PlacementTerminationReasonCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a list that describes the reasons why a placement is terminated</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="AdoptionFinalized">
+				<xs:annotation>
+					<xs:documentation>Adoption has been finalized</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdoptionFinalizedInSendingState">
+				<xs:annotation>
+					<xs:documentation>Adoption has been finalized in the sending state</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdoptionFinalizedInReceivingState">
+				<xs:annotation>
+					<xs:documentation>Adoption has been finalized in the receiving state</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ChildReachedMajorityEmancipated">
+				<xs:annotation>
+					<xs:documentation>The child has reached the age of majority and is emancipated</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="LegalCustodyReturnedToParent">
+				<xs:annotation>
+					<xs:documentation>Legal custody is returned to the parent</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="LegalCustodyGivenToRelative">
+				<xs:annotation>
+					<xs:documentation>Legal custody is given to a relative</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="LegalCustodyGiventoOther">
+				<xs:annotation>
+					<xs:documentation>Legal custody is given to an other person</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="TreatmentCompleted">
+				<xs:annotation>
+					<xs:documentation>Treatment completed</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="SendingStateJurisdictionTerminatedWithConcurrence">
+				<xs:annotation>
+					<xs:documentation>Sending State’s Jurisdiction Terminated with the Concurrence of the Receiving State</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="UnilateralTermination">
+				<xs:annotation>
+					<xs:documentation>Unilateral termination</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ChildReturnedToSendingState">
+				<xs:annotation>
+					<xs:documentation>Child is returned to the sending state</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ChildMovedToOtherState">
+				<xs:annotation>
+					<xs:documentation>Child is moved to another state</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ProposedPlacementRequestWithdrawn">
+				<xs:annotation>
+					<xs:documentation>The proposed placement request is withdrawn</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ApprovedPlacementResourceNotUsed">
+				<xs:annotation>
+					<xs:documentation>The approved placement resource is not used</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Other">
+				<xs:annotation>
+					<xs:documentation>Other reason (not codified)</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="NEICEDocumentCodeType">
+		<xs:annotation>
+			<xs:documentation> A Code type defining all the NEICE document types attached in the case</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:NEICEDocumentCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="NEICEDocumentCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A Simple Code type enumerating all the NEICE document type values</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="100ACompleted">
+				<xs:annotation>
+					<xs:documentation>Signed 100A Document - Completed</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="100AInitial">
+				<xs:annotation>
+					<xs:documentation>Signed 100A Document - Initial</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="100BClosure">
+				<xs:annotation>
+					<xs:documentation>Signed 100B Document - Closure</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="100BInitialPlacement">
+				<xs:annotation>
+					<xs:documentation>Signed 100B Document - Initial Placement</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="100BPlacementChange">
+				<xs:annotation>
+					<xs:documentation>Signed 100B Document - Placement Change</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdditionalInformation">
+				<xs:annotation>
+					<xs:documentation>Additional Information</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdoptionPrivate">
+				<xs:annotation>
+					<xs:documentation>Adoption - Private</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="AdoptionPublic">
+				<xs:annotation>
+					<xs:documentation>Adoption - Public</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CaseClosure">
+				<xs:annotation>
+					<xs:documentation>Case Closure Documents</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CaseEmails">
+				<xs:annotation>
+					<xs:documentation>Case Emails Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CaseManagersStatement">
+				<xs:annotation>
+					<xs:documentation>Case Managers Statement</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CasePlanServicePlan">
+				<xs:annotation>
+					<xs:documentation>Case Plan/Service Plan</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ChildRecords">
+				<xs:annotation>
+					<xs:documentation>Child Records</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ChildsSocialHistory">
+				<xs:annotation>
+					<xs:documentation>Child's Social History Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CompletedHomeStudy">
+				<xs:annotation>
+					<xs:documentation>Completed Home Study Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Concurrence">
+				<xs:annotation>
+					<xs:documentation>Concurrence</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Contract">
+				<xs:annotation>
+					<xs:documentation>Contract</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CourtOrder">
+				<xs:annotation>
+					<xs:documentation>Court Order Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CoverLetter">
+				<xs:annotation>
+					<xs:documentation>Cover Letter</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="FinancialMedicalPlan">
+				<xs:annotation>
+					<xs:documentation>Financial / Medical Plan</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="FosterCareLicense">
+				<xs:annotation>
+					<xs:documentation>Foster Care License</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="HomeStudyOfPlacementResource">
+				<xs:annotation>
+					<xs:documentation>Home Study of Placement Resource Documentation</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ICWAEnclosure">
+				<xs:annotation>
+					<xs:documentation>ICWA Related Enclosure</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="InitialHomeStudyRequestPacket">
+				<xs:annotation>
+					<xs:documentation>A combined scanned document of all the Home Study Request Packet, except the 100A and 100B</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="IVEEligibilityDocumentation">
+				<xs:annotation>
+					<xs:documentation>Title IV E Eligibility Documentation</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="MedicalRecords">
+				<xs:annotation>
+					<xs:documentation>Medical Records</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+<!--			<xs:enumeration value="OrderOfCompliance">
+				<xs:annotation>
+					<xs:documentation>Order Of Compliance Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration> -->
+			<xs:enumeration value="Other">
+				<xs:annotation>
+					<xs:documentation>Other document Category.  Specify details in the OtherText filed</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Placements">
+				<xs:annotation>
+					<xs:documentation>Placement related documents</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PreliminaryHomeEvaluation">
+				<xs:annotation>
+					<xs:documentation>Preliminary Home Evaluation Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ReportHomeStudyStatus">
+				<xs:annotation>
+					<xs:documentation>Report – Home Study Status</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="ReportSupervision">
+				<xs:annotation>
+					<xs:documentation>Report – Supervision</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="SafeAndTimelyHomeStudy">
+				<xs:annotation>
+					<xs:documentation>Safe and Timely Home Study</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+<!--			<xs:enumeration value="ProgressReport">
+				<xs:annotation>
+					<xs:documentation>Progress Report Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="StatusReport">
+				<xs:annotation>
+					<xs:documentation>Status Report Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration> -->
+			<xs:enumeration value="Transmittal">
+				<xs:annotation>
+					<xs:documentation>Transmittal or Cover Sheet Document</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="UrgentRequestReasonCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for the reason for an urgent request.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:UrgentRequestReasonCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="UrgentRequestReasonCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for the reason for an urgent request.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="Disruption">
+				<xs:annotation>
+					<xs:documentation>Disruption</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="CourtOrdered">
+				<xs:annotation>
+					<xs:documentation>Court Ordered</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="QuarterlyReport">
+				<xs:annotation>
+					<xs:documentation>Quarterly Report</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Other">
+				<xs:annotation>
+					<xs:documentation>Other (specify)</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="ViolationCategoryCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for kinds of case violations.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:ViolationCategoryCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="ViolationCategoryCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for kinds of case violations.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="NoBackgroundChecks">
+				<xs:annotation>
+					<xs:documentation>Failure to conduct complete background checks</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="NoAdoptionOrGuardianshipApproval">
+				<xs:annotation>
+					<xs:documentation>Adoption/guardianship finalized without the approval of other state</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Confidentiality">
+				<xs:annotation>
+					<xs:documentation>Confidentiality - violation of laws governing electronic transmission of information</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="NoComplianceWithArticleIII">
+				<xs:annotation>
+					<xs:documentation>Decision to deny not in compliance with Article III (d). i.e. overstepping authority</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="FailureToConductMonthlyFaceToFaceVisits">
+				<xs:annotation>
+					<xs:documentation>Failure to conduct monthly face-to-face visits with child and caregiver</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="FailureToFinanciallySupportChild">
+				<xs:annotation>
+					<xs:documentation>Failure to financially support child (Board payments, TANF, day care, etc.)</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="FailureToRemoveAndReturnChild">
+				<xs:annotation>
+					<xs:documentation>Failure to remove and return child upon request of receiving state</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="NoMedicalCards">
+				<xs:annotation>
+					<xs:documentation>Medical cards not provided in a timely manner</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="NoNotificationOfCaseClosure">
+				<xs:annotation>
+					<xs:documentation>No notification of case closure - failure to send 100B informing receiving state of case closure</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="NoNotificationOfPlacement">
+				<xs:annotation>
+					<xs:documentation>No notification of placement - failure to send 100B informing receiving state of placement and requesting supervision</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PlacementWithoutStateICPCApproval">
+				<xs:annotation>
+					<xs:documentation>Placement made without receiving state ICPC approval</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="PlacementWithoutICPCReferral">
+				<xs:annotation>
+					<xs:documentation>Placement without ICPC referral</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="QuarterlyProgressReportsLack">
+				<xs:annotation>
+					<xs:documentation>Quarterly progress reports not submitted and/or not timely</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RefusalToAccept100ARequest">
+				<xs:annotation>
+					<xs:documentation>Refusal to accept 100A request</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RefusalToIssueReport">
+				<xs:annotation>
+					<xs:documentation>Refusal to issue report</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RefusalToPrepareHomeStudy">
+				<xs:annotation>
+					<xs:documentation>Refusal to prepare home study</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RefusalToProcess100ARequest">
+				<xs:annotation>
+					<xs:documentation>Refusal to process 100A request</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="NotSafeAndTimely">
+				<xs:annotation>
+					<xs:documentation>Safe and timely – home study request not processed in a timely manner</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="UnilateralTermination">
+				<xs:annotation>
+					<xs:documentation>Unilateral Termination: Closure without other state's concurrence</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="RegulationNo9Violation">
+				<xs:annotation>
+					<xs:documentation>Visits made in violation of Regulation No. 9</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="ViolationStateCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for which state is in violation.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:ViolationStateCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="ViolationStateCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for which state is in violation.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="receiving">
+				<xs:annotation>
+					<xs:documentation>Receiving state</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="sending">
+				<xs:annotation>
+					<xs:documentation>Sending state</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="CaseStatusUpdateCodeType">
+		<xs:annotation>
+			<xs:documentation>A data type for a case status update.</xs:documentation>
+		</xs:annotation>
+		<xs:simpleContent>
+			<xs:extension base="cb_code:CaseStatusUpdateCodeSimpleType">
+				<xs:attributeGroup ref="s:SimpleObjectAttributeGroup"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="CaseStatusUpdateCodeSimpleType">
+		<xs:annotation>
+			<xs:documentation>A data type for a case status update.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:enumeration value="MessageDeliveredToRecipientState">
+				<xs:annotation>
+					<xs:documentation>Message Delivered To Recipient State</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="HomestudyRequestAcceptedForProcessing">
+				<xs:annotation>
+					<xs:documentation>Homestudy Request Accepted For Processing</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="HomestudyRequestAssignedToCaseWorker">
+				<xs:annotation>
+					<xs:documentation>Homestudy Request Assigned To CaseWorker</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Other">
+				<xs:annotation>
+					<xs:documentation>Other</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+</xs:schema>

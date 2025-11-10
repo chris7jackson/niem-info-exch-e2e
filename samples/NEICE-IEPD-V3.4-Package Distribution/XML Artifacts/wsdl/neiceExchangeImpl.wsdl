@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Document: $Id: lexsPDwebserviceImpl.wsdl 1028 2008-06-17 19:00:08Z Benjamin Shrom $
+    LEXS version  : 3.1.2
+    Description   : Bindings definitions for Publish/Discover LEXS Webservice.
+-->
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://cb.acf.hhs.gov/neice/2.0/exchange/ws" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns="http://schemas.xmlsoap.org/wsdl/" targetNamespace="http://cb.acf.hhs.gov/neice/2.0/exchange/ws">
+	<wsdl:import namespace="http://cb.acf.hhs.gov/neice/2.0/exchange/ws" location="neiceExchangeIntf.wsdl"/>
+	<wsdl:service name="NEICEExchangeService">
+		<wsdl:port name="NEICEExchangeService" binding="tns:NEICEExchangeServiceSoapBinding">
+			<soap:address location="http://localhost:9080/NEICEExchangeService/services/NEICEExchangeService"/>
+		</wsdl:port>
+	</wsdl:service>
+</wsdl:definitions>

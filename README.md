@@ -837,15 +837,9 @@ The system will log security warnings when running with default credentials:
 
 These warnings indicate security issues that should be addressed before production deployment.
 
-## Known Issues & TODO
+Limited Functionality
 
-1. **Graph Visualizations**: Limitations on rebuilding graph UI from neo4j browser for full set of nodes and edges.
-
-2. **JSON Schema Conversion**: CMFTool v1.0 has a bug that prevents JSON Schema generation for certain NIEM 3.0 schemas (e.g., NEICE IEPD). This affects JSON file ingestion but XML ingestion still works. See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for details and workarounds.
-
-3. **Design Documentation**: Update architecture diagrams and component documentation to reflect current implementation.
-
-4. **Version Control**: Implement semantic versioning mapped to NIEM versions for proper release management. See [GitHub Issues #1-5] for detailed plan.
+1. **JSON Schema Conversion**: CMFTool v1.0 has a bug that prevents JSON Schema generation for certain NIEM 3.0 schemas (e.g., NEICE IEPD). This affects JSON file schema validation but can still ingestion JSON instance data against graph mapping. See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for details and workarounds.
 
 ## License
 
@@ -858,8 +852,7 @@ Copyright 2025 Christopher Jackson
 This project includes third-party software components:
 
 - **NIEM CMF Tool** ([niemopen/cmftool](https://github.com/niemopen/cmftool)) - Apache License 2.0
-- **NIEM NDR Tools** ([NIEM/NIEM-NDR](https://github.com/NIEM/NIEM-NDR)) - Creative Commons Attribution 4.0 International
-
+- **NIEM Naming Design Rules** ([niemopen/niem-naming-design-rules](https://github.com/niemopen/niem-naming-design-rules)) - Creative Commons Attribution 4.0 International
 See the [NOTICE](NOTICE) file for complete attribution details.
 
 

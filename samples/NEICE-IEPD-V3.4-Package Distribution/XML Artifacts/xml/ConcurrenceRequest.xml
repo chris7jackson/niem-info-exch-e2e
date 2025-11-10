@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEICETransmittalDocument xmlns:im="http://release.niem.gov/niem/domains/immigration/4.1/" xmlns:i="http://release.niem.gov/niem/appinfo/4.0/" xmlns:j="http://release.niem.gov/niem/domains/jxdm/6.1/" xmlns:hs="http://release.niem.gov/niem/domains/humanServices/4.1/" xmlns:scr="http://release.niem.gov/niem/domains/screening/4.1/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:cb_ext="http://cb.acf.hhs.gov/neice/2.0/ext/" xmlns:nc="http://release.niem.gov/niem/niem-core/4.0/" xmlns:s="http://release.niem.gov/niem/structures/4.0/" xmlns:niem-xsd="http://release.niem.gov/niem/proxy/xsd/4.0/" xmlns:cb_exch="http://cb.acf.hhs.gov/neice/2.0/exchange/" xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/" xmlns="http://cb.acf.hhs.gov/neice/2.0/exchange/" xsi:schemaLocation="http://cb.acf.hhs.gov/neice/2.0/exchange/ ../schema/neice_exchange.xsd">
+	<nc:DocumentCreationDate>
+		<nc:Date>2022-11-30</nc:Date>
+	</nc:DocumentCreationDate>
+	<nc:DocumentIdentification>
+		<nc:IdentificationID>f4929fdb-ceb5-4b70-a2c9-efd16c33a13d</nc:IdentificationID>
+	</nc:DocumentIdentification>
+	<nc:DocumentRecipient>
+		<nc:EntityOrganization>
+			<nc:OrganizationLocation>
+				<nc:Address>
+					<nc:AddressFullText>1317 Winewood Blvd. Building 5, 4th Floor,  Suite 415</nc:AddressFullText>
+					<nc:LocationCityName>Tallahassee</nc:LocationCityName>
+					<nc:LocationCountyName>Leon</nc:LocationCountyName>
+					<nc:LocationState>
+						<nc:LocationStateUSPostalServiceCode>FL</nc:LocationStateUSPostalServiceCode>
+					</nc:LocationState>
+					<nc:LocationPostalCode>32399</nc:LocationPostalCode>
+				</nc:Address>
+			</nc:OrganizationLocation>
+			<nc:OrganizationName>Florida ICPC Central (DCF)</nc:OrganizationName>
+		</nc:EntityOrganization>
+	</nc:DocumentRecipient>
+	<nc:DocumentSource>
+		<nc:EntityOrganization>
+			<nc:OrganizationLocation>
+				<nc:Address>
+					<nc:AddressFullText>275 E. Main Street, 3E-D</nc:AddressFullText>
+					<nc:LocationCityName>Frankfort</nc:LocationCityName>
+					<nc:LocationCountyName>Franklin</nc:LocationCountyName>
+					<nc:LocationState>
+						<nc:LocationStateUSPostalServiceCode>KY</nc:LocationStateUSPostalServiceCode>
+					</nc:LocationState>
+					<nc:LocationPostalCode>40621</nc:LocationPostalCode>
+				</nc:Address>
+			</nc:OrganizationLocation>
+			<nc:OrganizationName>Kentucky ICPC Central (CHFS)</nc:OrganizationName>
+		</nc:EntityOrganization>
+	</nc:DocumentSource>
+	<nc:DocumentSummaryText>Concurrence</nc:DocumentSummaryText>
+	<nc:DocumentAuthor>
+		<nc:EntityPerson>
+			<nc:PersonName>
+				<nc:PersonFullName>Swathi D</nc:PersonFullName>
+			</nc:PersonName>
+		</nc:EntityPerson>
+	</nc:DocumentAuthor>
+	<cb_ext:TransmittalSummaryInformation>
+		<cb_ext:CaseNEICEIdentification>
+			<nc:IdentificationID>BMKYFL2022260</nc:IdentificationID>
+		</cb_ext:CaseNEICEIdentification>
+		<cb_ext:CaseStateIdentification>
+			<nc:IdentificationID>9990</nc:IdentificationID>
+			<nc:IdentificationJurisdiction>
+				<nc:LocationState>
+					<nc:LocationStateUSPostalServiceCode>KY</nc:LocationStateUSPostalServiceCode>
+				</nc:LocationState>
+			</nc:IdentificationJurisdiction>
+		</cb_ext:CaseStateIdentification>
+		<cb_ext:HomeStudyCategoryCode>HomeStudy</cb_ext:HomeStudyCategoryCode>
+		<cb_ext:TransmittalCategoryCode>CONCURRENCE_REQUEST</cb_ext:TransmittalCategoryCode>
+		<cb_ext:TransmittalSubjectChild>
+			<cb_ext:ChildAugmentation s:id="CHL-01">
+				<cb_ext:ChildNEICEIdentification>
+					<nc:IdentificationID>4551</nc:IdentificationID>
+				</cb_ext:ChildNEICEIdentification>
+				<cb_ext:ChildStateIdentification>
+					<nc:IdentificationID>80520</nc:IdentificationID>
+					<nc:IdentificationJurisdiction>
+						<nc:LocationCountyName>Leon</nc:LocationCountyName>
+						<nc:LocationState>
+							<nc:LocationStateUSPostalServiceCode>KY</nc:LocationStateUSPostalServiceCode>
+						</nc:LocationState>
+					</nc:IdentificationJurisdiction>
+				</cb_ext:ChildStateIdentification>
+			</cb_ext:ChildAugmentation>
+		</cb_ext:TransmittalSubjectChild>
+		<cb_ext:UrgentRequestIndicator>false</cb_ext:UrgentRequestIndicator>
+		<cb_ext:TransmittalPurposeCode>ConcurrenceRequest</cb_ext:TransmittalPurposeCode>
+	</cb_ext:TransmittalSummaryInformation>
+</NEICETransmittalDocument>

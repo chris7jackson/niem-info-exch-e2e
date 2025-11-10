@@ -1,0 +1,70 @@
+<cb_exch:NEICETransmittalDocument xmlns:xml="http://www.w3.org/XML/1998/namespace" xmlns:cb_exch="http://cb.acf.hhs.gov/neice/2.0/exchange/" xmlns:cb_ext="http://cb.acf.hhs.gov/neice/2.0/ext/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:i="http://release.niem.gov/niem/appinfo/4.0/" xmlns:s="http://release.niem.gov/niem/structures/4.0/" xmlns:j="http://release.niem.gov/niem/domains/jxdm/6.1/" xmlns:im="http://release.niem.gov/niem/domains/immigration/4.1/" xmlns:scr="http://release.niem.gov/niem/domains/screening/4.1/" xmlns:hs="http://release.niem.gov/niem/domains/humanServices/4.1/" xmlns:niem-xsd="http://release.niem.gov/niem/proxy/xsd/4.0/" xmlns:ct="http://release.niem.gov/niem/conformanceTargets/3.0/" xmlns:nc="http://release.niem.gov/niem/niem-core/4.0/" xsi:schemaLocation="http://cb.acf.hhs.gov/neice/2.0/exchange/ ../schema/neice_exchange.xsd">
+	<nc:DocumentCreationDate>
+		<nc:Date>2023-01-03</nc:Date>
+	</nc:DocumentCreationDate>
+	<nc:DocumentIdentification>
+		<nc:IdentificationID>5d2e1d9c-82a5-49f6-a854-09d3fcc57db7</nc:IdentificationID>
+	</nc:DocumentIdentification>
+	<nc:DocumentRecipient>
+		<nc:EntityOrganization>
+			<nc:OrganizationLocation>
+				<nc:Address>
+					<nc:AddressFullText>1317 Winewood Blvd. Building 5, 4th Floor,  Suite 415</nc:AddressFullText>
+					<nc:LocationCityName>Tallahassee</nc:LocationCityName>
+					<nc:LocationCountyName>Leon</nc:LocationCountyName>
+					<nc:LocationState>
+						<nc:LocationStateUSPostalServiceCode>FL</nc:LocationStateUSPostalServiceCode>
+					</nc:LocationState>
+					<nc:LocationPostalCode>32399</nc:LocationPostalCode>
+				</nc:Address>
+			</nc:OrganizationLocation>
+			<nc:OrganizationName>Florida ICPC Central (DCF)</nc:OrganizationName>
+		</nc:EntityOrganization>
+	</nc:DocumentRecipient>
+	<nc:DocumentSource>
+		<nc:EntityOrganization>
+			<nc:OrganizationLocation>
+				<nc:Address>
+					<nc:AddressFullText>275 E. Main Street, 3E-D</nc:AddressFullText>
+					<nc:LocationCityName>Frankfort</nc:LocationCityName>
+					<nc:LocationCountyName>Franklin</nc:LocationCountyName>
+					<nc:LocationState>
+						<nc:LocationStateUSPostalServiceCode>KY</nc:LocationStateUSPostalServiceCode>
+					</nc:LocationState>
+					<nc:LocationPostalCode>40621</nc:LocationPostalCode>
+				</nc:Address>
+			</nc:OrganizationLocation>
+			<nc:OrganizationName>Kentucky ICPC Central (CHFS)</nc:OrganizationName>
+		</nc:EntityOrganization>
+	</nc:DocumentSource>
+	<nc:DocumentAuthor>
+		<nc:EntityPerson>
+			<nc:PersonName>
+				<nc:PersonFullName>Samson</nc:PersonFullName>
+			</nc:PersonName>
+		</nc:EntityPerson>
+	</nc:DocumentAuthor>
+	<cb_ext:TransmittalSummaryInformation>
+		<cb_ext:CaseNEICEIdentification>
+			<nc:IdentificationID>ASFLKY20233</nc:IdentificationID>
+		</cb_ext:CaseNEICEIdentification>
+		<cb_ext:CaseStateIdentification>
+			<nc:IdentificationID>10064</nc:IdentificationID>
+			<nc:IdentificationJurisdiction>
+				<nc:LocationState>
+					<nc:LocationStateUSPostalServiceCode>KY</nc:LocationStateUSPostalServiceCode>
+				</nc:LocationState>
+			</nc:IdentificationJurisdiction>
+		</cb_ext:CaseStateIdentification>
+		<cb_ext:HomeStudyCategoryCode>HomeStudy</cb_ext:HomeStudyCategoryCode>
+		<cb_ext:TransmittalCategoryCode>CASE_STATUS_UPDATE</cb_ext:TransmittalCategoryCode>
+		<cb_ext:TransmittalPurposeCode>Other</cb_ext:TransmittalPurposeCode>
+		<cb_ext:TransmittalPurposeCodeOtherText>Case Status Update</cb_ext:TransmittalPurposeCodeOtherText>
+	</cb_ext:TransmittalSummaryInformation>
+	<cb_ext:CaseStatusUpdate>
+		<cb_ext:CaseStatusUpdateCode>HomestudyRequestAcceptedForProcessing</cb_ext:CaseStatusUpdateCode>
+		<cb_ext:StatusUpdateEventDate>
+			<nc:Date>2023-01-23</nc:Date>
+		</cb_ext:StatusUpdateEventDate>
+	</cb_ext:CaseStatusUpdate>
+</cb_exch:NEICETransmittalDocument>

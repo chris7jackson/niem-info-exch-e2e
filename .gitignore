@@ -111,5 +111,3 @@ ui/coverage/
 ui/test-results/
 ui/playwright-report/
 ui/screenshots/
-
-/samples/
