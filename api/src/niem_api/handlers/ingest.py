@@ -725,23 +725,23 @@ async def handle_xml_ingest(files: list[UploadFile], s3: Minio, schema_id: str =
 async def _process_single_json_file(
     file: UploadFile,
     mapping: dict[str, Any],
-    json_schema: dict[str, Any],
+    json_schema: dict[str, Any] | None,
     neo4j_client,
     s3: Minio,
     upload_id: str,
-    schema_id: str,
+    schema_id: str | None,
     mode: str = "dynamic",
 ) -> tuple[dict[str, Any], int]:
     """Process a single NIEM JSON file.
 
     Args:
         file: Uploaded file
-        mapping: Schema mapping
-        json_schema: JSON Schema for validation
+        mapping: Schema mapping (can be empty dict if no schema)
+        json_schema: JSON Schema for validation (optional, can be None)
         neo4j_client: Neo4j client
         s3: MinIO client
         upload_id: Unique identifier for this upload batch
-        schema_id: Schema identifier
+        schema_id: Schema identifier (optional, can be None)
         mode: Converter mode - "mapping" (use selections) or "dynamic" (all complex elements)
 
     Returns:
@@ -756,10 +756,12 @@ async def _process_single_json_file(
         # Log the current state of the flag for debugging
         logger.info(f"SKIP_JSON_VALIDATION flag is: {batch_config.SKIP_JSON_VALIDATION}")
 
-        # Validate NIEM JSON against JSON Schema (unless skipped via feature flag)
-        if not batch_config.SKIP_JSON_VALIDATION:
+        # Validate NIEM JSON against JSON Schema (unless skipped via feature flag or no schema available)
+        if not batch_config.SKIP_JSON_VALIDATION and json_schema:
             logger.info(f"Validating JSON for {file.filename}")
             _validate_json_content(json_content, json_schema, file.filename)
+        elif not json_schema:
+            logger.warning(f"⚠️ Skipping JSON validation for {file.filename} (no JSON schema available)")
         else:
             logger.warning(f"⚠️ Skipping JSON validation for {file.filename} (SKIP_JSON_VALIDATION=true)")
 
@@ -819,6 +821,8 @@ async def handle_json_ingest(files: list[UploadFile], s3: Minio, schema_id: str 
     NIEM JSON uses JSON-LD features (@context, @id, @type) with NIEM-specific conventions
     for property names and references. Files are validated against JSON Schema (generated
     from XSD by CMF tool) and converted to Cypher using the same mapping as XML.
+    
+    Schema and JSON schema are optional - uploads can proceed without them when validation is skipped.
     """
     logger.info(f"Starting NIEM JSON ingestion for {len(files)} files using json_to_graph service")
 
@@ -830,47 +834,61 @@ async def handle_json_ingest(files: list[UploadFile], s3: Minio, schema_id: str 
         upload_id = f"upload_{int(time.time())}_{hashlib.sha1(str(time.time()).encode(), usedforsecurity=False).hexdigest()[:8]}"
         logger.info(f"Generated upload_id: {upload_id}")
 
-        # Step 2: Get schema ID (use provided or get active)
-        schema_id = _get_schema_id(s3, schema_id)
+        # Step 2: Get schema ID (use provided or get active, but allow None)
+        try:
+            schema_id = _get_schema_id(s3, schema_id)
+        except HTTPException:
+            # No schema available - allow upload without schema
+            logger.warning("No schema_id provided and no active schema found - proceeding without schema")
+            schema_id = None
 
-        # Step 3: Validate JSON Schema exists for this schema
-        from .schema import get_schema_metadata
+        # Step 3: Try to load mapping specification (optional if no schema)
+        mapping = None
+        if schema_id:
+            try:
+                mapping = _load_mapping_from_s3(s3, schema_id)
+            except HTTPException as e:
+                logger.warning(f"Could not load mapping for schema {schema_id}: {e.detail}")
+                mapping = None
+        
+        # Use empty mapping if no schema/mapping available
+        if not mapping:
+            logger.info("Using empty mapping - JSON will be processed in dynamic mode without schema mapping")
+            mapping = {"objects": [], "associations": [], "references": [], "metadata": {}}
 
-        metadata = get_schema_metadata(s3, schema_id)
-        if not metadata or not metadata.get("json_schema_filename"):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "JSON schema is not available for this schema. "
-                    "The JSON schema was not successfully converted during XSD upload, "
-                    "likely due to CMF tool conversion issues. "
-                    "Please re-upload the XSD schema or use XML ingestion instead."
-                ),
-            )
-
-        # Step 4: Load mapping specification
-        mapping = _load_mapping_from_s3(s3, schema_id)
-
-        # Step 4.5: Detect mode based on selections.json existence
+        # Step 4.5: Detect mode based on selections.json existence (only if schema_id exists)
         from .schema import handle_get_selections
 
-        mode = "mapping"  # Default to mapping mode
-        try:
-            selections_data = await handle_get_selections(schema_id, s3)
-            if selections_data and selections_data.get("selections"):
-                mode = "mapping"
-                logger.info(
-                    f"Using MAPPING mode (found selections.json with {len(selections_data['selections'])} selections)"
-                )
-            else:
+        mode = "dynamic"  # Default to dynamic mode (especially if no schema)
+        if schema_id:
+            try:
+                selections_data = await handle_get_selections(schema_id, s3)
+                if selections_data and selections_data.get("selections"):
+                    mode = "mapping"
+                    logger.info(
+                        f"Using MAPPING mode (found selections.json with {len(selections_data['selections'])} selections)"
+                    )
+                else:
+                    mode = "dynamic"
+                    logger.info("Using DYNAMIC mode (selections.json exists but has no selections)")
+            except Exception as e:
                 mode = "dynamic"
-                logger.info("Using DYNAMIC mode (selections.json exists but has no selections)")
-        except Exception as e:
-            mode = "dynamic"
-            logger.info(f"Using DYNAMIC mode (selections.json not found or error: {e})")
+                logger.info(f"Using DYNAMIC mode (selections.json not found or error: {e})")
+        else:
+            logger.info("No schema_id - using DYNAMIC mode")
 
-        # Step 5: Download JSON Schema for validation
-        json_schema = _download_json_schema_from_s3(s3, schema_id)
+        # Step 5: Try to download JSON Schema for validation (optional)
+        json_schema = None
+        if schema_id:
+            try:
+                json_schema = _download_json_schema_from_s3(s3, schema_id)
+                logger.info(f"JSON Schema loaded for schema {schema_id}")
+            except HTTPException as e:
+                logger.warning(f"JSON Schema not available for schema {schema_id}: {e.detail}")
+                logger.info("Proceeding without JSON Schema (validation will be skipped)")
+                json_schema = None
+        else:
+            logger.info("No schema_id - skipping JSON Schema download")
 
         # Step 6: Process files
         results = []
@@ -895,7 +913,7 @@ async def handle_json_ingest(files: list[UploadFile], s3: Minio, schema_id: str 
             neo4j_client.driver.close()
 
         return {
-            "schema_id": schema_id,
+            "schema_id": schema_id or "none",
             "files_processed": len(files),
             "total_nodes_created": total_nodes,
             "total_relationships_created": total_relationships,
