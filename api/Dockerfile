@@ -28,15 +28,19 @@ RUN apt-get update && apt-get install -y \
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy dependency files and source for package build
+# Copy dependency files only
 COPY api/pyproject.toml api/uv.lock ./
+
+# Install dependencies WITHOUT the project itself (for better caching)
+# This layer is only invalidated when dependencies change, not on code changes
+RUN uv sync --frozen --no-dev --no-install-project
+
+# Copy application source code
 COPY api/src/ ./src/
-
-# Install dependencies (dependencies are cached even when source changes)
-RUN uv sync --frozen --no-dev
-
-# Copy additional application files
 COPY api/config/ ./config/
+
+# Install the project itself (fast, no dependency downloads)
+RUN uv sync --frozen --no-dev
 
 # Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
