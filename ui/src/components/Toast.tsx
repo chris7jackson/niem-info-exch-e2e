@@ -1,10 +1,6 @@
 import { Fragment, useEffect } from 'react';
 import { Transition } from '@headlessui/react';
-import {
-  CheckCircleIcon,
-  XCircleIcon,
-  XMarkIcon,
-} from '@heroicons/react/24/outline';
+import { CheckCircleIcon, XCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export type ToastType = 'success' | 'error';
 
@@ -41,7 +37,9 @@ export default function Toast({ id, type, message, onClose }: ToastProps) {
       leaveFrom="opacity-100"
       leaveTo="opacity-0"
     >
-      <div className={`max-w-sm w-full ${bgColor} border ${borderColor} shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden`}>
+      <div
+        className={`max-w-sm w-full ${bgColor} border ${borderColor} shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden`}
+      >
         <div className="p-4">
           <div className="flex items-start">
             <div className="flex-shrink-0">

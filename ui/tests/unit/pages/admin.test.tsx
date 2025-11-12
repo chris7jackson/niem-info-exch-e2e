@@ -153,10 +153,7 @@ describe('Admin Page - Settings Section', () => {
     // Override PUT to return error
     server.use(
       http.put(`${API_URL}/api/settings`, () => {
-        return HttpResponse.json(
-          { detail: 'Database error' },
-          { status: 500 }
-        );
+        return HttpResponse.json({ detail: 'Database error' }, { status: 500 });
       })
     );
 
@@ -246,7 +243,9 @@ describe('Admin Page - Settings Section', () => {
       expect(screen.getByText(/Validation Settings/i)).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Control validation behavior for XML and JSON file uploads/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Control validation behavior for XML and JSON file uploads/i)
+    ).toBeInTheDocument();
     expect(screen.getByText(/Changes take effect immediately/i)).toBeInTheDocument();
   });
 
@@ -254,10 +253,7 @@ describe('Admin Page - Settings Section', () => {
     // Override GET to return error
     server.use(
       http.get(`${API_URL}/api/settings`, () => {
-        return HttpResponse.json(
-          { detail: 'Failed to load settings' },
-          { status: 500 }
-        );
+        return HttpResponse.json({ detail: 'Failed to load settings' }, { status: 500 });
       })
     );
 

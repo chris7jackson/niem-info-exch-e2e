@@ -17,9 +17,7 @@ describe('Toast Component', () => {
   });
 
   test('renders success toast with correct styling', () => {
-    render(
-      <Toast id="test-1" type="success" message="Success message" onClose={mockOnClose} />
-    );
+    render(<Toast id="test-1" type="success" message="Success message" onClose={mockOnClose} />);
 
     const toast = screen.getByText('Success message');
     expect(toast).toBeInTheDocument();
@@ -50,9 +48,7 @@ describe('Toast Component', () => {
   test('calls onClose when close button clicked', async () => {
     const user = userEvent.setup({ delay: null });
 
-    render(
-      <Toast id="test-4" type="success" message="Click to close" onClose={mockOnClose} />
-    );
+    render(<Toast id="test-4" type="success" message="Click to close" onClose={mockOnClose} />);
 
     const closeButton = screen.getByRole('button', { name: /close/i });
     await user.click(closeButton);
@@ -62,9 +58,7 @@ describe('Toast Component', () => {
   });
 
   test('auto-closes after 3 seconds', async () => {
-    render(
-      <Toast id="test-5" type="success" message="Auto-close toast" onClose={mockOnClose} />
-    );
+    render(<Toast id="test-5" type="success" message="Auto-close toast" onClose={mockOnClose} />);
 
     // Initially, onClose should not be called
     expect(mockOnClose).not.toHaveBeenCalled();
@@ -79,9 +73,7 @@ describe('Toast Component', () => {
   });
 
   test('does not auto-close before 3 seconds', () => {
-    render(
-      <Toast id="test-6" type="error" message="Wait for it" onClose={mockOnClose} />
-    );
+    render(<Toast id="test-6" type="error" message="Wait for it" onClose={mockOnClose} />);
 
     // Fast-forward by 2.9 seconds (just before auto-close)
     vi.advanceTimersByTime(2900);
@@ -111,9 +103,7 @@ describe('Toast Component', () => {
   });
 
   test('close button has proper accessibility attributes', () => {
-    render(
-      <Toast id="test-9" type="success" message="Accessible toast" onClose={mockOnClose} />
-    );
+    render(<Toast id="test-9" type="success" message="Accessible toast" onClose={mockOnClose} />);
 
     const closeButton = screen.getByRole('button', { name: /close/i });
     expect(closeButton).toBeInTheDocument();

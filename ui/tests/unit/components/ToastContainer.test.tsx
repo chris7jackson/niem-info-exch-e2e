@@ -34,9 +34,7 @@ describe('ToastContainer Component', () => {
 
   test('passes onClose handler to toast components', async () => {
     const user = userEvent.setup();
-    const toasts: ToastData[] = [
-      { id: 'toast-1', type: 'success', message: 'Test toast' },
-    ];
+    const toasts: ToastData[] = [{ id: 'toast-1', type: 'success', message: 'Test toast' }];
 
     render(<ToastContainer toasts={toasts} onClose={mockOnClose} />);
 
@@ -65,9 +63,7 @@ describe('ToastContainer Component', () => {
   });
 
   test('has proper accessibility attributes', () => {
-    const toasts: ToastData[] = [
-      { id: '1', type: 'success', message: 'Accessible toast' },
-    ];
+    const toasts: ToastData[] = [{ id: '1', type: 'success', message: 'Accessible toast' }];
 
     const { container } = render(<ToastContainer toasts={toasts} onClose={mockOnClose} />);
 
@@ -93,9 +89,7 @@ describe('ToastContainer Component', () => {
   });
 
   test('container has fixed positioning for overlay', () => {
-    const toasts: ToastData[] = [
-      { id: '1', type: 'success', message: 'Test' },
-    ];
+    const toasts: ToastData[] = [{ id: '1', type: 'success', message: 'Test' }];
 
     const { container } = render(<ToastContainer toasts={toasts} onClose={mockOnClose} />);
 
@@ -117,9 +111,7 @@ describe('ToastContainer Component', () => {
   });
 
   test('handles single toast correctly', () => {
-    const toasts: ToastData[] = [
-      { id: 'solo', type: 'error', message: 'Single toast' },
-    ];
+    const toasts: ToastData[] = [{ id: 'solo', type: 'error', message: 'Single toast' }];
 
     render(<ToastContainer toasts={toasts} onClose={mockOnClose} />);
 

@@ -10,13 +10,19 @@ export function useToast() {
     setToasts((prev) => [...prev, { id, type, message }]);
   }, []);
 
-  const showSuccess = useCallback((message: string) => {
-    showToast('success', message);
-  }, [showToast]);
+  const showSuccess = useCallback(
+    (message: string) => {
+      showToast('success', message);
+    },
+    [showToast]
+  );
 
-  const showError = useCallback((message: string) => {
-    showToast('error', message);
-  }, [showToast]);
+  const showError = useCallback(
+    (message: string) => {
+      showToast('error', message);
+    },
+    [showToast]
+  );
 
   const closeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
