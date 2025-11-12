@@ -134,6 +134,7 @@ async def _convert_single_file(
     cmf_content: str,
     schema_dir: str,
     context_uri: str,
+    settings=None,
 ) -> Dict[str, Any]:
     """Convert a single XML file to JSON with error handling.
 
@@ -148,6 +149,7 @@ async def _convert_single_file(
         cmf_content: CMF file content
         schema_dir: Path to schema directory for validation
         context_uri: Optional context URI
+        settings: Application settings (for validation control)
 
     Returns:
         Result dictionary with success or error status
@@ -167,7 +169,7 @@ async def _convert_single_file(
                 logger.error(f"Failed to read XML file {file.filename}: {e}")
                 return _create_error_result(file.filename, f"Failed to read file: {str(e)}")
 
-            # Validate XML against XSD schemas
+            # Validate XML against XSD schemas (unless skipped via settings)
             xml_file_path = Path(schema_dir) / file.filename
             try:
                 xml_file_path.write_bytes(xml_content)
@@ -175,9 +177,11 @@ async def _convert_single_file(
                 # Import validation function from ingest
                 from . import ingest
 
-                ingest._validate_xml_content(xml_content.decode("utf-8"), schema_dir, file.filename)
-
-                logger.debug(f"XML validation passed for: {file.filename}")
+                if settings and settings.skip_xml_validation:
+                    logger.warning(f"⚠️ Skipping XML validation for {file.filename} (skip_xml_validation=true)")
+                else:
+                    ingest._validate_xml_content(xml_content.decode("utf-8"), schema_dir, file.filename)
+                    logger.debug(f"XML validation passed for: {file.filename}")
             except HTTPException as e:
                 # Validation failed - extract error details
                 if hasattr(e, "detail") and isinstance(e.detail, dict):
@@ -268,6 +272,15 @@ async def handle_xml_to_json_batch(
     schema_dir = None
 
     try:
+        # Step 0: Get settings
+        from ..services.settings_service import SettingsService
+        from ..core.dependencies import get_neo4j_client
+
+        neo4j_client = get_neo4j_client()
+        settings_service = SettingsService(neo4j_client)
+        settings = settings_service.get_settings()
+        logger.info(f"Settings: skip_xml_validation={settings.skip_xml_validation}, skip_json_validation={settings.skip_json_validation}")
+
         # Step 1: Validate batch size (configurable via BATCH_MAX_CONVERSION_FILES env var)
         max_files = batch_config.get_batch_limit("conversion")
         if len(files) > max_files:
@@ -333,7 +346,7 @@ async def handle_xml_to_json_batch(
         # Create tasks for all files with timeout
         tasks = [
             asyncio.wait_for(
-                _convert_single_file(file, s3, schema_id, schema_metadata, cmf_content, schema_dir, context_uri),
+                _convert_single_file(file, s3, schema_id, schema_metadata, cmf_content, schema_dir, context_uri, settings),
                 timeout=batch_config.OPERATION_TIMEOUT,
             )
             for file in files

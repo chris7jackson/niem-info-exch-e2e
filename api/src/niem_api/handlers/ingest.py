@@ -528,6 +528,7 @@ async def _process_single_file(
     upload_id: str,
     schema_id: str,
     mode: str = "dynamic",
+    settings=None,
 ) -> tuple[dict[str, Any], int]:
     """Process a single XML file.
 
@@ -540,6 +541,7 @@ async def _process_single_file(
         upload_id: Unique identifier for this upload batch
         schema_id: Schema identifier
         mode: Converter mode - "mapping" (use selections) or "dynamic" (all complex elements)
+        settings: Application settings (for validation control)
 
     Returns:
         Tuple of (result_dict, statements_executed)
@@ -548,8 +550,11 @@ async def _process_single_file(
         content = await file.read()
         xml_content = content.decode("utf-8")
 
-        # Validate XML against XSD schemas
-        _validate_xml_content(xml_content, schema_dir, file.filename)
+        # Validate XML against XSD schemas (unless skipped via settings)
+        if settings and settings.skip_xml_validation:
+            logger.warning(f"⚠️ Skipping XML validation for {file.filename} (skip_xml_validation=true)")
+        else:
+            _validate_xml_content(xml_content, schema_dir, file.filename)
 
         # Use import_xml_to_cypher service to generate Cypher
         cypher_statements, stats = _generate_cypher_from_xml(
@@ -605,6 +610,15 @@ async def handle_xml_ingest(files: list[UploadFile], s3: Minio, schema_id: str =
 
     schema_dir = None
     try:
+        # Step 0: Get settings
+        from ..services.settings_service import SettingsService
+        from ..core.dependencies import get_neo4j_client
+
+        neo4j_client_for_settings = get_neo4j_client()
+        settings_service = SettingsService(neo4j_client_for_settings)
+        settings = settings_service.get_settings()
+        logger.info(f"Settings: skip_xml_validation={settings.skip_xml_validation}, skip_json_validation={settings.skip_json_validation}")
+
         # Step 1: Generate unique upload ID for this ingestion batch
         import time
         import hashlib
@@ -683,7 +697,7 @@ async def handle_xml_ingest(files: list[UploadFile], s3: Minio, schema_id: str =
         try:
             for file in files:
                 result, statements_executed = await _process_single_file(
-                    file, mapping, neo4j_client, s3, schema_dir, upload_id, schema_id, mode
+                    file, mapping, neo4j_client, s3, schema_dir, upload_id, schema_id, mode, settings
                 )
                 results.append(result)
                 total_statements_executed += statements_executed
@@ -731,6 +745,7 @@ async def _process_single_json_file(
     upload_id: str,
     schema_id: str | None,
     mode: str = "dynamic",
+    settings=None,
 ) -> tuple[dict[str, Any], int]:
     """Process a single NIEM JSON file.
 
@@ -743,27 +758,23 @@ async def _process_single_json_file(
         upload_id: Unique identifier for this upload batch
         schema_id: Schema identifier (optional, can be None)
         mode: Converter mode - "mapping" (use selections) or "dynamic" (all complex elements)
+        settings: Application settings (for validation control)
 
     Returns:
         Tuple of (result_dict, statements_executed)
     """
-    from ..core.config import batch_config
-
     try:
         content = await file.read()
         json_content = content.decode("utf-8")
 
-        # Log the current state of the flag for debugging
-        logger.info(f"SKIP_JSON_VALIDATION flag is: {batch_config.SKIP_JSON_VALIDATION}")
-
-        # Validate NIEM JSON against JSON Schema (unless skipped via feature flag or no schema available)
-        if not batch_config.SKIP_JSON_VALIDATION and json_schema:
-            logger.info(f"Validating JSON for {file.filename}")
-            _validate_json_content(json_content, json_schema, file.filename)
+        # Validate NIEM JSON against JSON Schema (unless skipped via settings or no schema available)
+        if settings and settings.skip_json_validation:
+            logger.warning(f"⚠️ Skipping JSON validation for {file.filename} (skip_json_validation=true)")
         elif not json_schema:
             logger.warning(f"⚠️ Skipping JSON validation for {file.filename} (no JSON schema available)")
         else:
-            logger.warning(f"⚠️ Skipping JSON validation for {file.filename} (SKIP_JSON_VALIDATION=true)")
+            logger.info(f"Validating JSON for {file.filename}")
+            _validate_json_content(json_content, json_schema, file.filename)
 
         # Generate Cypher from NIEM JSON
         cypher_statements, stats = _generate_cypher_from_json(
@@ -821,12 +832,21 @@ async def handle_json_ingest(files: list[UploadFile], s3: Minio, schema_id: str 
     NIEM JSON uses JSON-LD features (@context, @id, @type) with NIEM-specific conventions
     for property names and references. Files are validated against JSON Schema (generated
     from XSD by CMF tool) and converted to Cypher using the same mapping as XML.
-    
+
     Schema and JSON schema are optional - uploads can proceed without them when validation is skipped.
     """
     logger.info(f"Starting NIEM JSON ingestion for {len(files)} files using json_to_graph service")
 
     try:
+        # Step 0: Get settings
+        from ..services.settings_service import SettingsService
+        from ..core.dependencies import get_neo4j_client
+
+        neo4j_client_for_settings = get_neo4j_client()
+        settings_service = SettingsService(neo4j_client_for_settings)
+        settings = settings_service.get_settings()
+        logger.info(f"Settings: skip_xml_validation={settings.skip_xml_validation}, skip_json_validation={settings.skip_json_validation}")
+
         # Step 1: Generate unique upload ID for this ingestion batch
         import time
         import hashlib
@@ -902,7 +922,7 @@ async def handle_json_ingest(files: list[UploadFile], s3: Minio, schema_id: str 
         try:
             for file in files:
                 result, statements_executed = await _process_single_json_file(
-                    file, mapping, json_schema, neo4j_client, s3, upload_id, schema_id, mode
+                    file, mapping, json_schema, neo4j_client, s3, upload_id, schema_id, mode, settings
                 )
                 results.append(result)
                 total_statements_executed += statements_executed
