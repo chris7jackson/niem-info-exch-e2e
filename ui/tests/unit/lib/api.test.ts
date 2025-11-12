@@ -76,6 +76,18 @@ const server = setupServer(
         neo4j_nodes_deleted: 100,
       },
     });
+  }),
+
+  // Settings endpoints
+  http.get(`${API_URL}/api/settings`, () => {
+    return HttpResponse.json({
+      skip_xml_validation: false,
+      skip_json_validation: false,
+    });
+  }),
+  http.put(`${API_URL}/api/settings`, async ({ request }) => {
+    const body = (await request.json()) as any;
+    return HttpResponse.json(body);
   })
 );
 
@@ -199,6 +211,133 @@ describe('API Functions', () => {
       );
 
       await expect(apiClient.getSchemas()).rejects.toThrow();
+    });
+  });
+
+  describe('Settings Management', () => {
+    test('getSettings returns current settings', async () => {
+      const settings = await apiClient.getSettings();
+
+      expect(settings).toEqual({
+        skip_xml_validation: false,
+        skip_json_validation: false,
+      });
+    });
+
+    test('getSettings returns settings with different values', async () => {
+      server.use(
+        http.get(`${API_URL}/api/settings`, () => {
+          return HttpResponse.json({
+            skip_xml_validation: true,
+            skip_json_validation: false,
+          });
+        })
+      );
+
+      const settings = await apiClient.getSettings();
+
+      expect(settings.skip_xml_validation).toBe(true);
+      expect(settings.skip_json_validation).toBe(false);
+    });
+
+    test('updateSettings sends correct payload and returns updated settings', async () => {
+      let requestBody: any = null;
+
+      server.use(
+        http.put(`${API_URL}/api/settings`, async ({ request }) => {
+          requestBody = await request.json();
+          return HttpResponse.json(requestBody);
+        })
+      );
+
+      const newSettings = {
+        skip_xml_validation: true,
+        skip_json_validation: true,
+      };
+
+      const result = await apiClient.updateSettings(newSettings);
+
+      // Verify request payload
+      expect(requestBody).toEqual(newSettings);
+
+      // Verify response
+      expect(result).toEqual(newSettings);
+    });
+
+    test('updateSettings handles partial updates', async () => {
+      const updatedSettings = {
+        skip_xml_validation: true,
+        skip_json_validation: false,
+      };
+
+      const result = await apiClient.updateSettings(updatedSettings);
+
+      expect(result.skip_xml_validation).toBe(true);
+      expect(result.skip_json_validation).toBe(false);
+    });
+
+    test('getSettings handles errors', async () => {
+      server.use(
+        http.get(`${API_URL}/api/settings`, () => {
+          return HttpResponse.json({ detail: 'Settings not found' }, { status: 404 });
+        })
+      );
+
+      await expect(apiClient.getSettings()).rejects.toThrow();
+    });
+
+    test('updateSettings handles errors', async () => {
+      server.use(
+        http.put(`${API_URL}/api/settings`, () => {
+          return HttpResponse.json({ detail: 'Database error' }, { status: 500 });
+        })
+      );
+
+      const settings = {
+        skip_xml_validation: true,
+        skip_json_validation: true,
+      };
+
+      await expect(apiClient.updateSettings(settings)).rejects.toThrow();
+    });
+
+    test('getSettings includes auth token', async () => {
+      let authHeader: string | null = null;
+
+      server.use(
+        http.get(`${API_URL}/api/settings`, ({ request }) => {
+          authHeader = request.headers.get('Authorization');
+          return HttpResponse.json({
+            skip_xml_validation: false,
+            skip_json_validation: false,
+          });
+        })
+      );
+
+      await apiClient.getSettings();
+
+      expect(authHeader).toBe('Bearer devtoken');
+    });
+
+    test('updateSettings includes auth token', async () => {
+      let authHeader: string | null = null;
+
+      server.use(
+        http.put(`${API_URL}/api/settings`, ({ request }) => {
+          authHeader = request.headers.get('Authorization');
+          return HttpResponse.json({
+            skip_xml_validation: true,
+            skip_json_validation: true,
+          });
+        })
+      );
+
+      await apiClient.updateSettings({
+        skip_xml_validation: true,
+        skip_json_validation: true,
+      });
+
+      expect(authHeader).toBe('Bearer devtoken');
     });
   });
 });

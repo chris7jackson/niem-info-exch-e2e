@@ -151,3 +151,13 @@ class EntityResolutionResponse(BaseModel):
     relationshipsCreated: int = 0
     entitiesResolved: int = 0  # Total entities involved in resolution
     nodeTypesProcessed: list[str] = []  # List of qnames that were processed
+
+
+# Settings Models
+
+
+class Settings(BaseModel):
+    """Application settings for validation and other configurable options."""
+
+    skip_xml_validation: bool = False  # Default: validation enabled
+    skip_json_validation: bool = False  # Default: validation enabled
