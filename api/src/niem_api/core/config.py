@@ -43,23 +43,6 @@ class BatchConfig:
     # XML/JSON ingestion to Neo4j
     MAX_INGEST_FILES = getenv_int("BATCH_MAX_INGEST_FILES", 20)
 
-    # JSON validation feature flag
-    # Default: true (validation skipped)
-    #
-    # Reasons for default=true:
-    # 1. CMF tool cannot generate JSON schemas for NIEM < 6.0 (e.g., NIECE 3.0, NIBRS 5.0)
-    # 2. JSON schemas from model.xsd don't validate message instances correctly
-    # 3. Model schema validation cycle is separate from message validation
-    #
-    # Set to 'false' only if you have NIEM 6.0+ schemas AND valid message schemas
-    SKIP_JSON_VALIDATION = getenv_bool("SKIP_JSON_VALIDATION", True)
-    
-    # Log the value at startup for debugging
-    raw_value = getenv_clean("SKIP_JSON_VALIDATION", "true", strip=False)
-    logger.info(
-        f"SKIP_JSON_VALIDATION: raw={repr(raw_value)}, final={SKIP_JSON_VALIDATION}"
-    )
-
     @classmethod
     def get_batch_limit(cls, operation_type: str) -> int:
         """Get batch size limit for specific operation type.
