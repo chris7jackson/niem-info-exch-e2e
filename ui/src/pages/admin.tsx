@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import apiClient from '../lib/api';
+import ToastContainer from '../components/ToastContainer';
+import { useToast } from '../hooks/useToast';
 
 interface ResetCounts {
   schemas?: number;
@@ -11,6 +13,11 @@ interface ResetCounts {
   neo4j_relationships?: number;
   neo4j_indexes?: number;
   neo4j_constraints?: number;
+}
+
+interface Settings {
+  skip_xml_validation: boolean;
+  skip_json_validation: boolean;
 }
 
 export default function AdminPage() {
@@ -24,6 +31,52 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Settings state
+  const [settings, setSettings] = useState<Settings>({ skip_xml_validation: false, skip_json_validation: false });
+  const [settingsLoading, setSettingsLoading] = useState(false);
+
+  // Toast notifications
+  const { toasts, showSuccess, showError, closeToast } = useToast();
+
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      setSettingsLoading(true);
+      const result = await apiClient.getSettings();
+      setSettings(result);
+    } catch (err: any) {
+      showError(err.response?.data?.detail || err.message || 'Failed to load settings');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const updateSetting = async (key: keyof Settings, value: boolean) => {
+    try {
+      setSettingsLoading(true);
+
+      const updatedSettings = { ...settings, [key]: value };
+      const result = await apiClient.updateSettings(updatedSettings);
+
+      setSettings(result);
+
+      // Show success toast with friendly message
+      const settingName = key === 'skip_xml_validation' ? 'XML validation' : 'JSON validation';
+      const action = value ? 'disabled' : 'enabled';
+      showSuccess(`${settingName} ${action}`);
+    } catch (err: any) {
+      showError(err.response?.data?.detail || err.message || 'Failed to update settings');
+      // Revert the change on error
+      setSettings(settings);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
 
   const handleDryRun = async () => {
     try {
@@ -77,13 +130,16 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">System Administration</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Administrative tools for managing the NIEM system.
-        </p>
-      </div>
+    <>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
+
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">System Administration</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Administrative tools for managing the NIEM system.
+          </p>
+        </div>
 
       {/* Warning Banner */}
       <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
@@ -110,6 +166,44 @@ export default function AdminPage() {
           <div className="text-sm text-red-700">{error}</div>
         </div>
       )}
+
+      {/* Validation Settings */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Validation Settings</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Control validation behavior for XML and JSON file uploads. Changes take effect immediately.
+        </p>
+
+        <div className="space-y-3">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.skip_xml_validation}
+              onChange={(e) => updateSetting('skip_xml_validation', e.target.checked)}
+              disabled={settingsLoading}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+            />
+            <span className="ml-2 text-sm text-gray-700">
+              Skip XML Validation
+              <span className="ml-1 text-gray-500">(applies to both XML ingestion and XML-to-JSON conversion)</span>
+            </span>
+          </label>
+
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.skip_json_validation}
+              onChange={(e) => updateSetting('skip_json_validation', e.target.checked)}
+              disabled={settingsLoading}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+            />
+            <span className="ml-2 text-sm text-gray-700">
+              Skip JSON Validation
+              <span className="ml-1 text-gray-500">(applies to JSON ingestion)</span>
+            </span>
+          </label>
+        </div>
+      </div>
 
       {/* Reset System */}
       <div className="bg-white shadow rounded-lg p-6">
@@ -243,6 +337,7 @@ export default function AdminPage() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

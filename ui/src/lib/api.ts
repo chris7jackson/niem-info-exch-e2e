@@ -383,6 +383,20 @@ class ApiClient {
     return response.data;
   }
 
+  // Settings
+  async getSettings(): Promise<{ skip_xml_validation: boolean; skip_json_validation: boolean }> {
+    const response = await this.client.get('/api/settings');
+    return response.data;
+  }
+
+  async updateSettings(settings: {
+    skip_xml_validation: boolean;
+    skip_json_validation: boolean;
+  }): Promise<{ skip_xml_validation: boolean; skip_json_validation: boolean }> {
+    const response = await this.client.put('/api/settings', settings);
+    return response.data;
+  }
+
   // Entity Resolution
   async getEntityResolutionNodeTypes(): Promise<EntityResolutionNodeTypesResponse> {
     const response = await this.client.get('/api/entity-resolution/node-types');
