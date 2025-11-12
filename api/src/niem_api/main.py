@@ -15,7 +15,7 @@ from .core.auth import verify_token
 from .core.dependencies import get_s3_client
 from .core.env_utils import getenv_clean, getenv_int, getenv_list
 from .core.logging import setup_logging
-from .models.models import EntityResolutionRequest, ResetRequest, SchemaResponse
+from .models.models import EntityResolutionRequest, ResetRequest, SchemaResponse, Settings
 
 # Load environment variables from .env file
 load_dotenv()
@@ -97,6 +97,14 @@ async def startup_tasks():
                 senzing_configured = senzing_available
         else:
             logger.info("✗ Senzing entity resolution not available (no license) - using text-based entity matching")
+
+        # Initialize settings in database
+        from .services.settings_service import SettingsService
+        from .core.dependencies import get_neo4j_client
+
+        neo4j_client = get_neo4j_client()
+        settings_service = SettingsService(neo4j_client)
+        settings_service.initialize_settings()
 
         logger.info("Startup tasks completed successfully")
 
@@ -409,6 +417,33 @@ async def get_neo4j_stats(token: str = Depends(verify_token)):
     from .handlers.admin import count_neo4j_objects
 
     return count_neo4j_objects()
+
+
+# Settings Routes
+
+
+@app.get("/api/settings", response_model=Settings)
+async def get_settings():
+    """Get current application settings"""
+    from .services.settings_service import SettingsService
+    from .core.dependencies import get_neo4j_client
+
+    neo4j_client = get_neo4j_client()
+    settings_service = SettingsService(neo4j_client)
+
+    return settings_service.get_settings()
+
+
+@app.put("/api/settings", response_model=Settings)
+async def update_settings(settings: Settings):
+    """Update application settings"""
+    from .services.settings_service import SettingsService
+    from .core.dependencies import get_neo4j_client
+
+    neo4j_client = get_neo4j_client()
+    settings_service = SettingsService(neo4j_client)
+
+    return settings_service.update_settings(settings)
 
 
 @app.post("/api/graph/query")
