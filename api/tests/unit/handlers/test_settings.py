@@ -31,8 +31,8 @@ class TestSettingsEndpoints:
         # Arrange
         expected_settings = create_settings_object(skip_xml=True, skip_json=False)
 
-        with patch("niem_api.main.get_neo4j_client") as mock_get_client, \
-             patch("niem_api.main.SettingsService") as mock_service_class:
+        with patch("niem_api.core.dependencies.get_neo4j_client") as mock_get_client, \
+             patch("niem_api.services.settings_service.SettingsService") as mock_service_class:
 
             mock_service = Mock()
             mock_service.get_settings.return_value = expected_settings
@@ -53,8 +53,8 @@ class TestSettingsEndpoints:
         # Arrange
         updated_settings = create_settings_object(skip_xml=True, skip_json=True)
 
-        with patch("niem_api.main.get_neo4j_client") as mock_get_client, \
-             patch("niem_api.main.SettingsService") as mock_service_class:
+        with patch("niem_api.core.dependencies.get_neo4j_client") as mock_get_client, \
+             patch("niem_api.services.settings_service.SettingsService") as mock_service_class:
 
             mock_service = Mock()
             mock_service.update_settings.return_value = updated_settings
@@ -82,11 +82,12 @@ class TestSettingsEndpoints:
         # Arrange - Invalid payload (missing required field)
         invalid_payload = {"skip_xml_validation": True}  # Missing skip_json_validation
 
-        # Act
-        response = client.put("/api/settings", json=invalid_payload)
+        with patch("niem_api.core.dependencies.get_neo4j_client"):
+            # Act
+            response = client.put("/api/settings", json=invalid_payload)
 
-        # Assert
-        assert response.status_code == 422  # Validation error
+            # Assert
+            assert response.status_code == 422  # Validation error
 
     def test_update_settings_rejects_invalid_types(self, client):
         """Test PUT /api/settings rejects invalid data types."""
@@ -96,19 +97,20 @@ class TestSettingsEndpoints:
             "skip_json_validation": "false",
         }
 
-        # Act
-        response = client.put("/api/settings", json=invalid_payload)
+        with patch("niem_api.core.dependencies.get_neo4j_client"):
+            # Act
+            response = client.put("/api/settings", json=invalid_payload)
 
-        # Assert
-        assert response.status_code == 422  # Validation error
+            # Assert
+            assert response.status_code == 422  # Validation error
 
     def test_get_settings_handles_service_defaults(self, client):
         """Test GET /api/settings returns defaults when service has no data."""
         # Arrange
         default_settings = create_settings_object(skip_xml=False, skip_json=False)
 
-        with patch("niem_api.main.get_neo4j_client") as mock_get_client, \
-             patch("niem_api.main.SettingsService") as mock_service_class:
+        with patch("niem_api.core.dependencies.get_neo4j_client") as mock_get_client, \
+             patch("niem_api.services.settings_service.SettingsService") as mock_service_class:
 
             mock_service = Mock()
             mock_service.get_settings.return_value = default_settings

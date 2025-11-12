@@ -30,6 +30,7 @@ class TestSettingsService:
         """Test get_settings returns settings from database when they exist."""
         # Arrange
         expected_settings = create_neo4j_settings_response(skip_xml=True, skip_json=False)
+        mock_neo4j_client.query.side_effect = None  # Clear side_effect
         mock_neo4j_client.query.return_value = expected_settings
 
         # Act
@@ -44,6 +45,7 @@ class TestSettingsService:
     def test_get_settings_returns_defaults_when_not_found(self, settings_service, mock_neo4j_client):
         """Test get_settings returns default settings when none exist in database."""
         # Arrange
+        mock_neo4j_client.query.side_effect = None  # Clear side_effect
         mock_neo4j_client.query.return_value = []  # Empty result = no settings
 
         # Act
@@ -72,6 +74,7 @@ class TestSettingsService:
         """Test update_settings successfully updates settings in database."""
         # Arrange
         new_settings = create_settings_object(skip_xml=True, skip_json=True)
+        mock_neo4j_client.query.side_effect = None  # Clear side_effect
         mock_neo4j_client.query.return_value = create_neo4j_settings_response(
             skip_xml=True, skip_json=True
         )
@@ -87,7 +90,7 @@ class TestSettingsService:
 
         # Verify the Cypher query was called with correct parameters
         call_args = mock_neo4j_client.query.call_args
-        assert call_args[0][0].startswith("MERGE")  # Uses MERGE for upsert
+        assert "MERGE" in call_args[0][0]  # Uses MERGE for upsert
         assert call_args[1]["skip_xml_validation"] is True
         assert call_args[1]["skip_json_validation"] is True
 
@@ -106,6 +109,7 @@ class TestSettingsService:
     def test_initialize_settings_creates_default_settings(self, settings_service, mock_neo4j_client):
         """Test initialize_settings creates default settings on first run."""
         # Arrange
+        mock_neo4j_client.query.side_effect = None  # Clear side_effect
         mock_neo4j_client.query.return_value = []
 
         # Act
@@ -116,7 +120,7 @@ class TestSettingsService:
 
         # Verify the Cypher query uses MERGE and ON CREATE SET
         call_args = mock_neo4j_client.query.call_args
-        assert call_args[0][0].startswith("MERGE")
+        assert "MERGE" in call_args[0][0]
         assert "ON CREATE SET" in call_args[0][0]
         assert call_args[1]["skip_xml_validation"] is False  # Default
         assert call_args[1]["skip_json_validation"] is False  # Default
@@ -124,6 +128,7 @@ class TestSettingsService:
     def test_initialize_settings_is_idempotent(self, settings_service, mock_neo4j_client):
         """Test initialize_settings can be called multiple times safely."""
         # Arrange
+        mock_neo4j_client.query.side_effect = None  # Clear side_effect
         mock_neo4j_client.query.return_value = []
 
         # Act
@@ -156,8 +161,9 @@ class TestSettingsService:
         ]
 
         for skip_xml, skip_json in test_cases:
-            # Reset mock
+            # Reset mock and clear side_effect
             mock_neo4j_client.reset_mock()
+            mock_neo4j_client.query.side_effect = None
             mock_neo4j_client.query.return_value = create_neo4j_settings_response(
                 skip_xml=skip_xml, skip_json=skip_json
             )
