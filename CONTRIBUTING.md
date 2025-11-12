@@ -18,6 +18,26 @@ See the [README Quick Start](README.md#quick-start) for:
 - Accessing the UI and services
 - Rebuilding after code changes
 
+### Local Development Setup (without Docker)
+
+For API development without Docker, we use [uv](https://docs.astral.sh/uv/) for Python dependency management:
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Navigate to API directory
+cd api
+
+# Install dependencies (includes dev dependencies)
+uv sync --all-extras
+
+# Run the API server
+uv run uvicorn src.niem_api.main:app --reload
+```
+
+Dependencies are managed in `api/pyproject.toml` and locked in `api/uv.lock`.
+
 ## Architecture Overview
 
 This project follows a layered architecture. Before making changes, familiarize yourself with:
@@ -58,7 +78,7 @@ All code changes must include tests. See [docs/UNIT_TESTING.md](docs/UNIT_TESTIN
 ```bash
 # API tests
 cd api
-pytest
+uv run pytest
 
 # UI tests
 cd ui
@@ -113,7 +133,7 @@ in a single response instead of stopping at the first error.
 4. **Ensure tests pass**
    ```bash
    # API
-   cd api && pytest
+   cd api && uv run pytest
 
    # UI (if UI changes)
    cd ui && npm test

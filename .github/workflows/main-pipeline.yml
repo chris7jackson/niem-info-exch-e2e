@@ -82,16 +82,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: 'api/requirements*.txt'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install API dependencies
         run: |
           cd api
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-test.txt
-          pip install -e .
+          uv sync --all-extras
 
       - name: Start API server in background
         env:
@@ -104,7 +102,7 @@ jobs:
           MINIO_SECURE: false
         run: |
           cd api
-          uvicorn src.niem_api.main:app --host 0.0.0.0 --port 8000 &
+          uv run uvicorn src.niem_api.main:app --host 0.0.0.0 --port 8000 &
           # Wait for API to be ready
           timeout 60 bash -c 'until curl -f http://localhost:8000/healthz 2>/dev/null; do sleep 2; done'
           echo "✅ API server is ready"

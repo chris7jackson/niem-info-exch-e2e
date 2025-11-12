@@ -206,8 +206,8 @@ file api/secrets/senzing/g2.lic
 
 ### Senzing SDK Not Found
 
-- In Docker: Should be installed automatically via requirements.txt
-- Local dev: Run `pip install senzing-grpc` (for SDK v4 with gRPC)
+- In Docker: Should be installed automatically via uv
+- Local dev: Run `uv pip install senzing-grpc` or `uv sync --all-extras` (for SDK v4 with gRPC)
 - Check logs: `docker compose logs api | grep -i "senzing.*import"`
 
 ### Database Connection Issues

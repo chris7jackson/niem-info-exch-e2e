@@ -127,7 +127,7 @@ This is a **drop-in replacement** with identical API, requiring no code changes 
 ### Negative
 
 ⚠️ **Additional Dependency**
-- Adds one more external library to requirements.txt
+- Adds one more external library to pyproject.toml
 - Increases Docker image size by ~50KB (negligible)
 - Requires security updates for defusedxml itself
 
@@ -139,7 +139,7 @@ This is a **drop-in replacement** with identical API, requiring no code changes 
 ### Mitigation
 
 **Dependency Management:**
-- Pin defusedxml version in requirements.txt
+- Pin defusedxml version in pyproject.toml
 - Monitor for security advisories via Dependabot
 - Include in CI/CD dependency scanning (already configured)
 
@@ -210,7 +210,7 @@ if "<!ENTITY" in xml_content or "<!DOCTYPE" in xml_content:
 ## Implementation Status
 
 **Completed:**
-- ✅ Added defusedxml==0.7.1 to requirements.txt
+- ✅ Added defusedxml==0.7.1 to pyproject.toml (migrated from requirements.txt)
 - ✅ Replaced imports in handlers/schema.py
 - ✅ Replaced imports in services/domain/schema/mapping.py
 - ✅ Replaced imports in services/domain/schema/resolver.py
