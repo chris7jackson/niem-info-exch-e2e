@@ -93,9 +93,7 @@ export default function Layout({ children }: LayoutProps) {
                 {gitCommit && gitCommit !== 'unknown' && (
                   <>
                     <span className="text-gray-300">|</span>
-                    <span className="text-xs text-gray-400">
-                      {gitCommit.substring(0, 7)}
-                    </span>
+                    <span className="text-xs text-gray-400">{gitCommit.substring(0, 7)}</span>
                   </>
                 )}
               </div>
