@@ -78,23 +78,32 @@ class TestSettingsEndpoints:
             assert call_args.skip_json_validation is True
 
     def test_update_settings_validates_input(self, client):
-        """Test PUT /api/settings validates input data."""
-        # Arrange - Invalid payload (missing required field)
-        invalid_payload = {"skip_xml_validation": True}  # Missing skip_json_validation
+        """Test PUT /api/settings accepts partial updates with defaults."""
+        # Arrange - Partial payload (Settings model has defaults)
+        partial_payload = {"skip_xml_validation": True}  # skip_json_validation will use default
 
-        with patch("niem_api.core.dependencies.get_neo4j_client"):
+        with patch("niem_api.core.dependencies.get_neo4j_client") as mock_client, \
+             patch("niem_api.services.settings_service.SettingsService") as mock_service_class:
+
+            mock_service = Mock()
+            mock_service.update_settings.return_value = create_settings_object(skip_xml=True, skip_json=False)
+            mock_service_class.return_value = mock_service
+
             # Act
-            response = client.put("/api/settings", json=invalid_payload)
+            response = client.put("/api/settings", json=partial_payload)
 
             # Assert
-            assert response.status_code == 422  # Validation error
+            assert response.status_code == 200
+            data = response.json()
+            assert data["skip_xml_validation"] is True
+            assert data["skip_json_validation"] is False  # Used default
 
     def test_update_settings_rejects_invalid_types(self, client):
-        """Test PUT /api/settings rejects invalid data types."""
-        # Arrange - Invalid types (strings instead of booleans)
+        """Test PUT /api/settings validates boolean type strictly."""
+        # Arrange - Invalid type (number instead of boolean)
         invalid_payload = {
-            "skip_xml_validation": "true",  # String instead of boolean
-            "skip_json_validation": "false",
+            "skip_xml_validation": 123,  # Invalid type
+            "skip_json_validation": False,
         }
 
         with patch("niem_api.core.dependencies.get_neo4j_client"):

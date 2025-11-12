@@ -91,8 +91,9 @@ class TestSettingsService:
         # Verify the Cypher query was called with correct parameters
         call_args = mock_neo4j_client.query.call_args
         assert "MERGE" in call_args[0][0]  # Uses MERGE for upsert
-        assert call_args[1]["skip_xml_validation"] is True
-        assert call_args[1]["skip_json_validation"] is True
+        params = call_args[0][1]  # Second positional argument
+        assert params["skip_xml_validation"] is True
+        assert params["skip_json_validation"] is True
 
     def test_update_settings_raises_on_error(self, settings_service, mock_neo4j_client):
         """Test update_settings propagates database errors."""
@@ -122,8 +123,9 @@ class TestSettingsService:
         call_args = mock_neo4j_client.query.call_args
         assert "MERGE" in call_args[0][0]
         assert "ON CREATE SET" in call_args[0][0]
-        assert call_args[1]["skip_xml_validation"] is False  # Default
-        assert call_args[1]["skip_json_validation"] is False  # Default
+        params = call_args[0][1]  # Second positional argument
+        assert params["skip_xml_validation"] is False  # Default
+        assert params["skip_json_validation"] is False  # Default
 
     def test_initialize_settings_is_idempotent(self, settings_service, mock_neo4j_client):
         """Test initialize_settings can be called multiple times safely."""
