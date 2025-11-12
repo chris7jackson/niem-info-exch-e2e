@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -19,6 +19,26 @@ const navigation = [
 
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
+  const [apiVersion, setApiVersion] = useState<string>('loading...');
+  const [gitCommit, setGitCommit] = useState<string>('');
+
+  useEffect(() => {
+    const fetchApiVersion = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${apiUrl}/healthz`);
+        const data = await response.json();
+        setApiVersion(data.api_version || 'unknown');
+        setGitCommit(data.git_commit || 'unknown');
+      } catch (error) {
+        console.error('Failed to fetch API version:', error);
+        setApiVersion('unavailable');
+        setGitCommit('');
+      }
+    };
+
+    fetchApiVersion();
+  }, []);
 
   return (
     <>
@@ -69,11 +89,13 @@ export default function Layout({ children }: LayoutProps) {
                 {new Date().getFullYear()}
               </div>
               <div className="flex gap-4">
-                <span>UI: v{process.env.NEXT_PUBLIC_APP_VERSION || 'unknown'}</span>
-                <span className="text-gray-300">|</span>
-                <span className="text-xs text-gray-400">
-                  {process.env.NEXT_PUBLIC_GIT_COMMIT?.substring(0, 7) || 'dev'}
-                </span>
+                <span>API: v{apiVersion}</span>
+                {gitCommit && gitCommit !== 'unknown' && (
+                  <>
+                    <span className="text-gray-300">|</span>
+                    <span className="text-xs text-gray-400">{gitCommit.substring(0, 7)}</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
