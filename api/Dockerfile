@@ -25,13 +25,22 @@ RUN apt-get update && apt-get install -y \
     openjdk-21-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY api/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy application code
+# Copy dependency files only
+COPY api/pyproject.toml api/uv.lock ./
+
+# Install dependencies WITHOUT the project itself (for better caching)
+# This layer is only invalidated when dependencies change, not on code changes
+RUN uv sync --frozen --no-dev --no-install-project
+
+# Copy application source code
 COPY api/src/ ./src/
 COPY api/config/ ./config/
+
+# Install the project itself (fast, no dependency downloads)
+RUN uv sync --frozen --no-dev
 
 # Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
@@ -60,4 +69,4 @@ USER appuser
 
 EXPOSE ${API_PORT:-8000}
 
-CMD uvicorn src.niem_api.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000}
+CMD ["sh", "-c", "uv run uvicorn src.niem_api.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000}"]

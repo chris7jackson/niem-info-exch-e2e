@@ -132,8 +132,8 @@ chmod -R 755 api/g2license_*/
 ```
 
 **Senzing SDK not found?**
-- Docker: Installed automatically via requirements.txt
-- Local dev: Run `pip install senzing-grpc`
+- Docker: Installed automatically via uv
+- Local dev: Run `uv pip install senzing-grpc` or `uv sync --all-extras`
 
 #### Health Check
 
@@ -223,7 +223,7 @@ Hot reloading works for code changes, but you need to rebuild for:
 
 | Change Type | Command | Reason |
 |-------------|---------|--------|
-| Python dependencies (`requirements.txt`) | `docker compose up -d --build api` | New packages need installation |
+| Python dependencies (`pyproject.toml`, `uv.lock`) | `docker compose up -d --build api` | New packages need installation |
 | Node dependencies (`package.json`) | `docker compose up -d --build ui` | npm packages need installation |
 | Dockerfile changes | `docker compose up -d --build` | Container configuration changed |
 | Environment variables (`.env`) | `docker compose restart` | No rebuild needed, just restart |
@@ -283,6 +283,59 @@ docker compose logs -f ui
 **Method 4: Test from Browser Console**
 
 Open your browser's developer console (F12) and watch the Network tab while making UI changes. You'll see Hot Module Replacement (HMR) websocket messages.
+
+#### Local Development without Docker (using uv)
+
+For developers who prefer to run the API locally without Docker:
+
+**Prerequisites:**
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/) package manager
+
+**Setup:**
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Navigate to the API directory
+cd api
+
+# Install dependencies (uv will auto-install Python 3.12 if needed)
+uv sync --all-extras
+
+# Run the API server
+uv run uvicorn src.niem_api.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Running tests:**
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run with coverage
+uv run pytest --cov=src --cov-report=html
+
+# Run specific test types
+uv run pytest tests/unit/
+uv run pytest tests/integration/
+```
+
+**Code quality checks:**
+
+```bash
+# Linting
+uv run ruff check src/
+
+# Formatting
+uv run black src/
+
+# Type checking
+uv run mypy src/
+```
+
+**Note:** You'll still need Neo4j and MinIO running (via Docker or natively) for the API to function properly.
 
 #### Production Deployment
 

@@ -4,8 +4,8 @@
 
 services:
   api:
-    # Override command to enable hot reloading
-    command: uvicorn src.niem_api.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000} --reload
+    # Override command to enable hot reloading with uv
+    command: ["sh", "-c", "uv run uvicorn src.niem_api.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000} --reload"]
 
     # Mount source code for hot reloading
     volumes:

@@ -67,48 +67,45 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: 'api/requirements*.txt'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
           cd api
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-test.txt
-          # Install package in editable mode for tests
-          pip install -e .
+          uv sync --all-extras
 
       - name: Run Ruff linter
         run: |
           cd api
           # TODO: Make blocking after fixing Ruff errors (tracked in issue)
-          ruff check src/ --output-format=github || echo "⚠️ Ruff has errors - see output above"
+          uv run ruff check src/ --output-format=github || echo "⚠️ Ruff has errors - see output above"
 
       - name: Run Black formatter check
         run: |
           cd api
           # TODO: Make blocking after formatting all files (tracked in issue)
-          black src/ --check --diff || echo "⚠️ Black formatting issues found - 30 files need reformatting"
+          uv run black src/ --check --diff || echo "⚠️ Black formatting issues found - 30 files need reformatting"
 
       - name: Run MyPy type checking
         run: |
           cd api
           # TODO: Make blocking after fixing MyPy errors (tracked in issue)
-          mypy src/ || echo "⚠️ MyPy found 174 type checking errors - see output above"
+          uv run mypy src/ || echo "⚠️ MyPy found 174 type checking errors - see output above"
 
       - name: Run Bandit security check (high+ severity)
         run: |
           cd api
-          bandit -r src/ -ll -f json -o bandit-report.json || true
+          uv run bandit -r src/ -ll -f json -o bandit-report.json || true
           # Fail on high/critical security issues
-          bandit -r src/ -ll
+          uv run bandit -r src/ -ll
 
       - name: Run unit tests with coverage
         run: |
           cd api
           # Generate coverage report (without failing on overall coverage)
-          pytest tests/unit/ \
+          uv run pytest tests/unit/ \
             --cov=src \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
@@ -120,13 +117,13 @@ jobs:
         run: |
           cd api
           # Install diff-cover to check only new/changed lines
-          pip install diff-cover
+          uv pip install diff-cover
 
           # Fetch base branch for comparison
           git fetch origin ${{ github.base_ref }}
 
           # Check coverage on new code (informational only - not blocking)
-          diff-cover coverage.xml \
+          uv run diff-cover coverage.xml \
             --compare-branch=origin/${{ github.base_ref }} \
             --fail-under=80 \
             --html-report=diff-coverage.html || echo "⚠️ Coverage check is informational only - not blocking PR"
@@ -201,17 +198,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: 'api/requirements*.txt'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
           cd api
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-test.txt
-          # Install package in editable mode for tests
-          pip install -e .
+          uv sync --all-extras
 
       - name: Run integration tests
         env:
@@ -224,7 +218,7 @@ jobs:
           MINIO_SECURE: false
         run: |
           cd api
-          pytest tests/integration/ \
+          uv run pytest tests/integration/ \
             --verbose \
             --junit-xml=integration-report.xml
 

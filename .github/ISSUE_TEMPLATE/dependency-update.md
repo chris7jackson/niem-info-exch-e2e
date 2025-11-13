@@ -150,7 +150,7 @@ assignees: ''
 
 **Files to Modify:**
 <!-- List files that will change -->
-- `package.json` / `requirements.txt` / `pom.xml` / `go.mod`
+- `package.json` / `pyproject.toml` / `uv.lock` / `pom.xml` / `go.mod`
 - <!-- Any code files needing changes -->
 
 **Code Changes Required:**
