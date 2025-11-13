@@ -99,11 +99,11 @@ async def startup_tasks():
             logger.info("✗ Senzing entity resolution not available (no license) - using text-based entity matching")
 
         # Initialize settings in database
-        from .services.settings_service import SettingsService
-        from .core.dependencies import get_neo4j_client
+        from .services.postgres_settings_service import PostgresSettingsService
+        from .core.dependencies import get_postgres_client
 
-        neo4j_client = get_neo4j_client()
-        settings_service = SettingsService(neo4j_client)
+        postgres_client = get_postgres_client()
+        settings_service = PostgresSettingsService(postgres_client)
         settings_service.initialize_settings()
 
         logger.info("Startup tasks completed successfully")
@@ -425,11 +425,11 @@ async def get_neo4j_stats(token: str = Depends(verify_token)):
 @app.get("/api/settings", response_model=Settings)
 async def get_settings():
     """Get current application settings"""
-    from .services.settings_service import SettingsService
-    from .core.dependencies import get_neo4j_client
+    from .services.postgres_settings_service import PostgresSettingsService
+    from .core.dependencies import get_postgres_client
 
-    neo4j_client = get_neo4j_client()
-    settings_service = SettingsService(neo4j_client)
+    postgres_client = get_postgres_client()
+    settings_service = PostgresSettingsService(postgres_client)
 
     return settings_service.get_settings()
 
@@ -437,11 +437,11 @@ async def get_settings():
 @app.put("/api/settings", response_model=Settings)
 async def update_settings(settings: Settings):
     """Update application settings"""
-    from .services.settings_service import SettingsService
-    from .core.dependencies import get_neo4j_client
+    from .services.postgres_settings_service import PostgresSettingsService
+    from .core.dependencies import get_postgres_client
 
-    neo4j_client = get_neo4j_client()
-    settings_service = SettingsService(neo4j_client)
+    postgres_client = get_postgres_client()
+    settings_service = PostgresSettingsService(postgres_client)
 
     return settings_service.update_settings(settings)
 

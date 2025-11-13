@@ -31,9 +31,9 @@ def getenv_clean(key: str, default: str = None, strip: bool = True) -> Optional[
         Cleaned environment variable value, or default if not set
 
     Example:
-        >>> # .env file has: SKIP_JSON_VALIDATION=true\r\n
-        >>> value = getenv_clean("SKIP_JSON_VALIDATION", "false")
-        >>> # Returns: "true" (without \r\n)
+        >>> # .env file has: API_URL=http://localhost:8000\r\n
+        >>> value = getenv_clean("API_URL", "http://default")
+        >>> # Returns: "http://localhost:8000" (without \r\n)
     """
     raw_value = os.getenv(key, default)
     
@@ -72,8 +72,8 @@ def getenv_bool(key: str, default: bool = False) -> bool:
         Boolean value
 
     Example:
-        >>> # .env file has: SKIP_JSON_VALIDATION=true\r\n
-        >>> value = getenv_bool("SKIP_JSON_VALIDATION", False)
+        >>> # .env file has: DEBUG_MODE=true\r\n
+        >>> value = getenv_bool("DEBUG_MODE", False)
         >>> # Returns: True (cleaned and converted)
     """
     raw_value = getenv_clean(key, None)
