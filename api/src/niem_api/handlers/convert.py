@@ -273,11 +273,11 @@ async def handle_xml_to_json_batch(
 
     try:
         # Step 0: Get settings
-        from ..services.settings_service import SettingsService
-        from ..core.dependencies import get_neo4j_client
+        from ..services.postgres_settings_service import PostgresSettingsService
+        from ..core.dependencies import get_postgres_client
 
-        neo4j_client = get_neo4j_client()
-        settings_service = SettingsService(neo4j_client)
+        postgres_client = get_postgres_client()
+        settings_service = PostgresSettingsService(postgres_client)
         settings = settings_service.get_settings()
         logger.info(f"Settings: skip_xml_validation={settings.skip_xml_validation}, skip_json_validation={settings.skip_json_validation}")
 

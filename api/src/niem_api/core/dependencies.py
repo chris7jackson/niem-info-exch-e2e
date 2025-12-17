@@ -4,7 +4,7 @@ import os
 
 from minio import Minio
 
-from .env_utils import getenv_clean, getenv_bool
+from .env_utils import getenv_clean, getenv_bool, getenv_int
 
 
 def get_s3_client():
@@ -44,9 +44,39 @@ def get_neo4j_client():
     return _neo4j_client
 
 
+# Global Postgres client instance
+_postgres_client = None
+
+
+def get_postgres_client():
+    """Get or create global Postgres client instance"""
+    global _postgres_client
+    if _postgres_client is None:
+        from ..clients.postgres_client import PostgresClient
+
+        postgres_host = getenv_clean("POSTGRES_HOST", "localhost")
+        postgres_port = getenv_int("POSTGRES_PORT", 5432)
+        postgres_db = getenv_clean("POSTGRES_DB", "senzing")
+        postgres_user = getenv_clean("POSTGRES_USER", "senzing")
+        postgres_password = getenv_clean("POSTGRES_PASSWORD", "changeme")
+
+        _postgres_client = PostgresClient(
+            host=postgres_host,
+            port=postgres_port,
+            database=postgres_db,
+            user=postgres_user,
+            password=postgres_password,
+        )
+
+    return _postgres_client
+
+
 def cleanup_connections():
     """Clean up global connections on application shutdown"""
-    global _neo4j_client
+    global _neo4j_client, _postgres_client
     if _neo4j_client is not None:
         _neo4j_client.close()
         _neo4j_client = None
+    if _postgres_client is not None:
+        _postgres_client.close()
+        _postgres_client = None

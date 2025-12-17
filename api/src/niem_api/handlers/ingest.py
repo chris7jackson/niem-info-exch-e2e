@@ -611,11 +611,11 @@ async def handle_xml_ingest(files: list[UploadFile], s3: Minio, schema_id: str =
     schema_dir = None
     try:
         # Step 0: Get settings
-        from ..services.settings_service import SettingsService
-        from ..core.dependencies import get_neo4j_client
+        from ..services.postgres_settings_service import PostgresSettingsService
+        from ..core.dependencies import get_postgres_client
 
-        neo4j_client_for_settings = get_neo4j_client()
-        settings_service = SettingsService(neo4j_client_for_settings)
+        postgres_client_for_settings = get_postgres_client()
+        settings_service = PostgresSettingsService(postgres_client_for_settings)
         settings = settings_service.get_settings()
         logger.info(f"Settings: skip_xml_validation={settings.skip_xml_validation}, skip_json_validation={settings.skip_json_validation}")
 
@@ -839,11 +839,11 @@ async def handle_json_ingest(files: list[UploadFile], s3: Minio, schema_id: str 
 
     try:
         # Step 0: Get settings
-        from ..services.settings_service import SettingsService
-        from ..core.dependencies import get_neo4j_client
+        from ..services.postgres_settings_service import PostgresSettingsService
+        from ..core.dependencies import get_postgres_client
 
-        neo4j_client_for_settings = get_neo4j_client()
-        settings_service = SettingsService(neo4j_client_for_settings)
+        postgres_client_for_settings = get_postgres_client()
+        settings_service = PostgresSettingsService(postgres_client_for_settings)
         settings = settings_service.get_settings()
         logger.info(f"Settings: skip_xml_validation={settings.skip_xml_validation}, skip_json_validation={settings.skip_json_validation}")
 
