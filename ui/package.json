@@ -27,7 +27,7 @@
     "@heroicons/react": "^2.0.18",
     "@types/react-window": "^1.8.8",
     "autoprefixer": "^10.4.16",
-    "axios": "^1.12.2",
+    "axios": "^1.13.5",
     "clsx": "^2.0.0",
     "cytoscape": "^3.28.1",
     "cytoscape-cose-bilkent": "^4.1.0",
