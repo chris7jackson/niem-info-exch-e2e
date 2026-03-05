@@ -61,7 +61,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "form-data": "^4.0.4",
-    "jsdom": "^22.1.0",
+    "jsdom": "^28.1.0",
     "msw": "^2.11.5",
     "prettier": "^3.4.2",
     "typescript": "5.9.3",
