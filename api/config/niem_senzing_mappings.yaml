@@ -77,97 +77,169 @@ entity_categories:
 # Format: niem_field: senzing_field
 field_mappings:
   # Person name mappings
-  nc_PersonFullName: PRIMARY_NAME_FULL
-  nc_PersonGivenName: PRIMARY_NAME_FIRST
-  nc_PersonSurName: PRIMARY_NAME_LAST
-  nc_PersonMiddleName: PRIMARY_NAME_MIDDLE
-  nc_PersonMaidenName: MAIDEN_NAME
+  nc_PersonFullName: NAME_FULL
+  nc_PersonGivenName: NAME_FIRST
+  nc_PersonSurName: NAME_LAST
+  nc_PersonMiddleName: NAME_MIDDLE
+  nc_PersonMaidenName: NAME_FULL  # No dedicated maiden name field
   nc_PersonNamePrefixText: NAME_PREFIX
   nc_PersonNameSuffixText: NAME_SUFFIX
 
   # Alternative name fields (for different NIEM versions)
-  PersonFullName: PRIMARY_NAME_FULL
-  PersonGivenName: PRIMARY_NAME_FIRST
-  PersonSurName: PRIMARY_NAME_LAST
-  PersonMiddleName: PRIMARY_NAME_MIDDLE
+  PersonFullName: NAME_FULL
+  PersonGivenName: NAME_FIRST
+  PersonSurName: NAME_LAST
+  PersonMiddleName: NAME_MIDDLE
+
+  # Shorthand property names used by extraction code
+  PersonSSN: SSN_NUMBER
+  DriverLicense: DRIVERS_LICENSE_NUMBER
+  PersonID: OTHER_ID_NUMBER
+  BirthDate: DATE_OF_BIRTH
+  Address: ADDR_FULL
+  City: ADDR_CITY
+  State: ADDR_STATE
+  ZipCode: ADDR_POSTAL_CODE
+  Phone: PHONE_NUMBER
+  Email: EMAIL_ADDRESS
+  OrgName: NAME_ORG
 
   # Birth and death information
   nc_PersonBirthDate: DATE_OF_BIRTH
   nc_PersonBirthLocation: PLACE_OF_BIRTH
   nc_PersonDeathDate: DATE_OF_DEATH
 
-  # Identification numbers
-  nc_PersonSSNIdentification: SSN_NUMBER
-  nc_DriverLicenseIdentification: DRIVERS_LICENSE_NUMBER
-  nc_PassportIdentification: PASSPORT_NUMBER
-  j_PersonStateFingerprintIdentification: STATE_ID_NUMBER
-  j_PersonFBIIdentification: FBI_NUMBER
-  nc_IdentificationID: NATIONAL_ID_NUMBER
+  # Identification numbers - FLATTENED with double underscore (__)
+  # XML: <nc:PersonSSNIdentification><nc:IdentificationID>123</nc:IdentificationID></nc:PersonSSNIdentification>
+  # Neo4j: nc_PersonSSNIdentification__nc_IdentificationID = "123"
+  
+  nc_PersonSSNIdentification__nc_IdentificationID: SSN_NUMBER
+  nc_PersonSSNIdentification: SSN_NUMBER  # Fallback
+  
+  nc_DriverLicenseIdentification__nc_IdentificationID: DRIVERS_LICENSE_NUMBER
+  nc_DriverLicenseIdentification: DRIVERS_LICENSE_NUMBER  # Fallback
+  
+  nc_PassportIdentification__nc_IdentificationID: PASSPORT_NUMBER
+  nc_PassportIdentification: PASSPORT_NUMBER  # Fallback
+  
+  j_PersonStateFingerprintIdentification__nc_IdentificationID: OTHER_ID_NUMBER
+  j_PersonStateFingerprintIdentification: OTHER_ID_NUMBER  # Fallback
+  
+  j_PersonFBIIdentification__nc_IdentificationID: OTHER_ID_NUMBER
+  j_PersonFBIIdentification: OTHER_ID_NUMBER  # Fallback
+  
+  nc_IdentificationID: OTHER_ID_NUMBER  # Generic ID - use with OTHER_ID_TYPE
 
-  # Criminal justice specific
-  j_BookingSubjectID: BOOKING_ID
-  j_CaseNumberText: CASE_NUMBER
-  j_IncidentID: INCIDENT_ID
-  j_ArrestAgencyRecordIdentification: ARREST_RECORD_ID
+  # Criminal justice specific - use OTHER_ID fields
+  j_BookingSubjectID: OTHER_ID_NUMBER  # Use with OTHER_ID_TYPE: BOOKING
+  j_CaseNumberText: OTHER_ID_NUMBER  # Use with OTHER_ID_TYPE: CASE
+  j_IncidentID: OTHER_ID_NUMBER  # Use with OTHER_ID_TYPE: INCIDENT
+  j_ArrestAgencyRecordIdentification: OTHER_ID_NUMBER  # Use with OTHER_ID_TYPE: ARREST
 
   # Contact information
   nc_TelephoneNumberFullID: PHONE_NUMBER
   nc_ElectronicAddressText: EMAIL_ADDRESS
-  nc_ContactWebsiteURI: WEBSITE_URL
+  nc_ContactWebsiteURI: WEBSITE_ADDRESS
 
-  # Physical characteristics
-  nc_PersonHeightMeasure: PHYSICAL_HEIGHT
-  nc_PersonWeightMeasure: PHYSICAL_WEIGHT
-  nc_PersonEyeColorCode: EYE_COLOR
-  nc_PersonHairColorCode: HAIR_COLOR
-  nc_PersonRaceCode: RACE_CODE
+  # Physical characteristics - GENDER is the only one in default Senzing config
+  # Note: Physical attributes below are NOT in default Senzing config.
+  # To use them, you must add custom attributes to Senzing configuration.
   nc_PersonSexCode: GENDER
-  nc_PersonEthnicityCode: ETHNICITY
-
-  # Scars, marks, tattoos
-  j_PersonScars: SCARS_MARKS
-  nc_PersonTattooDescription: TATTOOS
+  # nc_PersonHeightMeasure: PHYSICAL_HEIGHT  # Not in default config
+  # nc_PersonWeightMeasure: PHYSICAL_WEIGHT  # Not in default config
+  # nc_PersonEyeColorCode: EYE_COLOR  # Not in default config
+  # nc_PersonHairColorCode: HAIR_COLOR  # Not in default config
+  # nc_PersonRaceCode: RACE_CODE  # Not in default config
+  # nc_PersonEthnicityCode: ETHNICITY  # Not in default config
+  # j_PersonScars: SCARS_MARKS  # Not in default config
+  # nc_PersonTattooDescription: TATTOOS  # Not in default config
 
   # Organization mappings
-  nc_OrganizationName: ORG_NAME
-  nc_OrganizationIdentification: ORG_ID
-  nc_OrganizationCategoryText: ORG_TYPE
-  nc_OrganizationDoingBusinessAsName: DBA_NAME
-  nc_OrganizationTaxIdentification: TAX_ID
-  nc_OrganizationIncorporationDate: ORG_INCORPORATION_DATE
+  nc_OrganizationName: NAME_ORG
+  
+  # IMPORTANT: Nested identifications are FLATTENED with double underscore (__)
+  # XML: <nc:OrganizationIdentification><nc:IdentificationID>123</nc:IdentificationID></nc:OrganizationIdentification>
+  # Neo4j: nc_OrganizationIdentification__nc_IdentificationID = "123"
+  
+  # Organization Identification (DUNS, etc.)
+  nc_OrganizationIdentification__nc_IdentificationID: DUNS_NUMBER
+  nc_OrganizationIdentification: NATIONAL_ID_NUMBER  # Fallback if not flattened
+  
+  # Organization Tax ID (EIN)
+  nc_OrganizationTaxIdentification__nc_IdentificationID: TAX_ID_NUMBER
+  nc_OrganizationTaxIdentification: TAX_ID_NUMBER  # Fallback if not flattened
+  
+  # Organization LEI (Legal Entity Identifier) - USED_FOR_CAND=Yes!
+  nc_OrganizationLEIIdentification__nc_IdentificationID: LEI_NUMBER
+  nc_OrganizationLEIIdentification: LEI_NUMBER  # Fallback if not flattened
+  
+  # Organization Other Identification (Customer Account, etc.)
+  nc_OrganizationOtherIdentification__nc_IdentificationID: OTHER_ID_NUMBER
+  nc_OrganizationOtherIdentification: OTHER_ID_NUMBER  # Fallback
+  
+  # Other org fields
+  nc_OrganizationCategoryText: OTHER_ID_TYPE  # Use as metadata
+  nc_OrganizationDoingBusinessAsName: NAME_ORG  # Alias org name
+  nc_OrganizationIncorporationDate: OTHER_ID_ISSUE_DT  # Date as metadata
 
-  # Address mappings
+  # Address mappings - supports both direct and nested (flattened) properties
   nc_AddressFullText: ADDR_FULL
   nc_StreetNumberText: ADDR_NUMBER
   nc_StreetName: ADDR_LINE1
   nc_AddressSecondaryUnitText: ADDR_LINE2
+  nc_AddressDeliveryPointText: ADDR_LINE1  # Street address
   nc_CityName: ADDR_CITY
+  nc_AddressCityName: ADDR_CITY  # Alternate naming
   nc_StateCode: ADDR_STATE
   nc_StateName: ADDR_STATE
   nc_PostalCode: ADDR_POSTAL_CODE
+  nc_AddressPostalCode: ADDR_POSTAL_CODE  # Alternate naming
   nc_CountryCode: ADDR_COUNTRY
-  nc_CountyName: ADDR_COUNTY
+  nc_CountryName: ADDR_COUNTRY  # Alternate naming
+  # nc_CountyName: ADDR_COUNTY  # Not in default Senzing config
 
   # Location coordinates
-  nc_LocationLatitude: LATITUDE
-  nc_LocationLongitude: LONGITUDE
+  nc_LocationLatitude: GEO_LATITUDE
+  nc_LocationLongitude: GEO_LONGITUDE
 
-  # Vehicle mappings
-  nc_VehicleIdentification: VIN_NUMBER
-  nc_ConveyanceRegistrationPlateIdentification: LICENSE_PLATE
-  nc_ItemMakeName: VEHICLE_MAKE
-  nc_ItemModelName: VEHICLE_MODEL
-  nc_ItemModelYearDate: VEHICLE_YEAR
-  nc_VehicleColorPrimaryCode: VEHICLE_COLOR
-  nc_ConveyanceEngineID: ENGINE_NUMBER
+  # Vehicle mappings - FLATTENED with double underscore (__)
+  nc_VehicleIdentification__nc_IdentificationID: VEHICLE_VIN_NUMBER
+  nc_VehicleIdentification: VEHICLE_VIN_NUMBER  # Fallback
+  nc_ConveyanceRegistrationPlateIdentification__nc_IdentificationID: VEHICLE_LICENSE_PLATE_NUMBER
+  nc_ConveyanceRegistrationPlateIdentification: VEHICLE_LICENSE_PLATE_NUMBER  # Fallback
+  # nc_ItemMakeName: VEHICLE_MAKE  # Not in default Senzing config
+  # nc_ItemModelName: VEHICLE_MODEL  # Not in default Senzing config
+  # nc_ItemModelYearDate: VEHICLE_YEAR  # Not in default Senzing config
+  # nc_VehicleColorPrimaryCode: VEHICLE_COLOR  # Not in default Senzing config
+  # nc_ConveyanceEngineID: ENGINE_NUMBER  # Not in default Senzing config
 
   # Additional identifiers
-  nc_ItemSerialIdentification: SERIAL_NUMBER
+  nc_ItemSerialIdentification: OTHER_ID_NUMBER  # Use with OTHER_ID_TYPE: SERIAL
+
+# OTHER_ID type inference
+# When mapping to OTHER_ID_NUMBER, automatically set OTHER_ID_TYPE based on source field
+other_id_types:
+  # Flattened property names (with __ delimiter)
+  j_PersonStateFingerprintIdentification__nc_IdentificationID: FINGERPRINT
+  j_PersonFBIIdentification__nc_IdentificationID: FBI
+  nc_OrganizationOtherIdentification__nc_IdentificationID: CUSTOMER_ACCT
+  # Non-flattened fallbacks
+  j_PersonStateFingerprintIdentification: FINGERPRINT
+  j_PersonFBIIdentification: FBI
+  nc_OrganizationOtherIdentification: CUSTOMER_ACCT
+  nc_IdentificationID: GENERIC
+  j_BookingSubjectID: BOOKING
+  j_CaseNumberText: CASE
+  j_IncidentID: INCIDENT
+  j_ArrestAgencyRecordIdentification: ARREST
+  nc_ItemSerialIdentification: SERIAL
+  # Shorthand extraction code names
+  PersonID: PERSON
 
 # Multi-value field handling
 # These fields can have multiple values separated by semicolons
 multi_value_fields:
-  - PRIMARY_NAME_MIDDLE
+  - NAME_MIDDLE
   - PHONE_NUMBER
   - EMAIL_ADDRESS
   - SCARS_MARKS

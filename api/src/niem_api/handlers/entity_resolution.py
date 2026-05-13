@@ -463,11 +463,21 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
          [key IN allKeys WHERE key ENDS WITH 'nc_TelephoneNumberFullID' OR key ENDS WITH 'TelephoneNumber'
                             OR toLower(key) CONTAINS 'phone' OR toLower(key) CONTAINS 'telephone'][0] as phoneKey,
          [key IN allKeys WHERE key ENDS WITH 'nc_ElectronicAddressText' 
-                            OR toLower(key) ENDS WITH 'email' OR toLower(key) CONTAINS 'email'][0] as emailKey
+                            OR toLower(key) ENDS WITH 'email' OR toLower(key) CONTAINS 'email'][0] as emailKey,
+         // Organization-specific fields
+         [key IN allKeys WHERE key ENDS WITH 'nc_OrganizationName' OR key ENDS WITH 'OrganizationName'
+                            OR toLower(key) CONTAINS 'organizationname'][0] as orgNameKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'leiidentification' AND toLower(key) CONTAINS 'identificationid'
+                            OR toLower(key) ENDS WITH 'lei'][0] as leiKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'taxidentification' AND toLower(key) CONTAINS 'identificationid'
+                            OR toLower(key) CONTAINS 'taxid' OR toLower(key) CONTAINS 'ein'][0] as taxIdKey,
+         [key IN allKeys WHERE toLower(key) CONTAINS 'organizationidentification' AND toLower(key) CONTAINS 'identificationid'
+                            OR toLower(key) CONTAINS 'duns'][0] as dunsKey
 
     // Helper function to extract value from entity or related nodes
     WITH entity, relatedNodes, nameKey, givenNameKey, surNameKey, middleNameKey,
          ssnKey, dlKey, idKey, dobKey, addressKey, cityKey, stateKey, zipKey, phoneKey, emailKey,
+         orgNameKey, leiKey, taxIdKey, dunsKey,
          // Extract from entity first, then from related nodes
          CASE
            WHEN nameKey IS NOT NULL AND entity[nameKey] IS NOT NULL THEN entity[nameKey]
@@ -508,13 +518,34 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
            WHEN addressKey IS NOT NULL AND entity[addressKey] IS NOT NULL THEN entity[addressKey]
            WHEN addressKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[addressKey] IS NOT NULL | n[addressKey]])
            ELSE null
-         END as Address
+         END as Address,
+         // Organization fields
+         CASE
+           WHEN orgNameKey IS NOT NULL AND entity[orgNameKey] IS NOT NULL THEN entity[orgNameKey]
+           WHEN orgNameKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[orgNameKey] IS NOT NULL | n[orgNameKey]])
+           ELSE null
+         END as OrgName,
+         CASE
+           WHEN leiKey IS NOT NULL AND entity[leiKey] IS NOT NULL THEN entity[leiKey]
+           WHEN leiKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[leiKey] IS NOT NULL | n[leiKey]])
+           ELSE null
+         END as LEI,
+         CASE
+           WHEN taxIdKey IS NOT NULL AND entity[taxIdKey] IS NOT NULL THEN entity[taxIdKey]
+           WHEN taxIdKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[taxIdKey] IS NOT NULL | n[taxIdKey]])
+           ELSE null
+         END as TaxID,
+         CASE
+           WHEN dunsKey IS NOT NULL AND entity[dunsKey] IS NOT NULL THEN entity[dunsKey]
+           WHEN dunsKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[dunsKey] IS NOT NULL | n[dunsKey]])
+           ELSE null
+         END as DUNS
 
     WITH entity, PersonFullName, PersonGivenName, PersonSurName, PersonMiddleName,
-         PersonSSN, DriverLicense, BirthDate, Address,
+         PersonSSN, DriverLicense, BirthDate, Address, OrgName, LEI, TaxID, DUNS,
          null as PersonID, null as City, null as State, null as ZipCode, null as Phone, null as Email
 
-    // Only return entities that have at least one resolution-relevant attribute
+    // Only return entities that have at least one resolution-relevant attribute (person OR org)
     WHERE PersonFullName IS NOT NULL
        OR (PersonGivenName IS NOT NULL AND PersonSurName IS NOT NULL)
        OR PersonSSN IS NOT NULL
@@ -522,6 +553,10 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
        OR PersonID IS NOT NULL
        OR BirthDate IS NOT NULL
        OR Address IS NOT NULL
+       OR OrgName IS NOT NULL
+       OR LEI IS NOT NULL
+       OR TaxID IS NOT NULL
+       OR DUNS IS NOT NULL
 
     RETURN
         id(entity) as neo4j_id,
@@ -544,7 +579,11 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
         State,
         ZipCode,
         Phone,
-        Email
+        Email,
+        OrgName,
+        LEI,
+        TaxID,
+        DUNS
     """
 
     # Use query() instead of query_graph() for scalar results
@@ -558,7 +597,7 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
     for record in results:
         entity_props = dict(record["entity_node"].items()) if record.get("entity_node") else {}
 
-        # Extract all resolution attributes
+        # Extract all resolution attributes - PERSON fields
         full_name = str(record.get("PersonFullName") or "")
         given_name = str(record.get("PersonGivenName") or "")
         surname = str(record.get("PersonSurName") or "")
@@ -573,6 +612,12 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
         zip_code = str(record.get("ZipCode") or "")
         phone = str(record.get("Phone") or "")
         email = str(record.get("Email") or "")
+        
+        # Extract ORGANIZATION fields
+        org_name = str(record.get("OrgName") or "")
+        lei = str(record.get("LEI") or "")
+        tax_id = str(record.get("TaxID") or "")
+        duns = str(record.get("DUNS") or "")
 
         # Get source and entity type info
         source = record.get("sourceDoc") or record.get("source_file") or "unknown"
@@ -580,6 +625,7 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
 
         # Build list of found attributes for logging
         found_attrs = []
+        # Person attributes
         if full_name:
             found_attrs.append(f"Name='{full_name}'")
         elif given_name and surname:
@@ -592,6 +638,15 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
             found_attrs.append(f"Address='{address[:20]}...'")
         if phone:
             found_attrs.append(f"Phone='{phone}'")
+        # Organization attributes
+        if org_name:
+            found_attrs.append(f"OrgName='{org_name}'")
+        if lei:
+            found_attrs.append(f"LEI='{lei}'")
+        if tax_id:
+            found_attrs.append(f"TaxID='{tax_id}'")
+        if duns:
+            found_attrs.append(f"DUNS='{duns}'")
 
         # Log extraction with all found attributes
         if found_attrs:
@@ -615,6 +670,7 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
                 "source": source,
                 "properties": {
                     **entity_props,
+                    # Person fields
                     "PersonFullName": full_name,
                     "PersonGivenName": given_name,
                     "PersonSurName": surname,
@@ -629,6 +685,11 @@ def _extract_entities_from_neo4j(neo4j_client: Neo4jClient, selected_node_types:
                     "ZipCode": zip_code,
                     "Phone": phone,
                     "Email": email,
+                    # Organization fields - map to NIEM property names for YAML lookup
+                    "nc_OrganizationName": org_name,
+                    "nc_OrganizationLEIIdentification__nc_IdentificationID": lei,
+                    "nc_OrganizationTaxIdentification__nc_IdentificationID": tax_id,
+                    "nc_OrganizationIdentification__nc_IdentificationID": duns,
                 },
             }
         )
@@ -1361,13 +1422,17 @@ def _get_available_node_types(neo4j_client: Neo4jClient, s3: Optional[Minio] = N
                             OR key ENDS WITH 'nc_OrganizationName' OR key ENDS WITH 'OrganizationName'][0] as nameKey,
          [key IN allKeys WHERE key ENDS WITH 'nc_PersonGivenName' OR key ENDS WITH 'PersonGivenName'][0] as givenNameKey,
          [key IN allKeys WHERE key ENDS WITH 'nc_PersonSurName' OR key ENDS WITH 'PersonSurName'][0] as surNameKey,
-         // Identifier fields
+         // Identifier fields (Person)
          [key IN allKeys WHERE key ENDS WITH 'nc_PersonSSNIdentification' OR key ENDS WITH 'PersonSSNIdentification'
                             OR toLower(key) ENDS WITH 'ssn'][0] as ssnKey,
          [key IN allKeys WHERE key ENDS WITH 'nc_DriverLicenseIdentification' OR key ENDS WITH 'DriverLicenseIdentification'
                             OR key ENDS WITH 'DriverLicenseCardIdentification'][0] as dlKey,
          [key IN allKeys WHERE (key ENDS WITH 'nc_IdentificationID' OR key ENDS WITH 'IdentificationID')
                             AND NOT key CONTAINS 'DriverLicense'][0] as idKey,
+         // Organization identifier fields (TAX ID, National ID)
+         [key IN allKeys WHERE key ENDS WITH 'nc_OrganizationTaxIdentification' OR key ENDS WITH 'OrganizationTaxIdentification'
+                            OR toLower(key) CONTAINS 'taxid' OR toLower(key) CONTAINS 'ein'][0] as orgTaxIdKey,
+         [key IN allKeys WHERE key ENDS WITH 'nc_OrganizationIdentification' OR key ENDS WITH 'OrganizationIdentification'][0] as orgIdKey,
          // Date fields
          [key IN allKeys WHERE key ENDS WITH 'nc_PersonBirthDate' OR key ENDS WITH 'PersonBirthDate'
                             OR toLower(key) ENDS WITH 'birthdate'][0] as dobKey,
@@ -1387,16 +1452,16 @@ def _get_available_node_types(neo4j_client: Neo4jClient, s3: Optional[Minio] = N
 
     // Check if entity has at least one resolution-relevant attribute
     WITH qname, label, count, sample, relatedNodes, allKeys, nameKey, givenNameKey, surNameKey, ssnKey, dlKey, idKey,
-         dobKey, addressKey, cityKey, stateKey, zipKey, phoneKey, emailKey,
-         // Count how many resolution attributes exist
-         size([k IN [nameKey, givenNameKey, ssnKey, dlKey, idKey, dobKey, addressKey, phoneKey, emailKey] WHERE k IS NOT NULL]) as attrCount
+         orgTaxIdKey, orgIdKey, dobKey, addressKey, cityKey, stateKey, zipKey, phoneKey, emailKey,
+         // Count how many resolution attributes exist (includes org identifiers)
+         size([k IN [nameKey, givenNameKey, ssnKey, dlKey, idKey, orgTaxIdKey, orgIdKey, dobKey, addressKey, phoneKey, emailKey] WHERE k IS NOT NULL]) as attrCount
 
     // Only return types that have at least one resolution-relevant attribute
     WHERE attrCount > 0
 
     // Get sample values from found keys (check entity first, then related nodes)
     WITH qname, label, count, sample, relatedNodes, allKeys, attrCount,
-         nameKey, givenNameKey, surNameKey, ssnKey, dobKey, addressKey,
+         nameKey, givenNameKey, surNameKey, ssnKey, dobKey, addressKey, orgTaxIdKey, orgIdKey,
          CASE
            WHEN nameKey IS NOT NULL AND sample[nameKey] IS NOT NULL THEN sample[nameKey]
            WHEN nameKey IS NOT NULL THEN head([n IN relatedNodes WHERE n[nameKey] IS NOT NULL | n[nameKey]])

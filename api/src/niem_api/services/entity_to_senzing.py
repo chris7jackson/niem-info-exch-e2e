@@ -63,28 +63,36 @@ def get_default_mapping_config() -> Dict:
     return {
         "entity_categories": {
             "person": {
-                "patterns": ["person", "driver", "child", "parent", "witness", "victim", "subject"],
+                "patterns": ["person", "driver", "passenger", "child", "parent", "guardian", "witness", "victim", "subject", "arrest", "defendant", "plaintiff", "juror"],
                 "senzing_record_type": "PERSON",
             },
             "organization": {
-                "patterns": ["organization", "org", "company", "agency", "department", "official", "enforcement"],
+                "patterns": ["organization", "org", "company", "agency", "department", "unit", "employer", "enforcement", "insurer", "court"],
                 "senzing_record_type": "ORGANIZATION",
             },
             "address": {"patterns": ["address", "location", "place"], "senzing_record_type": "ADDRESS"},
-            "vehicle": {"patterns": ["vehicle", "conveyance", "car"], "senzing_record_type": "VEHICLE"},
+            "vehicle": {"patterns": ["vehicle", "conveyance", "car", "aircraft", "vessel", "boat"], "senzing_record_type": "VEHICLE"},
         },
         "field_mappings": {
-            "nc_PersonFullName": "PRIMARY_NAME_FULL",
-            "nc_PersonGivenName": "PRIMARY_NAME_FIRST",
-            "nc_PersonSurName": "PRIMARY_NAME_LAST",
-            "nc_PersonMiddleName": "PRIMARY_NAME_MIDDLE",
+            # Person name fields - use correct Senzing attribute names
+            "nc_PersonFullName": "NAME_FULL",
+            "nc_PersonGivenName": "NAME_FIRST",
+            "nc_PersonSurName": "NAME_LAST",
+            "nc_PersonMiddleName": "NAME_MIDDLE",
             "nc_PersonBirthDate": "DATE_OF_BIRTH",
             "nc_PersonSSNIdentification": "SSN_NUMBER",
-            "nc_OrganizationName": "ORG_NAME",
+            # Organization fields - use correct Senzing attribute names
+            "nc_OrganizationName": "NAME_ORG",
+            "nc_OrganizationTaxIdentification": "TAX_ID_NUMBER",
+            "nc_OrganizationIdentification": "NATIONAL_ID_NUMBER",
+            # Address and contact
             "nc_AddressFullText": "ADDR_FULL",
-            "nc_VehicleIdentification": "VIN_NUMBER",
+            "nc_TelephoneNumberFullID": "PHONE_NUMBER",
+            "nc_ElectronicAddressText": "EMAIL_ADDRESS",
+            # Vehicle
+            "nc_VehicleIdentification": "VEHICLE_VIN_NUMBER",
         },
-        "multi_value_fields": ["PRIMARY_NAME_MIDDLE", "PHONE_NUMBER", "EMAIL_ADDRESS"],
+        "multi_value_fields": ["NAME_MIDDLE", "PHONE_NUMBER", "EMAIL_ADDRESS"],
         "date_formats": {"input_formats": ["%Y-%m-%d", "%m/%d/%Y", "%Y%m%d"], "output_format": "%Y-%m-%d"},
         "recommended_types": [],
     }
@@ -285,6 +293,13 @@ def neo4j_entity_to_senzing_record(entity: Dict, data_source: str = "NIEM_GRAPH"
 
             # Convert normalized list to Senzing format
             if normalized_values:
+                # Auto-set OTHER_ID_TYPE when mapping to OTHER_ID_NUMBER
+                if senzing_field == "OTHER_ID_NUMBER":
+                    other_id_types = config.get("other_id_types", {})
+                    if niem_field in other_id_types:
+                        senzing_record["OTHER_ID_TYPE"] = other_id_types[niem_field]
+                        print(f"[SENZING_DEBUG]   Auto-set OTHER_ID_TYPE = {other_id_types[niem_field]}")
+
                 if senzing_field in multi_value_fields:
                     # Multi-value fields: join with semicolon
                     senzing_record[senzing_field] = ";".join(normalized_values)
